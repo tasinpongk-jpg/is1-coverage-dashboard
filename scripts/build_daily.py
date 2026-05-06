@@ -72,7 +72,7 @@ async def run_routes(out_dir: Path) -> dict:
         ("morning-brief.json", proxy.morning_brief, {"force": True}),
         ("sector-heatmap.json", proxy.sector_heatmap, {"force": True}),
         ("unusual-trading.json", proxy.unusual_trading, {"force": True}),
-        ("disclosure-pulse.json", proxy.disclosure_pulse, {"days": 14, "force": True}),
+        ("disclosure-pulse.json", proxy.disclosure_pulse, {"days": 90, "force": True}),
     ]
 
     from fastapi.responses import JSONResponse

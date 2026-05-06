@@ -86,6 +86,10 @@
 
 <div class="tab-bar">
   <div class="tab-row">
+    <span class="tab-label">Window:</span>
+    <div id="windowTabs" style="display:flex;gap:4px;flex-wrap:wrap"></div>
+  </div>
+  <div class="tab-row">
     <span class="tab-label">RM:</span>
     <div id="rmTabs" style="display:flex;gap:4px;flex-wrap:wrap"></div>
   </div>
@@ -102,6 +106,16 @@
 <script>
 let TICKERS = {}, FILINGS = [];
 let activeRm = 'ALL', activeSev = 'ALL', activeSector = 'ALL';
+let activeWindow = 1;   // days; 0 = ALL
+
+const WINDOWS = [
+  { key: 1,  label: '1d' },
+  { key: 3,  label: '3d' },
+  { key: 7,  label: '7d' },
+  { key: 14, label: '14d' },
+  { key: 30, label: '30d' },
+  { key: 0,  label: 'All' },
+];
 
 function freshnessLabel(builtAt) {
   if (!builtAt) return { txt: '?', warn: true };
@@ -115,15 +129,26 @@ function formatTs(ts) {
   catch { return ts; }
 }
 
-function buildTabs() {
-  // RM
-  const rmCounts = { ALL: FILINGS.length };
-  FILINGS.forEach(f => { const r = (TICKERS[f.tk] || {}).rm || '?'; rmCounts[r] = (rmCounts[r] || 0) + 1; });
-  const rms = Object.keys(rmCounts).filter(r => r !== 'ALL').sort((a, b) => rmCounts[b] - rmCounts[a]);
-  document.getElementById('rmTabs').innerHTML = `
-    <div class="tab active" data-rm="ALL" onclick="setRm('ALL')">All <span class="tab-count">${rmCounts.ALL}</span></div>
-    ${rms.map(r => `<div class="tab" data-rm="${r}" onclick="setRm('${r}')">${r} <span class="tab-count">${rmCounts[r]}</span></div>`).join('')}`;
+function buildWindowTabs() {
+  document.getElementById('windowTabs').innerHTML = WINDOWS.map(w => {
+    const cls = w.key === activeWindow ? 'tab active' : 'tab';
+    return `<div class="${cls}" data-window="${w.key}" onclick="setWindow(${w.key})">${w.label}</div>`;
+  }).join('');
+}
 
+function buildRmTabs() {
+  // Counts respect the current time-window so the user sees how many filings
+  // each RM has in that window
+  const inWin = FILINGS.filter(inWindow);
+  const rmCounts = {};
+  inWin.forEach(f => { const r = (TICKERS[f.tk] || {}).rm || '?'; rmCounts[r] = (rmCounts[r] || 0) + 1; });
+  const rms = Object.keys(rmCounts).sort((a, b) => rmCounts[b] - rmCounts[a]);
+  document.getElementById('rmTabs').innerHTML = `
+    <div class="tab ${activeRm === 'ALL' ? 'active' : ''}" data-rm="ALL" onclick="setRm('ALL')">All <span class="tab-count">${inWin.length}</span></div>
+    ${rms.map(r => `<div class="tab ${activeRm === r ? 'active' : ''}" data-rm="${r}" onclick="setRm('${r}')">${r} <span class="tab-count">${rmCounts[r]}</span></div>`).join('')}`;
+}
+
+function buildSevTabs() {
   // Severity — map UI labels to actual data values (proxy emits high/medium/low)
   const sevTabs = [
     { key: 'ALL',    label: 'All',      color: '' },
@@ -135,25 +160,48 @@ function buildTabs() {
     const cls = t.key === activeSev ? 'tab active' : 'tab';
     return `<div class="${cls}" style="${t.color}" data-sev="${t.key}" onclick="setSev('${t.key}')">${t.label}</div>`;
   }).join('');
+}
 
-  // Sector — build dynamically from filings, ordered consistently
+function buildSectorTabs() {
+  // Counts respect the current time-window AND active RM so the user sees what's relevant
+  const inScope = FILINGS.filter(f =>
+    inWindow(f) && (activeRm === 'ALL' || (TICKERS[f.tk] || {}).rm === activeRm)
+  );
   const order = ['AGRI','FOOD','CONS','CONMAT','PROP','PFREIT','PF&REIT'];
   const secCounts = {};
-  FILINGS.forEach(f => { secCounts[f.sector] = (secCounts[f.sector] || 0) + 1; });
+  inScope.forEach(f => { secCounts[f.sector] = (secCounts[f.sector] || 0) + 1; });
   const sectors = ['ALL', ...Object.keys(secCounts).sort((a,b) => order.indexOf(a) - order.indexOf(b))];
   document.getElementById('sectorTabs').innerHTML = sectors.map(s => {
     const cls = s === activeSector ? 'tab active' : 'tab';
-    const cnt = s === 'ALL' ? FILINGS.length : (secCounts[s] || 0);
+    const cnt = s === 'ALL' ? inScope.length : (secCounts[s] || 0);
     return `<div class="${cls}" data-sector="${s}" onclick="setSector('${s}')">${s === 'ALL' ? 'All' : s} <span class="tab-count">${cnt}</span></div>`;
   }).join('');
 }
 
-function setRm(r) { activeRm = r; document.querySelectorAll('[data-rm]').forEach(el => el.classList.toggle('active', el.dataset.rm === r)); render(); }
-function setSev(s) { activeSev = s; document.querySelectorAll('[data-sev]').forEach(el => el.classList.toggle('active', el.dataset.sev === s)); render(); updateStats(); }
+function buildTabs() {
+  buildWindowTabs();
+  buildRmTabs();
+  buildSevTabs();
+  buildSectorTabs();
+}
+
+function setRm(r) { activeRm = r; document.querySelectorAll('[data-rm]').forEach(el => el.classList.toggle('active', el.dataset.rm === r)); render(); updateStats(); buildSectorTabs(); }
+function setSev(s) { activeSev = s; document.querySelectorAll('[data-sev]').forEach(el => el.classList.toggle('active', el.dataset.sev === s)); render(); }
 function setSector(s) { activeSector = s; document.querySelectorAll('[data-sector]').forEach(el => el.classList.toggle('active', el.dataset.sector === s)); render(); }
+function setWindow(d) { activeWindow = +d; document.querySelectorAll('[data-window]').forEach(el => el.classList.toggle('active', +el.dataset.window === activeWindow)); render(); updateStats(); buildSectorTabs(); buildRmTabs(); }
+
+// Filings inside the active time window (does NOT apply the other filters — used by stats counters)
+function inWindow(f) {
+  if (activeWindow === 0) return true;
+  if (!f.ts) return false;
+  const t = new Date(f.ts).getTime();
+  if (Number.isNaN(t)) return false;
+  return (Date.now() - t) <= activeWindow * 86400 * 1000;
+}
 
 function filtered() {
   return FILINGS.filter(f => {
+    if (!inWindow(f)) return false;
     const t = TICKERS[f.tk] || {};
     if (activeRm !== 'ALL' && t.rm !== activeRm) return false;
     if (activeSev !== 'ALL' && (f.severity || 'low').toLowerCase() !== activeSev) return false;
@@ -166,15 +214,18 @@ function filtered() {
 const SEV_LABEL = { high: 'Critical', medium: 'Material', low: 'Low', critical: 'Critical', material: 'Material', routine: 'Routine' };
 
 function updateStats() {
-  const rows = FILINGS.filter(f => activeRm === 'ALL' || (TICKERS[f.tk] || {}).rm === activeRm);
-  // Proxy emits severity as high/medium/low — display as Critical/Material/Low
+  // Stats reflect window + RM (severity / sector are filtered IN the feed, not the stats)
+  const rows = FILINGS.filter(f =>
+    inWindow(f) && (activeRm === 'ALL' || (TICKERS[f.tk] || {}).rm === activeRm)
+  );
   const counts = { high: 0, medium: 0, low: 0 };
   rows.forEach(f => { const k = (f.severity || 'low').toLowerCase(); if (counts[k] !== undefined) counts[k]++; });
+  const winLabel = (WINDOWS.find(w => w.key === activeWindow) || {}).label || '?';
   document.getElementById('statsBar').innerHTML = `
     <div class="stat" style="color:var(--crit)"><div class="stat-val">${counts.high}</div><div class="stat-lbl">Critical</div></div>
     <div class="stat" style="color:var(--mat)"><div class="stat-val">${counts.medium}</div><div class="stat-lbl">Material</div></div>
     <div class="stat" style="color:var(--low)"><div class="stat-val">${counts.low}</div><div class="stat-lbl">Low</div></div>
-    <div class="stat"><div class="stat-val">${rows.length}</div><div class="stat-lbl">Total</div></div>`;
+    <div class="stat"><div class="stat-val">${rows.length}</div><div class="stat-lbl">Total · ${winLabel}</div></div>`;
 }
 
 function render() {
@@ -217,7 +268,7 @@ async function init() {
     const badge = document.getElementById('staleBadge');
     badge.textContent = fresh.txt;
     if (fresh.warn) badge.classList.add('warn');
-    document.getElementById('meta').textContent = `${FILINGS.length} filings · window ${dj.windowDays || 14}d · as of ${dj.asOf || ''} · ${dj.source || ''}`;
+    document.getElementById('meta').textContent = `${FILINGS.length} filings classified · ${dj.windowDays || 90}d data window · as of ${dj.asOf || ''} · ${dj.source || ''}`;
     buildTabs(); updateStats(); render();
   } catch(e) {
     document.getElementById('feed').innerHTML = `<div class="empty">Error: ${e.message}</div>`;
