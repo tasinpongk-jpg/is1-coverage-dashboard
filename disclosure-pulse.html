@@ -50,14 +50,16 @@
   .filing-title a:hover { color: var(--accent); text-decoration: underline; }
   .filing-meta { display: flex; gap: 8px; margin-top: 5px; flex-wrap: wrap; align-items: center; }
   .sev-badge { font-size: 10px; padding: 2px 7px; border-radius: 4px; font-weight: 600; text-transform: uppercase; }
-  .sev-critical { background: #ef444433; color: var(--crit); }
-  .sev-material { background: #f59e0b33; color: var(--mat); }
+  .sev-critical, .sev-high { background: #ef444433; color: var(--crit); }
+  .sev-material, .sev-medium { background: #f59e0b33; color: var(--mat); }
   .sev-low { background: #22c55e22; color: var(--low); }
   .sev-routine { background: #7c829822; color: var(--routine); }
+  .filing.high { border-left-color: var(--crit); }
+  .filing.medium { border-left-color: var(--mat); }
   .rm-badge { font-size: 10px; padding: 2px 7px; border-radius: 4px; font-weight: 600; background: #6366f122; color: #a5b4fc; }
   .sector-badge { font-size: 10px; padding: 2px 7px; border-radius: 4px; font-weight: 600; }
-  .s-FOOD { background: #3b82f622; color: var(--food); }
-  .s-PROP { background: #8b5cf622; color: var(--prop); }
+  .s-FOOD, .s-AGRI { background: #3b82f622; color: var(--food); }
+  .s-PROP, .s-CONS, .s-CONMAT { background: #8b5cf622; color: var(--prop); }
   .s-PFREIT { background: #06b6d422; color: var(--pfreit); }
   .ts { font-size: 11px; color: var(--muted); }
   .summary { margin-top: 6px; font-size: 12px; color: var(--muted); line-height: 1.4; font-style: italic; }
@@ -122,18 +124,27 @@ function buildTabs() {
     <div class="tab active" data-rm="ALL" onclick="setRm('ALL')">All <span class="tab-count">${rmCounts.ALL}</span></div>
     ${rms.map(r => `<div class="tab" data-rm="${r}" onclick="setRm('${r}')">${r} <span class="tab-count">${rmCounts[r]}</span></div>`).join('')}`;
 
-  // Severity
-  document.getElementById('sevTabs').innerHTML = ['ALL','critical','material','low','routine'].map(s => {
-    const cls = s === activeSev ? 'tab active' : 'tab';
-    const color = s === 'critical' ? 'color:var(--crit)' : s === 'material' ? 'color:var(--mat)' : s === 'low' ? 'color:var(--low)' : '';
-    return `<div class="${cls}" style="${color}" data-sev="${s}" onclick="setSev('${s}')">${s === 'ALL' ? 'All' : s}</div>`;
+  // Severity — map UI labels to actual data values (proxy emits high/medium/low)
+  const sevTabs = [
+    { key: 'ALL',    label: 'All',      color: '' },
+    { key: 'high',   label: 'Critical', color: 'color:var(--crit)' },
+    { key: 'medium', label: 'Material', color: 'color:var(--mat)' },
+    { key: 'low',    label: 'Low',      color: 'color:var(--low)' },
+  ];
+  document.getElementById('sevTabs').innerHTML = sevTabs.map(t => {
+    const cls = t.key === activeSev ? 'tab active' : 'tab';
+    return `<div class="${cls}" style="${t.color}" data-sev="${t.key}" onclick="setSev('${t.key}')">${t.label}</div>`;
   }).join('');
 
-  // Sector
-  const sectors = ['ALL', 'FOOD', 'PROP', 'PFREIT'];
+  // Sector — build dynamically from filings, ordered consistently
+  const order = ['AGRI','FOOD','CONS','CONMAT','PROP','PFREIT','PF&REIT'];
+  const secCounts = {};
+  FILINGS.forEach(f => { secCounts[f.sector] = (secCounts[f.sector] || 0) + 1; });
+  const sectors = ['ALL', ...Object.keys(secCounts).sort((a,b) => order.indexOf(a) - order.indexOf(b))];
   document.getElementById('sectorTabs').innerHTML = sectors.map(s => {
     const cls = s === activeSector ? 'tab active' : 'tab';
-    return `<div class="${cls}" data-sector="${s}" onclick="setSector('${s}')">${s === 'ALL' ? 'All' : s}</div>`;
+    const cnt = s === 'ALL' ? FILINGS.length : (secCounts[s] || 0);
+    return `<div class="${cls}" data-sector="${s}" onclick="setSector('${s}')">${s === 'ALL' ? 'All' : s} <span class="tab-count">${cnt}</span></div>`;
   }).join('');
 }
 
@@ -145,21 +156,24 @@ function filtered() {
   return FILINGS.filter(f => {
     const t = TICKERS[f.tk] || {};
     if (activeRm !== 'ALL' && t.rm !== activeRm) return false;
-    if (activeSev !== 'ALL' && (f.severity || 'routine').toLowerCase() !== activeSev) return false;
+    if (activeSev !== 'ALL' && (f.severity || 'low').toLowerCase() !== activeSev) return false;
     if (activeSector !== 'ALL' && f.sector !== activeSector) return false;
     return true;
   });
 }
 
+// Display label for a severity value
+const SEV_LABEL = { high: 'Critical', medium: 'Material', low: 'Low', critical: 'Critical', material: 'Material', routine: 'Routine' };
+
 function updateStats() {
   const rows = FILINGS.filter(f => activeRm === 'ALL' || (TICKERS[f.tk] || {}).rm === activeRm);
-  const counts = { critical: 0, material: 0, low: 0, routine: 0 };
-  rows.forEach(f => { const k = (f.severity || 'routine').toLowerCase(); if (counts[k] !== undefined) counts[k]++; });
+  // Proxy emits severity as high/medium/low — display as Critical/Material/Low
+  const counts = { high: 0, medium: 0, low: 0 };
+  rows.forEach(f => { const k = (f.severity || 'low').toLowerCase(); if (counts[k] !== undefined) counts[k]++; });
   document.getElementById('statsBar').innerHTML = `
-    <div class="stat" style="color:var(--crit)"><div class="stat-val">${counts.critical}</div><div class="stat-lbl">Critical</div></div>
-    <div class="stat" style="color:var(--mat)"><div class="stat-val">${counts.material}</div><div class="stat-lbl">Material</div></div>
+    <div class="stat" style="color:var(--crit)"><div class="stat-val">${counts.high}</div><div class="stat-lbl">Critical</div></div>
+    <div class="stat" style="color:var(--mat)"><div class="stat-val">${counts.medium}</div><div class="stat-lbl">Material</div></div>
     <div class="stat" style="color:var(--low)"><div class="stat-val">${counts.low}</div><div class="stat-lbl">Low</div></div>
-    <div class="stat" style="color:var(--muted)"><div class="stat-val">${counts.routine}</div><div class="stat-lbl">Routine</div></div>
     <div class="stat"><div class="stat-val">${rows.length}</div><div class="stat-lbl">Total</div></div>`;
 }
 
@@ -168,7 +182,8 @@ function render() {
   const feed = document.getElementById('feed');
   if (!rows.length) { feed.innerHTML = '<div class="empty">No disclosures matching filters.</div>'; return; }
   feed.innerHTML = rows.map(f => {
-    const sev = (f.severity || 'routine').toLowerCase();
+    const sev = (f.severity || 'low').toLowerCase();
+    const sevLabel = SEV_LABEL[sev] || sev;
     const t = TICKERS[f.tk] || {};
     const summ = f._summary || f.summary || '';
     return `<div class="filing ${sev}">
@@ -177,7 +192,7 @@ function render() {
         <div class="filing-content">
           <div class="filing-title">${f.url ? `<a href="${f.url}" target="_blank" rel="noopener">${f.title || f.headline || '—'}</a>` : (f.title || f.headline || '—')}</div>
           <div class="filing-meta">
-            <span class="sev-badge sev-${sev}">${sev}</span>
+            <span class="sev-badge sev-${sev}">${sevLabel}</span>
             ${t.rm ? `<span class="rm-badge">${t.rm}</span>` : ''}
             <span class="sector-badge s-${f.sector}">${f.sector}</span>
             ${f.type ? `<span style="font-size:10px;color:var(--muted)">${f.type}</span>` : ''}

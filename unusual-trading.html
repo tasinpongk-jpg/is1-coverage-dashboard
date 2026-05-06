@@ -51,8 +51,8 @@
   .sev-medium { background: #f59e0b33; color: var(--yellow); }
   .sev-low { background: #22c55e22; color: var(--green); }
   .sector-badge, .rm-badge { font-size: 10px; padding: 1px 6px; border-radius: 4px; font-weight: 600; }
-  .s-FOOD { background: #3b82f622; color: var(--food); }
-  .s-PROP { background: #8b5cf622; color: var(--prop); }
+  .s-FOOD, .s-AGRI { background: #3b82f622; color: var(--food); }
+  .s-PROP, .s-CONS, .s-CONMAT { background: #8b5cf622; color: var(--prop); }
   .s-PFREIT { background: #06b6d422; color: var(--pfreit); }
   .rm-badge { background: #6366f122; color: #a5b4fc; }
   .alert-type { font-size: 13px; font-weight: 600; margin-bottom: 4px; }
@@ -148,9 +148,15 @@ function buildTabs() {
     <div class="tab active" data-type="ALL" onclick="setType('ALL')">All</div>
     ${types.map(t => `<div class="tab" data-type="${t}" onclick="setType('${t}')">${t.replace(/_/g, ' ')}</div>`).join('')}`;
 
-  document.getElementById('sectorTabs').innerHTML = ['ALL','FOOD','PROP','PFREIT'].map(s => {
+  // Sector — dynamic from alerts, all 6 buckets
+  const order = ['AGRI','FOOD','CONS','CONMAT','PROP','PFREIT','PF&REIT'];
+  const secCounts = {};
+  ALERTS.forEach(a => { secCounts[a.sector] = (secCounts[a.sector] || 0) + 1; });
+  const sectorList = ['ALL', ...Object.keys(secCounts).sort((a,b) => order.indexOf(a) - order.indexOf(b))];
+  document.getElementById('sectorTabs').innerHTML = sectorList.map(s => {
     const cls = s === activeSector ? 'tab active' : 'tab';
-    return `<div class="${cls}" data-sector="${s}" onclick="setSector('${s}')">${s === 'ALL' ? 'All' : s}</div>`;
+    const cnt = s === 'ALL' ? ALERTS.length : (secCounts[s] || 0);
+    return `<div class="${cls}" data-sector="${s}" onclick="setSector('${s}')">${s === 'ALL' ? 'All' : s} <span class="tab-count">${cnt}</span></div>`;
   }).join('');
 }
 
