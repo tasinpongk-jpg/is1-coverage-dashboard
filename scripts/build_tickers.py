@@ -17,11 +17,10 @@ import openpyxl
 ROOT = Path(__file__).resolve().parent.parent
 OUT = ROOT / "data" / "tickers.json"
 
-# Map source sector → bucket the proxy expects
+# Map source sector → canonical bucket name (PF&REIT → PFREIT, else identity)
 SECTOR_BUCKET = {
-    "FOOD": "FOOD", "AGRI": "FOOD",
-    "PROP": "PROP", "CONS": "PROP", "CONMAT": "PROP",
-    "PF&REIT": "PFREIT",
+    "AGRI": "AGRI", "FOOD": "FOOD", "CONS": "CONS",
+    "CONMAT": "CONMAT", "PROP": "PROP", "PF&REIT": "PFREIT",
 }
 
 

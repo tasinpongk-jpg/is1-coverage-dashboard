@@ -36,17 +36,17 @@ def load_tickers() -> dict:
 def build_coverage(tickers_json: dict) -> list[dict]:
     """Build the proxy's COVERAGE list shape from tickers.json.
 
-    Proxy expects: [{"tk": "...", "sector": "FOOD"|"PROP"|"PFREIT", "segment": str}]
-    We map AGRI→FOOD bucket, CONS+CONMAT→PROP bucket, PF&REIT→PFREIT.
+    Six real sectors flow through unchanged so disclosures / heatmap / alerts
+    aggregate correctly. Only PF&REIT is renamed to PFREIT (no ampersand) to
+    match server.py / surveillance / proxy CSS class conventions.
     """
-    bucket_map = {"FOOD": "FOOD", "AGRI": "FOOD",
-                  "PROP": "PROP", "CONS": "PROP", "CONMAT": "PROP",
-                  "PF&REIT": "PFREIT"}
+    sector_map = {"AGRI": "AGRI", "FOOD": "FOOD", "CONS": "CONS",
+                  "CONMAT": "CONMAT", "PROP": "PROP", "PF&REIT": "PFREIT"}
     out = []
     for t in tickers_json["tickers"]:
         out.append({
             "tk": t["tk"],
-            "sector": bucket_map.get(t["sector"], t["sector"]),
+            "sector": sector_map.get(t["sector"], t["sector"]),
             "segment": t["sector"],
         })
     return out
@@ -86,6 +86,11 @@ async def run_routes(out_dir: Path) -> dict:
                 payload = json.loads(resp.body.decode("utf-8"))
             else:
                 payload = resp
+
+            # Patch: proxy hardcodes 3-sector aggregation; rebuild for all 6 buckets.
+            if fname == "sector-heatmap.json":
+                payload["sectorAgg"] = _rebuild_sector_agg(payload)
+
             payload["_built_at"] = datetime.now(timezone.utc).isoformat()
             payload["_coverage_size"] = len(proxy.COVERAGE)
             (out_dir / fname).write_text(
@@ -97,6 +102,36 @@ async def run_routes(out_dir: Path) -> dict:
         except Exception as e:
             results[fname] = {"ok": False, "error": str(e), "elapsed_s": round(time.time() - t0, 1)}
             print(f"    FAILED: {e}", flush=True)
+
+
+def _rebuild_sector_agg(heatmap_payload: dict) -> list[dict]:
+    """Recompute sectorAgg with median-per-sector across whatever buckets are
+    present in rows. Replaces the proxy's 3-sector hardcoded list."""
+    rows = heatmap_payload.get("rows", [])
+    metrics = heatmap_payload.get("metrics", [])
+    by_sector: dict[str, list] = {}
+    for r in rows:
+        by_sector.setdefault(r.get("sector"), []).append(r)
+
+    def median(xs):
+        xs = sorted(x for x in xs if x is not None)
+        if not xs:
+            return None
+        n = len(xs)
+        return xs[n // 2] if n % 2 else round((xs[n // 2 - 1] + xs[n // 2]) / 2, 4)
+
+    out = []
+    # Stable order: AGRI, FOOD, CONS, CONMAT, PROP, PFREIT, then any others
+    order = ["AGRI", "FOOD", "CONS", "CONMAT", "PROP", "PFREIT"]
+    for sector in order + [s for s in by_sector if s not in order]:
+        cohort = by_sector.get(sector)
+        if not cohort:
+            continue
+        agg = {"sector": sector, "n": len(cohort), "values": {}}
+        for m in metrics:
+            agg["values"][m["key"]] = median([r.get("values", {}).get(m["key"]) for r in cohort])
+        out.append(agg)
+    return out
 
     return results
 
