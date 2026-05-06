@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>IS1 Team Coverage Dashboard</title>
+<style>
+  :root {
+    --bg: #0f1117; --card: #1a1d27; --border: #2a2d3a; --text: #e2e8f0;
+    --muted: #7c8298; --accent: #6366f1;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', system-ui, sans-serif; min-height: 100vh; display: flex; flex-direction: column; }
+  header { padding: 24px 28px; border-bottom: 1px solid var(--border); }
+  h1 { font-size: 22px; font-weight: 700; }
+  .subtitle { color: var(--muted); font-size: 14px; margin-top: 4px; }
+  main { flex: 1; padding: 32px 28px; max-width: 1100px; margin: 0 auto; width: 100%; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 22px; text-decoration: none; color: var(--text); transition: transform .1s, border-color .1s; display: block; }
+  .card:hover { border-color: var(--accent); transform: translateY(-1px); }
+  .card-icon { font-size: 28px; margin-bottom: 10px; }
+  .card-title { font-size: 16px; font-weight: 700; margin-bottom: 4px; }
+  .card-desc { font-size: 12px; color: var(--muted); line-height: 1.5; }
+  .footer { padding: 18px 28px; border-top: 1px solid var(--border); font-size: 11px; color: var(--muted); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; }
+  .stat-strip { display: flex; gap: 24px; padding: 18px 0 28px; flex-wrap: wrap; }
+  .stat { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 12px 18px; min-width: 140px; }
+  .stat-val { font-size: 22px; font-weight: 700; }
+  .stat-lbl { font-size: 11px; color: var(--muted); }
+  .stale { font-size: 11px; padding: 3px 10px; border-radius: 20px; background: #22c55e22; color: #22c55e; border: 1px solid #22c55e33; }
+  .stale.warn { background: #f59e0b22; color: #f59e0b; border-color: #f59e0b33; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>IS1 Team Coverage Dashboard</h1>
+  <div class="subtitle">SET-listed coverage across 6 RMs · 6 sectors · 231 tickers · refreshed daily</div>
+</header>
+
+<main>
+  <div class="stat-strip" id="stats"></div>
+
+  <div class="grid">
+    <a class="card" href="coverage-morning-brief.html">
+      <div class="card-icon">📈</div>
+      <div class="card-title">Coverage Morning Brief</div>
+      <div class="card-desc">EOD prices, daily/weekly/MTD/YTD moves, volume ratios, 20D paths. RM and sector tabs.</div>
+    </a>
+    <a class="card" href="disclosure-pulse.html">
+      <div class="card-icon">📰</div>
+      <div class="card-title">Disclosure Pulse</div>
+      <div class="card-desc">Recent SET filings classified by severity (critical / material / low / routine) with Thai + English summaries.</div>
+    </a>
+    <a class="card" href="sector-heatmap.html">
+      <div class="card-icon">🌡️</div>
+      <div class="card-title">Sector Heatmap</div>
+      <div class="card-desc">PE / PBV / DY / EV-EBITDA / NPM coloured by sector percentile. Sortable by any metric.</div>
+    </a>
+    <a class="card" href="unusual-trading.html">
+      <div class="card-icon">⚡</div>
+      <div class="card-title">Unusual Trading Alerts</div>
+      <div class="card-desc">Volume spikes, large price moves, 52W highs/lows. Filings cross-linked when present.</div>
+    </a>
+  </div>
+</main>
+
+<div class="footer">
+  <span>Static site · regenerated daily from SETSMART + surveillance pipeline</span>
+  <span class="stale" id="staleBadge">●</span>
+</div>
+
+<script>
+async function init() {
+  try {
+    const [tj, status] = await Promise.all([
+      fetch('./data/tickers.json').then(r => r.json()),
+      fetch('./data/build-status.json').then(r => r.json()).catch(() => null),
+    ]);
+    const totals = tj.totals || {};
+    const stats = document.getElementById('stats');
+    stats.innerHTML = `
+      <div class="stat"><div class="stat-val">${totals.all || 0}</div><div class="stat-lbl">Tickers</div></div>
+      <div class="stat"><div class="stat-val">${tj.rms.length}</div><div class="stat-lbl">RMs</div></div>
+      <div class="stat"><div class="stat-val">${tj.sectors.length}</div><div class="stat-lbl">Sectors</div></div>
+      ${Object.entries(totals.by_rm || {}).map(([rm, n]) => `<div class="stat"><div class="stat-val">${n}</div><div class="stat-lbl">${rm}</div></div>`).join('')}`;
+
+    if (status?.built_at) {
+      const ageH = (Date.now() - new Date(status.built_at).getTime()) / 36e5;
+      const badge = document.getElementById('staleBadge');
+      badge.textContent = `● built ${ageH < 1 ? Math.round(ageH * 60) + 'm' : Math.round(ageH) + 'h'} ago`;
+      if (ageH > 36) badge.classList.add('warn');
+    }
+  } catch {}
+}
+init();
+</script>
+</body>
+</html>

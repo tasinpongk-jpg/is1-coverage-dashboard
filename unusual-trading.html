@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Unusual Trading Alerts — IS1 Team</title>
+<style>
+  :root {
+    --bg: #0f1117; --card: #1a1d27; --border: #2a2d3a; --text: #e2e8f0;
+    --muted: #7c8298; --accent: #6366f1; --green: #22c55e; --red: #ef4444;
+    --yellow: #f59e0b; --orange: #fb923c;
+    --food: #3b82f6; --prop: #8b5cf6; --pfreit: #06b6d4;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', system-ui, sans-serif; font-size: 13px; }
+  header { display: flex; align-items: center; justify-content: space-between; padding: 14px 20px; border-bottom: 1px solid var(--border); background: var(--card); }
+  header h1 { font-size: 16px; font-weight: 600; }
+  .meta { font-size: 11px; color: var(--muted); margin-top: 3px; }
+  .nav { display: flex; gap: 14px; align-items: center; }
+  .nav a { color: var(--muted); text-decoration: none; font-size: 12px; padding: 4px 10px; border-radius: 6px; }
+  .nav a:hover { color: var(--text); background: var(--border); }
+  .nav a.active { color: var(--text); background: #6366f122; border: 1px solid #6366f155; }
+  .stale { font-size: 11px; padding: 3px 10px; border-radius: 20px; background: #22c55e22; color: var(--green); border: 1px solid #22c55e33; }
+  .stale.warn { background: #f59e0b22; color: var(--yellow); border-color: #f59e0b33; }
+
+  .tab-bar { background: var(--card); border-bottom: 1px solid var(--border); padding: 0 20px; }
+  .tab-row { display: flex; gap: 4px; padding: 8px 0; align-items: center; flex-wrap: wrap; }
+  .tab-row + .tab-row { border-top: 1px dashed var(--border); }
+  .tab-label { font-size: 11px; color: var(--muted); margin-right: 8px; min-width: 60px; }
+  .tab { padding: 5px 14px; border-radius: 6px; cursor: pointer; font-size: 12px; color: var(--muted); border: 1px solid transparent; user-select: none; }
+  .tab:hover { color: var(--text); background: #2a2d3a; }
+  .tab.active { background: #6366f122; border-color: #6366f155; color: var(--text); font-weight: 600; }
+  .tab-count { color: var(--muted); margin-left: 4px; font-size: 10px; }
+
+  .stats { display: flex; gap: 0; border-bottom: 1px solid var(--border); }
+  .stat { flex: 1; text-align: center; padding: 10px; border-right: 1px solid var(--border); }
+  .stat:last-child { border-right: none; }
+  .stat-val { font-size: 18px; font-weight: 700; }
+  .stat-lbl { font-size: 10px; color: var(--muted); }
+
+  .grid { padding: 16px 20px; display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 10px; }
+  .alert-card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 14px; position: relative; overflow: hidden; }
+  .alert-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; }
+  .alert-card.high::before { background: var(--red); }
+  .alert-card.medium::before { background: var(--yellow); }
+  .alert-card.low::before { background: var(--green); }
+  .alert-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px; }
+  .alert-tk { font-size: 18px; font-weight: 800; letter-spacing: .5px; }
+  .alert-tk-row { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+  .sev-badge { font-size: 10px; padding: 2px 8px; border-radius: 4px; font-weight: 600; text-transform: uppercase; }
+  .sev-high { background: #ef444433; color: var(--red); }
+  .sev-medium { background: #f59e0b33; color: var(--yellow); }
+  .sev-low { background: #22c55e22; color: var(--green); }
+  .sector-badge, .rm-badge { font-size: 10px; padding: 1px 6px; border-radius: 4px; font-weight: 600; }
+  .s-FOOD { background: #3b82f622; color: var(--food); }
+  .s-PROP { background: #8b5cf622; color: var(--prop); }
+  .s-PFREIT { background: #06b6d422; color: var(--pfreit); }
+  .rm-badge { background: #6366f122; color: #a5b4fc; }
+  .alert-type { font-size: 13px; font-weight: 600; margin-bottom: 4px; }
+  .alert-label { font-size: 20px; font-weight: 800; color: var(--orange); }
+  .alert-evidence { margin-top: 8px; background: var(--bg); border-radius: 6px; padding: 8px 10px; }
+  .ev-row { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); padding: 1px 0; }
+  .ev-row span:last-child { color: var(--text); font-weight: 500; }
+  .filings-linked { margin-top: 6px; font-size: 11px; color: var(--yellow); }
+  .empty, .loading { text-align: center; padding: 60px; color: var(--muted); grid-column: 1 / -1; }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>Unusual Trading Alerts <span style="color:var(--muted);font-weight:400;font-size:13px">— IS1 Team</span></h1>
+    <div class="meta" id="meta">Loading…</div>
+  </div>
+  <nav class="nav">
+    <a href="coverage-morning-brief.html">Brief</a>
+    <a href="disclosure-pulse.html">Disclosures</a>
+    <a href="sector-heatmap.html">Heatmap</a>
+    <a href="unusual-trading.html" class="active">Alerts</a>
+    <span class="stale" id="staleBadge">●</span>
+  </nav>
+</header>
+
+<div class="stats" id="statsBar"></div>
+
+<div class="tab-bar">
+  <div class="tab-row">
+    <span class="tab-label">RM:</span>
+    <div id="rmTabs" style="display:flex;gap:4px;flex-wrap:wrap"></div>
+  </div>
+  <div class="tab-row">
+    <span class="tab-label">Severity:</span>
+    <div id="sevTabs" style="display:flex;gap:4px;flex-wrap:wrap"></div>
+    <span class="tab-label" style="margin-left:20px">Type:</span>
+    <div id="typeTabs" style="display:flex;gap:4px;flex-wrap:wrap"></div>
+    <span class="tab-label" style="margin-left:20px">Sector:</span>
+    <div id="sectorTabs" style="display:flex;gap:4px;flex-wrap:wrap"></div>
+  </div>
+</div>
+
+<div id="grid" class="grid"><div class="loading">Fetching alerts…</div></div>
+
+<script>
+let TICKERS = {}, ALERTS = [];
+let activeRm = 'ALL', activeSev = 'ALL', activeType = 'ALL', activeSector = 'ALL';
+
+function freshnessLabel(builtAt) {
+  if (!builtAt) return { txt: '?', warn: true };
+  const ageH = (Date.now() - new Date(builtAt).getTime()) / 36e5;
+  return { txt: `● updated ${ageH < 1 ? Math.round(ageH * 60) + 'm' : Math.round(ageH) + 'h'} ago`, warn: ageH > 36 };
+}
+
+function fmtNum(v) {
+  if (v == null) return '—';
+  if (Math.abs(v) >= 1e9) return (v / 1e9).toFixed(2) + 'B';
+  if (Math.abs(v) >= 1e6) return (v / 1e6).toFixed(1) + 'M';
+  if (Math.abs(v) >= 1e3) return (v / 1e3).toFixed(1) + 'K';
+  return v.toFixed(2);
+}
+
+function evidenceRows(ev) {
+  if (!ev) return '';
+  const map = { vol:'Volume', vol20dAvg:'20D avg vol', vol20dStd:'20D std',
+    close:'Close', close20dAvg:'20D avg', pctMove:'Move %',
+    high52w:'52W high', low52w:'52W low', pctFrom52:'% from 52W' };
+  return Object.entries(ev).map(([k, v]) => {
+    const lbl = map[k] || k;
+    const fmt = typeof v === 'number' ? fmtNum(v) : String(v);
+    return `<div class="ev-row"><span>${lbl}</span><span>${fmt}</span></div>`;
+  }).join('');
+}
+
+function buildTabs() {
+  const rmCounts = { ALL: ALERTS.length };
+  ALERTS.forEach(a => { const r = (TICKERS[a.tk] || {}).rm || '?'; rmCounts[r] = (rmCounts[r] || 0) + 1; });
+  const rms = Object.keys(rmCounts).filter(r => r !== 'ALL').sort((a, b) => rmCounts[b] - rmCounts[a]);
+  document.getElementById('rmTabs').innerHTML = `
+    <div class="tab active" data-rm="ALL" onclick="setRm('ALL')">All <span class="tab-count">${rmCounts.ALL}</span></div>
+    ${rms.map(r => `<div class="tab" data-rm="${r}" onclick="setRm('${r}')">${r} <span class="tab-count">${rmCounts[r]}</span></div>`).join('')}`;
+
+  document.getElementById('sevTabs').innerHTML = ['ALL','high','medium','low'].map(s => {
+    const cls = s === activeSev ? 'tab active' : 'tab';
+    const color = s === 'high' ? 'color:var(--red)' : s === 'medium' ? 'color:var(--yellow)' : s === 'low' ? 'color:var(--green)' : '';
+    return `<div class="${cls}" style="${color}" data-sev="${s}" onclick="setSev('${s}')">${s === 'ALL' ? 'All' : s}</div>`;
+  }).join('');
+
+  const types = [...new Set(ALERTS.map(a => a.atype || a.type).filter(Boolean))].sort();
+  document.getElementById('typeTabs').innerHTML = `
+    <div class="tab active" data-type="ALL" onclick="setType('ALL')">All</div>
+    ${types.map(t => `<div class="tab" data-type="${t}" onclick="setType('${t}')">${t.replace(/_/g, ' ')}</div>`).join('')}`;
+
+  document.getElementById('sectorTabs').innerHTML = ['ALL','FOOD','PROP','PFREIT'].map(s => {
+    const cls = s === activeSector ? 'tab active' : 'tab';
+    return `<div class="${cls}" data-sector="${s}" onclick="setSector('${s}')">${s === 'ALL' ? 'All' : s}</div>`;
+  }).join('');
+}
+
+function setRm(r) { activeRm = r; document.querySelectorAll('[data-rm]').forEach(el => el.classList.toggle('active', el.dataset.rm === r)); render(); updateStats(); }
+function setSev(s) { activeSev = s; document.querySelectorAll('[data-sev]').forEach(el => el.classList.toggle('active', el.dataset.sev === s)); render(); }
+function setType(t) { activeType = t; document.querySelectorAll('[data-type]').forEach(el => el.classList.toggle('active', el.dataset.type === t)); render(); }
+function setSector(s) { activeSector = s; document.querySelectorAll('[data-sector]').forEach(el => el.classList.toggle('active', el.dataset.sector === s)); render(); }
+
+function filtered() {
+  return ALERTS.filter(a => {
+    const t = TICKERS[a.tk] || {};
+    if (activeRm !== 'ALL' && t.rm !== activeRm) return false;
+    if (activeSev !== 'ALL' && (a.severity || '').toLowerCase() !== activeSev) return false;
+    if (activeType !== 'ALL' && (a.atype || a.type) !== activeType) return false;
+    if (activeSector !== 'ALL' && a.sector !== activeSector) return false;
+    return true;
+  });
+}
+
+function updateStats() {
+  const rows = ALERTS.filter(a => activeRm === 'ALL' || (TICKERS[a.tk] || {}).rm === activeRm);
+  const counts = { high: 0, medium: 0, low: 0 };
+  const byTk = new Set(rows.map(a => a.tk));
+  rows.forEach(a => { const k = (a.severity || 'low').toLowerCase(); if (counts[k] !== undefined) counts[k]++; });
+  document.getElementById('statsBar').innerHTML = `
+    <div class="stat" style="color:var(--red)"><div class="stat-val">${counts.high}</div><div class="stat-lbl">High</div></div>
+    <div class="stat" style="color:var(--yellow)"><div class="stat-val">${counts.medium}</div><div class="stat-lbl">Medium</div></div>
+    <div class="stat" style="color:var(--green)"><div class="stat-val">${counts.low}</div><div class="stat-lbl">Low</div></div>
+    <div class="stat"><div class="stat-val">${rows.length}</div><div class="stat-lbl">Total alerts</div></div>
+    <div class="stat"><div class="stat-val">${byTk.size}</div><div class="stat-lbl">Tickers flagged</div></div>`;
+}
+
+function render() {
+  const rows = filtered();
+  const grid = document.getElementById('grid');
+  if (!rows.length) { grid.innerHTML = '<div class="empty">No alerts matching filters.</div>'; return; }
+  grid.innerHTML = rows.map(a => {
+    const sev = (a.severity || 'low').toLowerCase();
+    const t = TICKERS[a.tk] || {};
+    return `<div class="alert-card ${sev}">
+      <div class="alert-top">
+        <div>
+          <div class="alert-tk-row">
+            <span class="alert-tk">${a.tk}</span>
+            ${t.rm ? `<span class="rm-badge">${t.rm}</span>` : ''}
+          </div>
+          <span class="sector-badge s-${a.sector}">${a.sector}</span>
+        </div>
+        <span class="sev-badge sev-${sev}">${sev}</span>
+      </div>
+      <div class="alert-type">${a.type || a.atype || '—'}</div>
+      <div class="alert-label">${a.label || ''}</div>
+      ${a.evidence ? `<div class="alert-evidence">${evidenceRows(a.evidence)}</div>` : ''}
+      ${a.filingsLinked ? `<div class="filings-linked">⚡ ${a.filingsLinked} filing(s) linked</div>` : ''}
+    </div>`;
+  }).join('');
+}
+
+async function init() {
+  try {
+    const [tj, dj] = await Promise.all([
+      fetch('./data/tickers.json').then(r => r.json()),
+      fetch('./data/unusual-trading.json').then(r => r.json()),
+    ]);
+    tj.tickers.forEach(t => { TICKERS[t.tk] = t; });
+    ALERTS = dj.alerts || [];
+    const fresh = freshnessLabel(dj._built_at);
+    const badge = document.getElementById('staleBadge');
+    badge.textContent = fresh.txt;
+    if (fresh.warn) badge.classList.add('warn');
+    document.getElementById('meta').textContent = `${ALERTS.length} alerts · as of ${dj.asOf || ''} · ${dj.source || ''}`;
+    buildTabs(); updateStats(); render();
+  } catch(e) {
+    document.getElementById('grid').innerHTML = `<div class="empty">Error: ${e.message}</div>`;
+  }
+}
+init();
+</script>
+</body>
+</html>

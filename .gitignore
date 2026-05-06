@@ -1,0 +1,10 @@
+# Local-only — never commit
+.env
+*.duckdb
+*.db
+__pycache__/
+*.pyc
+.venv/
+
+# Build artifacts that ARE committed (do not ignore):
+# data/*.json — these are the daily snapshots that drive the dashboards

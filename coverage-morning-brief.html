@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Coverage Morning Brief — IS1 Team</title>
+<style>
+  :root {
+    --bg: #0f1117; --card: #1a1d27; --border: #2a2d3a; --text: #e2e8f0;
+    --muted: #7c8298; --accent: #6366f1; --green: #22c55e; --red: #ef4444;
+    --yellow: #f59e0b; --food: #3b82f6; --prop: #8b5cf6; --pfreit: #06b6d4;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', system-ui, sans-serif; font-size: 13px; }
+  header { display: flex; align-items: center; justify-content: space-between; padding: 14px 20px; border-bottom: 1px solid var(--border); background: var(--card); }
+  header h1 { font-size: 16px; font-weight: 600; letter-spacing: .3px; }
+  .meta { font-size: 11px; color: var(--muted); margin-top: 3px; }
+  .nav { display: flex; gap: 14px; align-items: center; }
+  .nav a { color: var(--muted); text-decoration: none; font-size: 12px; padding: 4px 10px; border-radius: 6px; }
+  .nav a:hover { color: var(--text); background: var(--border); }
+  .nav a.active { color: var(--text); background: #6366f122; border: 1px solid #6366f155; }
+  .stale { font-size: 11px; padding: 3px 10px; border-radius: 20px; background: #22c55e22; color: var(--green); border: 1px solid #22c55e33; }
+  .stale.warn { background: #f59e0b22; color: var(--yellow); border-color: #f59e0b33; }
+
+  /* Two-axis tab system */
+  .tab-bar { background: var(--card); border-bottom: 1px solid var(--border); padding: 0 20px; }
+  .tab-row { display: flex; gap: 4px; padding: 8px 0; align-items: center; }
+  .tab-row + .tab-row { border-top: 1px dashed var(--border); }
+  .tab-label { font-size: 11px; color: var(--muted); margin-right: 8px; min-width: 50px; }
+  .tab { padding: 5px 14px; border-radius: 6px; cursor: pointer; font-size: 12px; color: var(--muted); border: 1px solid transparent; user-select: none; }
+  .tab:hover { color: var(--text); background: #2a2d3a; }
+  .tab.active { background: #6366f122; border-color: #6366f155; color: var(--text); font-weight: 600; }
+  .tab-count { color: var(--muted); margin-left: 4px; font-size: 10px; }
+  .tab.active .tab-count { color: var(--accent); }
+
+  /* Table */
+  .table-wrap { overflow-x: auto; padding: 0 20px 20px; }
+  table { width: 100%; border-collapse: collapse; }
+  thead tr { background: var(--card); border: 1px solid var(--border); position: sticky; top: 0; }
+  th { padding: 8px 10px; text-align: right; font-size: 11px; color: var(--muted); font-weight: 500; white-space: nowrap; cursor: pointer; user-select: none; }
+  th:first-child, th:nth-child(2), th:nth-child(3) { text-align: left; }
+  th:hover { color: var(--text); }
+  th.sort-asc::after { content: ' ↑'; color: var(--accent); }
+  th.sort-desc::after { content: ' ↓'; color: var(--accent); }
+  td { padding: 7px 10px; border-bottom: 1px solid var(--border); text-align: right; }
+  td:first-child { text-align: left; font-weight: 600; font-size: 13px; }
+  td:nth-child(2) { text-align: left; font-size: 11px; color: var(--muted); }
+  td:nth-child(3) { text-align: left; font-size: 11px; }
+  tr:hover td { background: #1e2130; }
+  .pos { color: var(--green); }
+  .neg { color: var(--red); }
+  .neu { color: var(--muted); }
+  .sector-badge { display: inline-block; padding: 1px 6px; border-radius: 4px; font-size: 10px; font-weight: 600; }
+  .s-FOOD { background: #3b82f622; color: var(--food); }
+  .s-AGRI { background: #3b82f622; color: var(--food); }
+  .s-PROP { background: #8b5cf622; color: var(--prop); }
+  .s-CONS { background: #8b5cf622; color: var(--prop); }
+  .s-CONMAT { background: #8b5cf622; color: var(--prop); }
+  .s-PFREIT { background: #06b6d422; color: var(--pfreit); }
+  .s-PF\&REIT { background: #06b6d422; color: var(--pfreit); }
+  .rm-badge { display: inline-block; padding: 1px 6px; border-radius: 4px; font-size: 10px; font-weight: 600; background: #6366f122; color: #a5b4fc; }
+  .sparkline { display: inline-block; }
+  .hi52 { background: #22c55e22; }
+  .lo52 { background: #ef444422; }
+  .loading { text-align: center; padding: 60px; color: var(--muted); }
+  .summary-bar { display: flex; gap: 16px; padding: 8px 20px; border-bottom: 1px solid var(--border); font-size: 11px; color: var(--muted); }
+  .summary-bar strong { color: var(--text); }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>Coverage Morning Brief <span style="color:var(--muted);font-weight:400;font-size:13px">— IS1 Team</span></h1>
+    <div class="meta" id="meta">Loading…</div>
+  </div>
+  <nav class="nav">
+    <a href="coverage-morning-brief.html" class="active">Brief</a>
+    <a href="disclosure-pulse.html">Disclosures</a>
+    <a href="sector-heatmap.html">Heatmap</a>
+    <a href="unusual-trading.html">Alerts</a>
+    <span class="stale" id="staleBadge">●</span>
+  </nav>
+</header>
+
+<div class="tab-bar">
+  <div class="tab-row">
+    <span class="tab-label">RM:</span>
+    <div id="rmTabs" style="display:flex;gap:4px;flex-wrap:wrap"></div>
+  </div>
+  <div class="tab-row">
+    <span class="tab-label">Sector:</span>
+    <div id="sectorTabs" style="display:flex;gap:4px;flex-wrap:wrap"></div>
+  </div>
+</div>
+
+<div class="summary-bar" id="summaryBar"></div>
+
+<div class="table-wrap">
+  <div class="loading" id="loading">Fetching data…</div>
+  <table id="tbl" style="display:none">
+    <thead>
+      <tr>
+        <th data-key="tk">Ticker</th>
+        <th data-key="rm">RM</th>
+        <th data-key="sector">Sector</th>
+        <th data-key="last" data-num>Last</th>
+        <th data-key="pct1d" data-num>1D%</th>
+        <th data-key="pct5d" data-num>5D%</th>
+        <th data-key="pctMtd" data-num>MTD%</th>
+        <th data-key="pctYtd" data-num>YTD%</th>
+        <th data-key="volRatio" data-num>VolR</th>
+        <th>Filings</th>
+        <th style="min-width:90px">20D Path</th>
+      </tr>
+    </thead>
+    <tbody id="tbody"></tbody>
+  </table>
+</div>
+
+<script>
+let TICKERS = [], BRIEF_BY_TK = {};
+let activeRm = 'ALL', activeSector = 'ALL';
+let sortKey = null, sortDir = 1;
+
+function pct(v) {
+  if (v == null) return '<span class="neu">—</span>';
+  const c = v > 0 ? 'pos' : v < 0 ? 'neg' : 'neu';
+  return `<span class="${c}">${v > 0 ? '+' : ''}${v.toFixed(2)}%</span>`;
+}
+
+function sparkSvg(path) {
+  if (!path || !path.length) return '';
+  const w = 90, h = 24, min = Math.min(...path), max = Math.max(...path);
+  const range = max - min || 1;
+  const pts = path.map((v, i) => {
+    const x = (i / (path.length - 1)) * w;
+    const y = h - ((v - min) / range) * h;
+    return `${x.toFixed(1)},${y.toFixed(1)}`;
+  }).join(' ');
+  const last = path[path.length - 1], first = path[0];
+  const col = last > first ? '#22c55e' : last < first ? '#ef4444' : '#7c8298';
+  return `<svg width="${w}" height="${h}" class="sparkline"><polyline points="${pts}" fill="none" stroke="${col}" stroke-width="1.5"/></svg>`;
+}
+
+function freshnessLabel(builtAt) {
+  if (!builtAt) return { txt: '?', warn: true };
+  const d = new Date(builtAt);
+  const ageH = (Date.now() - d.getTime()) / 36e5;
+  const txt = `● updated ${ageH < 1 ? Math.round(ageH * 60) + 'm' : Math.round(ageH) + 'h'} ago`;
+  return { txt, warn: ageH > 36 };
+}
+
+function buildTabs() {
+  // RM tabs
+  const rmCounts = {};
+  TICKERS.forEach(t => { rmCounts[t.rm] = (rmCounts[t.rm] || 0) + 1; });
+  const rms = Object.keys(rmCounts).sort((a, b) => rmCounts[b] - rmCounts[a]);
+  document.getElementById('rmTabs').innerHTML = `
+    <div class="tab active" data-rm="ALL" onclick="setRm('ALL')">All <span class="tab-count">${TICKERS.length}</span></div>
+    ${rms.map(r => `<div class="tab" data-rm="${r}" onclick="setRm('${r}')">${r} <span class="tab-count">${rmCounts[r]}</span></div>`).join('')}`;
+
+  // Sector tabs
+  const secCounts = {};
+  TICKERS.forEach(t => { secCounts[t.sector] = (secCounts[t.sector] || 0) + 1; });
+  const secs = Object.keys(secCounts).sort();
+  document.getElementById('sectorTabs').innerHTML = `
+    <div class="tab active" data-sector="ALL" onclick="setSector('ALL')">All</div>
+    ${secs.map(s => `<div class="tab" data-sector="${s}" onclick="setSector('${s}')">${s} <span class="tab-count">${secCounts[s]}</span></div>`).join('')}`;
+}
+
+function setRm(rm) {
+  activeRm = rm;
+  document.querySelectorAll('[data-rm]').forEach(el => el.classList.toggle('active', el.dataset.rm === rm));
+  render();
+}
+function setSector(s) {
+  activeSector = s;
+  document.querySelectorAll('[data-sector]').forEach(el => el.classList.toggle('active', el.dataset.sector === s));
+  render();
+}
+
+function render() {
+  let rows = TICKERS.filter(t => {
+    if (activeRm !== 'ALL' && t.rm !== activeRm) return false;
+    if (activeSector !== 'ALL' && t.sector !== activeSector) return false;
+    return true;
+  }).map(t => {
+    const b = BRIEF_BY_TK[t.tk] || {};
+    return { ...b, tk: t.tk, rm: t.rm, sector: t.sector };
+  });
+
+  if (sortKey) {
+    rows.sort((a, b) => {
+      const va = a[sortKey], vb = b[sortKey];
+      if (va == null) return 1; if (vb == null) return -1;
+      if (typeof va === 'string') return va.localeCompare(vb) * sortDir;
+      return (va - vb) * sortDir;
+    });
+  }
+
+  document.getElementById('summaryBar').innerHTML = `
+    Showing <strong>${rows.length}</strong> tickers ·
+    RM <strong>${activeRm === 'ALL' ? 'ALL' : activeRm}</strong> ·
+    Sector <strong>${activeSector === 'ALL' ? 'ALL' : activeSector}</strong>
+    ${rows.filter(r => r.last == null).length > 0 ? ` · <span style="color:var(--yellow)">${rows.filter(r => r.last == null).length} no price</span>` : ''}`;
+
+  document.getElementById('tbody').innerHTML = rows.map(r => `
+    <tr class="${r.hi52 ? 'hi52' : r.lo52 ? 'lo52' : ''}">
+      <td>${r.tk}</td>
+      <td><span class="rm-badge">${r.rm}</span></td>
+      <td><span class="sector-badge s-${r.sector.replace('&','')}">${r.sector}</span></td>
+      <td>${r.last != null ? r.last.toFixed(2) : '<span class="neu">—</span>'}</td>
+      <td>${pct(r.pct1d)}</td>
+      <td>${pct(r.pct5d)}</td>
+      <td>${pct(r.pctMtd)}</td>
+      <td>${pct(r.pctYtd)}</td>
+      <td class="${r.volRatio > 1.5 ? 'pos' : r.volRatio < 0.5 ? 'neg' : 'neu'}">${r.volRatio != null ? r.volRatio.toFixed(2) + 'x' : '—'}</td>
+      <td>${r.filings ? `<span style="color:var(--yellow)">⚡ ${r.filings}</span>` : '<span class="neu">—</span>'}</td>
+      <td>${sparkSvg(r.path)}</td>
+    </tr>`).join('');
+}
+
+document.querySelectorAll('th[data-key]').forEach(th => {
+  th.addEventListener('click', () => {
+    const k = th.dataset.key;
+    if (sortKey === k) sortDir = -sortDir;
+    else { sortKey = k; sortDir = th.hasAttribute('data-num') ? -1 : 1; }
+    document.querySelectorAll('th').forEach(t => t.classList.remove('sort-asc', 'sort-desc'));
+    th.classList.add(sortDir === 1 ? 'sort-asc' : 'sort-desc');
+    render();
+  });
+});
+
+async function init() {
+  try {
+    const [tickersRes, briefRes] = await Promise.all([
+      fetch('./data/tickers.json'), fetch('./data/morning-brief.json')
+    ]);
+    if (!tickersRes.ok || !briefRes.ok) throw new Error('fetch failed');
+    const tickersJson = await tickersRes.json();
+    const brief = await briefRes.json();
+    TICKERS = tickersJson.tickers;
+    (brief.rows || []).forEach(r => { BRIEF_BY_TK[r.tk] = r; });
+
+    const fresh = freshnessLabel(brief._built_at);
+    const badge = document.getElementById('staleBadge');
+    badge.textContent = fresh.txt;
+    if (fresh.warn) badge.classList.add('warn');
+
+    document.getElementById('meta').textContent = `As of ${brief.asOf || ''} · ${TICKERS.length} tickers · ${brief.source || ''}`;
+    buildTabs();
+    document.getElementById('loading').style.display = 'none';
+    document.getElementById('tbl').style.display = '';
+    render();
+  } catch(e) {
+    document.getElementById('loading').textContent = `Error loading data: ${e.message}. Check that data/morning-brief.json exists.`;
+  }
+}
+init();
+</script>
+</body>
+</html>

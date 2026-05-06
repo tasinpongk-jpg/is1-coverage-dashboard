@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Sector Heatmap — IS1 Team</title>
+<style>
+  :root {
+    --bg: #0f1117; --card: #1a1d27; --border: #2a2d3a; --text: #e2e8f0;
+    --muted: #7c8298; --accent: #6366f1; --green: #22c55e; --red: #ef4444;
+    --yellow: #f59e0b; --food: #3b82f6; --prop: #8b5cf6; --pfreit: #06b6d4;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', system-ui, sans-serif; font-size: 13px; }
+  header { display: flex; align-items: center; justify-content: space-between; padding: 14px 20px; border-bottom: 1px solid var(--border); background: var(--card); }
+  header h1 { font-size: 16px; font-weight: 600; }
+  .meta { font-size: 11px; color: var(--muted); margin-top: 3px; }
+  .nav { display: flex; gap: 14px; align-items: center; }
+  .nav a { color: var(--muted); text-decoration: none; font-size: 12px; padding: 4px 10px; border-radius: 6px; }
+  .nav a:hover { color: var(--text); background: var(--border); }
+  .nav a.active { color: var(--text); background: #6366f122; border: 1px solid #6366f155; }
+  .stale { font-size: 11px; padding: 3px 10px; border-radius: 20px; background: #22c55e22; color: var(--green); border: 1px solid #22c55e33; }
+  .stale.warn { background: #f59e0b22; color: var(--yellow); border-color: #f59e0b33; }
+
+  .tab-bar { background: var(--card); border-bottom: 1px solid var(--border); padding: 0 20px; }
+  .tab-row { display: flex; gap: 4px; padding: 8px 0; align-items: center; flex-wrap: wrap; }
+  .tab-row + .tab-row { border-top: 1px dashed var(--border); }
+  .tab-label { font-size: 11px; color: var(--muted); margin-right: 8px; min-width: 60px; }
+  .tab { padding: 5px 14px; border-radius: 6px; cursor: pointer; font-size: 12px; color: var(--muted); border: 1px solid transparent; user-select: none; }
+  .tab:hover { color: var(--text); background: #2a2d3a; }
+  .tab.active { background: #6366f122; border-color: #6366f155; color: var(--text); font-weight: 600; }
+  .tab-count { color: var(--muted); margin-left: 4px; font-size: 10px; }
+
+  .agg-row { display: flex; gap: 12px; padding: 14px 20px; overflow-x: auto; }
+  .agg-card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 12px 16px; min-width: 220px; flex: 1; }
+  .agg-name { font-size: 12px; font-weight: 700; margin-bottom: 8px; }
+  .agg-name.s-FOOD { color: var(--food); }
+  .agg-name.s-PROP { color: var(--prop); }
+  .agg-name.s-PFREIT { color: var(--pfreit); }
+  .agg-metrics { display: flex; gap: 10px; flex-wrap: wrap; }
+  .agg-metric { text-align: center; }
+  .agg-metric .val { font-size: 15px; font-weight: 700; }
+  .agg-metric .lbl { font-size: 10px; color: var(--muted); }
+
+  .table-wrap { overflow-x: auto; padding: 0 20px 20px; }
+  table { width: 100%; border-collapse: collapse; }
+  thead tr { background: var(--card); border: 1px solid var(--border); position: sticky; top: 0; z-index: 1; }
+  th { padding: 8px 10px; text-align: right; font-size: 11px; color: var(--muted); font-weight: 500; white-space: nowrap; cursor: pointer; user-select: none; }
+  th:first-child, th:nth-child(2), th:nth-child(3), th:nth-child(4) { text-align: left; }
+  th:hover { color: var(--text); }
+  th.sort-asc::after { content: ' ↑'; color: var(--accent); }
+  th.sort-desc::after { content: ' ↓'; color: var(--accent); }
+  td { padding: 6px 10px; border-bottom: 1px solid var(--border); text-align: right; font-size: 12px; }
+  td:first-child { text-align: left; font-weight: 600; font-size: 13px; }
+  td:nth-child(2), td:nth-child(3), td:nth-child(4) { text-align: left; font-size: 11px; }
+  tr:hover td { background: #1e2130; }
+  .sector-badge, .rm-badge { display: inline-block; padding: 1px 6px; border-radius: 4px; font-size: 10px; font-weight: 600; }
+  .s-FOOD { background: #3b82f622; color: var(--food); }
+  .s-PROP { background: #8b5cf622; color: var(--prop); }
+  .s-PFREIT { background: #06b6d422; color: var(--pfreit); }
+  .rm-badge { background: #6366f122; color: #a5b4fc; }
+  .cell { border-radius: 4px; padding: 3px 8px; display: inline-block; min-width: 48px; text-align: center; }
+  .legend { display: flex; gap: 6px; align-items: center; padding: 8px 20px; font-size: 11px; color: var(--muted); border-bottom: 1px solid var(--border); }
+  .legend-bar { display: flex; gap: 2px; }
+  .legend-swatch { width: 16px; height: 10px; border-radius: 2px; }
+  .loading { text-align: center; padding: 60px; color: var(--muted); }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>Sector Heatmap <span style="color:var(--muted);font-weight:400;font-size:13px">— IS1 Team</span></h1>
+    <div class="meta" id="meta">Loading…</div>
+  </div>
+  <nav class="nav">
+    <a href="coverage-morning-brief.html">Brief</a>
+    <a href="disclosure-pulse.html">Disclosures</a>
+    <a href="sector-heatmap.html" class="active">Heatmap</a>
+    <a href="unusual-trading.html">Alerts</a>
+    <span class="stale" id="staleBadge">●</span>
+  </nav>
+</header>
+
+<div class="tab-bar">
+  <div class="tab-row">
+    <span class="tab-label">RM:</span>
+    <div id="rmTabs" style="display:flex;gap:4px;flex-wrap:wrap"></div>
+  </div>
+  <div class="tab-row">
+    <span class="tab-label">Sector:</span>
+    <div id="sectorTabs" style="display:flex;gap:4px;flex-wrap:wrap"></div>
+  </div>
+</div>
+
+<div class="agg-row" id="aggRow"></div>
+
+<div class="legend">
+  <span>Heat scale:</span>
+  <div class="legend-bar">
+    <div class="legend-swatch" style="background:#ef4444aa"></div>
+    <div class="legend-swatch" style="background:#f59e0b66"></div>
+    <div class="legend-swatch" style="background:#1e2130"></div>
+    <div class="legend-swatch" style="background:#16803055"></div>
+    <div class="legend-swatch" style="background:#22c55e88"></div>
+  </div>
+  <span>Worst → Best (sector percentile)</span>
+  <span style="margin-left:auto;font-size:10px">Click column header to sort</span>
+</div>
+
+<div class="table-wrap">
+  <div class="loading" id="loading">Fetching heatmap data…</div>
+  <table id="tbl" style="display:none">
+    <thead id="thead"></thead>
+    <tbody id="tbody"></tbody>
+  </table>
+</div>
+
+<script>
+let TICKERS = {}, ROWS = [], METRICS = [], AGG = [];
+let activeRm = 'ALL', activeSector = 'ALL';
+let sortKey = null, sortDir = 1;
+
+function freshnessLabel(builtAt) {
+  if (!builtAt) return { txt: '?', warn: true };
+  const ageH = (Date.now() - new Date(builtAt).getTime()) / 36e5;
+  return { txt: `● updated ${ageH < 1 ? Math.round(ageH * 60) + 'm' : Math.round(ageH) + 'h'} ago`, warn: ageH > 36 };
+}
+
+function heatColor(pct, direction) {
+  let t = direction === 'high-good' ? pct / 100 : 1 - pct / 100;
+  if (t < 0.5) return `rgba(239,68,68,${(1 - t / 0.5) * 0.55 + 0.05})`;
+  return `rgba(34,197,94,${((t - 0.5) / 0.5) * 0.55 + 0.05})`;
+}
+
+function buildTabs() {
+  const rmCounts = { ALL: ROWS.length };
+  ROWS.forEach(r => { const rm = (TICKERS[r.tk] || {}).rm || '?'; rmCounts[rm] = (rmCounts[rm] || 0) + 1; });
+  const rms = Object.keys(rmCounts).filter(r => r !== 'ALL').sort((a, b) => rmCounts[b] - rmCounts[a]);
+  document.getElementById('rmTabs').innerHTML = `
+    <div class="tab active" data-rm="ALL" onclick="setRm('ALL')">All <span class="tab-count">${rmCounts.ALL}</span></div>
+    ${rms.map(r => `<div class="tab" data-rm="${r}" onclick="setRm('${r}')">${r} <span class="tab-count">${rmCounts[r]}</span></div>`).join('')}`;
+
+  const secCounts = {}; ROWS.forEach(r => secCounts[r.sector] = (secCounts[r.sector] || 0) + 1);
+  document.getElementById('sectorTabs').innerHTML = `
+    <div class="tab active" data-sector="ALL" onclick="setSector('ALL')">All</div>
+    ${Object.keys(secCounts).sort().map(s => `<div class="tab" data-sector="${s}" onclick="setSector('${s}')">${s} <span class="tab-count">${secCounts[s]}</span></div>`).join('')}`;
+}
+
+function setRm(r) { activeRm = r; document.querySelectorAll('[data-rm]').forEach(el => el.classList.toggle('active', el.dataset.rm === r)); render(); }
+function setSector(s) { activeSector = s; document.querySelectorAll('[data-sector]').forEach(el => el.classList.toggle('active', el.dataset.sector === s)); render(); }
+
+function setSort(key) { if (sortKey === key) sortDir = -sortDir; else { sortKey = key; sortDir = 1; } render(); }
+
+function render() {
+  const thead = document.getElementById('thead');
+  thead.innerHTML = `<tr>
+    <th onclick="setSort('tk')">Ticker</th>
+    <th onclick="setSort('rm')">RM</th>
+    <th onclick="setSort('sector')">Sector</th>
+    <th onclick="setSort('segment')">Segment</th>
+    ${METRICS.map(m => `<th class="${sortKey === m.key ? (sortDir === 1 ? 'sort-asc' : 'sort-desc') : ''}" onclick="setSort('${m.key}')">${m.label}</th>`).join('')}
+  </tr>`;
+
+  let rows = ROWS.filter(r => {
+    const t = TICKERS[r.tk] || {};
+    if (activeRm !== 'ALL' && t.rm !== activeRm) return false;
+    if (activeSector !== 'ALL' && r.sector !== activeSector) return false;
+    return true;
+  }).map(r => ({ ...r, rm: (TICKERS[r.tk] || {}).rm || '?' }));
+
+  if (sortKey) {
+    rows.sort((a, b) => {
+      const va = sortKey in (a.values || {}) ? a.values[sortKey] : a[sortKey];
+      const vb = sortKey in (b.values || {}) ? b.values[sortKey] : b[sortKey];
+      if (va == null) return 1; if (vb == null) return -1;
+      if (typeof va === 'string') return va.localeCompare(vb) * sortDir;
+      return (va - vb) * sortDir;
+    });
+  }
+
+  document.getElementById('tbody').innerHTML = rows.map(r => `
+    <tr>
+      <td>${r.tk}</td>
+      <td><span class="rm-badge">${r.rm}</span></td>
+      <td><span class="sector-badge s-${r.sector}">${r.sector}</span></td>
+      <td>${r.segment || ''}</td>
+      ${METRICS.map(m => {
+        const v = (r.values || {})[m.key];
+        const p = (r.secPct || {})[m.key] ?? 50;
+        const bg = v != null ? heatColor(p, m.direction) : 'transparent';
+        return `<td><span class="cell" style="background:${bg}">${v != null ? v.toFixed(m.decimals) : '—'}</span></td>`;
+      }).join('')}
+    </tr>`).join('');
+}
+
+async function init() {
+  try {
+    const [tj, dj] = await Promise.all([
+      fetch('./data/tickers.json').then(r => r.json()),
+      fetch('./data/sector-heatmap.json').then(r => r.json()),
+    ]);
+    tj.tickers.forEach(t => { TICKERS[t.tk] = t; });
+    METRICS = dj.metrics || [];
+    ROWS = dj.rows || [];
+    AGG = dj.sectorAgg || [];
+
+    const fresh = freshnessLabel(dj._built_at);
+    const badge = document.getElementById('staleBadge');
+    badge.textContent = fresh.txt;
+    if (fresh.warn) badge.classList.add('warn');
+
+    document.getElementById('meta').textContent = `${ROWS.length} tickers · as of ${dj.asOf || ''} · ${dj.source || ''}`;
+
+    document.getElementById('aggRow').innerHTML = AGG.map(a => `
+      <div class="agg-card">
+        <div class="agg-name s-${a.sector}">${a.sector} <span style="font-weight:400;color:var(--muted);font-size:11px">(n=${a.n})</span></div>
+        <div class="agg-metrics">
+          ${METRICS.map(m => {
+            const v = (a.values || {})[m.key];
+            return `<div class="agg-metric"><div class="val">${v != null ? v.toFixed(m.decimals) : '—'}</div><div class="lbl">${m.label}</div></div>`;
+          }).join('')}
+        </div>
+      </div>`).join('');
+
+    buildTabs();
+    document.getElementById('loading').style.display = 'none';
+    document.getElementById('tbl').style.display = '';
+    render();
+  } catch(e) {
+    document.getElementById('loading').textContent = `Error: ${e.message}`;
+  }
+}
+init();
+</script>
+</body>
+</html>
