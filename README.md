@@ -39,7 +39,7 @@ Hosted on **Cloudflare Pages** (free tier). No backend — daily build script on
 1. **Create GitHub repo** named `is1-coverage-dashboard` (private).
 2. From this folder:
    ```powershell
-   cd "C:\SET API Manual\SET_Coverage_Cloud"
+   cd "C:\!VSCODE_Folder\SET_Coverage_Cloud"
    git init
    git add .
    git commit -m "initial"
@@ -60,7 +60,7 @@ Hosted on **Cloudflare Pages** (free tier). No backend — daily build script on
 Register once (run as Tasinpong):
 
 ```powershell
-$action  = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-NoProfile -ExecutionPolicy Bypass -File `"C:\SET API Manual\SET_Coverage_Cloud\scripts\deploy.ps1`""
+$action  = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-NoProfile -ExecutionPolicy Bypass -File `"C:\!VSCODE_Folder\SET_Coverage_Cloud\scripts\deploy.ps1`""
 $trigger = New-ScheduledTaskTrigger -Daily -At 06:30
 $settings = New-ScheduledTaskSettingsSet -StartWhenAvailable -RestartCount 2 -RestartInterval (New-TimeSpan -Minutes 5)
 Register-ScheduledTask -TaskName "IS1-Coverage-Daily-Build" -Action $action -Trigger $trigger -Settings $settings -Description "Daily 06:30 build + push for IS1 coverage dashboard"

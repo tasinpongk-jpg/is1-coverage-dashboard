@@ -23,7 +23,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 DATA_DIR = ROOT / "data"
-PROXY_DIR = Path(r"C:\SET API Manual\SETSMART_Proxy")
+# setsmart_proxy.py is vendored alongside this script (same dir).
+PROXY_DIR = Path(__file__).resolve().parent
 
 sys.path.insert(0, str(PROXY_DIR))
 
@@ -103,6 +104,8 @@ async def run_routes(out_dir: Path) -> dict:
             results[fname] = {"ok": False, "error": str(e), "elapsed_s": round(time.time() - t0, 1)}
             print(f"    FAILED: {e}", flush=True)
 
+    return results
+
 
 def _rebuild_sector_agg(heatmap_payload: dict) -> list[dict]:
     """Recompute sectorAgg with median-per-sector across whatever buckets are
@@ -132,8 +135,6 @@ def _rebuild_sector_agg(heatmap_payload: dict) -> list[dict]:
             agg["values"][m["key"]] = median([r.get("values", {}).get(m["key"]) for r in cohort])
         out.append(agg)
     return out
-
-    return results
 
 
 def main():
