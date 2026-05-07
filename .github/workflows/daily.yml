@@ -1,0 +1,201 @@
+name: Daily Surveillance + Build
+
+# Consolidated daily workflow:
+#   Job 1 (surveillance): poll new SET disclosures, classify with rules-first
+#                         + Haiku fallback, send 3-email alerts, upload DuckDB
+#                         to R2 for the build job.
+#   Job 2 (build):        download DuckDB from R2, run 4 SETSMART routes,
+#                         commit data/*.json. Cloudflare auto-deploys.
+#
+# Schedule: 02:50 UTC = 09:50 Bangkok (UTC+7), Mon-Fri
+# Manual:   workflow_dispatch from the Actions tab anytime.
+#
+# Secrets required (already configured): SETSMART_API_KEY, ANTHROPIC_API_KEY,
+#   EMAIL_USERNAME, EMAIL_APP_PASSWORD, EMAIL_FROM, EMAIL_TO,
+#   R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_ENDPOINT, R2_BUCKET.
+
+on:
+  schedule:
+    - cron: '50 2 * * 1-5'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: daily
+  cancel-in-progress: false
+
+jobs:
+  # ------------------------------------------------------------------
+  # JOB 1 — Surveillance (poll SET, classify, email alerts, upload DB)
+  # ------------------------------------------------------------------
+  surveillance:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      SURVEILLANCE_DB_PATH: /tmp/surveillance.duckdb
+      AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+      AWS_DEFAULT_REGION: auto
+      AWS_EC2_METADATA_DISABLED: 'true'
+      R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+      R2_BUCKET: ${{ secrets.R2_BUCKET }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+
+      - name: Install surveillance dependencies
+        run: pip install -r surveillance/requirements.txt
+
+      - name: Download surveillance.duckdb from R2
+        # If the object doesn't exist (very first run), surveillance starts fresh.
+        run: |
+          set +e
+          aws s3 cp \
+            "s3://${R2_BUCKET}/surveillance.duckdb" \
+            "${SURVEILLANCE_DB_PATH}" \
+            --endpoint-url "${R2_ENDPOINT}"
+          rc=$?
+          set -e
+          if [ $rc -ne 0 ]; then
+            echo "::warning::No existing surveillance.duckdb in R2 — starting fresh."
+          else
+            ls -la "${SURVEILLANCE_DB_PATH}"
+          fi
+
+      - name: Health check (schema-drift smoke test)
+        working-directory: surveillance
+        env:
+          EMAIL_USERNAME: ${{ secrets.EMAIL_USERNAME }}
+          EMAIL_APP_PASSWORD: ${{ secrets.EMAIL_APP_PASSWORD }}
+          EMAIL_FROM: ${{ secrets.EMAIL_FROM }}
+          EMAIL_TO: ${{ secrets.EMAIL_TO }}
+        run: python health_check.py
+
+      - name: Poll SET disclosures (lookback 2 days)
+        working-directory: surveillance
+        run: python poll.py --lookback-days 2
+
+      - name: Classify (rules first, Haiku fallback)
+        working-directory: surveillance
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: python classify_batch.py
+
+      - name: Send critical alerts (one batched email per RM)
+        working-directory: surveillance
+        env:
+          EMAIL_USERNAME: ${{ secrets.EMAIL_USERNAME }}
+          EMAIL_APP_PASSWORD: ${{ secrets.EMAIL_APP_PASSWORD }}
+          EMAIL_FROM: ${{ secrets.EMAIL_FROM }}
+          EMAIL_TO: ${{ secrets.EMAIL_TO }}
+        run: python route_alerts.py --mode critical
+        continue-on-error: true
+
+      - name: Send material digest
+        working-directory: surveillance
+        env:
+          EMAIL_USERNAME: ${{ secrets.EMAIL_USERNAME }}
+          EMAIL_APP_PASSWORD: ${{ secrets.EMAIL_APP_PASSWORD }}
+          EMAIL_FROM: ${{ secrets.EMAIL_FROM }}
+          EMAIL_TO: ${{ secrets.EMAIL_TO }}
+        run: python route_alerts.py --mode digest
+        continue-on-error: true
+
+      - name: Send coverage feed (24h all-news email)
+        working-directory: surveillance
+        env:
+          EMAIL_USERNAME: ${{ secrets.EMAIL_USERNAME }}
+          EMAIL_APP_PASSWORD: ${{ secrets.EMAIL_APP_PASSWORD }}
+          EMAIL_FROM: ${{ secrets.EMAIL_FROM }}
+          EMAIL_TO: ${{ secrets.EMAIL_TO }}
+        run: python route_alerts.py --mode coverage-feed --hours-back 24
+        continue-on-error: true
+
+      - name: Upload surveillance.duckdb back to R2
+        run: |
+          aws s3 cp \
+            "${SURVEILLANCE_DB_PATH}" \
+            "s3://${R2_BUCKET}/surveillance.duckdb" \
+            --endpoint-url "${R2_ENDPOINT}"
+
+      - name: Upload DB as Actions artifact (audit trail, 30d retention)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: surveillance-duckdb-${{ github.run_id }}
+          path: ${{ env.SURVEILLANCE_DB_PATH }}
+          if-no-files-found: warn
+          retention-days: 30
+
+  # ------------------------------------------------------------------
+  # JOB 2 — Build (download DB from R2, generate 4 JSONs, commit)
+  # ------------------------------------------------------------------
+  build:
+    needs: surveillance
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      SURVEILLANCE_DB_PATH: /tmp/surveillance.duckdb
+      AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+      AWS_DEFAULT_REGION: auto
+      AWS_EC2_METADATA_DISABLED: 'true'
+      R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+      R2_BUCKET: ${{ secrets.R2_BUCKET }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+
+      - name: Install build dependencies
+        run: pip install -r requirements.txt
+
+      - name: Download surveillance.duckdb from R2 (just-uploaded by surveillance job)
+        run: |
+          aws s3 cp \
+            "s3://${R2_BUCKET}/surveillance.duckdb" \
+            "${SURVEILLANCE_DB_PATH}" \
+            --endpoint-url "${R2_ENDPOINT}"
+          ls -la "${SURVEILLANCE_DB_PATH}"
+
+      - name: Run daily build (~15 min for 231 tickers)
+        env:
+          SETSMART_API_KEY: ${{ secrets.SETSMART_API_KEY }}
+          PYTHONIOENCODING: utf-8
+        run: python scripts/build_daily.py
+
+      - name: Commit and push if data changed
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/*.json
+          if git diff --staged --quiet; then
+            echo "No data changes — skipping commit."
+            exit 0
+          fi
+          git commit -m "daily snapshot $(date -u +%Y-%m-%d)"
+          git push origin main
+
+      - name: Upload build status as artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-status-${{ github.run_id }}
+          path: data/build-status.json
+          if-no-files-found: ignore
+          retention-days: 14
