@@ -451,19 +451,32 @@ _SEVERITY_TO_ARTIFACT = {
 
 def _open_surveillance_db():
     """Open the surveillance DuckDB read-only. Returns a connection or None
-    if the bridge is disabled / DB missing / duckdb not installed."""
+    if the bridge is disabled / DB missing / duckdb not installed.
+
+    Logs to stderr when a configured DB path fails to open — silent failure
+    here previously cost an hour debugging a duckdb version mismatch.
+    """
     if not SURVEILLANCE_DB_PATH:
         return None
     if not os.path.exists(SURVEILLANCE_DB_PATH):
+        import sys as _sys
+        print(f"[disclosure-pulse] DB path set but not found: {SURVEILLANCE_DB_PATH}",
+              file=_sys.stderr, flush=True)
         return None
     try:
         import duckdb  # type: ignore
     except ImportError:
+        import sys as _sys
+        print("[disclosure-pulse] duckdb not installed — cannot use bridge",
+              file=_sys.stderr, flush=True)
         return None
     try:
         # read_only=True is critical: prevents locking out the writer cron
         return duckdb.connect(SURVEILLANCE_DB_PATH, read_only=True)
-    except Exception:
+    except Exception as e:
+        import sys as _sys
+        print(f"[disclosure-pulse] duckdb.connect failed for {SURVEILLANCE_DB_PATH}: "
+              f"{type(e).__name__}: {e}", file=_sys.stderr, flush=True)
         return None
 
 

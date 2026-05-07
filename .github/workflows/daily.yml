@@ -158,6 +158,9 @@ jobs:
       - name: Run daily build (~15 min for 231 tickers)
         env:
           SETSMART_API_KEY: ${{ secrets.SETSMART_API_KEY }}
+          # Custom SQL that JOINs news_items with classifications so disclosure-pulse
+          # gets proper severity labels; without it the default query returns NULL severities.
+          SURVEILLANCE_SQL: ${{ secrets.SURVEILLANCE_SQL }}
           PYTHONIOENCODING: utf-8
         run: python scripts/build_daily.py
 
