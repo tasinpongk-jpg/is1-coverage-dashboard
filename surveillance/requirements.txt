@@ -1,6 +1,8 @@
 # Surveillance job deps — kept minimal.
 # Email uses stdlib smtplib; SET API uses httpx; classifier uses anthropic + pydantic.
+# r2_sync.py uses boto3 (S3-compatible client for Cloudflare R2).
 anthropic==0.40.0
+boto3==1.35.46
 duckdb==1.1.3
 httpx==0.27.2
 pydantic==2.9.2

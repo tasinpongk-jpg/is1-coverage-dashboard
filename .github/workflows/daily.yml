@@ -55,20 +55,8 @@ jobs:
         run: pip install -r surveillance/requirements.txt
 
       - name: Download surveillance.duckdb from R2
-        # If the object doesn't exist (very first run), surveillance starts fresh.
-        run: |
-          set +e
-          aws s3 cp \
-            "s3://${R2_BUCKET}/surveillance.duckdb" \
-            "${SURVEILLANCE_DB_PATH}" \
-            --endpoint-url "${R2_ENDPOINT}"
-          rc=$?
-          set -e
-          if [ $rc -ne 0 ]; then
-            echo "::warning::No existing surveillance.duckdb in R2 — starting fresh."
-          else
-            ls -la "${SURVEILLANCE_DB_PATH}"
-          fi
+        # boto3-based; tolerates missing object (first run) by exiting 0 with a warning.
+        run: python surveillance/r2_sync.py download
 
       - name: Health check (schema-drift smoke test)
         working-directory: surveillance
@@ -120,11 +108,7 @@ jobs:
         continue-on-error: true
 
       - name: Upload surveillance.duckdb back to R2
-        run: |
-          aws s3 cp \
-            "${SURVEILLANCE_DB_PATH}" \
-            "s3://${R2_BUCKET}/surveillance.duckdb" \
-            --endpoint-url "${R2_ENDPOINT}"
+        run: python surveillance/r2_sync.py upload
 
       - name: Upload DB as Actions artifact (audit trail, 30d retention)
         if: always()
@@ -165,13 +149,11 @@ jobs:
       - name: Install build dependencies
         run: pip install -r requirements.txt
 
+      - name: Install boto3 for R2 sync
+        run: pip install boto3==1.35.46
+
       - name: Download surveillance.duckdb from R2 (just-uploaded by surveillance job)
-        run: |
-          aws s3 cp \
-            "s3://${R2_BUCKET}/surveillance.duckdb" \
-            "${SURVEILLANCE_DB_PATH}" \
-            --endpoint-url "${R2_ENDPOINT}"
-          ls -la "${SURVEILLANCE_DB_PATH}"
+        run: python surveillance/r2_sync.py download
 
       - name: Run daily build (~15 min for 231 tickers)
         env:
