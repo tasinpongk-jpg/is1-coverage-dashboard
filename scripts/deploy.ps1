@@ -26,12 +26,12 @@ $env:SETSMART_API_KEY     = "4a053d9a-9f46-40f0-a6a0-2f04103d20dc"
 $env:SURVEILLANCE_DB_PATH = "C:\!VSCODE_Folder\SET_SETSMART_API\surveillance\surveillance.duckdb"
 $env:SURVEILLANCE_SQL     = [Environment]::GetEnvironmentVariable("SURVEILLANCE_SQL", "User")
 $env:PYTHONIOENCODING     = "utf-8"
-Log ("SURVEILLANCE_SQL: " + $(if ($env:SURVEILLANCE_SQL) { "set ($($env:SURVEILLANCE_SQL.Length) chars)" } else { "NOT SET — disclosure-pulse will fall back to live mode" }))
+Log ("SURVEILLANCE_SQL: " + $(if ($env:SURVEILLANCE_SQL) { "set ($($env:SURVEILLANCE_SQL.Length) chars)" } else { "NOT SET -- disclosure-pulse will fall back to live mode" }))
 
 Set-Location $root
 Log "cwd: $root"
 
-# Build phase — capture all output to log
+# Build phase -- capture all output to log
 Log "Phase 1/3: Building daily snapshots (~15 min for 231-ticker SETSMART scan)..."
 & $venv "$root\scripts\build_daily.py" 2>&1 | Tee-Object -FilePath $logFile -Append | Out-Null
 $buildExit = $LASTEXITCODE
@@ -64,5 +64,5 @@ $pushExit = $LASTEXITCODE
 Log "git push exited with code $pushExit"
 if ($pushExit -ne 0) { Log "FATAL: push failed (auth? network?)"; exit 1 }
 
-Log "===== deploy.ps1 SUCCESS — Cloudflare will redeploy in ~30s ====="
+Log "===== deploy.ps1 SUCCESS -- Cloudflare will redeploy in ~30s ====="
 exit 0
