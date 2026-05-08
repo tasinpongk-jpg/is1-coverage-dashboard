@@ -418,15 +418,17 @@
       "sector": "CONS",
       "type": "Price gap",
       "atype": "gap",
-      "severity": "medium",
+      "severity": "low",
       "value": 3.448,
       "label": "+3.45% open gap",
       "evidence": {
         "open": 1.5,
         "prevClose": 1.45
       },
-      "filingsLinked": 0,
-      "filingsTitles": []
+      "filingsLinked": 1,
+      "filingsTitles": [
+        "Notification of the Minutes of 2026 Annual General Meeting on Company's website."
+      ]
     },
     {
       "tk": "RT",
@@ -458,8 +460,9 @@
         "vol20dAvg": 87478.65,
         "vol20dStd": 79939.24953317676
       },
-      "filingsLinked": 2,
+      "filingsLinked": 3,
       "filingsTitles": [
+        "Disclosure of the Minutes of Meeting of the 2026 Annual General Meeting of Shareholders (Thai and English Versions) to t",
         "Contract for DEMCO Public Company Limited being awarded by Amata B.Grimm Power Limited  to the Construction of 115 kV Tr",
         "Form to Report on Names of Members and Scope of Work of the Audit Committee"
       ]
@@ -509,17 +512,15 @@
         "vol20dAvg": 435734.6,
         "vol20dStd": 278052.96014543704
       },
-      "filingsLinked": 1,
-      "filingsTitles": [
-        "Publication of the Minutes of the Annual General Meeting of Shareholders for the year 2026 on the company's website"
-      ]
+      "filingsLinked": 0,
+      "filingsTitles": []
     },
     {
       "tk": "SEAFCO",
       "sector": "CONS",
       "type": "Intraday move",
       "atype": "intraday",
-      "severity": "low",
+      "severity": "medium",
       "value": 4.0,
       "label": "+4.00% intraday",
       "evidence": {
@@ -528,10 +529,8 @@
         "high": 2.64,
         "low": 2.5
       },
-      "filingsLinked": 1,
-      "filingsTitles": [
-        "Publication of the Minutes of the Annual General Meeting of Shareholders for the year 2026 on the company's website"
-      ]
+      "filingsLinked": 0,
+      "filingsTitles": []
     },
     {
       "tk": "PLE",
@@ -602,15 +601,17 @@
       "sector": "PFREIT",
       "type": "Price gap",
       "atype": "gap",
-      "severity": "medium",
+      "severity": "low",
       "value": 3.774,
       "label": "-3.77% open gap",
       "evidence": {
         "open": 3.06,
         "prevClose": 3.18
       },
-      "filingsLinked": 0,
-      "filingsTitles": []
+      "filingsLinked": 1,
+      "filingsTitles": [
+        "Notification of summary of significant questions and answers from inquiries of Unitholders from disclosure of informatio"
+      ]
     },
     {
       "tk": "ITD",
@@ -931,8 +932,10 @@
         "open": 1.25,
         "prevClose": 1.14
       },
-      "filingsLinked": 0,
-      "filingsTitles": []
+      "filingsLinked": 1,
+      "filingsTitles": [
+        "Notification of summary of significant questions and answers from inquiries of Unitholders from disclosure of informatio"
+      ]
     },
     {
       "tk": "CCP",
@@ -1029,11 +1032,11 @@
         "vol20dAvg": 167662.1,
         "vol20dStd": 205074.4313165101
       },
-      "filingsLinked": 4,
+      "filingsLinked": 6,
       "filingsTitles": [
-        "Connected Transaction regarding the Investment through the Acquisition of operational support software",
-        "Management Discussion and Analysis Quarter 1 Ending 31 Mar 2026",
-        "Financial Performance Quarter 1 (F45) (Reviewed)"
+        "Connected Transaction regarding the Investment through the Acquisition of operational support software (Revised)",
+        "Notification of the Dissolution of Subsidiary",
+        "Connected Transaction regarding the Investment through the Acquisition of operational support software"
       ]
     },
     {
@@ -1050,11 +1053,11 @@
         "high": 0.78,
         "low": 0.74
       },
-      "filingsLinked": 4,
+      "filingsLinked": 6,
       "filingsTitles": [
-        "Connected Transaction regarding the Investment through the Acquisition of operational support software",
-        "Management Discussion and Analysis Quarter 1 Ending 31 Mar 2026",
-        "Financial Performance Quarter 1 (F45) (Reviewed)"
+        "Connected Transaction regarding the Investment through the Acquisition of operational support software (Revised)",
+        "Notification of the Dissolution of Subsidiary",
+        "Connected Transaction regarding the Investment through the Acquisition of operational support software"
       ]
     },
     {
@@ -1661,6 +1664,29 @@
       ]
     },
     {
+      "tk": "SEAFCO",
+      "sector": "CONS",
+      "alertCount": 2,
+      "highestSeverity": "high",
+      "filingsLinked": 0,
+      "alertTypes": [
+        {
+          "atype": "vol_spike",
+          "type": "Volume spike",
+          "severity": "high"
+        },
+        {
+          "atype": "intraday",
+          "type": "Intraday move",
+          "severity": "medium"
+        }
+      ],
+      "summary": [
+        "Volume spike: 6.0σ vs 20D avg",
+        "Intraday move: +4.00% intraday"
+      ]
+    },
+    {
       "tk": "TEKA",
       "sector": "CONS",
       "alertCount": 2,
@@ -1704,29 +1730,6 @@
       "summary": [
         "Price gap: +20.00% open gap",
         "Intraday move: -16.67% intraday"
-      ]
-    },
-    {
-      "tk": "SEAFCO",
-      "sector": "CONS",
-      "alertCount": 2,
-      "highestSeverity": "high",
-      "filingsLinked": 1,
-      "alertTypes": [
-        {
-          "atype": "vol_spike",
-          "type": "Volume spike",
-          "severity": "high"
-        },
-        {
-          "atype": "intraday",
-          "type": "Intraday move",
-          "severity": "low"
-        }
-      ],
-      "summary": [
-        "Volume spike: 6.0σ vs 20D avg",
-        "Intraday move: +4.00% intraday"
       ]
     },
     {
@@ -2070,23 +2073,6 @@
       ]
     },
     {
-      "tk": "TU-PF",
-      "sector": "PFREIT",
-      "alertCount": 1,
-      "highestSeverity": "high",
-      "filingsLinked": 0,
-      "alertTypes": [
-        {
-          "atype": "gap",
-          "type": "Price gap",
-          "severity": "high"
-        }
-      ],
-      "summary": [
-        "Price gap: +9.65% open gap"
-      ]
-    },
-    {
       "tk": "WIIK",
       "sector": "CONMAT",
       "alertCount": 1,
@@ -2121,20 +2107,20 @@
       ]
     },
     {
-      "tk": "DEMCO",
-      "sector": "CONS",
+      "tk": "TU-PF",
+      "sector": "PFREIT",
       "alertCount": 1,
       "highestSeverity": "high",
-      "filingsLinked": 2,
+      "filingsLinked": 1,
       "alertTypes": [
         {
-          "atype": "vol_spike",
-          "type": "Volume spike",
+          "atype": "gap",
+          "type": "Price gap",
           "severity": "high"
         }
       ],
       "summary": [
-        "Volume spike: 28.5σ vs 20D avg"
+        "Price gap: +9.65% open gap"
       ]
     },
     {
@@ -2152,6 +2138,23 @@
       ],
       "summary": [
         "Intraday move: -14.29% intraday"
+      ]
+    },
+    {
+      "tk": "DEMCO",
+      "sector": "CONS",
+      "alertCount": 1,
+      "highestSeverity": "high",
+      "filingsLinked": 3,
+      "alertTypes": [
+        {
+          "atype": "vol_spike",
+          "type": "Volume spike",
+          "severity": "high"
+        }
+      ],
+      "summary": [
+        "Volume spike: 28.5σ vs 20D avg"
       ]
     },
     {
@@ -2186,23 +2189,6 @@
       ],
       "summary": [
         "Volume spike: 2.1σ vs 20D avg"
-      ]
-    },
-    {
-      "tk": "APCS",
-      "sector": "CONS",
-      "alertCount": 1,
-      "highestSeverity": "medium",
-      "filingsLinked": 0,
-      "alertTypes": [
-        {
-          "atype": "gap",
-          "type": "Price gap",
-          "severity": "medium"
-        }
-      ],
-      "summary": [
-        "Price gap: +3.45% open gap"
       ]
     },
     {
@@ -2271,23 +2257,6 @@
       ],
       "summary": [
         "Volume spike: 2.8σ vs 20D avg"
-      ]
-    },
-    {
-      "tk": "QHOP",
-      "sector": "PFREIT",
-      "alertCount": 1,
-      "highestSeverity": "medium",
-      "filingsLinked": 0,
-      "alertTypes": [
-        {
-          "atype": "gap",
-          "type": "Price gap",
-          "severity": "medium"
-        }
-      ],
-      "summary": [
-        "Price gap: -3.77% open gap"
       ]
     },
     {
@@ -2448,7 +2417,7 @@
       "sector": "CONMAT",
       "alertCount": 2,
       "highestSeverity": "low",
-      "filingsLinked": 4,
+      "filingsLinked": 6,
       "alertTypes": [
         {
           "atype": "vol_spike",
@@ -2467,6 +2436,23 @@
       ]
     },
     {
+      "tk": "APCS",
+      "sector": "CONS",
+      "alertCount": 1,
+      "highestSeverity": "low",
+      "filingsLinked": 1,
+      "alertTypes": [
+        {
+          "atype": "gap",
+          "type": "Price gap",
+          "severity": "low"
+        }
+      ],
+      "summary": [
+        "Price gap: +3.45% open gap"
+      ]
+    },
+    {
       "tk": "CCP",
       "sector": "CONMAT",
       "alertCount": 1,
@@ -2481,6 +2467,23 @@
       ],
       "summary": [
         "Price gap: -3.70% open gap"
+      ]
+    },
+    {
+      "tk": "QHOP",
+      "sector": "PFREIT",
+      "alertCount": 1,
+      "highestSeverity": "low",
+      "filingsLinked": 1,
+      "alertTypes": [
+        {
+          "atype": "gap",
+          "type": "Price gap",
+          "severity": "low"
+        }
+      ],
+      "summary": [
+        "Price gap: -3.77% open gap"
       ]
     },
     {
@@ -2535,6 +2538,6 @@
       ]
     }
   ],
-  "_built_at": "2026-05-08T03:53:20.472620+00:00",
+  "_built_at": "2026-05-08T08:35:12.933533+00:00",
   "_coverage_size": 231
 }
