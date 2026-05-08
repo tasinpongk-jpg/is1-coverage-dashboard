@@ -2,22 +2,37 @@ name: Daily Surveillance + Build
 
 # Consolidated daily workflow:
 #   Job 1 (surveillance): poll new SET disclosures, classify with rules-first
-#                         + Haiku fallback, send 3-email alerts, upload DuckDB
+#                         + Haiku fallback, send email alerts, upload DuckDB
 #                         to R2 for the build job.
 #   Job 2 (build):        download DuckDB from R2, run 4 SETSMART routes,
 #                         commit data/*.json. Cloudflare auto-deploys.
 #
-# Schedule: 02:50 UTC = 09:50 Bangkok (UTC+7), Mon-Fri
-# Manual:   workflow_dispatch from the Actions tab anytime.
+# Schedules (Mon-Fri):
+#   02:50 UTC = 09:50 Bangkok — MORNING run (full pipeline + all 3 email modes)
+#   10:30 UTC = 17:30 Bangkok — AFTERNOON catch-up (critical email only)
 #
-# Secrets required (already configured): SETSMART_API_KEY, ANTHROPIC_API_KEY,
+# The afternoon run skips digest + coverage-feed to avoid duplicate noise.
+# Critical alerts are idempotent (only fire on UNSENT items) so re-running is safe.
+# Manual workflow_dispatch always runs in full mode.
+#
+# Secrets required: SETSMART_API_KEY, ANTHROPIC_API_KEY, SURVEILLANCE_SQL,
 #   EMAIL_USERNAME, EMAIL_APP_PASSWORD, EMAIL_FROM, EMAIL_TO,
 #   R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_ENDPOINT, R2_BUCKET.
 
 on:
   schedule:
-    - cron: '50 2 * * 1-5'
+    - cron: '50 2 * * 1-5'    # 09:50 BKK morning — full
+    - cron: '30 10 * * 1-5'   # 17:30 BKK afternoon — critical only
   workflow_dispatch:
+    inputs:
+      mode:
+        description: 'Email mode'
+        required: true
+        default: 'full'
+        type: choice
+        options:
+          - full              # all 3 modes — same as morning schedule
+          - critical-only     # critical email only — same as afternoon schedule
 
 permissions:
   contents: write
@@ -87,7 +102,11 @@ jobs:
         run: python route_alerts.py --mode critical
         continue-on-error: true
 
+      # Material digest + coverage-feed only run on the morning schedule (or manual dispatch).
+      # Afternoon run skips them to avoid duplicate-content emails — coverage-feed is
+      # non-idempotent and digest's value is the once-a-day RM-grouped summary.
       - name: Send material digest
+        if: github.event.schedule != '30 10 * * 1-5' && inputs.mode != 'critical-only'
         working-directory: surveillance
         env:
           EMAIL_USERNAME: ${{ secrets.EMAIL_USERNAME }}
@@ -98,6 +117,7 @@ jobs:
         continue-on-error: true
 
       - name: Send coverage feed (24h all-news email)
+        if: github.event.schedule != '30 10 * * 1-5' && inputs.mode != 'critical-only'
         working-directory: surveillance
         env:
           EMAIL_USERNAME: ${{ secrets.EMAIL_USERNAME }}
