@@ -2,7 +2,9 @@
 
 Static site with 4 daily-refreshed dashboards covering 231 SET-listed tickers across 6 RMs (Champ, Orn, Kae, Tony, Pim, Gift).
 
-Hosted on **Cloudflare Pages** (free tier). No backend — daily build script on an SET laptop pushes JSON snapshots to this Git repo, Cloudflare auto-deploys on push.
+Hosted on **Cloudflare Pages** (free tier). No backend — GitHub Actions runs the
+daily build in the cloud, commits JSON snapshots to this repo, Cloudflare
+auto-deploys on push. See `MIGRATION.md` for the full system reference.
 
 ## Live URL
 
@@ -11,12 +13,20 @@ Hosted on **Cloudflare Pages** (free tier). No backend — daily build script on
 ## Architecture
 
 ```
-[Tasinpong's laptop, 06:30 daily]              [Cloud, free, always-up]
-  Windows scheduled task                          Cloudflare Pages
-  ─ runs scripts\deploy.ps1                       ─ auto-deploys on push
-  ─ build_daily.py: 231-ticker SETSMART scan      ─ serves 4 HTML + JSON
-  ─ writes data/*.json                            ─ free CDN, never sleeps
-  ─ git commit + push                  ───►       ─ public URL
+        GitHub Actions (.github/workflows/daily.yml)
+        ┌──────────────────────────────────────────────┐
+  cron  │  Job 1: surveillance                         │
+  ─────►│   poll SET → rules+Haiku → email → R2 upload │
+        │  Job 2: build (needs Job 1)                  │
+        │   build_daily.py (231-ticker SETSMART scan)  │
+        │   git commit + push data/*.json   ───►       │
+        └──────────────────────────────────────────────┘
+                                                │
+                                                ▼
+                                        Cloudflare Pages
+                                        ─ auto-deploys on push
+                                        ─ serves 4 HTML + JSON
+                                        ─ free CDN, never sleeps
 ```
 
 ## Files
@@ -32,7 +42,9 @@ Hosted on **Cloudflare Pages** (free tier). No backend — daily build script on
 | `data/*.json` | Daily snapshot files |
 | `data/build-status.json` | Last build timestamp + per-route status |
 | `scripts/build_daily.py` | Calls SETSMART proxy in-process for all 231 tickers |
-| `scripts/deploy.ps1` | Build + git commit + push (run by scheduled task) |
+| `scripts/setsmart_proxy.py` | Vendored FastAPI proxy used by `build_daily.py` |
+| `surveillance/` | Polling, classification, R2 sync, email routing |
+| `.github/workflows/daily.yml` | Consolidated CI: surveillance job + build job |
 
 ## First-time deployment (one-time setup)
 
@@ -55,18 +67,27 @@ Hosted on **Cloudflare Pages** (free tier). No backend — daily build script on
    - Click Save & Deploy. Done in ~30 seconds.
 4. Cloudflare will give you a URL like `is1-coverage-dashboard.pages.dev`. Share with the team.
 
-## Daily refresh — Windows scheduled task
+## Daily refresh — GitHub Actions cron
 
-Register once (run as Tasinpong):
+Scheduled in `.github/workflows/daily.yml` (Mon–Fri):
 
-```powershell
-$action  = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-NoProfile -ExecutionPolicy Bypass -File `"C:\!VSCODE_Folder\SET_Coverage_Cloud\scripts\deploy.ps1`""
-$trigger = New-ScheduledTaskTrigger -Daily -At 06:30
-$settings = New-ScheduledTaskSettingsSet -StartWhenAvailable -RestartCount 2 -RestartInterval (New-TimeSpan -Minutes 5)
-Register-ScheduledTask -TaskName "IS1-Coverage-Daily-Build" -Action $action -Trigger $trigger -Settings $settings -Description "Daily 06:30 build + push for IS1 coverage dashboard"
-```
+| Cron (UTC) | Bangkok local | Mode | Emails sent |
+|---|---|---|---|
+| `50 2 * * 1-5` | 09:50 | full | critical + digest + coverage-feed |
+| `30 10 * * 1-5` | 17:30 | critical-only | critical (digest/coverage-feed skipped) |
 
-The task takes ~20 min (sequential SETSMART scan of 231 tickers). Don't run before market open — it pulls EOD prices from the previous day, so any time after 23:00 the night before works equally well. 06:30 leaves the laptop time to wake from sleep + run.
+Manual runs: `gh workflow run daily.yml -f mode=full` (or `critical-only`).
+
+The build job takes ~15–20 min (sequential SETSMART scan of 231 tickers).
+Critical alerts are idempotent (only fire on UNSENT items); the afternoon run
+re-checks for newly-arrived critical filings without duplicating digest noise.
+
+### Local-only piece (laptop)
+
+`IS1-Vault-Refresh` Windows task runs daily at 10:30 BKK (after the morning
+CI completes). It downloads `surveillance.duckdb` from R2 and patches the
+local Obsidian vault. The old `IS1-Coverage-Daily-Build` and
+`SET-Surveillance-Daily` tasks are disabled — see `MIGRATION.md`.
 
 ## Updating the ticker list
 
@@ -79,10 +100,12 @@ When the team's portfolio changes, regenerate `data/tickers.json`:
 
 (The `build_tickers.py` script is the same logic that generated the initial `tickers.json` — extract company/sector/RM columns from the Excel, write JSON.)
 
-Then rerun `scripts\deploy.ps1` to push.
+Commit and push the regenerated `data/tickers.json`. The next scheduled CI run
+(or a manual `gh workflow run daily.yml`) will pick it up.
 
 ## Troubleshooting
 
-- **Dashboards show "updated 36h+ ago"** — daily build failed. Check `data/build-status.json` and the laptop's scheduled task history.
-- **Empty `disclosure-pulse`** — surveillance DuckDB only covers Champ's 50 tickers. Other RMs' filings won't appear until surveillance pipeline is expanded.
+- **Dashboards show "updated 36h+ ago"** — daily build failed. Check `data/build-status.json` and the GitHub Actions run log at https://github.com/tasinpongk-jpg/is1-coverage-dashboard/actions.
+- **Empty `disclosure-pulse`** — usually a DuckDB version mismatch between CI and the local writer (both pinned at 1.5.2). See `MIGRATION.md` "known gotchas". Surveillance now covers all 231 tickers across 6 RMs.
 - **Cloudflare Pages build fails** — there's no build step (static site). Make sure Build Command is empty.
+- **Surveillance/build job failed in CI** — see Actions tab. Common causes: SETSMART API quota, Anthropic API key rotation, R2 credential drift. Secrets live in repo settings.
