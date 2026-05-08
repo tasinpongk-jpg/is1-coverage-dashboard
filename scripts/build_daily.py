@@ -4,8 +4,9 @@ Daily build script: produces 4 JSON snapshots for the team coverage dashboards.
 Reads tickers.json (the team portfolio) and calls the existing setsmart_proxy
 route handlers in-process with COVERAGE expanded to all 231 tickers.
 
-Run by Windows scheduled task at 7am every weekday. Output JSONs are written
-under ../data/ and committed to the Cloudflare Pages Git repo.
+Run by GitHub Actions (`.github/workflows/daily.yml`, Job 2 "build") on the
+weekday cron schedule. Output JSONs are written under ../data/ and committed
+to the Cloudflare Pages Git repo by the workflow.
 
 Usage:
   python build_daily.py

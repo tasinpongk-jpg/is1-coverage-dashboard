@@ -2,7 +2,9 @@
 
 Static site with 4 daily-refreshed dashboards covering 231 SET-listed tickers across 6 RMs (Champ, Orn, Kae, Tony, Pim, Gift).
 
-Hosted on **Cloudflare Pages** (free tier). No backend — daily build script on an SET laptop pushes JSON snapshots to this Git repo, Cloudflare auto-deploys on push.
+Hosted on **Cloudflare Pages** (free tier). Daily build runs entirely on **GitHub Actions** — no laptop required. Cloudflare auto-deploys when the bot pushes new JSON snapshots.
+
+> See [`MIGRATION.md`](./MIGRATION.md) for the full system reference (paths, env vars, secrets, new-laptop bootstrap).
 
 ## Live URL
 
@@ -11,13 +13,32 @@ Hosted on **Cloudflare Pages** (free tier). No backend — daily build script on
 ## Architecture
 
 ```
-[Tasinpong's laptop, 06:30 daily]              [Cloud, free, always-up]
-  Windows scheduled task                          Cloudflare Pages
-  ─ runs scripts\deploy.ps1                       ─ auto-deploys on push
-  ─ build_daily.py: 231-ticker SETSMART scan      ─ serves 4 HTML + JSON
-  ─ writes data/*.json                            ─ free CDN, never sleeps
-  ─ git commit + push                  ───►       ─ public URL
+                       GitHub Actions (.github/workflows/daily.yml)
+                       ┌────────────────────────────────────────┐
+   02:50 UTC ──full──► │ Job 1 surveillance:                    │
+   (09:50 BKK)         │   poll SET → classify (rules + Haiku)  │
+                       │   → email (critical / digest / feed)   │
+   10:30 UTC ──crit──► │   → upload duckdb to R2                │
+   (17:30 BKK)         │ Job 2 build:                           │
+                       │   download duckdb → run 4 routes       │
+                       │   → commit data/*.json                 │
+                       └────────────────────────────────────────┘
+                                       │
+                                       ▼
+                       Cloudflare Pages auto-deploys on push
+                       (free CDN, never sleeps)
 ```
+
+## Daily schedule (Mon–Fri)
+
+| Cron (UTC) | Bangkok | Mode | Emails |
+|---|---|---|---|
+| `50 2 * * 1-5` | 09:50 | full | critical + material digest + 24h coverage feed |
+| `30 10 * * 1-5` | 17:30 | critical-only | critical alerts only (idempotent — silent if nothing new) |
+
+The afternoon run skips digest + coverage-feed to avoid duplicate noise. Critical alerts are idempotent: they only fire on **unsent** items, so re-running is safe and a quiet 17:30 inbox usually means "no new critical disclosures since morning" — not a failure.
+
+Manual trigger: GitHub → Actions → "Daily Surveillance + Build" → Run workflow (mode = `full` or `critical-only`).
 
 ## Files
 
@@ -28,61 +49,45 @@ Hosted on **Cloudflare Pages** (free tier). No backend — daily build script on
 | `disclosure-pulse.html` | Recent SET filings, severity-tagged |
 | `sector-heatmap.html` | PE/PBV/DY/EV-EBITDA/NPM heatmap |
 | `unusual-trading.html` | Volume / price / 52W alerts |
-| `data/tickers.json` | Master ticker → RM + sector map (rebuild via Excel) |
-| `data/*.json` | Daily snapshot files |
+| `data/tickers.json` | Master ticker → RM + sector map |
+| `data/*.json` | Daily snapshot files (committed by the bot) |
 | `data/build-status.json` | Last build timestamp + per-route status |
-| `scripts/build_daily.py` | Calls SETSMART proxy in-process for all 231 tickers |
-| `scripts/deploy.ps1` | Build + git commit + push (run by scheduled task) |
+| `scripts/build_daily.py` | 4-route SETSMART scan for all 231 tickers |
+| `scripts/setsmart_proxy.py` | Vendored route handlers called in-process |
+| `scripts/build_tickers.py` | Regenerate `tickers.json` from the IS1 Port Summary Excel |
+| `surveillance/` | Polling + classification + email pipeline (run by Job 1) |
+| `.github/workflows/daily.yml` | The CI workflow that runs everything |
 
 ## First-time deployment (one-time setup)
 
-1. **Create GitHub repo** named `is1-coverage-dashboard` (private).
-2. From this folder:
-   ```powershell
-   cd "C:\!VSCODE_Folder\SET_Coverage_Cloud"
-   git init
-   git add .
-   git commit -m "initial"
-   git branch -M main
-   git remote add origin https://github.com/<your-username>/is1-coverage-dashboard.git
-   git push -u origin main
-   ```
-3. **Cloudflare Pages**:
+1. **Create GitHub repo** named `is1-coverage-dashboard`.
+2. Push this folder to `main`.
+3. **Add GitHub Actions secrets** (Settings → Secrets and variables → Actions):
+   `SETSMART_API_KEY`, `ANTHROPIC_API_KEY`, `SURVEILLANCE_SQL`,
+   `EMAIL_USERNAME`, `EMAIL_APP_PASSWORD`, `EMAIL_FROM`, `EMAIL_TO`,
+   `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_ENDPOINT`, `R2_BUCKET`.
+4. **Cloudflare Pages**:
    - Sign in to [dash.cloudflare.com](https://dash.cloudflare.com) (free tier).
    - Workers & Pages → Create → Pages → Connect to Git → pick the repo.
    - Build settings: **leave all blank** (this is a pure static site, no build command).
    - Output directory: `/` (root).
-   - Click Save & Deploy. Done in ~30 seconds.
-4. Cloudflare will give you a URL like `is1-coverage-dashboard.pages.dev`. Share with the team.
-
-## Daily refresh — Windows scheduled task
-
-Register once (run as Tasinpong):
-
-```powershell
-$action  = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-NoProfile -ExecutionPolicy Bypass -File `"C:\!VSCODE_Folder\SET_Coverage_Cloud\scripts\deploy.ps1`""
-$trigger = New-ScheduledTaskTrigger -Daily -At 06:30
-$settings = New-ScheduledTaskSettingsSet -StartWhenAvailable -RestartCount 2 -RestartInterval (New-TimeSpan -Minutes 5)
-Register-ScheduledTask -TaskName "IS1-Coverage-Daily-Build" -Action $action -Trigger $trigger -Settings $settings -Description "Daily 06:30 build + push for IS1 coverage dashboard"
-```
-
-The task takes ~20 min (sequential SETSMART scan of 231 tickers). Don't run before market open — it pulls EOD prices from the previous day, so any time after 23:00 the night before works equally well. 06:30 leaves the laptop time to wake from sleep + run.
+   - Save & Deploy.
+5. The first scheduled run (or a manual `workflow_dispatch`) populates `data/*.json`.
 
 ## Updating the ticker list
 
-When the team's portfolio changes, regenerate `data/tickers.json`:
+When the team's portfolio changes, regenerate `data/tickers.json` from the latest IS1 Port Summary Excel:
 
-```powershell
-& "C:\!VSCODE_Folder\SET_SETSMART_API\set_mcp\.venv\Scripts\python.exe" `
-  scripts\build_tickers.py "<path to new IS1 Port Summary.xlsx>"
+```
+python scripts/build_tickers.py "<path to IS1 Port Summary.xlsx>"
 ```
 
-(The `build_tickers.py` script is the same logic that generated the initial `tickers.json` — extract company/sector/RM columns from the Excel, write JSON.)
-
-Then rerun `scripts\deploy.ps1` to push.
+Commit and push — the next scheduled run picks it up automatically.
 
 ## Troubleshooting
 
-- **Dashboards show "updated 36h+ ago"** — daily build failed. Check `data/build-status.json` and the laptop's scheduled task history.
-- **Empty `disclosure-pulse`** — surveillance DuckDB only covers Champ's 50 tickers. Other RMs' filings won't appear until surveillance pipeline is expanded.
-- **Cloudflare Pages build fails** — there's no build step (static site). Make sure Build Command is empty.
+- **Dashboards show "updated 36h+ ago"** — check the Actions tab on GitHub: https://github.com/tasinpongk-jpg/is1-coverage-dashboard/actions
+- **No 17:30 BKK email** — expected when no new critical-severity disclosure occurred since the morning sweep (alerts are idempotent). Confirm by checking the workflow run logs for `[critical] nothing to send`.
+- **Empty `disclosure-pulse`** — surveillance DuckDB only covers Champ's 50 tickers. Other RMs' filings won't appear until the surveillance pipeline is expanded.
+- **Cloudflare Pages build fails** — there is no build step (static site). Make sure Build Command is empty.
+- **DuckDB version mismatch** — `surveillance/requirements.txt` pins duckdb 1.5.2; if you upgrade locally, bump CI too or `disclosure-pulse` silently falls back to empty.
