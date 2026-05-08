@@ -194,7 +194,14 @@ jobs:
             exit 0
           fi
           git commit -m "daily snapshot $(date -u +%Y-%m-%d)"
-          git push origin main
+          # Race-safe push: rebase on top of any commits that landed during the
+          # ~20-min build. The bot only touches data/*.json so conflicts are
+          # nearly impossible. Retry once with rebase if first push is rejected.
+          if ! git push origin main; then
+            echo "Push rejected — remote moved ahead. Rebasing and retrying..."
+            git pull --rebase origin main
+            git push origin main
+          fi
 
       - name: Upload build status as artifact
         if: always()
