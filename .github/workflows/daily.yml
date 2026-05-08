@@ -175,6 +175,30 @@ jobs:
       - name: Download surveillance.duckdb from R2 (just-uploaded by surveillance job)
         run: python surveillance/r2_sync.py download
 
+      # Fail fast on SETSMART auth/quota issues BEFORE the 15-min 231-ticker scan.
+      # Uses the proxy's existing /probe/auth handler, which calls
+      # eod-price-by-symbol for PTT (1 day) and surfaces 401/403/429 in seconds.
+      - name: SETSMART API probe
+        env:
+          SETSMART_API_KEY: ${{ secrets.SETSMART_API_KEY }}
+          PYTHONIOENCODING: utf-8
+        run: |
+          python - <<'PY'
+          import asyncio, sys
+          sys.path.insert(0, "scripts")
+          import setsmart_proxy as p
+          result = asyncio.run(p.probe_auth())
+          # probe_auth returns either a plain dict (success) or JSONResponse (failure).
+          if hasattr(result, "body"):
+              import json
+              payload = json.loads(result.body.decode("utf-8"))
+          else:
+              payload = result
+          print(f"SETSMART probe: {payload}")
+          if not payload.get("ok"):
+              sys.exit(f"SETSMART auth failed: {payload}")
+          PY
+
       - name: Run daily build (~15 min for 231 tickers)
         env:
           SETSMART_API_KEY: ${{ secrets.SETSMART_API_KEY }}
@@ -196,12 +220,19 @@ jobs:
           git commit -m "daily snapshot $(date -u +%Y-%m-%d)"
           # Race-safe push: rebase on top of any commits that landed during the
           # ~20-min build. The bot only touches data/*.json so conflicts are
-          # nearly impossible. Retry once with rebase if first push is rejected.
-          if ! git push origin main; then
-            echo "Push rejected — remote moved ahead. Rebasing and retrying..."
-            git pull --rebase origin main
-            git push origin main
-          fi
+          # nearly impossible. Retry up to 3 times with exponential backoff to
+          # absorb transient network errors and concurrent bot pushes.
+          for attempt in 1 2 3; do
+            if git push origin main; then
+              echo "Push succeeded on attempt $attempt."
+              exit 0
+            fi
+            echo "Push attempt $attempt rejected — rebasing and retrying..."
+            git pull --rebase origin main || true
+            sleep $((attempt * 5))
+          done
+          echo "Push failed after 3 attempts."
+          exit 1
 
       - name: Upload build status as artifact
         if: always()
