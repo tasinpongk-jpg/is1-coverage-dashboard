@@ -71,16 +71,16 @@ auto-deploys on push. See `MIGRATION.md` for the full system reference.
 
 Scheduled in `.github/workflows/daily.yml` (Mon–Fri):
 
-| Cron (UTC) | Bangkok local | Mode | Emails sent |
-|---|---|---|---|
-| `50 2 * * 1-5` | 09:50 | full | critical + digest + coverage-feed |
-| `30 10 * * 1-5` | 17:30 | critical-only | critical (digest/coverage-feed skipped) |
+| Cron (UTC) | Bangkok local | Emails sent |
+|---|---|---|
+| `50 2 * * 1-5` | 09:50 | critical + material digest |
 
-Manual runs: `gh workflow run daily.yml -f mode=full` (or `critical-only`).
+Single morning run, full pipeline. Manual re-runs (no inputs):
+`gh workflow run daily.yml`.
 
 The build job takes ~15–20 min (sequential SETSMART scan of 231 tickers).
-Critical alerts are idempotent (only fire on UNSENT items); the afternoon run
-re-checks for newly-arrived critical filings without duplicating digest noise.
+Critical alerts are idempotent — re-running is safe and only fires on
+disclosures not yet emailed.
 
 ### Local-only piece (laptop)
 
