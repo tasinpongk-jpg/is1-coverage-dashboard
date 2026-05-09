@@ -80,12 +80,16 @@ GitHub Actions free tier, Cloudflare Pages free tier, Cloudflare R2 free tier.
 
 ## Cloud schedule (GitHub Actions)
 
-| Cron | Bangkok local | Mode | Emails sent |
-|---|---|---|---|
-| `50 2 * * 1-5` | 09:50 weekdays | full | critical + digest + coverage-feed |
-| `30 10 * * 1-5` | 17:30 weekdays | critical-only | critical (digest/coverage-feed skipped) |
+| Cron | Bangkok local | Emails sent |
+|---|---|---|
+| `50 2 * * 1-5` | 09:50 weekdays | critical + material digest |
 
-Manual dispatch (`workflow_dispatch`) accepts a `mode` input — `full` or `critical-only`.
+Single morning run, full pipeline. Manual dispatch via `workflow_dispatch`
+(no inputs) re-runs the same flow — critical alerts are idempotent against
+`alerts_sent` so re-running is safe.
+
+The 17:30 BKK afternoon cron was retired together with the coverage-feed
+mode and Telegram channel during the 2026-05-09 simplification.
 
 ## Active scheduled tasks (Windows)
 
