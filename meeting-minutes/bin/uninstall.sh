@@ -37,10 +37,10 @@ unlink_if_link "$HOME/.claude/skills/meeting-minutes/SKILL.md"
 
 if [ "$PURGE" = "1" ]; then
   step "PURGE: deleting ~/Meetings entirely"
-  read -p "Are you sure? Type DELETE to confirm: " confirm
+  read -r -p "Are you sure? Type DELETE to confirm: " confirm
   if [ "$confirm" = "DELETE" ]; then
     rm -rf "$HOME/Meetings"
-    note "~/Meetings removed"
+    note "$HOME/Meetings removed"
   else
     note "aborted purge"
   fi

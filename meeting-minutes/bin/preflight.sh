@@ -109,9 +109,9 @@ fi
 
 # Folders
 if [ -d ~/Meetings ]; then
-  ok "~/Meetings exists"
+  ok "$HOME/Meetings exists"
 else
-  warn "~/Meetings missing (installer will create)"
+  warn "$HOME/Meetings missing (installer will create)"
 fi
 
 echo
