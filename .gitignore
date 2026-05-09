@@ -6,5 +6,10 @@ __pycache__/
 *.pyc
 .venv/
 
+# Wrangler local state — never commit
+.wrangler/
+.dev.vars
+.dev.vars.*
+
 # Build artifacts that ARE committed (do not ignore):
 # data/*.json — these are the daily snapshots that drive the dashboards
