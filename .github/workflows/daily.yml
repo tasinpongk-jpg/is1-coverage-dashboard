@@ -200,6 +200,10 @@ jobs:
         run: python scripts/build_daily.py
 
       - name: Commit and push if data changed
+        # Only push from main. Manual dispatches from feature branches still
+        # exercise the full build (and surface failures in build-status.json
+        # artifact) without trying to fast-forward main from an unrelated ref.
+        if: github.ref == 'refs/heads/main'
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
