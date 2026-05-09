@@ -4,8 +4,17 @@ Daily build script: produces 4 JSON snapshots for the team coverage dashboards.
 Reads tickers.json (the team portfolio) and calls the existing setsmart_proxy
 route handlers in-process with COVERAGE expanded to all 231 tickers.
 
-Run by Windows scheduled task at 7am every weekday. Output JSONs are written
-under ../data/ and committed to the Cloudflare Pages Git repo.
+Run by `.github/workflows/daily.yml` Job 2 (build) on weekdays at 09:50 BKK.
+Output JSONs are written under ../data/ and committed back to the repo so
+Cloudflare Pages auto-deploys on push.
+
+Exit code:
+  0 on full success OR partial success (>= 1 route ok). The workflow's
+    "Surface route failures" step re-reads build-status.json after commit
+    and turns the run red on any failure — so partial successes still
+    publish fresh JSONs while the operator gets a clear signal.
+  1 only when EVERY route failed (catastrophic — block the commit so we
+    don't ship a no-op).
 
 Usage:
   python build_daily.py
@@ -158,9 +167,12 @@ def main():
     print(f"=== Done in {summary['elapsed_s']}s ===")
     print(json.dumps(results, indent=2))
 
-    # Exit non-zero if any route failed (so scheduled task surfaces failure)
-    if any(not r["ok"] for r in results.values()):
-        sys.exit(1)
+    # Exit non-zero ONLY when every route failed. Partial failures still let
+    # the workflow's commit step run so the 3-of-4 fresh JSONs ship; the
+    # workflow's "Surface route failures" step turns the run red afterwards.
+    failed = [n for n, r in results.items() if not r["ok"]]
+    if failed and len(failed) == len(results):
+        sys.exit(f"All {len(results)} routes failed: {failed}")
 
 
 if __name__ == "__main__":

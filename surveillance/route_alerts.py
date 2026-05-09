@@ -14,9 +14,12 @@ from __future__ import annotations
 import argparse
 import time
 
+from collections import defaultdict
+
 from alerts import (
     EMAIL_CHANNEL,
     EmailClient,
+    _rm_lookup,
     fetch_unsent,
     format_critical_digest,
     format_digest,
@@ -34,25 +37,46 @@ def _send_critical(client, max_send: int, dry_run: bool, since: str | None) -> i
     rows_to_send = rows[:max_send]
     print(f"[critical] {len(rows)} unsent (will batch up to {max_send} this run).")
 
-    chunks = format_critical_digest(rows_to_send)
+    # Pre-group by RM so mark_sent can fire per-RM after each RM's chunks
+    # land. Previously a mid-loop SMTP failure left earlier RMs un-marked,
+    # so the next run would re-send already-delivered Critical alerts.
+    rm_map = _rm_lookup()
+    by_rm: dict[str, list[dict]] = defaultdict(list)
+    for r in rows_to_send:
+        by_rm[rm_map.get(r["symbol"], "Unassigned")].append(r)
 
     if dry_run:
-        for i, ch in enumerate(chunks, 1):
-            print("---DRY---"); print(ch); print()
-        print(f"[critical] dry_run=True (would have sent {len(chunks)} batched message(s))")
+        total_chunks = 0
+        for rm in sorted(by_rm):
+            chunks = format_critical_digest(by_rm[rm])
+            for ch in chunks:
+                print("---DRY---"); print(ch); print()
+            total_chunks += len(chunks)
+        print(f"[critical] dry_run=True (would have sent {total_chunks} message(s) across {len(by_rm)} RM(s))")
         return 0
 
-    last_msg_id = "0"
-    for i, ch in enumerate(chunks, 1):
-        body = ch + "\n\n---\n📌 Champ — Issuer Department 1, SET"
-        text = f"[SETSURV] 🔴 Critical disclosures batch ({i}/{len(chunks)})\n\n" + body
-        last_msg_id = client.send(text, priority="high")
-        time.sleep(1.1)  # polite throttle
+    sent_total = 0
+    for rm in sorted(by_rm):
+        rm_rows = by_rm[rm]
+        chunks = format_critical_digest(rm_rows)
+        try:
+            last_msg_id = "0"
+            for i, ch in enumerate(chunks, 1):
+                body = ch + "\n\n---\n📌 Champ — Issuer Department 1, SET"
+                text = f"[SETSURV] 🔴 Critical — {rm} ({i}/{len(chunks)})\n\n" + body
+                last_msg_id = client.send(text, priority="high")
+                time.sleep(1.1)  # polite throttle
+        except Exception as e:  # noqa: BLE001
+            print(f"[critical] FAIL for RM {rm}: {type(e).__name__}: {e} — leaving rows unsent for next run.")
+            continue
+        # All chunks for this RM landed — record delivery so we don't re-spam.
+        mark_sent([r["news_id"] for r in rm_rows], tier="critical",
+                  channel=EMAIL_CHANNEL, message_id=last_msg_id)
+        sent_total += len(rm_rows)
+        print(f"[critical] sent {len(chunks)} chunk(s) to RM {rm} covering {len(rm_rows)} item(s)")
 
-    mark_sent([r["news_id"] for r in rows_to_send], tier="critical",
-              channel=EMAIL_CHANNEL, message_id=last_msg_id)
-    print(f"[critical] sent {len(chunks)} batched message(s) covering {len(rows_to_send)} item(s)")
-    return len(rows_to_send)
+    print(f"[critical] total sent: {sent_total} item(s) across {len(by_rm)} RM(s)")
+    return sent_total
 
 
 def _send_digest(client, dry_run: bool, since: str | None) -> int:
@@ -61,20 +85,14 @@ def _send_digest(client, dry_run: bool, since: str | None) -> int:
         print("[digest] nothing to send.")
         return 0
 
-    from collections import defaultdict
-
-    from alerts import _rm_lookup
     rm_map = _rm_lookup()
 
     by_rm: dict[str, list[dict]] = defaultdict(list)
     for r in rows:
         by_rm[rm_map.get(r["symbol"], "Unassigned")].append(r)
 
-    total_chunks = 0
-    all_news_ids = [r["news_id"] for r in rows]
-    last_msg_id = "0"
-
     if dry_run:
+        total_chunks = 0
         for rm in sorted(by_rm):
             chunks = format_digest(by_rm[rm])
             for i, ch in enumerate(chunks, 1):
@@ -85,18 +103,29 @@ def _send_digest(client, dry_run: bool, since: str | None) -> int:
         return 0
 
     print(f"[digest] {len(rows)} unsent material item(s) grouped by {len(by_rm)} RM(s).")
+    sent_total = 0
     for rm in sorted(by_rm):
-        chunks = format_digest(by_rm[rm])
-        for i, ch in enumerate(chunks, 1):
-            body = ch + "\n\n---\n📌 Champ — Issuer Department 1, SET"
-            text = f"[SETSURV] 🟡 Material — {rm} ({i}/{len(chunks)})\n\n" + body
-            last_msg_id = client.send(text)
-            time.sleep(1.1)
-        total_chunks += len(chunks)
+        rm_rows = by_rm[rm]
+        chunks = format_digest(rm_rows)
+        try:
+            last_msg_id = "0"
+            for i, ch in enumerate(chunks, 1):
+                body = ch + "\n\n---\n📌 Champ — Issuer Department 1, SET"
+                text = f"[SETSURV] 🟡 Material — {rm} ({i}/{len(chunks)})\n\n" + body
+                last_msg_id = client.send(text)
+                time.sleep(1.1)
+        except Exception as e:  # noqa: BLE001
+            print(f"[digest] FAIL for RM {rm}: {type(e).__name__}: {e} — leaving rows unsent for next run.")
+            continue
+        # Mark per-RM after success so a mid-batch SMTP failure on a later RM
+        # doesn't trick later runs into re-sending already-delivered RMs.
+        mark_sent([r["news_id"] for r in rm_rows], tier="digest",
+                  channel=EMAIL_CHANNEL, message_id=last_msg_id)
+        sent_total += len(rm_rows)
+        print(f"[digest] sent {len(chunks)} chunk(s) to RM {rm} covering {len(rm_rows)} item(s)")
 
-    mark_sent(all_news_ids, tier="digest", channel=EMAIL_CHANNEL, message_id=last_msg_id)
-    print(f"[digest] sent {total_chunks} chunk(s) across {len(by_rm)} RM(s) covering {len(rows)} item(s)")
-    return len(rows)
+    print(f"[digest] total sent: {sent_total} item(s) across {len(by_rm)} RM(s)")
+    return sent_total
 
 
 def main() -> None:
