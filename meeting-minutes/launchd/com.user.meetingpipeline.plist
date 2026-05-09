@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+ "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Template plist. The installer substitutes USERNAME and HF_TOKEN_VALUE before
+  copying to ~/Library/LaunchAgents/com.user.meetingpipeline.plist.
+  Manual install: replace placeholders, copy to that path, then run:
+    launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.user.meetingpipeline.plist
+    launchctl enable    gui/$(id -u)/com.user.meetingpipeline
+-->
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.user.meetingpipeline</string>
+
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/bash</string>
+    <string>-lc</string>
+    <string>/Users/USERNAME/Meetings/bin/process_inbox.sh</string>
+  </array>
+
+  <key>WatchPaths</key>
+  <array>
+    <string>/Users/USERNAME/Meetings/inbox</string>
+  </array>
+
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PATH</key>
+    <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
+    <key>HF_TOKEN</key>
+    <string>HF_TOKEN_VALUE</string>
+    <key>OLLAMA_HOST</key>
+    <string>http://127.0.0.1:11434</string>
+  </dict>
+
+  <key>StandardOutPath</key>
+  <string>/Users/USERNAME/Meetings/logs/pipeline.out.log</string>
+  <key>StandardErrorPath</key>
+  <string>/Users/USERNAME/Meetings/logs/pipeline.err.log</string>
+
+  <key>ThrottleInterval</key>
+  <integer>10</integer>
+  <key>RunAtLoad</key>
+  <false/>
+</dict>
+</plist>
