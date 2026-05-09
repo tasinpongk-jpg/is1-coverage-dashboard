@@ -243,3 +243,81 @@ jobs:
           path: data/build-status.json
           if-no-files-found: ignore
           retention-days: 14
+
+      # Turn the run red if any of the 4 routes failed, even though
+      # build_daily.py exits 0 on partial success so the commit step still
+      # publishes the fresh JSONs. Catastrophic failures (build_daily exit 1
+      # → no build-status.json refresh) are caught by the missing-file branch.
+      - name: Surface route failures
+        if: always()
+        run: |
+          if [ ! -f data/build-status.json ]; then
+            echo "::error::data/build-status.json missing — build_daily.py crashed before writing status."
+            exit 1
+          fi
+          python - <<'PY'
+          import json, sys
+          status = json.loads(open("data/build-status.json", encoding="utf-8").read())
+          routes = status.get("routes", {})
+          failed = [n for n, r in routes.items() if not r.get("ok")]
+          if failed:
+              print(f"::error::Routes failed: {failed}")
+              sys.exit(1)
+          print(f"All {len(routes)} routes ok.")
+          PY
+
+  # ------------------------------------------------------------------
+  # JOB 3 — Notify-on-failure (scheduled runs only)
+  # ------------------------------------------------------------------
+  # Email the operator whenever the scheduled morning run fails — covers
+  # cases the in-pipeline alerts can't catch (R2 outage, runner crash,
+  # GitHub Actions degradation, missing secrets, surveillance schema drift,
+  # the route-failure surface step turning the run red, etc.).
+  #
+  # Gated on `github.event_name == 'schedule'` so manual workflow_dispatch
+  # runs (used for testing on feature branches) don't spam the inbox.
+  notify-failure:
+    needs: [surveillance, build]
+    if: failure() && github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Email operator
+        env:
+          EMAIL_USERNAME: ${{ secrets.EMAIL_USERNAME }}
+          EMAIL_APP_PASSWORD: ${{ secrets.EMAIL_APP_PASSWORD }}
+          EMAIL_FROM: ${{ secrets.EMAIL_FROM }}
+          EMAIL_TO: ${{ secrets.EMAIL_TO }}
+          SURVEILLANCE_RESULT: ${{ needs.surveillance.result }}
+          BUILD_RESULT: ${{ needs.build.result }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          python - <<'PY'
+          import os, smtplib, ssl
+          from email.message import EmailMessage
+          surv = os.environ["SURVEILLANCE_RESULT"]
+          build = os.environ["BUILD_RESULT"]
+          msg = EmailMessage()
+          msg["Subject"] = f"[SETSURV] daily.yml FAILED — surveillance={surv}, build={build}"
+          msg["From"] = os.environ["EMAIL_FROM"]
+          msg["To"] = os.environ["EMAIL_TO"]
+          msg["X-Priority"] = "1"
+          msg["X-MSMail-Priority"] = "High"
+          msg["Importance"] = "High"
+          msg.set_content(
+              "The scheduled daily run failed.\n\n"
+              f"  surveillance: {surv}\n"
+              f"  build:        {build}\n\n"
+              f"Run: {os.environ['RUN_URL']}\n\n"
+              "Open the Actions tab to drill into which step failed.\n"
+              "If build was 'success' but surveillance was 'failure', emails may\n"
+              "still have been delivered — see the route_alerts logs.\n"
+          )
+          pwd = os.environ["EMAIL_APP_PASSWORD"].replace(" ", "")
+          with smtplib.SMTP("smtp.gmail.com", 587, timeout=20) as s:
+              s.ehlo()
+              s.starttls(context=ssl.create_default_context())
+              s.login(os.environ["EMAIL_USERNAME"], pwd)
+              s.send_message(msg)
+          print("Failure notification sent.")
+          PY
