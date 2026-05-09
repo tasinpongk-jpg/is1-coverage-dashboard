@@ -17,8 +17,8 @@ coverage (FOOD, PROP, PFREIT, AGRI, CONS, CONMAT sectors):
 2. **Classifies** each disclosure as critical / material / routine using a
    rules-first pre-classifier (~65% deterministic, no API cost) with Claude
    Haiku 4.5 fallback for ambiguous headlines
-3. **Emails** three streams: critical alerts, material digest grouped by RM,
-   24h coverage feed
+3. **Emails** two streams: critical alerts grouped by RM, material digest
+   grouped by RM (routine items stored only, not emailed)
 4. **Builds** four JSON snapshots that drive the public dashboard (morning
    brief, sector heatmap, unusual trading, disclosure pulse)
 5. **Updates** the local Obsidian vault notes with classified disclosures
