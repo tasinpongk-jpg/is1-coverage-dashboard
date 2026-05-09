@@ -26,6 +26,12 @@ on:
 permissions:
   contents: write
 
+# Run JavaScript actions on Node.js 24 ahead of GitHub's June 2, 2026 default
+# switch. Silences the Node 20 deprecation warning without bumping action
+# major versions. Remove once Node 24 becomes the runner default.
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
+
 concurrency:
   group: daily
   cancel-in-progress: false
