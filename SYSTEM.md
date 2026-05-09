@@ -1,4 +1,4 @@
-# IS1 Coverage Dashboard — System Reference & Migration Guide
+# IS1 Coverage Dashboard — System Reference
 
 This doc captures the full system state after the 2026-05-07 migration from
 local Windows scheduled tasks to GitHub Actions cloud-autonomous flow.
@@ -93,15 +93,14 @@ mode and Telegram channel during the 2026-05-09 simplification.
 
 ## Active scheduled tasks (Windows)
 
-| Task | Trigger | Purpose | Disabled? |
-|---|---|---|---|
-| `IS1-Coverage-Daily-Build` | Daily 06:30 | OLD daily build | ✅ Disabled |
-| `SET-Surveillance-Daily` | Daily 09:45 | OLD surveillance pipeline | ✅ Disabled |
-| `IS1-Vault-Refresh` | Daily 10:30 | NEW: pulls R2 DB → patches Obsidian (after morning CI) | Active |
-| `SETSMART-Proxy` | Login | localhost:8765 FastAPI for interactive Claude MCP | Active |
+Only the still-active local tasks are listed here. The pre-cloud Windows
+tasks (`IS1-Coverage-Daily-Build`, `SET-Surveillance-Daily`) and the
+`run_*.bat` files in `surveillance/` are gone — replaced by GitHub Actions.
 
-`run_*.bat` files in `surveillance/` (run_cycle, run_digest, run_coverage_feed,
-run_weekly_digest, run_daily) are all obsolete — never executed by any task.
+| Task | Trigger | Purpose |
+|---|---|---|
+| `IS1-Vault-Refresh` | Daily 10:30 BKK | Pulls R2 DB → patches Obsidian (runs after morning CI). Skips silently if laptop is off. |
+| `SETSMART-Proxy` | Login | `localhost:8765` FastAPI for interactive Claude MCP queries. |
 
 ---
 

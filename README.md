@@ -4,7 +4,7 @@ Static site with 4 daily-refreshed dashboards covering 231 SET-listed tickers ac
 
 Hosted on **Cloudflare Pages** (free tier). No backend — GitHub Actions runs the
 daily build in the cloud, commits JSON snapshots to this repo, Cloudflare
-auto-deploys on push. See `MIGRATION.md` for the full system reference.
+auto-deploys on push. See `SYSTEM.md` for the full system reference.
 
 ## Live URL
 
@@ -87,7 +87,7 @@ disclosures not yet emailed.
 `IS1-Vault-Refresh` Windows task runs daily at 10:30 BKK (after the morning
 CI completes). It downloads `surveillance.duckdb` from R2 and patches the
 local Obsidian vault. The old `IS1-Coverage-Daily-Build` and
-`SET-Surveillance-Daily` tasks are disabled — see `MIGRATION.md`.
+`SET-Surveillance-Daily` tasks are gone — see `SYSTEM.md`.
 
 ## Updating the ticker list
 
@@ -106,6 +106,6 @@ Commit and push the regenerated `data/tickers.json`. The next scheduled CI run
 ## Troubleshooting
 
 - **Dashboards show "updated 36h+ ago"** — daily build failed. Check `data/build-status.json` and the GitHub Actions run log at https://github.com/tasinpongk-jpg/is1-coverage-dashboard/actions.
-- **Empty `disclosure-pulse`** — usually a DuckDB version mismatch between CI and the local writer (both pinned at 1.5.2). See `MIGRATION.md` "known gotchas". Surveillance now covers all 231 tickers across 6 RMs.
+- **Empty `disclosure-pulse`** — usually a DuckDB version mismatch between CI and the local writer (both pinned at 1.5.2). See `SYSTEM.md` "known gotchas". Surveillance now covers all 231 tickers across 6 RMs.
 - **Cloudflare Pages build fails** — there's no build step (static site). Make sure Build Command is empty.
 - **Surveillance/build job failed in CI** — see Actions tab. Common causes: SETSMART API quota, Anthropic API key rotation, R2 credential drift. Secrets live in repo settings.
