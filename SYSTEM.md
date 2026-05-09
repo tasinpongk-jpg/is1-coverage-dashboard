@@ -1,4 +1,4 @@
-# IS1 Coverage Dashboard — System Reference & Migration Guide
+# IS1 Coverage Dashboard — System Reference
 
 This doc captures the full system state after the 2026-05-07 migration from
 local Windows scheduled tasks to GitHub Actions cloud-autonomous flow.
@@ -17,8 +17,8 @@ coverage (FOOD, PROP, PFREIT, AGRI, CONS, CONMAT sectors):
 2. **Classifies** each disclosure as critical / material / routine using a
    rules-first pre-classifier (~65% deterministic, no API cost) with Claude
    Haiku 4.5 fallback for ambiguous headlines
-3. **Emails** three streams: critical alerts, material digest grouped by RM,
-   24h coverage feed
+3. **Emails** two streams: critical alerts grouped by RM, material digest
+   grouped by RM (routine items stored only, not emailed)
 4. **Builds** four JSON snapshots that drive the public dashboard (morning
    brief, sector heatmap, unusual trading, disclosure pulse)
 5. **Updates** the local Obsidian vault notes with classified disclosures
@@ -80,24 +80,27 @@ GitHub Actions free tier, Cloudflare Pages free tier, Cloudflare R2 free tier.
 
 ## Cloud schedule (GitHub Actions)
 
-| Cron | Bangkok local | Mode | Emails sent |
-|---|---|---|---|
-| `50 2 * * 1-5` | 09:50 weekdays | full | critical + digest + coverage-feed |
-| `30 10 * * 1-5` | 17:30 weekdays | critical-only | critical (digest/coverage-feed skipped) |
+| Cron | Bangkok local | Emails sent |
+|---|---|---|
+| `50 2 * * 1-5` | 09:50 weekdays | critical + material digest |
 
-Manual dispatch (`workflow_dispatch`) accepts a `mode` input — `full` or `critical-only`.
+Single morning run, full pipeline. Manual dispatch via `workflow_dispatch`
+(no inputs) re-runs the same flow — critical alerts are idempotent against
+`alerts_sent` so re-running is safe.
+
+The 17:30 BKK afternoon cron was retired together with the coverage-feed
+mode and Telegram channel during the 2026-05-09 simplification.
 
 ## Active scheduled tasks (Windows)
 
-| Task | Trigger | Purpose | Disabled? |
-|---|---|---|---|
-| `IS1-Coverage-Daily-Build` | Daily 06:30 | OLD daily build | ✅ Disabled |
-| `SET-Surveillance-Daily` | Daily 09:45 | OLD surveillance pipeline | ✅ Disabled |
-| `IS1-Vault-Refresh` | Daily 10:30 | NEW: pulls R2 DB → patches Obsidian (after morning CI) | Active |
-| `SETSMART-Proxy` | Login | localhost:8765 FastAPI for interactive Claude MCP | Active |
+Only the still-active local tasks are listed here. The pre-cloud Windows
+tasks (`IS1-Coverage-Daily-Build`, `SET-Surveillance-Daily`) and the
+`run_*.bat` files in `surveillance/` are gone — replaced by GitHub Actions.
 
-`run_*.bat` files in `surveillance/` (run_cycle, run_digest, run_coverage_feed,
-run_weekly_digest, run_daily) are all obsolete — never executed by any task.
+| Task | Trigger | Purpose |
+|---|---|---|
+| `IS1-Vault-Refresh` | Daily 10:30 BKK | Pulls R2 DB → patches Obsidian (runs after morning CI). Skips silently if laptop is off. |
+| `SETSMART-Proxy` | Login | `localhost:8765` FastAPI for interactive Claude MCP queries. |
 
 ---
 

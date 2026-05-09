@@ -1,0 +1,12 @@
+{
+  // Cloudflare Workers static-asset deploy for the IS1 coverage dashboard.
+  // No server-side code — just serves the *.html files + data/*.json.
+  // Keeps the existing *.workers.dev URL stable across deploys.
+  "$schema": "https://json.schemastore.org/wrangler.json",
+  "name": "is1-coverage-dashboard",
+  "compatibility_date": "2026-05-08",
+  "assets": {
+    "directory": "./",
+    "not_found_handling": "404-page"
+  }
+}
