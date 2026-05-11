@@ -297,8 +297,12 @@ async def fetch_ticker_snapshot(client: httpx.AsyncClient, tk: str) -> Dict[str,
 
     # Newest last
     rows.sort(key=lambda r: r.get("date") or "")
-    closes = [r.get("close") for r in rows if r.get("close") is not None]
-    vols   = [r.get("totalVolume") for r in rows if r.get("totalVolume") is not None]
+    # Drop both null AND 0 closes/volumes. SETSMART returns close=0 with
+    # volume=0 on days the ticker didn't trade (illiquid stocks, pre-EOD
+    # builds on a trading day, suspensions). Treating those as real prices
+    # produces spurious -100% returns and zeroed sparklines.
+    closes = [r.get("close") for r in rows if r.get("close")]
+    vols   = [r.get("totalVolume") for r in rows if r.get("totalVolume")]
     today_iso = datetime.now(timezone.utc).astimezone().date().isoformat()
     year_str  = today_iso[:4]
     month_str = today_iso[:7]
@@ -314,8 +318,10 @@ async def fetch_ticker_snapshot(client: httpx.AsyncClient, tk: str) -> Dict[str,
     prev_ytd = None
     for r in reversed(rows):
         d = r.get("date") or ""
-        if prev_mtd is None and d[:7] < month_str: prev_mtd = r.get("close")
-        if prev_ytd is None and d[:4] < year_str: prev_ytd = r.get("close")
+        c = r.get("close")
+        if not c: continue  # skip no-trade days
+        if prev_mtd is None and d[:7] < month_str: prev_mtd = c
+        if prev_ytd is None and d[:4] < year_str: prev_ytd = c
         if prev_mtd is not None and prev_ytd is not None: break
 
     avg_vol_20d = (sum(vols[-20:]) / 20) if len(vols) >= 20 else None
