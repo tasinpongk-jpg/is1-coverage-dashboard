@@ -1,32 +1,38 @@
-# Cloudflare Worker that dispatches the daily IS1 build via GitHub's
+# Cloudflare Worker that dispatches IS1 build workflows via GitHub's
 # workflow_dispatch API. Deployed separately from the dashboard Pages site;
 # this Worker has no public assets and is invoked only by Cron Triggers.
 #
 # Deploy:    wrangler deploy
 # Secrets:   wrangler secret put GITHUB_TOKEN
-#            wrangler secret put HEALTHCHECK_URL   # optional
-#            wrangler secret put MANUAL_TRIGGER_TOKEN  # optional, for /fetch test
+#            wrangler secret put HEALTHCHECK_URL_DAILY      # optional
+#            wrangler secret put HEALTHCHECK_URL_DISCLOSURE # optional
+#            wrangler secret put MANUAL_TRIGGER_TOKEN       # optional, for /fetch test
 
 name = "is1-coverage-dispatcher"
 main = "worker.js"
 compatibility_date = "2026-05-01"
 
-# Daily 02:50 UTC = 09:50 BKK, Mon-Fri.
-# Matches the legacy GHA cron so the dashboard refresh time is unchanged for
-# the team. Cloudflare cron fires within ~seconds of the scheduled minute
-# (vs GHA cron which has been observed dropping/delaying multi-hour on this
-# repo).
+# Cloudflare Cron Triggers — replaces GitHub Actions `schedule:` events which
+# are documented as best-effort and have been observed dropping/delaying
+# runs multi-hour on this repo. Cloudflare fires within seconds of the
+# scheduled minute.
+#
+# worker.js routes each cron to the corresponding workflow via CRON_TO_WORKFLOW.
+# Times below are UTC; conversions to Bangkok (UTC+7) shown for review.
 [triggers]
-crons = ["50 2 * * 1-5"]
+crons = [
+  "50 2 * * 1-5",     # 02:50 UTC / 09:50 BKK → daily.yml (full pipeline)
+  "0 7 * * 1-5",      # 07:00 UTC / 14:00 BKK → disclosure-refresh.yml (afternoon)
+  "0 11 * * 1-5",     # 11:00 UTC / 18:00 BKK → disclosure-refresh.yml (end-of-day)
+]
 
 [vars]
 GITHUB_OWNER = "tasinpongk-jpg"
 GITHUB_REPO = "is1-coverage-dashboard"
-GITHUB_WORKFLOW = "daily.yml"
 GITHUB_REF = "main"
 
 # Observability: send Worker invocation logs to Cloudflare for `wrangler tail`
 # inspection and dashboard troubleshooting. Free tier includes 100k events/day,
-# far more than this Worker's ~22 invocations/month will use.
+# far more than this Worker's ~66 invocations/month will use.
 [observability]
 enabled = true
