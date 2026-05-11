@@ -53,7 +53,8 @@ The Cloudflare Worker is the reliable primary scheduler. GHA's built-in
 | `scripts/build_daily.py` | Calls SETSMART proxy in-process for all 231 tickers |
 | `scripts/setsmart_proxy.py` | Vendored FastAPI proxy used by `build_daily.py` |
 | `surveillance/` | Polling, classification, R2 sync, email routing |
-| `.github/workflows/daily.yml` | Consolidated CI: surveillance job + build job |
+| `.github/workflows/daily.yml` | Consolidated CI: surveillance job + build job (09:50 BKK Mon–Fri) |
+| `.github/workflows/disclosure-refresh.yml` | Intra-day disclosure-pulse refresh only (14:00 BKK Mon–Fri, no emails) |
 | `cloudflare-cron/` | Worker that triggers `daily.yml` via workflow_dispatch (replaces flaky GHA cron) |
 
 ## First-time deployment (one-time setup)
@@ -94,6 +95,19 @@ Manual re-runs (no inputs): `gh workflow run daily.yml`.
 The build job takes ~15–20 min (sequential SETSMART scan of 231 tickers).
 Critical alerts are idempotent — re-running is safe and only fires on
 disclosures not yet emailed.
+
+### Intra-day disclosure refresh (afternoon)
+
+A separate lightweight workflow `disclosure-refresh.yml` runs at **14:00 BKK
+(07:00 UTC) Mon–Fri** and refreshes `data/disclosure-pulse.json` only —
+picking up disclosures filed between the morning daily build and 2pm.
+
+- ✅ Poll SET, classify with rules + Haiku fallback, update DuckDB on R2.
+- ✅ Regenerate `data/disclosure-pulse.json` (DuckDB query, ~0.1s).
+- ❌ No emails (critical/material alerts wait for next morning's daily run).
+- ❌ No SETSMART scan (the other 3 dashboards stay on the morning snapshot).
+- ⏱  ~3 min wall time per run; ~66 GHA min/month.
+- 🔒 Concurrency group `daily` — never runs simultaneously with `daily.yml`.
 
 ### Local-only piece (laptop)
 
