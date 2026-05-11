@@ -1,5 +1,5 @@
 {
-  "asOf": "2026-05-09",
+  "asOf": "2026-05-11",
   "source": "SETSMART intraday API · 56 alerts across 49 tickers",
   "thresholds": {
     "vol_spike": {
@@ -42,7 +42,7 @@
       "sector": "FOOD",
       "type": "Volume spike",
       "atype": "vol_spike",
-      "severity": "low",
+      "severity": "medium",
       "value": 2.589,
       "label": "2.6σ vs 20D avg",
       "evidence": {
@@ -50,10 +50,8 @@
         "vol20dAvg": 6068.35,
         "vol20dStd": 6172.110832405718
       },
-      "filingsLinked": 1,
-      "filingsTitles": [
-        "Issuance and Offering of the Company's Debentures No. 1/2026"
-      ]
+      "filingsLinked": 0,
+      "filingsTitles": []
     },
     {
       "tk": "XBIO",
@@ -192,7 +190,7 @@
       "sector": "CONS",
       "type": "Intraday move",
       "atype": "intraday",
-      "severity": "low",
+      "severity": "medium",
       "value": 4.082,
       "label": "+4.08% intraday",
       "evidence": {
@@ -201,10 +199,8 @@
         "high": 3.1,
         "low": 2.94
       },
-      "filingsLinked": 1,
-      "filingsTitles": [
-        "Right Adjustment of TEAMG-W1 and No Right Adjustment of TEAMG-W1 (Revised)"
-      ]
+      "filingsLinked": 0,
+      "filingsTitles": []
     },
     {
       "tk": "SOLAR",
@@ -495,10 +491,8 @@
         "vol20dAvg": 2652399.25,
         "vol20dStd": 1999278.1511221963
       },
-      "filingsLinked": 1,
-      "filingsTitles": [
-        "To notify disclosure the Minute of the 2026 Annual General Meeting of Shareholders on the Company's website"
-      ]
+      "filingsLinked": 0,
+      "filingsTitles": []
     },
     {
       "tk": "HTC",
@@ -654,11 +648,8 @@
         "open": 0.0,
         "prevClose": 7.4
       },
-      "filingsLinked": 2,
-      "filingsTitles": [
-        "Notification of the transactions which may give rise to the conflict of interest between TPRIME and the connected person",
-        "Notification of the 2nd capital reduction in year 2026 and dividend payment of Thailand Prime Property Freehold and Leas"
-      ]
+      "filingsLinked": 0,
+      "filingsTitles": []
     },
     {
       "tk": "WHABT",
@@ -758,7 +749,7 @@
       "sector": "PROP",
       "type": "Intraday move",
       "atype": "intraday",
-      "severity": "low",
+      "severity": "medium",
       "value": 5.0,
       "label": "+5.00% intraday",
       "evidence": {
@@ -767,10 +758,8 @@
         "high": 0.21,
         "low": 0.2
       },
-      "filingsLinked": 1,
-      "filingsTitles": [
-        "Clarification of news or information requested by SET"
-      ]
+      "filingsLinked": 0,
+      "filingsTitles": []
     },
     {
       "tk": "UV",
@@ -889,7 +878,7 @@
       "sector": "PROP",
       "type": "Volume spike",
       "atype": "vol_spike",
-      "severity": "low",
+      "severity": "medium",
       "value": 2.436,
       "label": "2.4σ vs 20D avg",
       "evidence": {
@@ -897,12 +886,8 @@
         "vol20dAvg": 520581.45,
         "vol20dStd": 426592.4230490358
       },
-      "filingsLinked": 3,
-      "filingsTitles": [
-        "Announcement of the Minutes of Annual General Meeting of Shareholders 2026",
-        "Publish payment of dividend announcement on the company website.",
-        "Publish financial statements on the company website."
-      ]
+      "filingsLinked": 0,
+      "filingsTitles": []
     },
     {
       "tk": "BROCK",
@@ -1131,6 +1116,23 @@
       ],
       "summary": [
         "Price gap: -100.00% open gap"
+      ]
+    },
+    {
+      "tk": "CBG",
+      "sector": "FOOD",
+      "alertCount": 1,
+      "highestSeverity": "high",
+      "filingsLinked": 0,
+      "alertTypes": [
+        {
+          "atype": "vol_spike",
+          "type": "Volume spike",
+          "severity": "high"
+        }
+      ],
+      "summary": [
+        "Volume spike: 6.5σ vs 20D avg"
       ]
     },
     {
@@ -1406,6 +1408,23 @@
       ]
     },
     {
+      "tk": "TPRIME",
+      "sector": "PFREIT",
+      "alertCount": 1,
+      "highestSeverity": "high",
+      "filingsLinked": 0,
+      "alertTypes": [
+        {
+          "atype": "gap",
+          "type": "Price gap",
+          "severity": "high"
+        }
+      ],
+      "summary": [
+        "Price gap: -100.00% open gap"
+      ]
+    },
+    {
       "tk": "TTCL",
       "sector": "CONS",
       "alertCount": 1,
@@ -1479,40 +1498,6 @@
       "alertCount": 1,
       "highestSeverity": "high",
       "filingsLinked": 0,
-      "alertTypes": [
-        {
-          "atype": "gap",
-          "type": "Price gap",
-          "severity": "high"
-        }
-      ],
-      "summary": [
-        "Price gap: -100.00% open gap"
-      ]
-    },
-    {
-      "tk": "CBG",
-      "sector": "FOOD",
-      "alertCount": 1,
-      "highestSeverity": "high",
-      "filingsLinked": 1,
-      "alertTypes": [
-        {
-          "atype": "vol_spike",
-          "type": "Volume spike",
-          "severity": "high"
-        }
-      ],
-      "summary": [
-        "Volume spike: 6.5σ vs 20D avg"
-      ]
-    },
-    {
-      "tk": "TPRIME",
-      "sector": "PFREIT",
-      "alertCount": 1,
-      "highestSeverity": "high",
-      "filingsLinked": 2,
       "alertTypes": [
         {
           "atype": "gap",
@@ -1661,6 +1646,23 @@
       ]
     },
     {
+      "tk": "SENA",
+      "sector": "PROP",
+      "alertCount": 1,
+      "highestSeverity": "medium",
+      "filingsLinked": 0,
+      "alertTypes": [
+        {
+          "atype": "vol_spike",
+          "type": "Volume spike",
+          "severity": "medium"
+        }
+      ],
+      "summary": [
+        "Volume spike: 2.4σ vs 20D avg"
+      ]
+    },
+    {
       "tk": "SOLAR",
       "sector": "CONS",
       "alertCount": 1,
@@ -1692,6 +1694,57 @@
       ],
       "summary": [
         "Intraday move: +5.00% intraday"
+      ]
+    },
+    {
+      "tk": "SST",
+      "sector": "FOOD",
+      "alertCount": 1,
+      "highestSeverity": "medium",
+      "filingsLinked": 0,
+      "alertTypes": [
+        {
+          "atype": "vol_spike",
+          "type": "Volume spike",
+          "severity": "medium"
+        }
+      ],
+      "summary": [
+        "Volume spike: 2.6σ vs 20D avg"
+      ]
+    },
+    {
+      "tk": "STELLA",
+      "sector": "PROP",
+      "alertCount": 1,
+      "highestSeverity": "medium",
+      "filingsLinked": 0,
+      "alertTypes": [
+        {
+          "atype": "intraday",
+          "type": "Intraday move",
+          "severity": "medium"
+        }
+      ],
+      "summary": [
+        "Intraday move: +5.00% intraday"
+      ]
+    },
+    {
+      "tk": "TEAMG",
+      "sector": "CONS",
+      "alertCount": 1,
+      "highestSeverity": "medium",
+      "filingsLinked": 0,
+      "alertTypes": [
+        {
+          "atype": "intraday",
+          "type": "Intraday move",
+          "severity": "medium"
+        }
+      ],
+      "summary": [
+        "Intraday move: +4.08% intraday"
       ]
     },
     {
@@ -1744,76 +1797,8 @@
       "summary": [
         "Price gap: -3.85% open gap"
       ]
-    },
-    {
-      "tk": "SST",
-      "sector": "FOOD",
-      "alertCount": 1,
-      "highestSeverity": "low",
-      "filingsLinked": 1,
-      "alertTypes": [
-        {
-          "atype": "vol_spike",
-          "type": "Volume spike",
-          "severity": "low"
-        }
-      ],
-      "summary": [
-        "Volume spike: 2.6σ vs 20D avg"
-      ]
-    },
-    {
-      "tk": "STELLA",
-      "sector": "PROP",
-      "alertCount": 1,
-      "highestSeverity": "low",
-      "filingsLinked": 1,
-      "alertTypes": [
-        {
-          "atype": "intraday",
-          "type": "Intraday move",
-          "severity": "low"
-        }
-      ],
-      "summary": [
-        "Intraday move: +5.00% intraday"
-      ]
-    },
-    {
-      "tk": "TEAMG",
-      "sector": "CONS",
-      "alertCount": 1,
-      "highestSeverity": "low",
-      "filingsLinked": 1,
-      "alertTypes": [
-        {
-          "atype": "intraday",
-          "type": "Intraday move",
-          "severity": "low"
-        }
-      ],
-      "summary": [
-        "Intraday move: +4.08% intraday"
-      ]
-    },
-    {
-      "tk": "SENA",
-      "sector": "PROP",
-      "alertCount": 1,
-      "highestSeverity": "low",
-      "filingsLinked": 3,
-      "alertTypes": [
-        {
-          "atype": "vol_spike",
-          "type": "Volume spike",
-          "severity": "low"
-        }
-      ],
-      "summary": [
-        "Volume spike: 2.4σ vs 20D avg"
-      ]
     }
   ],
-  "_built_at": "2026-05-09T07:15:33.883195+00:00",
+  "_built_at": "2026-05-11T04:04:40.035831+00:00",
   "_coverage_size": 231
 }
