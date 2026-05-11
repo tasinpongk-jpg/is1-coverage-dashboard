@@ -1,0 +1,32 @@
+# Cloudflare Worker that dispatches the daily IS1 build via GitHub's
+# workflow_dispatch API. Deployed separately from the dashboard Pages site;
+# this Worker has no public assets and is invoked only by Cron Triggers.
+#
+# Deploy:    wrangler deploy
+# Secrets:   wrangler secret put GITHUB_TOKEN
+#            wrangler secret put HEALTHCHECK_URL   # optional
+#            wrangler secret put MANUAL_TRIGGER_TOKEN  # optional, for /fetch test
+
+name = "is1-coverage-dispatcher"
+main = "worker.js"
+compatibility_date = "2026-05-01"
+
+# Daily 02:50 UTC = 09:50 BKK, Mon-Fri.
+# Matches the legacy GHA cron so the dashboard refresh time is unchanged for
+# the team. Cloudflare cron fires within ~seconds of the scheduled minute
+# (vs GHA cron which has been observed dropping/delaying multi-hour on this
+# repo).
+[triggers]
+crons = ["50 2 * * 1-5"]
+
+[vars]
+GITHUB_OWNER = "tasinpongk-jpg"
+GITHUB_REPO = "is1-coverage-dashboard"
+GITHUB_WORKFLOW = "daily.yml"
+GITHUB_REF = "main"
+
+# Observability: send Worker invocation logs to Cloudflare for `wrangler tail`
+# inspection and dashboard troubleshooting. Free tier includes 100k events/day,
+# far more than this Worker's ~22 invocations/month will use.
+[observability]
+enabled = true

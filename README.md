@@ -13,10 +13,14 @@ auto-deploys on push. See `SYSTEM.md` for the full system reference.
 ## Architecture
 
 ```
-        GitHub Actions (.github/workflows/daily.yml)
+  Cloudflare Worker Cron Trigger (cloudflare-cron/)
+   primary: 09:50 BKK Mon-Fri  ──┐
+                                 │ workflow_dispatch
+  GitHub Actions cron (backup) ──┤ (same daily.yml)
+   09:50 BKK Mon-Fri             ▼
         ┌──────────────────────────────────────────────┐
-  cron  │  Job 1: surveillance                         │
-  ─────►│   poll SET → rules+Haiku → email → R2 upload │
+        │  Job 1: surveillance                         │
+        │   poll SET → rules+Haiku → email → R2 upload │
         │  Job 2: build (needs Job 1)                  │
         │   build_daily.py (231-ticker SETSMART scan)  │
         │   git commit + push data/*.json   ───►       │
@@ -28,6 +32,11 @@ auto-deploys on push. See `SYSTEM.md` for the full system reference.
                                         ─ serves 4 HTML + JSON
                                         ─ free CDN, never sleeps
 ```
+
+The Cloudflare Worker is the reliable primary scheduler. GHA's built-in
+`schedule:` event is kept in `daily.yml` as a redundant backup —
+`concurrency:group=daily` prevents both from running at once. See
+`cloudflare-cron/README.md` for the dispatcher deploy steps.
 
 ## Files
 
@@ -44,7 +53,9 @@ auto-deploys on push. See `SYSTEM.md` for the full system reference.
 | `scripts/build_daily.py` | Calls SETSMART proxy in-process for all 231 tickers |
 | `scripts/setsmart_proxy.py` | Vendored FastAPI proxy used by `build_daily.py` |
 | `surveillance/` | Polling, classification, R2 sync, email routing |
-| `.github/workflows/daily.yml` | Consolidated CI: surveillance job + build job |
+| `.github/workflows/daily.yml` | Consolidated CI: surveillance job + build job (09:50 BKK Mon–Fri) |
+| `.github/workflows/disclosure-refresh.yml` | Intra-day disclosure-pulse refresh only (14:00 + 18:00 BKK Mon–Fri, no emails) |
+| `cloudflare-cron/` | Worker that triggers `daily.yml` via workflow_dispatch (replaces flaky GHA cron) |
 
 ## First-time deployment (one-time setup)
 
@@ -67,20 +78,40 @@ auto-deploys on push. See `SYSTEM.md` for the full system reference.
    - Click Save & Deploy. Done in ~30 seconds.
 4. Cloudflare will give you a URL like `is1-coverage-dashboard.pages.dev`. Share with the team.
 
-## Daily refresh — GitHub Actions cron
+## Daily refresh — dual trigger
 
-Scheduled in `.github/workflows/daily.yml` (Mon–Fri):
+| Trigger | Cron (UTC) | Bangkok local | Source | Reliability |
+|---|---|---|---|---|
+| **Primary** | `50 2 * * 1-5` | 09:50 | `cloudflare-cron/` Worker | Cloudflare cron — fires within seconds of the scheduled minute |
+| Backup | `50 2 * * 1-5` | 09:50 | `.github/workflows/daily.yml` schedule | GHA cron — best-effort, may drop or delay |
 
-| Cron (UTC) | Bangkok local | Emails sent |
-|---|---|---|
-| `50 2 * * 1-5` | 09:50 | critical + material digest |
+Both fire at the same minute. `concurrency:group=daily` in `daily.yml` queues
+the second arrival so only one pipeline runs end-to-end. On the rare day
+both trigger and the primary completes first, the backup's commit step is a
+no-op (data unchanged), so no duplicate snapshot commits.
 
-Single morning run, full pipeline. Manual re-runs (no inputs):
-`gh workflow run daily.yml`.
+Manual re-runs (no inputs): `gh workflow run daily.yml`.
 
 The build job takes ~15–20 min (sequential SETSMART scan of 231 tickers).
 Critical alerts are idempotent — re-running is safe and only fires on
 disclosures not yet emailed.
+
+### Intra-day disclosure refresh (afternoon + evening)
+
+A separate lightweight workflow `disclosure-refresh.yml` runs twice on
+weekdays and refreshes `data/disclosure-pulse.json` only:
+
+| Cron (UTC) | Bangkok local | Purpose |
+|---|---|---|
+| `0 7 * * 1-5` | 14:00 | afternoon catch-up for late-morning filings |
+| `0 11 * * 1-5` | 18:00 | end-of-day sweep for after-market filings |
+
+- ✅ Poll SET, classify with rules + Haiku fallback, update DuckDB on R2.
+- ✅ Regenerate `data/disclosure-pulse.json` (DuckDB query, ~0.1s).
+- ❌ No emails (critical/material alerts wait for next morning's daily run).
+- ❌ No SETSMART scan (the other 3 dashboards stay on the morning snapshot).
+- ⏱  ~3 min wall time per run; ~132 GHA min/month (2 runs/day × 22 weekdays).
+- 🔒 Concurrency group `daily` — never runs simultaneously with `daily.yml`.
 
 ### Local-only piece (laptop)
 
@@ -105,7 +136,7 @@ Commit and push the regenerated `data/tickers.json`. The next scheduled CI run
 
 ## Troubleshooting
 
-- **Dashboards show "updated 36h+ ago"** — daily build failed. Check `data/build-status.json` and the GitHub Actions run log at https://github.com/tasinpongk-jpg/is1-coverage-dashboard/actions.
+- **Dashboards show "updated 36h+ ago"** — daily build failed _and_ both triggers missed (very rare). Check (1) `data/build-status.json`, (2) the GitHub Actions run log at https://github.com/tasinpongk-jpg/is1-coverage-dashboard/actions, and (3) the Cloudflare Worker logs (`wrangler tail` from `cloudflare-cron/` or the dashboard). The healthchecks.io check will also email when a daily dispatch is missed.
 - **Empty `disclosure-pulse`** — usually a DuckDB version mismatch between CI and the local writer (both pinned at 1.5.2). See `SYSTEM.md` "known gotchas". Surveillance now covers all 231 tickers across 6 RMs.
 - **Cloudflare Pages build fails** — there's no build step (static site). Make sure Build Command is empty.
 - **Surveillance/build job failed in CI** — see Actions tab. Common causes: SETSMART API quota, Anthropic API key rotation, R2 credential drift. Secrets live in repo settings.

@@ -4,15 +4,17 @@ Daily build script: produces 4 JSON snapshots for the team coverage dashboards.
 Reads tickers.json (the team portfolio) and calls the existing setsmart_proxy
 route handlers in-process with COVERAGE expanded to all 231 tickers.
 
-Run by Windows scheduled task at 7am every weekday. Output JSONs are written
-under ../data/ and committed to the Cloudflare Pages Git repo.
+Run by GitHub Actions (.github/workflows/daily.yml Job 2). Output JSONs are
+written under ../data/ and committed to the Cloudflare Pages Git repo.
 
 Usage:
-  python build_daily.py
+  python build_daily.py                              # all 4 routes (daily.yml)
+  python build_daily.py --route disclosure-pulse     # one route only (intra-day refresh)
 """
 
 from __future__ import annotations
 
+import argparse
 import asyncio
 import json
 import os
@@ -53,8 +55,12 @@ def build_coverage(tickers_json: dict) -> list[dict]:
     return out
 
 
-async def run_routes(out_dir: Path) -> dict:
-    """Call each of the 4 route handlers and write JSON outputs."""
+async def run_routes(out_dir: Path, only: str | None = None) -> dict:
+    """Call each of the 4 route handlers and write JSON outputs.
+
+    `only` filters to a single route by basename (e.g. "disclosure-pulse").
+    Used by the intra-day refresh workflow to skip the ~15 min SETSMART scan.
+    """
     import setsmart_proxy as proxy
 
     # Override COVERAGE with all 231 tickers — affects all routes that close over it.
@@ -75,6 +81,10 @@ async def run_routes(out_dir: Path) -> dict:
         ("unusual-trading.json", proxy.unusual_trading, {"force": True}),
         ("disclosure-pulse.json", proxy.disclosure_pulse, {"days": 90, "force": True}),
     ]
+    if only:
+        routes = [r for r in routes if r[0] == f"{only}.json"]
+        if not routes:
+            raise SystemExit(f"Unknown route: {only}")
 
     from fastapi.responses import JSONResponse
     for fname, fn, kwargs in routes:
@@ -138,24 +148,41 @@ def _rebuild_sector_agg(heatmap_payload: dict) -> list[dict]:
 
 
 def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--route",
+        choices=["all", "morning-brief", "sector-heatmap", "unusual-trading", "disclosure-pulse"],
+        default="all",
+        help="Build only this single route. 'all' (default) builds the full 4-route daily snapshot.",
+    )
+    args = parser.parse_args()
+
     if not (DATA_DIR / "tickers.json").exists():
         sys.exit(f"Missing {DATA_DIR / 'tickers.json'}")
-    if not os.environ.get("SETSMART_API_KEY"):
+    # disclosure-pulse is a DuckDB-only route (no SETSMART). Single-route builds
+    # of the SETSMART-backed routes still need the key.
+    if args.route != "disclosure-pulse" and not os.environ.get("SETSMART_API_KEY"):
         sys.exit("SETSMART_API_KEY not set in environment")
 
-    print(f"=== Daily build at {datetime.now().isoformat(timespec='seconds')} ===")
+    only = None if args.route == "all" else args.route
+    label = f"single route ({only})" if only else "full 4-route"
+    print(f"=== Daily build [{label}] at {datetime.now().isoformat(timespec='seconds')} ===")
     t0 = time.time()
-    results = asyncio.run(run_routes(DATA_DIR))
+    results = asyncio.run(run_routes(DATA_DIR, only=only))
 
-    summary = {
-        "built_at": datetime.now(timezone.utc).isoformat(),
-        "elapsed_s": round(time.time() - t0, 1),
-        "routes": results,
-    }
-    (DATA_DIR / "build-status.json").write_text(
-        json.dumps(summary, indent=2), encoding="utf-8"
-    )
-    print(f"=== Done in {summary['elapsed_s']}s ===")
+    # Single-route builds shouldn't clobber the daily build-status.json — that
+    # tracks the most recent FULL pipeline run for the README troubleshooting
+    # entry. Single-route builds just log to stdout.
+    if not only:
+        summary = {
+            "built_at": datetime.now(timezone.utc).isoformat(),
+            "elapsed_s": round(time.time() - t0, 1),
+            "routes": results,
+        }
+        (DATA_DIR / "build-status.json").write_text(
+            json.dumps(summary, indent=2), encoding="utf-8"
+        )
+    print(f"=== Done in {round(time.time() - t0, 1)}s ===")
     print(json.dumps(results, indent=2))
 
     # Exit non-zero if any route failed (so scheduled task surfaces failure)

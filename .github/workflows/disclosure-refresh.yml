@@ -1,0 +1,121 @@
+name: Disclosure Pulse Refresh (intra-day)
+
+# Lightweight intra-day refresh of data/disclosure-pulse.json only.
+#
+# Runs twice daily, Mon-Fri:
+#   14:00 BKK (07:00 UTC) — early afternoon catch-up for morning filings
+#                            posted after the 09:50 daily build.
+#   18:00 BKK (11:00 UTC) — end-of-day sweep for after-market filings
+#                            (SET closes 16:30 BKK; companies often file
+#                            material disclosures shortly after).
+# The morning daily.yml at 09:50 BKK still does the full pipeline
+# (surveillance + emails + all 4 routes + commit). This job just picks
+# up new disclosures and commits ONLY disclosure-pulse.json — no emails,
+# no SETSMART scan, no touching the other 3 dashboards.
+#
+# Concurrency: same `daily` group as daily.yml, so the two workflows
+# never run simultaneously. If a long-running morning build is still in
+# flight at 14:00, this job queues behind it and the main pipeline is
+# never interrupted.
+#
+# Secrets required: ANTHROPIC_API_KEY (classify), SURVEILLANCE_SQL (build),
+#   R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_ENDPOINT, R2_BUCKET.
+#
+# Secrets explicitly NOT used here: SETSMART_API_KEY (disclosure-pulse is a
+#   DuckDB query, not a SETSMART scan), EMAIL_USERNAME/EMAIL_APP_PASSWORD/
+#   EMAIL_FROM/EMAIL_TO (no emails fire from this workflow).
+
+on:
+  schedule:
+    - cron: '0 7 * * 1-5'     # 14:00 BKK — afternoon catch-up
+    - cron: '0 11 * * 1-5'    # 18:00 BKK — end-of-day sweep
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
+
+concurrency:
+  group: daily
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      SURVEILLANCE_DB_PATH: /tmp/surveillance.duckdb
+      AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+      AWS_DEFAULT_REGION: auto
+      AWS_EC2_METADATA_DISABLED: 'true'
+      R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+      R2_BUCKET: ${{ secrets.R2_BUCKET }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+          cache-dependency-path: |
+            surveillance/requirements.txt
+            requirements.txt
+
+      - name: Install dependencies
+        run: |
+          pip install -r surveillance/requirements.txt
+          pip install -r requirements.txt
+
+      - name: Download surveillance.duckdb from R2
+        run: python surveillance/r2_sync.py download
+
+      - name: Poll SET disclosures (lookback 1 day)
+        working-directory: surveillance
+        run: python poll.py --lookback-days 1
+
+      - name: Classify new items (rules first, Haiku fallback)
+        working-directory: surveillance
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: python classify_batch.py
+
+      - name: Upload updated DuckDB back to R2
+        run: python surveillance/r2_sync.py upload
+
+      - name: Regenerate disclosure-pulse.json (no SETSMART scan)
+        env:
+          SURVEILLANCE_SQL: ${{ secrets.SURVEILLANCE_SQL }}
+          PYTHONIOENCODING: utf-8
+        run: python scripts/build_daily.py --route disclosure-pulse
+
+      - name: Commit and push if disclosure-pulse changed
+        # Only push from main. Manual dispatches from feature branches
+        # exercise the full refresh without trying to push.
+        if: github.ref == 'refs/heads/main'
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/disclosure-pulse.json
+          if git diff --staged --quiet; then
+            echo "No disclosure-pulse changes — skipping commit."
+            exit 0
+          fi
+          git commit -m "disclosure refresh $(date -u +%Y-%m-%dT%H:%MZ)"
+          for attempt in 1 2 3; do
+            if git push origin main; then
+              echo "Push succeeded on attempt $attempt."
+              exit 0
+            fi
+            echo "Push attempt $attempt rejected — rebasing and retrying..."
+            git pull --rebase origin main || true
+            sleep $((attempt * 5))
+          done
+          echo "Push failed after 3 attempts."
+          exit 1
