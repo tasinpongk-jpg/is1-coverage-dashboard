@@ -2,12 +2,16 @@ name: Disclosure Pulse Refresh (intra-day)
 
 # Lightweight intra-day refresh of data/disclosure-pulse.json only.
 #
-# Runs daily at 14:00 BKK (07:00 UTC), Mon-Fri. The morning daily.yml at
-# 09:50 BKK still does the full pipeline (surveillance + emails + all 4
-# routes + commit). This job just picks up disclosures filed between
-# the morning build and 14:00, refreshes disclosure-pulse.json, and
-# commits ONLY that file — no emails, no SETSMART scan, no touching the
-# other 3 dashboards.
+# Runs twice daily, Mon-Fri:
+#   14:00 BKK (07:00 UTC) — early afternoon catch-up for morning filings
+#                            posted after the 09:50 daily build.
+#   18:00 BKK (11:00 UTC) — end-of-day sweep for after-market filings
+#                            (SET closes 16:30 BKK; companies often file
+#                            material disclosures shortly after).
+# The morning daily.yml at 09:50 BKK still does the full pipeline
+# (surveillance + emails + all 4 routes + commit). This job just picks
+# up new disclosures and commits ONLY disclosure-pulse.json — no emails,
+# no SETSMART scan, no touching the other 3 dashboards.
 #
 # Concurrency: same `daily` group as daily.yml, so the two workflows
 # never run simultaneously. If a long-running morning build is still in
@@ -23,7 +27,8 @@ name: Disclosure Pulse Refresh (intra-day)
 
 on:
   schedule:
-    - cron: '0 7 * * 1-5'    # 14:00 BKK afternoon — disclosure refresh only
+    - cron: '0 7 * * 1-5'     # 14:00 BKK — afternoon catch-up
+    - cron: '0 11 * * 1-5'    # 18:00 BKK — end-of-day sweep
   workflow_dispatch:
 
 permissions:
