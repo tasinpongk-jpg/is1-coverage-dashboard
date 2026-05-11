@@ -13,17 +13,18 @@ auto-deploys on push. See `SYSTEM.md` for the full system reference.
 ## Architecture
 
 ```
-  Cloudflare Worker Cron Trigger (cloudflare-cron/)
-   primary: 09:50 BKK Mon-Fri  ──┐
-                                 │ workflow_dispatch
-  GitHub Actions cron (backup) ──┤ (same daily.yml)
-   09:50 BKK Mon-Fri             ▼
+  Cloudflare Worker Cron Triggers (cloudflare-cron/)            GitHub Actions cron
+   09:50 BKK ──► daily.yml                  ──┐                  (redundant backup)
+   14:00 BKK ──► disclosure-refresh.yml     ──┤                   same times in each YAML
+   18:00 BKK ──► disclosure-refresh.yml     ──┤
+                                              │ workflow_dispatch (Cloudflare path)
+                                              │ schedule:         (GHA backup)
+                                              ▼
         ┌──────────────────────────────────────────────┐
-        │  Job 1: surveillance                         │
-        │   poll SET → rules+Haiku → email → R2 upload │
-        │  Job 2: build (needs Job 1)                  │
-        │   build_daily.py (231-ticker SETSMART scan)  │
-        │   git commit + push data/*.json   ───►       │
+        │  daily.yml: surveillance + 4-route build     │
+        │  disclosure-refresh.yml: disclosure-only,    │
+        │    no emails, no SETSMART scan               │
+        │  git commit + push data/*.json   ───►        │
         └──────────────────────────────────────────────┘
                                                 │
                                                 ▼
@@ -33,10 +34,11 @@ auto-deploys on push. See `SYSTEM.md` for the full system reference.
                                         ─ free CDN, never sleeps
 ```
 
-The Cloudflare Worker is the reliable primary scheduler. GHA's built-in
-`schedule:` event is kept in `daily.yml` as a redundant backup —
-`concurrency:group=daily` prevents both from running at once. See
-`cloudflare-cron/README.md` for the dispatcher deploy steps.
+The Cloudflare Worker is the reliable primary scheduler for **all three**
+fire times. GHA's built-in `schedule:` events in both workflows are kept as
+redundant backups — `concurrency:group=daily` (shared between the two
+workflows) prevents simultaneous runs. See `cloudflare-cron/README.md`
+for deploy steps and the per-cron routing table.
 
 ## Files
 
