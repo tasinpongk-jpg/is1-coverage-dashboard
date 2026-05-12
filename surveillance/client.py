@@ -97,3 +97,37 @@ class SetNewsClient:
         en = self.search(symbol, "en", from_d, today)
         th = self.search(symbol, "th", from_d, today)
         return en + th
+
+    def search_all(
+        self,
+        lang: Literal["en", "th"] = "en",
+        from_date: date | None = None,
+        to_date: date | None = None,
+    ) -> list[dict[str, Any]]:
+        """Firehose: every disclosure in the window, no symbol filter.
+
+        SET's per-symbol endpoint silently omits ~12% of disclosures (PFREIT
+        distributions, NAV reports, dividend payments, share repurchase, no-right
+        adjustments, lowercased F45). The unfiltered endpoint returns the
+        superset. See scripts/probe_industry_endpoint.py for the receipt and
+        issue #12 for the original report.
+        """
+        self.warmup()
+        self._throttle()
+        params: dict[str, Any] = {"lang": lang}
+        if from_date:
+            params["fromDate"] = _fmt(from_date)
+        if to_date:
+            params["toDate"] = _fmt(to_date)
+        r = self._client.get(BASE_URL, params=params)
+        r.raise_for_status()
+        body = r.json()
+        return body.get("newsInfoList", [])
+
+    def search_recent_all(self, lookback_days: int = 7) -> list[dict[str, Any]]:
+        """Firehose EN+TH for the trailing N days."""
+        today = datetime.now().date()
+        from_d = today - timedelta(days=lookback_days)
+        en = self.search_all("en", from_d, today)
+        th = self.search_all("th", from_d, today)
+        return en + th

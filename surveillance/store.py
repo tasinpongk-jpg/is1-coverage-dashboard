@@ -135,10 +135,17 @@ def conn() -> Iterator[duckdb.DuckDBPyConnection]:
 
 
 def insert_new_items(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Insert items not already in the table; return only the genuinely new ones."""
+    """Insert items not already in the table; return only the genuinely new ones.
+
+    The firehose endpoint emits one row per (id, symbol) pair, so a single
+    news item that tags multiple covered tickers appears multiple times in
+    `items`. We keep the first occurrence and skip later duplicates within
+    the batch.
+    """
     if not items:
         return []
     new_items: list[dict[str, Any]] = []
+    seen_in_batch: set[str] = set()
     with conn() as c:
         existing = {
             row[0]
@@ -149,8 +156,9 @@ def insert_new_items(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
         }
         for item in items:
             iid = str(item["id"])
-            if iid in existing:
+            if iid in existing or iid in seen_in_batch:
                 continue
+            seen_in_batch.add(iid)
             c.execute(
                 """
                 INSERT INTO news_items
