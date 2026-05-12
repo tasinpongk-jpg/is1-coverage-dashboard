@@ -1006,54 +1006,59 @@ _ALL_RULES: list[Rule] = _CRITICAL_RULES + _MATERIAL_RULES + _ROUTINE_RULES
 
 
 # ---------------------------------------------------------------------------
+# THAI-ONLY RULES — for filings that arrive Thai-first (no EN twin yet)
+# ---------------------------------------------------------------------------
+# Empirically, ~10% of disclosures land TH-first and never get an EN twin on
+# the same day (most often quarterly financials in earnings season). Match
+# against the TH headline when the EN one is missing.
+#
+# Keep this list small and conservative. Each rule's TH regex must match
+# only patterns where Haiku consistently gave the same label across tickers.
+
+_TH_RULES: list[Rule] = [
+    # งบการเงิน [ไตรมาส X | รวม | เฉพาะกิจการ | ระหว่างกาล] = financial statements
+    # คำอธิบายและวิเคราะห์ของฝ่ายจัดการ = MD&A
+    Rule(
+        name="th_financial_statement_or_mda",
+        pattern=re.compile(
+            r"^(งบการเงิน|คำอธิบายและวิเคราะห์ของฝ่ายจัดการ|"
+            r"งบการเงินรวม|งบการเงินเฉพาะกิจการ|"
+            r"รายงานผลการดำเนินงาน)",
+        ),
+        severity="material",
+        category="earnings",
+        summary_template="{symbol} TH-only financial filing: {hl}",
+        summary_th_template="{symbol} ยื่นงบการเงิน/คำอธิบายและวิเคราะห์ของฝ่ายจัดการ: {hl}",
+        suggested_action="EN twin usually follows within hours; pull the PDF for analyst review.",
+        rationale="Thai-first quarterly financial statement or MD&A — material per rubric.",
+    ),
+    # SEC News : สรุปแบบ XXX = SEC summary of regulatory form filings (Form 59 = major shareholder,
+    # 246-2 = trustee report, 247-6 = tender offer admin, 250-2 = tender result). Daily SEC
+    # roll-ups — informational. Specific ticker-level tender offers are caught by tender_offer
+    # critical rule on the EN side.
+    Rule(
+        name="th_sec_news_summary",
+        pattern=re.compile(
+            r"^SEC\s+News\s*[:：]",
+        ),
+        severity="routine",
+        category="regulatory_filing",
+        summary_template="{symbol} SEC News summary: {hl}",
+        summary_th_template="{symbol} SEC News สรุปข่าว: {hl}",
+        suggested_action="Logged for periodic review; ticker-specific tender offers come via separate disclosure.",
+        rationale="SEC News daily summary — routine regulatory log per rubric.",
+    ),
+]
+
+
+# ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
 
-def match_rules(
-    *,
-    symbol: str,
-    headline_en: str | None,
-    headline_th: str | None = None,
-) -> Classification | None:
-    """Run rules against a disclosure. Returns Classification on confident match,
-    None if it falls through to Haiku.
-
-    Currently matches against the EN headline only — TH-only filings always
-    fall through to Haiku since template strings differ in Thai.
-    """
-    if not headline_en:
-        return None  # TH-only -> Haiku
-
-    text = headline_en.strip()
+def _try_rules(rule_list: list[Rule], text: str, symbol: str) -> tuple[Classification | None, str | None]:
+    """Run a rule list against a single piece of text. Returns first match."""
     hl = text[:_HL_MAX] + ("…" if len(text) > _HL_MAX else "")
-
-    for rule in _ALL_RULES:
-        if rule.pattern.search(text):
-            return Classification(
-                severity=rule.severity,                          # type: ignore[arg-type]
-                category=rule.category,                          # type: ignore[arg-type]
-                summary_en=rule.summary_template.format(symbol=symbol, hl=hl),
-                summary_th=(rule.summary_th_template or rule.summary_template).format(
-                    symbol=symbol, hl=hl
-                ),
-                suggested_action=rule.suggested_action,
-                rationale=f"[rule:{rule.name}] {rule.rationale}",
-            )
-    return None
-
-
-def match_rules_with_diagnostics(
-    *,
-    symbol: str,
-    headline_en: str | None,
-    headline_th: str | None = None,
-) -> tuple[Classification | None, str | None]:
-    """Like match_rules() but also returns the rule name (or None for fall-through)."""
-    if not headline_en:
-        return None, None
-    text = headline_en.strip()
-    hl = text[:_HL_MAX] + ("…" if len(text) > _HL_MAX else "")
-    for rule in _ALL_RULES:
+    for rule in rule_list:
         if rule.pattern.search(text):
             cls = Classification(
                 severity=rule.severity,                          # type: ignore[arg-type]
@@ -1069,5 +1074,46 @@ def match_rules_with_diagnostics(
     return None, None
 
 
+def match_rules(
+    *,
+    symbol: str,
+    headline_en: str | None,
+    headline_th: str | None = None,
+) -> Classification | None:
+    """Run rules against a disclosure. Returns Classification on confident match,
+    None if it falls through to Haiku.
+
+    Tries EN rules against headline_en first. If no match (or no EN headline),
+    falls back to TH-only rules against headline_th.
+    """
+    if headline_en:
+        cls, _ = _try_rules(_ALL_RULES, headline_en.strip(), symbol)
+        if cls is not None:
+            return cls
+    if headline_th:
+        cls, _ = _try_rules(_TH_RULES, headline_th.strip(), symbol)
+        if cls is not None:
+            return cls
+    return None
+
+
+def match_rules_with_diagnostics(
+    *,
+    symbol: str,
+    headline_en: str | None,
+    headline_th: str | None = None,
+) -> tuple[Classification | None, str | None]:
+    """Like match_rules() but also returns the rule name (or None for fall-through)."""
+    if headline_en:
+        cls, name = _try_rules(_ALL_RULES, headline_en.strip(), symbol)
+        if cls is not None:
+            return cls, name
+    if headline_th:
+        cls, name = _try_rules(_TH_RULES, headline_th.strip(), symbol)
+        if cls is not None:
+            return cls, name
+    return None, None
+
+
 def rule_count() -> int:
-    return len(_ALL_RULES)
+    return len(_ALL_RULES) + len(_TH_RULES)

@@ -166,10 +166,13 @@ def main() -> int:
     for i, row in enumerate(rows, 1):
         is_th_only = row["lang_primary"] == "th"
 
-        # ---- Tier 1: rules-based pre-classifier (EN-headlined rows only) ----
+        # ---- Tier 1: rules-based pre-classifier ----
+        # Tries EN rules against headline_en first; if no match (or this is a
+        # TH-only filing with headline_en=None), falls through to TH-only rules
+        # against headline_th. See rules._TH_RULES for what's matched.
         rule_cls = None
         rule_name = None
-        if not args.no_rules and not is_th_only:
+        if not args.no_rules:
             rule_cls, rule_name = match_rules_with_diagnostics(
                 symbol=row["symbol"] or "",
                 headline_en=row["headline_en"],

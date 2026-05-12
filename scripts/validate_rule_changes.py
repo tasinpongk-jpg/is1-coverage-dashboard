@@ -18,20 +18,39 @@ from rules import match_rules_with_diagnostics  # noqa: E402
 DB = "surveillance/surveillance.duckdb"
 
 con = duckdb.connect(DB)
+# Pull every Haiku-classified row. We don't filter by lang here so TH-only rows
+# (id ends in '01' with no '00' twin) are validated against the new TH rules too.
 rows = con.execute("""
-    SELECT n.id, n.symbol, n.headline,
-           c.severity AS haiku_sev, c.category AS haiku_cat
-    FROM news_items n
-    JOIN classifications c ON c.news_id = n.id
-    WHERE c.model LIKE 'claude-haiku%' AND n.lang = 'en' AND n.headline IS NOT NULL
+    WITH stems AS (
+        SELECT id, substring(id, 1, length(id) - 2) AS stem, lang, symbol, headline
+        FROM news_items
+    )
+    -- EN-twin rows (the headline_en path)
+    SELECT en.id, en.symbol, en.headline AS h_en, th.headline AS h_th,
+           c.severity, c.category
+    FROM stems en
+    LEFT JOIN stems th ON th.stem = en.stem AND th.lang = 'th'
+    JOIN classifications c ON c.news_id = en.id
+    WHERE en.lang = 'en' AND c.model LIKE 'claude-haiku%' AND en.headline IS NOT NULL
+    UNION ALL
+    -- TH-only rows (no EN twin)
+    SELECT th.id, th.symbol, NULL AS h_en, th.headline AS h_th,
+           c.severity, c.category
+    FROM stems th
+    JOIN classifications c ON c.news_id = th.id
+    WHERE th.lang = 'th' AND c.model LIKE 'claude-haiku%'
+      AND NOT EXISTS (SELECT 1 FROM stems en WHERE en.stem = th.stem AND en.lang = 'en')
 """).fetchall()
 
 new_match_agree: list[tuple] = []
 new_match_disagree: list[tuple] = []
 no_match: list[tuple] = []
 
-for nid, sym, headline, haiku_sev, haiku_cat in rows:
-    cls, rule_name = match_rules_with_diagnostics(symbol=sym, headline_en=headline)
+for nid, sym, h_en, h_th, haiku_sev, haiku_cat in rows:
+    headline = h_en or h_th  # for the no-match dump
+    cls, rule_name = match_rules_with_diagnostics(
+        symbol=sym, headline_en=h_en, headline_th=h_th,
+    )
     if cls is None:
         no_match.append((nid, sym, headline, haiku_sev, haiku_cat))
         continue
