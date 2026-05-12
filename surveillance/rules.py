@@ -307,10 +307,13 @@ _MATERIAL_RULES: list[Rule] = [
         rationale="MD&A release for a covered name — material per rubric.",
     ),
     # F45 financial performance — covers Reviewed/Audited/Unreviewed/Revised forms
+    # The "Reviewed " prefix is the lowercased-headline variant SET emits at quarter-end
+    # (auditors only review, not audit, between annual filings). Without it, Haiku had
+    # been picking up "Reviewed financial performance quarter 1 (F45)" — promoted to a rule.
     Rule(
         name="financial_performance_f45",
         pattern=re.compile(
-            r"^(Audited\s+|Unreviewed\s+)?(Financial\s+Performance\s+(Quarter|Yearly)|"
+            r"^(Audited\s+|Unreviewed\s+|Reviewed\s+)?(Financial\s+Performance\s+(Quarter|Yearly)|"
             r"Quarter\s+\d/\d{4}\s+and\s+Consolidated\s+F/S)\b.*\(F45\)",
             re.IGNORECASE,
         ),
@@ -321,11 +324,13 @@ _MATERIAL_RULES: list[Rule] = [
         suggested_action="Compare reported numbers vs prior period; flag any 20%+ swings for clarification check.",
         rationale="F45 quarterly/yearly financial performance — material per rubric.",
     ),
-    # Financial Statement (the full Reviewed/Audited statements)
+    # Financial Statement (the full Reviewed/Audited statements). Includes the
+    # "Separated " and "Consolidated " prefixes SET uses to distinguish parent-only
+    # vs. group statements — both are the same material event for our purposes.
     Rule(
         name="financial_statement",
         pattern=re.compile(
-            r"^Financial\s+Statement\s+(Quarter|Yearly)\b",
+            r"^(Separated\s+|Consolidated\s+)?Financial\s+Statement\s+(Quarter|Yearly)\b",
             re.IGNORECASE,
         ),
         severity="material",
@@ -883,6 +888,115 @@ _ROUTINE_RULES: list[Rule] = [
         summary_th_template="{symbol} เปิดให้ผู้ถือหุ้นเสนอวาระการประชุม: {hl}",
         suggested_action="No action required.",
         rationale="Pre-AGM disclosure of shareholder agenda-proposal rights — routine.",
+    ),
+    # Periodic daily share-repurchase reports. Distinct from the share_repurchase_program
+    # rule (which catches the START / END / resolution events as MATERIAL). The
+    # daily "Shares Repurchased Report dated X" cadence is operational logging.
+    Rule(
+        name="shares_repurchased_daily_report",
+        pattern=re.compile(
+            r"^Shares\s+Repurchased\s+Report\s+dated\b",
+            re.IGNORECASE,
+        ),
+        severity="routine",
+        category="capital_change",
+        summary_template="{symbol} daily share-repurchase report: {hl}",
+        summary_th_template="{symbol} รายงานการซื้อหุ้นคืนประจำวัน: {hl}",
+        suggested_action="No action required; daily repurchase log.",
+        rationale="Daily share-repurchase report during an open program — routine cadence.",
+    ),
+    # PFREIT NAV-per-unit periodic report. The PFREIT rubric in the system prompt
+    # explicitly calls scheduled NAV updates routine.
+    Rule(
+        name="nav_per_unit_report",
+        pattern=re.compile(
+            r"^Report\s+(on\s+)?NAV(\s+per\s+unit)?\s+as\s+of\b",
+            re.IGNORECASE,
+        ),
+        severity="routine",
+        category="information_memo",
+        summary_template="{symbol} periodic NAV-per-unit report: {hl}",
+        summary_th_template="{symbol} รายงานมูลค่าทรัพย์สินสุทธิต่อหน่วยลงทุน: {hl}",
+        suggested_action="Note the NAV; periodic disclosure logged.",
+        rationale="Scheduled REIT/PF NAV-per-unit disclosure — routine per PFREIT rubric.",
+    ),
+    # Book-closing date for unitholder voting (separate from book-closed-for-dividend rule
+    # above, which is dividend-specific). This is the pre-vote register closure.
+    Rule(
+        name="register_book_closing_unitholder_vote",
+        pattern=re.compile(
+            r"^Notification\s+of\s+(the\s+)?Closing\s+Date\s+of\s+Register\s+Book\b",
+            re.IGNORECASE,
+        ),
+        severity="routine",
+        category="other",
+        summary_template="{symbol} register book-closing date notification: {hl}",
+        summary_th_template="{symbol} แจ้งกำหนดวันปิดสมุดทะเบียน: {hl}",
+        suggested_action="Calendar the closing date.",
+        rationale="Register-book closing-date notification for upcoming vote/distribution — routine.",
+    ),
+    # "No Right Adjustment of [TICKER]-W[N]" — affirmative no-op event paired with a
+    # dividend that wasn't large enough to trigger an adjustment. Pairs with the existing
+    # warrant_right_adjustment rule.
+    Rule(
+        name="warrant_no_right_adjustment",
+        pattern=re.compile(
+            r"^No\s+Right\s+Adjustment\s+of\s+\S+-W\d",
+            re.IGNORECASE,
+        ),
+        severity="routine",
+        category="warrant_exercise",
+        summary_template="{symbol} warrant no-right-adjustment confirmation: {hl}",
+        summary_th_template="{symbol} ยืนยันไม่มีการปรับสิทธิวอร์แรนต์: {hl}",
+        suggested_action="No action required; mechanical no-op confirmation.",
+        rationale="Confirmation that a recent dividend did not trigger warrant right adjustment — routine.",
+    ),
+    # Warrant expiry / last trading day. Word order distinct from the critical
+    # trading_sign rule's "is the last day of trading" (delisting).
+    Rule(
+        name="warrant_last_trading_day",
+        pattern=re.compile(
+            r"\bis\s+the\s+last\s+trading\s+day\s+of\s+\S+-W\d",
+            re.IGNORECASE,
+        ),
+        severity="routine",
+        category="warrant_exercise",
+        summary_template="{symbol} warrant last-trading-day notice: {hl}",
+        summary_th_template="{symbol} แจ้งวันซื้อขายวันสุดท้ายของวอร์แรนต์: {hl}",
+        suggested_action="Note expiry; no action required.",
+        rationale="Routine warrant-expiry / last-trading-day notification — mechanical.",
+    ),
+    # Bondholders' meeting notification (debenture investors)
+    Rule(
+        name="bondholders_meeting_notification",
+        pattern=re.compile(
+            r"^Notification\s+of\s+the\s+\d+/\d+\s+Bondholders'?\s+Meeting",
+            re.IGNORECASE,
+        ),
+        severity="routine",
+        category="other",
+        summary_template="{symbol} bondholders' meeting notification: {hl}",
+        summary_th_template="{symbol} แจ้งประชุมผู้ถือหุ้นกู้: {hl}",
+        suggested_action="Calendar the bondholder-meeting date if material to credit position.",
+        rationale="Bondholders' meeting notification — routine for equity-focused coverage.",
+    ),
+    # Routine website publication of a dividend payment already approved by BOD.
+    # Distinct from bod_dividend_declaration (material BOD resolution) and from
+    # dividend_omission (critical). This is the post-resolution publicity step.
+    Rule(
+        name="dividend_payment_website_publication",
+        pattern=re.compile(
+            r"^Publi(cation|sh)\s+(of\s+)?(the\s+)?"
+            r"(Dividend\s+Payment(\s+Announcement)?|dividend\s+payment|payment\s+of\s+dividend(\s+announcement)?)"
+            r"\b.*\b(on\s+(the\s+)?(Company'?s\s+)?[Ww]ebsite)\b",
+            re.IGNORECASE,
+        ),
+        severity="routine",
+        category="dividend",
+        summary_template="{symbol} dividend payment published on company website: {hl}",
+        summary_th_template="{symbol} เผยแพร่ประกาศจ่ายเงินปันผลบนเว็บไซต์บริษัท: {hl}",
+        suggested_action="No action required; already-approved dividend re-published on the company site.",
+        rationale="Post-resolution website publication of an already-approved dividend — routine.",
     ),
 ]
 
