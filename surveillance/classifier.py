@@ -165,7 +165,87 @@ Example 9. (PFREIT)
   → rationale: "REIT Manager change directly affects governance, fees, and strategy execution for the trust — always material."
   → suggested_action: "Open disclosure; identify outgoing vs incoming manager, fee structure changes, and unitholder approval status."
 
-THAI-LANGUAGE NOTE: When a Thai headline is provided, use it to disambiguate the English headline if needed (translation quality on the SET portal is variable). The summary_th must be in Thai.
+Example 10.
+  Input: symbol=CPF, headline="Reviewed financial performance F45 Quarter 1/2026"
+  → severity=material, category=earnings
+  → rationale: "Quarterly F45 release for a covered name — always material; reported numbers may move price."
+  → suggested_action: "Open the F45 PDF; cross-check revenue and net profit vs. street consensus; flag YoY/QoQ deltas for the morning meeting."
+
+Example 11.
+  Input: symbol=LH, headline="Notification of the resolutions of the 2026 Annual General Meeting of Shareholders approving increase of registered capital and issuance of preferred shares"
+  → severity=material, category=capital_change
+  → rationale: "AGM resolution that actually approves a capital increase — the resolution itself is the material event, not the convening notice."
+  → suggested_action: "Read the resolution PDF; size the dilution; check use-of-proceeds disclosure."
+
+Example 12.
+  Input: symbol=SCC, headline="Notification of the resignation of an audit committee member and appointment of replacement effective immediately"
+  → severity=material, category=director_mgmt_change
+  → rationale: "Audit committee composition change is material — governance signal, especially when effective immediately."
+  → suggested_action: "Open disclosure; identify outgoing member's tenure and incoming member's affiliations; flag if outgoing was the chair."
+
+Example 13.
+  Input: symbol=BR, headline="Information Memorandum on the Disposal of Assets and the Connected Transaction with related party"
+  → severity=critical, category=connected_transaction
+  → rationale: "Headline names BOTH a material asset disposal AND a related-party connected transaction — escalate; valuation and unitholder/shareholder approval scrutiny required."
+  → suggested_action: "Open the info memo immediately; verify IFA opinion exists, check the transaction value vs. NTA, confirm shareholder-meeting approval requirement."
+
+Example 14.
+  Input: symbol=ITD, headline="Notification of the resolution to reduce registered capital and distribute the cash to shareholders"
+  → severity=critical, category=capital_change
+  → rationale: "Capital reduction paired with cash distribution is a hard balance-sheet action with real cash impact — always critical."
+  → suggested_action: "Open the PDF; compute the per-share distribution; check creditor notice period and any covenant implications."
+
+Example 15.
+  Input: symbol=NER, headline="The Posting of SP Sign on Securities of NER"
+  → severity=critical, category=trading_sign
+  → rationale: "SP (Suspension) sign is a hard trading halt — automatic critical regardless of cause; needs immediate triage."
+  → suggested_action: "Open the disclosure to find the reason for SP; call IR; check for paired news (auditor disclaimer, default, governance event)."
+
+Example 16.
+  Input: symbol=A, headline="Notification of the change of external auditor with disclaimer of opinion on prior-period financial statements"
+  → severity=critical, category=auditor_change
+  → rationale: "Auditor change is by itself material, but paired with a disclaimer of opinion on the prior period it becomes critical — financial-statement reliability red flag."
+  → suggested_action: "Open the disclosure; read the disclaimer text in full; check for restatement risk; brief the desk before market open."
+
+Example 17.
+  Input: symbol=TU, headline="Notification of the Treasury Share Buyback Program (Repurchase of Shares)"
+  → severity=material, category=capital_change
+  → rationale: "Treasury share buyback is a deliberate capital action — material because it shifts EPS, leverage, and signals management's view of intrinsic value."
+  → suggested_action: "Open the disclosure; record the size cap, time window, and price ceiling; flag for the strategy team."
+
+Example 18. (TH-only filing)
+  Input: symbol=PRG, headline (TH only)="งบการเงินรายไตรมาส ฉบับสอบทาน ไตรมาสที่ 1 ปี 2569"
+  → severity=material, category=earnings
+  → rationale: "Reviewed quarterly financial statement filed Thai-only — same materiality as the EN counterpart; cover for situations where the EN twin lags by hours."
+  → suggested_action: "Open the PDF; compute revenue and NP deltas vs. prior quarter; wait for the EN summary or have the analyst skim the Thai MD&A."
+
+Example 19. (TH-only filing)
+  Input: symbol=AWC, headline (TH only)="แจ้งกำหนดวันประชุมสามัญผู้ถือหุ้น ประจำปี 2569 และระเบียบวาระการประชุม"
+  → severity=routine, category=other
+  → rationale: "Convening notice (กำหนดวันประชุม) — the meeting is later; this is logistical. Same routine call we'd make on the EN version."
+  → suggested_action: "Calendar the AGM date; no action required until resolutions are filed."
+
+Example 20.
+  Input: symbol=CPN, headline="Notification of the Connected Transaction — Lease of Land from Central Group"
+  → severity=critical, category=connected_transaction
+  → rationale: "Connected transaction with the controlling shareholder (Central Group) — automatic critical for related-party scrutiny regardless of size, because valuation and shareholder-approval pathway are non-trivial."
+  → suggested_action: "Open the disclosure; check transaction size vs. NTA, IFA appointment, and shareholder-meeting requirement; brief the sector head."
+
+THAI-LANGUAGE NOTE: When a Thai headline is provided, use it to disambiguate the English headline if needed (translation quality on the SET portal is variable). Common Thai disclosure terms and their English equivalents you'll encounter:
+- งบการเงิน → financial statement
+- ฉบับสอบทาน → reviewed (vs. ตรวจสอบ = audited)
+- รายไตรมาส → quarterly
+- มติที่ประชุมคณะกรรมการ → resolutions of the Board of Directors meeting
+- กำหนดวันประชุม → notification of the meeting date (convening notice)
+- จ่ายเงินปันผล → dividend payment
+- เพิ่มทุน / ลดทุน → capital increase / reduction
+- เปลี่ยนแปลงผู้สอบบัญชี → change of auditor
+- รายการที่เกี่ยวโยงกัน → connected (related-party) transaction
+- ได้มาหรือจำหน่ายไป → acquisition or disposal of assets
+- แจ้งการลาออก → notification of resignation
+- หนังสือชี้แจง → clarification letter
+- ขึ้นเครื่องหมาย SP / NP → posting of SP / NP sign
+The summary_th must be in Thai. Prefer terminology that mirrors SET's standard phrasing so search/grep across the DB stays consistent.
 """
 
 TOOL_DEF = {
