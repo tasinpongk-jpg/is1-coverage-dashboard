@@ -30,6 +30,11 @@ on:
     - cron: '0 7 * * 1-5'     # 14:00 BKK — afternoon catch-up
     - cron: '0 11 * * 1-5'    # 18:00 BKK — end-of-day sweep
   workflow_dispatch:
+    inputs:
+      lookback_days:
+        description: "Days to look back when polling (default 1 for scheduled runs; bump for backfills)."
+        required: false
+        default: "1"
 
 permissions:
   contents: write
@@ -77,9 +82,9 @@ jobs:
       - name: Download surveillance.duckdb from R2
         run: python surveillance/r2_sync.py download
 
-      - name: Poll SET disclosures (lookback 1 day)
+      - name: Poll SET disclosures
         working-directory: surveillance
-        run: python poll.py --lookback-days 1
+        run: python poll.py --lookback-days ${{ github.event.inputs.lookback_days || '1' }}
 
       - name: Classify new items (rules first, Haiku fallback)
         working-directory: surveillance
