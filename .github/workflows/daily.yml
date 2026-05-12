@@ -139,6 +139,19 @@ jobs:
           [ "$DIGEST_OUTCOME"   = "failure" ] && { echo "::error::digest email step failed";   fail=1; }
           exit $fail
 
+      # Email-on-failure for the surveillance job. Only fires if a prior step
+      # in this job failed. Pure stdlib (so it works even if classifier.py
+      # or alerts.py themselves are the thing that broke).
+      - name: Notify on failure (surveillance)
+        if: failure()
+        env:
+          EMAIL_USERNAME: ${{ secrets.EMAIL_USERNAME }}
+          EMAIL_APP_PASSWORD: ${{ secrets.EMAIL_APP_PASSWORD }}
+          EMAIL_FROM: ${{ secrets.EMAIL_FROM }}
+          EMAIL_TO: ${{ secrets.EMAIL_TO }}
+        run: python scripts/notify_failure.py
+        continue-on-error: true
+
   # ------------------------------------------------------------------
   # JOB 2 — Build (download DB artifact, generate 4 JSONs, commit)
   # ------------------------------------------------------------------
@@ -244,3 +257,15 @@ jobs:
           path: data/build-status.json
           if-no-files-found: ignore
           retention-days: 14
+
+      # Email-on-failure for the build job. Pairs with the equivalent step in
+      # the surveillance job so we get notified regardless of which side broke.
+      - name: Notify on failure (build)
+        if: failure()
+        env:
+          EMAIL_USERNAME: ${{ secrets.EMAIL_USERNAME }}
+          EMAIL_APP_PASSWORD: ${{ secrets.EMAIL_APP_PASSWORD }}
+          EMAIL_FROM: ${{ secrets.EMAIL_FROM }}
+          EMAIL_TO: ${{ secrets.EMAIL_TO }}
+        run: python scripts/notify_failure.py
+        continue-on-error: true

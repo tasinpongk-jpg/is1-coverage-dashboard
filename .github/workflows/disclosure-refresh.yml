@@ -125,3 +125,17 @@ jobs:
           done
           echo "Push failed after 3 attempts."
           exit 1
+
+      # Email-on-failure. Pure stdlib so it still works if the surveillance
+      # codebase itself is the thing that broke. Common triggers we've hit:
+      # invalid ANTHROPIC_API_KEY (silent 401), Anthropic spend cap, SET portal
+      # Imperva 4xx, R2 sync timeout.
+      - name: Notify on failure (refresh)
+        if: failure()
+        env:
+          EMAIL_USERNAME: ${{ secrets.EMAIL_USERNAME }}
+          EMAIL_APP_PASSWORD: ${{ secrets.EMAIL_APP_PASSWORD }}
+          EMAIL_FROM: ${{ secrets.EMAIL_FROM }}
+          EMAIL_TO: ${{ secrets.EMAIL_TO }}
+        run: python scripts/notify_failure.py
+        continue-on-error: true
