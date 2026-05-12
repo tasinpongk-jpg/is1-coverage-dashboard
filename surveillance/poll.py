@@ -3,8 +3,10 @@
 Phase 1 (this file): fetch the SET disclosure firehose for the lookback window,
 post-filter to coverage, dedup against the local DuckDB cache, return + log
 only new items.
-Phase 2 (next session): route new items through Claude classifier.
-Phase 3 (after that): LINE / Telegram alert routing by severity.
+Phase 2 (classify_batch.py): rules-first + Haiku fallback classifier writes
+rows to the classifications table. Run automatically in CI after poll.py; for
+local one-shot use, pass --classify to this script.
+Phase 3 (route_alerts.py): email / LINE / Telegram routing by severity.
 
 Why firehose, not per-symbol: the per-symbol endpoint silently drops ~12% of
 disclosures (PFREIT distributions, NAV reports, dividend payments, no-right
@@ -17,6 +19,8 @@ scripts/probe_industry_endpoint.py for the receipt.
 from __future__ import annotations
 
 import argparse
+import subprocess
+import sys
 from datetime import datetime
 from typing import Any
 
@@ -90,6 +94,17 @@ def main() -> None:
         help="Limit to one sector (FOOD or PROP).",
     )
     p.add_argument("--lookback-days", type=int, default=7)
+    p.add_argument(
+        "--classify",
+        action="store_true",
+        help="After polling, invoke classify_batch.py on the local DB. "
+             "Rules-tier only by default; pass --classify-haiku to enable Haiku fallback.",
+    )
+    p.add_argument(
+        "--classify-haiku",
+        action="store_true",
+        help="With --classify, allow rules-ambiguous rows to fall through to Haiku (API cost).",
+    )
     args = p.parse_args()
 
     started = datetime.now()
@@ -119,6 +134,13 @@ def main() -> None:
     print("Latest 5 in DB:")
     for sym, dt, hl in s["latest"]:
         print(f"  {dt}  {sym:8s}  {(hl or '')[:80]}")
+
+    if args.classify:
+        print("\n=== invoking classify_batch.py ===")
+        cmd = [sys.executable, "classify_batch.py"]
+        if not args.classify_haiku:
+            cmd.append("--rules-only")
+        subprocess.run(cmd, check=False)
 
 
 if __name__ == "__main__":
