@@ -167,10 +167,16 @@ function buildSectorTabs() {
   const inScope = FILINGS.filter(f =>
     inWindow(f) && (activeRm === 'ALL' || (TICKERS[f.tk] || {}).rm === activeRm)
   );
-  const order = ['AGRI','FOOD','CONS','CONMAT','PROP','PFREIT','PF&REIT'];
+  // Canonical coverage sectors — always rendered as chips even at count 0 so a
+  // quiet sector (e.g. AGRI on a slow day) stays visible and obviously zero
+  // rather than silently vanishing from the filter row.
+  const canonical = ['AGRI','FOOD','CONS','CONMAT','PROP','PFREIT'];
   const secCounts = {};
   inScope.forEach(f => { secCounts[f.sector] = (secCounts[f.sector] || 0) + 1; });
-  const sectors = ['ALL', ...Object.keys(secCounts).sort((a,b) => order.indexOf(a) - order.indexOf(b))];
+  // Unexpected sectors in data (legacy 'PF&REIT' spelling, future additions)
+  // append after the canonical six so we don't drop them on the floor.
+  const extra = Object.keys(secCounts).filter(s => !canonical.includes(s)).sort();
+  const sectors = ['ALL', ...canonical, ...extra];
   document.getElementById('sectorTabs').innerHTML = sectors.map(s => {
     const cls = s === activeSector ? 'tab active' : 'tab';
     const cnt = s === 'ALL' ? inScope.length : (secCounts[s] || 0);
