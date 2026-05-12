@@ -218,9 +218,12 @@ def main() -> None:
                 url=row["url"] or "",
                 model=row_model,
             )
-        except Exception:  # noqa: BLE001
+        except Exception as e:  # noqa: BLE001
             failures += 1
-            print(f"[{i}/{len(rows)}] FAIL {row['symbol']} {row['id']}")
+            print(
+                f"[{i}/{len(rows)}] FAIL {row['symbol']} {row['id']}  "
+                f"{type(e).__name__}: {str(e)[:200]}"
+            )
             traceback.print_exc()
             continue
 
