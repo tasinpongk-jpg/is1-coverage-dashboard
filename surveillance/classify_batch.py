@@ -16,6 +16,7 @@ CLI:
 from __future__ import annotations
 
 import argparse
+import sys
 import time
 import traceback
 
@@ -125,7 +126,7 @@ def _persist(news_id: str, symbol: str, parsed, usage: dict, model: str) -> None
         )
 
 
-def main() -> None:
+def main() -> int:
     p = argparse.ArgumentParser()
     p.add_argument("--limit", type=int, default=None, help="Max rows to classify")
     p.add_argument("--dry-run", action="store_true", help="Print rows that would be classified, don't call API")
@@ -141,7 +142,7 @@ def main() -> None:
     rows = _fetch_unclassified(args.limit)
     if not rows:
         print("Nothing to classify — all EN rows already have a classification row.")
-        return
+        return 0
 
     n_en = sum(1 for r in rows if r["lang_primary"] == "en")
     n_th = sum(1 for r in rows if r["lang_primary"] == "th")
@@ -152,7 +153,7 @@ def main() -> None:
             print(f"  [{r['lang_primary']}] {r['datetime_iso']} {r['symbol']:8s} {(primary or '')[:90]}")
         if len(rows) > 20:
             print(f"  ... and {len(rows) - 20} more.")
-        return
+        return 0
 
     client = None  # lazy-init: only needed if we actually call Haiku
     started = time.monotonic()
@@ -254,6 +255,21 @@ def main() -> None:
         cache_ratio = tot["cache_read"] / max(tot["input"] + tot["cache_read"], 1) * 100
         print(f"cache hit ratio (input side): {cache_ratio:.1f}%")
 
+    # Loud-fail the step if the Haiku tier was reached but every attempt failed.
+    # That's the auth-error / network-outage / spend-cap pattern — silently
+    # exiting 0 here previously let CI go green while ~40% of disclosures
+    # stayed unclassified. Partial failures (some hits, some failures, e.g.
+    # transient rate limits) still exit 0.
+    if failures > 0 and haiku_hits == 0:
+        print(
+            f"::error::All {failures} Haiku attempt(s) failed; no successful "
+            "classifications this run. Check the FAIL lines above for the "
+            "exception type — common causes: invalid ANTHROPIC_API_KEY, "
+            "workspace spend cap reached, network outage."
+        )
+        return 1
+    return 0
+
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())
