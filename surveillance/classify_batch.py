@@ -42,6 +42,13 @@ def _fetch_unclassified(limit: int | None) -> list[dict]:
     `00` (EN) and `01` (TH). 89.6% of TH rows already have an EN pair and are
     skipped here to avoid duplicate-spend on the same disclosure.
     """
+    # NOTE on the TH-twin lookup: 9-digit news IDs follow the EN/TH twin
+    # convention (EN ends in `00`, TH ends in `01`, so stripping the last 2
+    # chars yields a unique stem per pair). 14-digit Financial Statement IDs
+    # (like 17786285863310) do NOT follow that — multiple rows can share a
+    # stem, so a plain LEFT JOIN multiplies the EN side and the same news_id
+    # gets queued for INSERT twice → PK violation. Using a scalar subquery
+    # for headline_th guarantees one EN row maps to at most one TH headline.
     sql = """
     WITH stems AS (
         SELECT
@@ -54,17 +61,18 @@ def _fetch_unclassified(limit: int | None) -> list[dict]:
             url
         FROM news_items
     )
-    -- Path 1: EN rows missing classification (joins TH twin headline if present)
+    -- Path 1: EN rows missing classification (TH twin headline via scalar subquery)
     SELECT
         en.id           AS id,
         en.symbol       AS symbol,
         en.datetime_iso AS datetime_iso,
         en.headline     AS headline_en,
         en.url          AS url,
-        th.headline     AS headline_th,
+        (SELECT th.headline FROM stems th
+          WHERE th.stem = en.stem AND th.lang = 'th'
+          LIMIT 1) AS headline_th,
         'en'            AS lang_primary
     FROM stems en
-    LEFT JOIN stems th ON th.stem = en.stem AND th.lang = 'th'
     LEFT JOIN classifications c ON c.news_id = en.id
     WHERE en.lang = 'en' AND c.news_id IS NULL
 
@@ -140,6 +148,21 @@ def main() -> int:
         raise SystemExit("--rules-only and --no-rules are mutually exclusive")
 
     rows = _fetch_unclassified(args.limit)
+    # Defense-in-depth: even if _fetch_unclassified's SQL ever returns a row
+    # twice (it shouldn't post-scalar-subquery, but if it does, the second
+    # INSERT into classifications would crash on the PK), keep only the first
+    # occurrence of each id.
+    seen_ids: set[str] = set()
+    deduped: list[dict] = []
+    for r in rows:
+        if r["id"] in seen_ids:
+            continue
+        seen_ids.add(r["id"])
+        deduped.append(r)
+    if len(deduped) != len(rows):
+        print(f"WARNING: _fetch_unclassified returned {len(rows) - len(deduped)} "
+              f"duplicate-id row(s); deduped before processing.")
+    rows = deduped
     if not rows:
         print("Nothing to classify — all EN rows already have a classification row.")
         return 0
