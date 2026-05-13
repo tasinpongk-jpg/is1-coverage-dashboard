@@ -604,8 +604,8 @@
       },
       "filingsLinked": 3,
       "filingsTitles": [
-        "Financial Performance Quarter 1 (F45) (Reviewed)",
         "Management Discussion and Analysis Quarter 1 Ending 31 Mar 2026",
+        "Financial Performance Quarter 1 (F45) (Reviewed)",
         "Financial Statement Quarter 1/2026 (Reviewed)"
       ]
     },
@@ -769,10 +769,8 @@
         "vol20dAvg": 2430.45,
         "vol20dStd": 4044.675753073414
       },
-      "filingsLinked": 1,
-      "filingsTitles": [
-        "Notification of the Details of Asset of Thailand Prime Property Freehold and Leasehold Real Estate Investment Trust (TPR"
-      ]
+      "filingsLinked": 0,
+      "filingsTitles": []
     },
     {
       "tk": "CPTREIT",
@@ -826,7 +824,7 @@
       "sector": "PROP",
       "type": "Intraday move",
       "atype": "intraday",
-      "severity": "low",
+      "severity": "medium",
       "value": 4.348,
       "label": "-4.35% intraday",
       "evidence": {
@@ -835,10 +833,8 @@
         "high": 0.23,
         "low": 0.22
       },
-      "filingsLinked": 1,
-      "filingsTitles": [
-        "Publication of the Minutes of the Annual General Meeting of Shareholders No. 1/2025."
-      ]
+      "filingsLinked": 0,
+      "filingsTitles": []
     },
     {
       "tk": "EVER",
@@ -1464,6 +1460,23 @@
       ]
     },
     {
+      "tk": "TPRIME",
+      "sector": "PFREIT",
+      "alertCount": 1,
+      "highestSeverity": "high",
+      "filingsLinked": 0,
+      "alertTypes": [
+        {
+          "atype": "vol_spike",
+          "type": "Volume spike",
+          "severity": "high"
+        }
+      ],
+      "summary": [
+        "Volume spike: 8.2σ vs 20D avg"
+      ]
+    },
+    {
       "tk": "TTCL",
       "sector": "CONS",
       "alertCount": 1,
@@ -1529,23 +1542,6 @@
       ],
       "summary": [
         "Price gap: -100.00% open gap"
-      ]
-    },
-    {
-      "tk": "TPRIME",
-      "sector": "PFREIT",
-      "alertCount": 1,
-      "highestSeverity": "high",
-      "filingsLinked": 1,
-      "alertTypes": [
-        {
-          "atype": "vol_spike",
-          "type": "Volume spike",
-          "severity": "high"
-        }
-      ],
-      "summary": [
-        "Volume spike: 8.2σ vs 20D avg"
       ]
     },
     {
@@ -1660,6 +1656,23 @@
       ],
       "summary": [
         "Volume spike: 2.2σ vs 20D avg"
+      ]
+    },
+    {
+      "tk": "ESTAR",
+      "sector": "PROP",
+      "alertCount": 1,
+      "highestSeverity": "medium",
+      "filingsLinked": 0,
+      "alertTypes": [
+        {
+          "atype": "intraday",
+          "type": "Intraday move",
+          "severity": "medium"
+        }
+      ],
+      "summary": [
+        "Intraday move: -4.35% intraday"
       ]
     },
     {
@@ -1924,23 +1937,6 @@
       ]
     },
     {
-      "tk": "ESTAR",
-      "sector": "PROP",
-      "alertCount": 1,
-      "highestSeverity": "low",
-      "filingsLinked": 1,
-      "alertTypes": [
-        {
-          "atype": "intraday",
-          "type": "Intraday move",
-          "severity": "low"
-        }
-      ],
-      "summary": [
-        "Intraday move: -4.35% intraday"
-      ]
-    },
-    {
       "tk": "HPF",
       "sector": "PFREIT",
       "alertCount": 1,
@@ -2026,6 +2022,6 @@
       ]
     }
   ],
-  "_built_at": "2026-05-13T03:06:36.000863+00:00",
+  "_built_at": "2026-05-13T06:20:59.946901+00:00",
   "_coverage_size": 231
 }
