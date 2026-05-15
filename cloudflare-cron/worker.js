@@ -25,7 +25,7 @@ const BACKOFF_MS = [0, 2000, 6000];
 // filename it should dispatch. Adding a new cron means adding both an entry
 // here and the corresponding line in wrangler.toml.
 const CRON_TO_WORKFLOW = {
-  "50 2 * * 1-5": "daily.yml",              // 09:50 BKK — full pipeline
+  "15 2 * * 1-5": "daily.yml",              // 09:15 BKK — full pipeline
   "0 7 * * 1-5":  "disclosure-refresh.yml", // 14:00 BKK — afternoon catch-up
   "0 11 * * 1-5": "disclosure-refresh.yml", // 18:00 BKK — end-of-day sweep
 };

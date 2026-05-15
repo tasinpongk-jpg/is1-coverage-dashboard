@@ -21,7 +21,7 @@ compatibility_date = "2026-05-01"
 # Times below are UTC; conversions to Bangkok (UTC+7) shown for review.
 [triggers]
 crons = [
-  "50 2 * * 1-5",     # 02:50 UTC / 09:50 BKK → daily.yml (full pipeline)
+  "15 2 * * 1-5",     # 02:15 UTC / 09:15 BKK → daily.yml (full pipeline)
   "0 7 * * 1-5",      # 07:00 UTC / 14:00 BKK → disclosure-refresh.yml (afternoon)
   "0 11 * * 1-5",     # 11:00 UTC / 18:00 BKK → disclosure-refresh.yml (end-of-day)
 ]
