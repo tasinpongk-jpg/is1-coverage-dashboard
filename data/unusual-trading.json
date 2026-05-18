@@ -1,5 +1,5 @@
 {
-  "asOf": "2026-05-17",
+  "asOf": "2026-05-18",
   "source": "SETSMART intraday API · 80 alerts across 62 tickers",
   "thresholds": {
     "vol_spike": {
@@ -34,8 +34,10 @@
         "open": 0.0,
         "prevClose": 66.0
       },
-      "filingsLinked": 0,
-      "filingsTitles": []
+      "filingsLinked": 1,
+      "filingsTitles": [
+        "Management Discussion and Analysis Quarter 1 Ending 31 Mar 2026"
+      ]
     },
     {
       "tk": "MADAME",
@@ -344,7 +346,7 @@
       "sector": "AGRI",
       "type": "Volume spike",
       "atype": "vol_spike",
-      "severity": "medium",
+      "severity": "low",
       "value": 2.304,
       "label": "2.3σ vs 20D avg",
       "evidence": {
@@ -352,8 +354,10 @@
         "vol20dAvg": 1124455.6,
         "vol20dStd": 2329556.7687646807
       },
-      "filingsLinked": 0,
-      "filingsTitles": []
+      "filingsLinked": 1,
+      "filingsTitles": [
+        "CB sign posted and additional cause on listed securities"
+      ]
     },
     {
       "tk": "PPPM",
@@ -369,8 +373,10 @@
         "high": 0.23,
         "low": 0.19
       },
-      "filingsLinked": 0,
-      "filingsTitles": []
+      "filingsLinked": 1,
+      "filingsTitles": [
+        "CB sign posted and additional cause on listed securities"
+      ]
     },
     {
       "tk": "SMO",
@@ -430,8 +436,10 @@
         "open": 0.05,
         "prevClose": 0.06
       },
-      "filingsLinked": 0,
-      "filingsTitles": []
+      "filingsLinked": 1,
+      "filingsTitles": [
+        "May 20, 2026 is the last trading day of TSR and TTCL"
+      ]
     },
     {
       "tk": "TTCL",
@@ -447,8 +455,10 @@
         "high": 0.06,
         "low": 0.05
       },
-      "filingsLinked": 0,
-      "filingsTitles": []
+      "filingsLinked": 1,
+      "filingsTitles": [
+        "May 20, 2026 is the last trading day of TSR and TTCL"
+      ]
     },
     {
       "tk": "SQ",
@@ -717,8 +727,12 @@
         "open": 0.04,
         "prevClose": 0.03
       },
-      "filingsLinked": 0,
-      "filingsTitles": []
+      "filingsLinked": 4,
+      "filingsTitles": [
+        "Financial Statement Quarter 1/2026 (Reviewed)",
+        "งบการเงิน ไตรมาสที่ 1/2569 (สอบทานแล้ว)",
+        "Financial Performance Quarter 1 (F45) (Reviewed)"
+      ]
     },
     {
       "tk": "PF",
@@ -734,8 +748,12 @@
         "high": 0.04,
         "low": 0.03
       },
-      "filingsLinked": 0,
-      "filingsTitles": []
+      "filingsLinked": 4,
+      "filingsTitles": [
+        "Financial Statement Quarter 1/2026 (Reviewed)",
+        "งบการเงิน ไตรมาสที่ 1/2569 (สอบทานแล้ว)",
+        "Financial Performance Quarter 1 (F45) (Reviewed)"
+      ]
     },
     {
       "tk": "CH",
@@ -1175,8 +1193,10 @@
         "open": 0.11,
         "prevClose": 0.12
       },
-      "filingsLinked": 0,
-      "filingsTitles": []
+      "filingsLinked": 1,
+      "filingsTitles": [
+        "Financial Statement Quarter 1/2026 (Reviewed) (Revised)"
+      ]
     },
     {
       "tk": "LPN",
@@ -1407,29 +1427,6 @@
       ]
     },
     {
-      "tk": "PF",
-      "sector": "PROP",
-      "alertCount": 2,
-      "highestSeverity": "high",
-      "filingsLinked": 0,
-      "alertTypes": [
-        {
-          "atype": "gap",
-          "type": "Price gap",
-          "severity": "high"
-        },
-        {
-          "atype": "intraday",
-          "type": "Intraday move",
-          "severity": "high"
-        }
-      ],
-      "summary": [
-        "Price gap: +33.33% open gap",
-        "Intraday move: -25.00% intraday"
-      ]
-    },
-    {
       "tk": "PM",
       "sector": "FOOD",
       "alertCount": 2,
@@ -1450,29 +1447,6 @@
       "summary": [
         "Volume spike: 31.9σ vs 20D avg",
         "Price gap: -9.09% open gap"
-      ]
-    },
-    {
-      "tk": "PPPM",
-      "sector": "AGRI",
-      "alertCount": 2,
-      "highestSeverity": "high",
-      "filingsLinked": 0,
-      "alertTypes": [
-        {
-          "atype": "vol_spike",
-          "type": "Volume spike",
-          "severity": "medium"
-        },
-        {
-          "atype": "intraday",
-          "type": "Intraday move",
-          "severity": "high"
-        }
-      ],
-      "summary": [
-        "Volume spike: 2.3σ vs 20D avg",
-        "Intraday move: -13.04% intraday"
       ]
     },
     {
@@ -1614,11 +1588,34 @@
       ]
     },
     {
+      "tk": "PPPM",
+      "sector": "AGRI",
+      "alertCount": 2,
+      "highestSeverity": "high",
+      "filingsLinked": 1,
+      "alertTypes": [
+        {
+          "atype": "vol_spike",
+          "type": "Volume spike",
+          "severity": "low"
+        },
+        {
+          "atype": "intraday",
+          "type": "Intraday move",
+          "severity": "high"
+        }
+      ],
+      "summary": [
+        "Volume spike: 2.3σ vs 20D avg",
+        "Intraday move: -13.04% intraday"
+      ]
+    },
+    {
       "tk": "TTCL",
       "sector": "CONS",
       "alertCount": 2,
       "highestSeverity": "high",
-      "filingsLinked": 0,
+      "filingsLinked": 1,
       "alertTypes": [
         {
           "atype": "gap",
@@ -1634,6 +1631,29 @@
       "summary": [
         "Price gap: -16.67% open gap",
         "Intraday move: +20.00% intraday"
+      ]
+    },
+    {
+      "tk": "PF",
+      "sector": "PROP",
+      "alertCount": 2,
+      "highestSeverity": "high",
+      "filingsLinked": 4,
+      "alertTypes": [
+        {
+          "atype": "gap",
+          "type": "Price gap",
+          "severity": "high"
+        },
+        {
+          "atype": "intraday",
+          "type": "Intraday move",
+          "severity": "high"
+        }
+      ],
+      "summary": [
+        "Price gap: +33.33% open gap",
+        "Intraday move: -25.00% intraday"
       ]
     },
     {
@@ -1668,40 +1688,6 @@
       ],
       "summary": [
         "Volume spike: 3.7σ vs 20D avg"
-      ]
-    },
-    {
-      "tk": "CGD",
-      "sector": "PROP",
-      "alertCount": 1,
-      "highestSeverity": "high",
-      "filingsLinked": 0,
-      "alertTypes": [
-        {
-          "atype": "gap",
-          "type": "Price gap",
-          "severity": "high"
-        }
-      ],
-      "summary": [
-        "Price gap: -8.33% open gap"
-      ]
-    },
-    {
-      "tk": "CHOTI",
-      "sector": "FOOD",
-      "alertCount": 1,
-      "highestSeverity": "high",
-      "filingsLinked": 0,
-      "alertTypes": [
-        {
-          "atype": "gap",
-          "type": "Price gap",
-          "severity": "high"
-        }
-      ],
-      "summary": [
-        "Price gap: -100.00% open gap"
       ]
     },
     {
@@ -2059,6 +2045,40 @@
       ],
       "summary": [
         "Volume spike: 3.9σ vs 20D avg"
+      ]
+    },
+    {
+      "tk": "CGD",
+      "sector": "PROP",
+      "alertCount": 1,
+      "highestSeverity": "high",
+      "filingsLinked": 1,
+      "alertTypes": [
+        {
+          "atype": "gap",
+          "type": "Price gap",
+          "severity": "high"
+        }
+      ],
+      "summary": [
+        "Price gap: -8.33% open gap"
+      ]
+    },
+    {
+      "tk": "CHOTI",
+      "sector": "FOOD",
+      "alertCount": 1,
+      "highestSeverity": "high",
+      "filingsLinked": 1,
+      "alertTypes": [
+        {
+          "atype": "gap",
+          "type": "Price gap",
+          "severity": "high"
+        }
+      ],
+      "summary": [
+        "Price gap: -100.00% open gap"
       ]
     },
     {
@@ -2454,6 +2474,6 @@
       ]
     }
   ],
-  "_built_at": "2026-05-17T02:32:25.755451+00:00",
+  "_built_at": "2026-05-18T02:32:15.841818+00:00",
   "_coverage_size": 231
 }
