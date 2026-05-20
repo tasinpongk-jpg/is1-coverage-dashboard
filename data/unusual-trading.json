@@ -317,7 +317,7 @@
       "sector": "AGRI",
       "type": "Intraday move",
       "atype": "intraday",
-      "severity": "low",
+      "severity": "medium",
       "value": 5.0,
       "label": "+5.00% intraday",
       "evidence": {
@@ -326,10 +326,8 @@
         "high": 0.21,
         "low": 0.2
       },
-      "filingsLinked": 1,
-      "filingsTitles": [
-        "Notification convening date of the Public Presentation (Revised Meeting Start Time)"
-      ]
+      "filingsLinked": 0,
+      "filingsTitles": []
     },
     {
       "tk": "TL",
@@ -504,7 +502,7 @@
       "sector": "CONS",
       "type": "Volume spike",
       "atype": "vol_spike",
-      "severity": "low",
+      "severity": "medium",
       "value": 2.951,
       "label": "3.0σ vs 20D avg",
       "evidence": {
@@ -512,11 +510,8 @@
         "vol20dAvg": 1632022.45,
         "vol20dStd": 2105872.9276717165
       },
-      "filingsLinked": 2,
-      "filingsTitles": [
-        "Changing of Chief Accountant",
-        "Clarification Regarding the Securities and Exchange Commission's News Release No.104/2026 dated 18 May 2026"
-      ]
+      "filingsLinked": 0,
+      "filingsTitles": []
     },
     {
       "tk": "SRICHA",
@@ -625,11 +620,8 @@
         "vol20dAvg": 222308.85,
         "vol20dStd": 118021.96616531815
       },
-      "filingsLinked": 2,
-      "filingsTitles": [
-        "Notification on the Contract Signing for the Construction of the Dark Red Line Project, Rangsit - Thammasat University S",
-        "Notification on the Contract Signing for the Construction of Commuter Train Light Red Line Project Siriraj - Taling Chan"
-      ]
+      "filingsLinked": 0,
+      "filingsTitles": []
     },
     {
       "tk": "MK",
@@ -1010,7 +1002,7 @@
       "sector": "PROP",
       "type": "Intraday move",
       "atype": "intraday",
-      "severity": "medium",
+      "severity": "low",
       "value": 4.545,
       "label": "+4.55% intraday",
       "evidence": {
@@ -1019,8 +1011,10 @@
         "high": 0.23,
         "low": 0.22
       },
-      "filingsLinked": 0,
-      "filingsTitles": []
+      "filingsLinked": 1,
+      "filingsTitles": [
+        "Report on entering into the connected transaction in the sale of a condominium unit to the Director and Chief Executive "
+      ]
     },
     {
       "tk": "LH",
@@ -1865,6 +1859,23 @@
       ]
     },
     {
+      "tk": "UNIQ",
+      "sector": "CONS",
+      "alertCount": 1,
+      "highestSeverity": "high",
+      "filingsLinked": 0,
+      "alertTypes": [
+        {
+          "atype": "vol_spike",
+          "type": "Volume spike",
+          "severity": "high"
+        }
+      ],
+      "summary": [
+        "Volume spike: 29.4σ vs 20D avg"
+      ]
+    },
+    {
       "tk": "F&D",
       "sector": "FOOD",
       "alertCount": 1,
@@ -1896,23 +1907,6 @@
       ],
       "summary": [
         "Price gap: +14.29% open gap"
-      ]
-    },
-    {
-      "tk": "UNIQ",
-      "sector": "CONS",
-      "alertCount": 1,
-      "highestSeverity": "high",
-      "filingsLinked": 2,
-      "alertTypes": [
-        {
-          "atype": "vol_spike",
-          "type": "Volume spike",
-          "severity": "high"
-        }
-      ],
-      "summary": [
-        "Volume spike: 29.4σ vs 20D avg"
       ]
     },
     {
@@ -2036,23 +2030,6 @@
       ]
     },
     {
-      "tk": "ESTAR",
-      "sector": "PROP",
-      "alertCount": 1,
-      "highestSeverity": "medium",
-      "filingsLinked": 0,
-      "alertTypes": [
-        {
-          "atype": "intraday",
-          "type": "Intraday move",
-          "severity": "medium"
-        }
-      ],
-      "summary": [
-        "Intraday move: +4.55% intraday"
-      ]
-    },
-    {
       "tk": "FTREIT",
       "sector": "PFREIT",
       "alertCount": 1,
@@ -2172,6 +2149,23 @@
       ]
     },
     {
+      "tk": "PPPM",
+      "sector": "AGRI",
+      "alertCount": 1,
+      "highestSeverity": "medium",
+      "filingsLinked": 0,
+      "alertTypes": [
+        {
+          "atype": "intraday",
+          "type": "Intraday move",
+          "severity": "medium"
+        }
+      ],
+      "summary": [
+        "Intraday move: +5.00% intraday"
+      ]
+    },
+    {
       "tk": "RBF",
       "sector": "FOOD",
       "alertCount": 1,
@@ -2240,6 +2234,23 @@
       ]
     },
     {
+      "tk": "TRITN",
+      "sector": "CONS",
+      "alertCount": 1,
+      "highestSeverity": "medium",
+      "filingsLinked": 0,
+      "alertTypes": [
+        {
+          "atype": "vol_spike",
+          "type": "Volume spike",
+          "severity": "medium"
+        }
+      ],
+      "summary": [
+        "Volume spike: 3.0σ vs 20D avg"
+      ]
+    },
+    {
       "tk": "TTLPF",
       "sector": "PFREIT",
       "alertCount": 1,
@@ -2274,6 +2285,23 @@
       ]
     },
     {
+      "tk": "ESTAR",
+      "sector": "PROP",
+      "alertCount": 1,
+      "highestSeverity": "low",
+      "filingsLinked": 1,
+      "alertTypes": [
+        {
+          "atype": "intraday",
+          "type": "Intraday move",
+          "severity": "low"
+        }
+      ],
+      "summary": [
+        "Intraday move: +4.55% intraday"
+      ]
+    },
+    {
       "tk": "MK",
       "sector": "PROP",
       "alertCount": 1,
@@ -2288,23 +2316,6 @@
       ],
       "summary": [
         "Intraday move: -5.66% intraday"
-      ]
-    },
-    {
-      "tk": "PPPM",
-      "sector": "AGRI",
-      "alertCount": 1,
-      "highestSeverity": "low",
-      "filingsLinked": 1,
-      "alertTypes": [
-        {
-          "atype": "intraday",
-          "type": "Intraday move",
-          "severity": "low"
-        }
-      ],
-      "summary": [
-        "Intraday move: +5.00% intraday"
       ]
     },
     {
@@ -2340,25 +2351,8 @@
       "summary": [
         "Price gap: -4.79% open gap"
       ]
-    },
-    {
-      "tk": "TRITN",
-      "sector": "CONS",
-      "alertCount": 1,
-      "highestSeverity": "low",
-      "filingsLinked": 2,
-      "alertTypes": [
-        {
-          "atype": "vol_spike",
-          "type": "Volume spike",
-          "severity": "low"
-        }
-      ],
-      "summary": [
-        "Volume spike: 3.0σ vs 20D avg"
-      ]
     }
   ],
-  "_built_at": "2026-05-20T02:31:24.935946+00:00",
+  "_built_at": "2026-05-20T06:45:10.735343+00:00",
   "_coverage_size": 231
 }
