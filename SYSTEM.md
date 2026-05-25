@@ -14,17 +14,23 @@ A daily intelligence pipeline for 231 SET-listed tickers under the IS1 team's
 coverage (FOOD, PROP, PFREIT, AGRI, CONS, CONMAT sectors):
 
 1. **Polls** new SET disclosures from public news/search API
-2. **Classifies** each disclosure as critical / material / routine using a
-   rules-first pre-classifier (~65% deterministic, no API cost) with Claude
-   Haiku 4.5 fallback for ambiguous headlines
+2. **Classifies** each disclosure as critical / material / routine / unclassified
+   using a 112-pattern deterministic rules engine (~85% match rate). Rule-misses
+   are persisted as `severity='unclassified'` (silent — no email, no dashboard
+   alert) and queued for the offline rule-mining loop (`scripts/mine_rules.py`),
+   which clusters them against historical LLM-labeled rows and promotes new
+   patterns into `rules.py`. UPSERT semantics let promoted patterns auto-relabel
+   previously-unclassified rows on the next CI run.
 3. **Emails** two streams: critical alerts grouped by RM, material digest
-   grouped by RM (routine items stored only, not emailed)
+   grouped by RM (routine + unclassified items stored only, not emailed)
 4. **Builds** four JSON snapshots that drive the public dashboard (morning
    brief, sector heatmap, unusual trading, disclosure pulse)
 5. **Updates** the local Obsidian vault notes with classified disclosures
    (laptop-on, daily 10:30 AM Bangkok)
 
-**Cost:** Anthropic API ~$5–7/month (down from $15–20 pre-rules).
+**Cost:** Anthropic API $0 in steady state (down from $5–7/month before the
+2026-05-25 cutover that removed Haiku fall-through). Offline rule-mining
+subagent invocations are interactive-session token cost only, run on demand.
 GitHub Actions free tier, Cloudflare Pages free tier, Cloudflare R2 free tier.
 
 ---
@@ -33,14 +39,15 @@ GitHub Actions free tier, Cloudflare Pages free tier, Cloudflare R2 free tier.
 
 ```
                                     GitHub Actions
-                            ┌──────────────────────────┐
-   02:50 UTC  ─── full ────►│  daily.yml (cron)        │
-   (09:50 BKK)               │   ├─ surveillance job   │
-   10:30 UTC  ─ crit-only ──►│   │   poll → rules+haiku│
-   (17:30 BKK)               │   │   email + R2 upload │
-                             │   └─ build job          │
-                             │       JSONs + git push  │
-                             └──────────────────────────┘
+                            ┌──────────────────────────────┐
+   02:15 UTC  ─── full ────►│  daily.yml (cron)            │
+   (09:15 BKK)               │   ├─ surveillance job       │
+                             │   │   poll → rules-only →   │
+                             │   │   unclassified queue    │
+                             │   │   email + R2 upload     │
+                             │   └─ build job              │
+                             │       JSONs + git push      │
+                             └──────────────────────────────┘
                                     │           │
                                     ▼           ▼
                             ┌─────────────┐  ┌─────────────────┐
@@ -82,7 +89,7 @@ GitHub Actions free tier, Cloudflare Pages free tier, Cloudflare R2 free tier.
 
 | Cron | Bangkok local | Emails sent |
 |---|---|---|
-| `50 2 * * 1-5` | 09:50 weekdays | critical + material digest |
+| `15 2 * * 1-5` | 09:15 weekdays | critical + material digest |
 
 Single morning run, full pipeline. Manual dispatch via `workflow_dispatch`
 (no inputs) re-runs the same flow — critical alerts are idempotent against
@@ -90,6 +97,39 @@ Single morning run, full pipeline. Manual dispatch via `workflow_dispatch`
 
 The 17:30 BKK afternoon cron was retired together with the coverage-feed
 mode and Telegram channel during the 2026-05-09 simplification.
+
+## Offline rule-mining loop (manual cadence)
+
+The 2026-05-25 cutover removed Claude Haiku from the daily pipeline. New
+disclosures the rules engine can't classify are tagged `unclassified` silently.
+To harvest those into new patterns:
+
+```powershell
+# 1. Pull fresh DB from R2
+$env:SURVEILLANCE_DB_PATH = "C:/Users/tasin/AppData/Local/Temp/surveillance_fresh.duckdb"
+$env:AWS_ACCESS_KEY_ID = $env:R2_ACCESS_KEY_ID
+$env:AWS_SECRET_ACCESS_KEY = $env:R2_SECRET_ACCESS_KEY
+python surveillance/r2_sync.py download
+
+# 2. Extract mining input (clusters labeled + unclassified rows)
+python scripts/mine_rules.py
+# -> writes scripts/rule_mining_input.json (gitignored)
+
+# 3. Ask Elisa to dispatch the rule-mining subagent.
+#    It reads rule_mining_input.json, edits surveillance/rules.py directly,
+#    then validates via scripts/validate_rule_changes.py and returns a summary.
+
+# 4. Review the diff, commit, push:
+git diff surveillance/rules.py
+git add surveillance/rules.py
+git commit -m "perf(rules): mining pass #N — <description>"
+git push origin main
+```
+
+Run cadence: when you notice ≥30 rows accumulating with `severity='unclassified'`
+on the dashboard (typically every few weeks). The next daily CI run after a
+push will auto-relabel previously-unclassified rows that the new patterns now
+catch (UPSERT path in `classify_batch.py`).
 
 ## Active scheduled tasks (Windows)
 
