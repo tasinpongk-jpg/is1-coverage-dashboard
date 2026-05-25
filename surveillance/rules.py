@@ -1140,6 +1140,22 @@ _ROUTINE_RULES: list[Rule] = [
         suggested_action="No action required; minutes archived for the meeting.",
         rationale="Post-AGM minutes publication notification — routine.",
     ),
+    # Broader "Notification of the Publication of the Minutes" — covers Trust Unitholders'
+    # Meeting minutes and other non-AGM minute-publication notifications. Mining pass #2
+    # found a 4-row cluster at 100% LLM agreement on routine/other.
+    Rule(
+        name="publication_of_minutes_broad",
+        pattern=re.compile(
+            r"^Notification\s+of\s+the\s+Publication\s+of\s+the\s+Minutes\s+of",
+            re.IGNORECASE,
+        ),
+        severity="routine",
+        category="other",
+        summary_template="{symbol} meeting minutes published: {hl}",
+        summary_th_template="{symbol} เผยแพร่รายงานการประชุม: {hl}",
+        suggested_action="No action required; minutes archived.",
+        rationale="Post-meeting minutes publication notification (Trust Unitholders / AGM / other) — routine.",
+    ),
     # Website notification housekeeping
     Rule(
         name="website_change_notification",
@@ -1724,6 +1740,22 @@ _ROUTINE_RULES: list[Rule] = [
         summary_th_template="{symbol} มูลค่าทรัพย์สินสุทธิต่อหน่วยลงทุน: {hl}",
         suggested_action="No action required; periodic NAV log.",
         rationale="Plain NAV-per-unit periodic disclosure — routine per PFREIT rubric.",
+    ),
+    # "NAV Announcement as of <date>" — variant header used by some funds in place of
+    # the "Report NAV" prefix. Mining pass #2 found a 3-row cluster at 100% LLM
+    # agreement on routine/information_memo.
+    Rule(
+        name="nav_announcement_as_of",
+        pattern=re.compile(
+            r"^NAV\s+announcement\s+as\s+of\b",
+            re.IGNORECASE,
+        ),
+        severity="routine",
+        category="information_memo",
+        summary_template="{symbol} NAV announcement: {hl}",
+        summary_th_template="{symbol} ประกาศมูลค่าทรัพย์สินสุทธิ: {hl}",
+        suggested_action="No action required; periodic NAV log.",
+        rationale="Scheduled REIT/PF NAV announcement — routine per PFREIT rubric.",
     ),
     # AGM minutes — additional "Annual General Shareholders' Meeting" phrasing (typo
     # for "Annual General Meeting of Shareholders") and "Annual General Shareholders'"
