@@ -222,15 +222,17 @@
       "sector": "CONS",
       "type": "Price gap",
       "atype": "gap",
-      "severity": "high",
+      "severity": "medium",
       "value": 5.405,
       "label": "+5.41% open gap",
       "evidence": {
         "open": 0.78,
         "prevClose": 0.74
       },
-      "filingsLinked": 0,
-      "filingsTitles": []
+      "filingsLinked": 1,
+      "filingsTitles": [
+        "Reporting Share Repurchase Form for Financial Management Purposes"
+      ]
     },
     {
       "tk": "RT",
@@ -765,7 +767,7 @@
       "sector": "PROP",
       "type": "Volume spike",
       "atype": "vol_spike",
-      "severity": "medium",
+      "severity": "low",
       "value": 2.19,
       "label": "2.2σ vs 20D avg",
       "evidence": {
@@ -773,15 +775,17 @@
         "vol20dAvg": 18872461.4,
         "vol20dStd": 25785416.525754984
       },
-      "filingsLinked": 0,
-      "filingsTitles": []
+      "filingsLinked": 1,
+      "filingsTitles": [
+        "The Disposal of Ordinary Shares in Joint Venture Companies."
+      ]
     },
     {
       "tk": "RABBIT",
       "sector": "PROP",
       "type": "Intraday move",
       "atype": "intraday",
-      "severity": "medium",
+      "severity": "low",
       "value": 5.556,
       "label": "-5.56% intraday",
       "evidence": {
@@ -790,8 +794,10 @@
         "high": 0.37,
         "low": 0.34
       },
-      "filingsLinked": 0,
-      "filingsTitles": []
+      "filingsLinked": 1,
+      "filingsTitles": [
+        "The Disposal of Ordinary Shares in Joint Venture Companies."
+      ]
     },
     {
       "tk": "CGD",
@@ -869,8 +875,10 @@
         "high": 0.03,
         "low": 0.02
       },
-      "filingsLinked": 0,
-      "filingsTitles": []
+      "filingsLinked": 1,
+      "filingsTitles": [
+        "Report of the Public Presentation"
+      ]
     }
   ],
   "byTicker": [
@@ -1042,23 +1050,6 @@
       ]
     },
     {
-      "tk": "BJCHI",
-      "sector": "CONS",
-      "alertCount": 1,
-      "highestSeverity": "high",
-      "filingsLinked": 0,
-      "alertTypes": [
-        {
-          "atype": "gap",
-          "type": "Price gap",
-          "severity": "high"
-        }
-      ],
-      "summary": [
-        "Price gap: +5.41% open gap"
-      ]
-    },
-    {
       "tk": "BROCK",
       "sector": "PROP",
       "alertCount": 1,
@@ -1141,23 +1132,6 @@
       ],
       "summary": [
         "Price gap: -100.00% open gap"
-      ]
-    },
-    {
-      "tk": "KC",
-      "sector": "PROP",
-      "alertCount": 1,
-      "highestSeverity": "high",
-      "filingsLinked": 0,
-      "alertTypes": [
-        {
-          "atype": "intraday",
-          "type": "Intraday move",
-          "severity": "high"
-        }
-      ],
-      "summary": [
-        "Intraday move: +50.00% intraday"
       ]
     },
     {
@@ -1331,6 +1305,23 @@
       ]
     },
     {
+      "tk": "KC",
+      "sector": "PROP",
+      "alertCount": 1,
+      "highestSeverity": "high",
+      "filingsLinked": 1,
+      "alertTypes": [
+        {
+          "atype": "intraday",
+          "type": "Intraday move",
+          "severity": "high"
+        }
+      ],
+      "summary": [
+        "Intraday move: +50.00% intraday"
+      ]
+    },
+    {
       "tk": "ITD",
       "sector": "CONS",
       "alertCount": 2,
@@ -1351,29 +1342,6 @@
       "summary": [
         "Volume spike: 2.4σ vs 20D avg",
         "Intraday move: -5.41% intraday"
-      ]
-    },
-    {
-      "tk": "RABBIT",
-      "sector": "PROP",
-      "alertCount": 2,
-      "highestSeverity": "medium",
-      "filingsLinked": 0,
-      "alertTypes": [
-        {
-          "atype": "vol_spike",
-          "type": "Volume spike",
-          "severity": "medium"
-        },
-        {
-          "atype": "intraday",
-          "type": "Intraday move",
-          "severity": "medium"
-        }
-      ],
-      "summary": [
-        "Volume spike: 2.2σ vs 20D avg",
-        "Intraday move: -5.56% intraday"
       ]
     },
     {
@@ -1649,6 +1617,23 @@
       ]
     },
     {
+      "tk": "BJCHI",
+      "sector": "CONS",
+      "alertCount": 1,
+      "highestSeverity": "medium",
+      "filingsLinked": 1,
+      "alertTypes": [
+        {
+          "atype": "gap",
+          "type": "Price gap",
+          "severity": "medium"
+        }
+      ],
+      "summary": [
+        "Price gap: +5.41% open gap"
+      ]
+    },
+    {
       "tk": "TU-PF",
       "sector": "PFREIT",
       "alertCount": 1,
@@ -1664,8 +1649,31 @@
       "summary": [
         "Price gap: -7.56% open gap"
       ]
+    },
+    {
+      "tk": "RABBIT",
+      "sector": "PROP",
+      "alertCount": 2,
+      "highestSeverity": "low",
+      "filingsLinked": 1,
+      "alertTypes": [
+        {
+          "atype": "vol_spike",
+          "type": "Volume spike",
+          "severity": "low"
+        },
+        {
+          "atype": "intraday",
+          "type": "Intraday move",
+          "severity": "low"
+        }
+      ],
+      "summary": [
+        "Volume spike: 2.2σ vs 20D avg",
+        "Intraday move: -5.56% intraday"
+      ]
     }
   ],
-  "_built_at": "2026-05-25T07:04:10.298602+00:00",
+  "_built_at": "2026-05-25T15:14:21.804561+00:00",
   "_coverage_size": 231
 }
