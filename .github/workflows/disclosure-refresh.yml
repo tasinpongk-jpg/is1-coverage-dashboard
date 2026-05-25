@@ -86,10 +86,8 @@ jobs:
         working-directory: surveillance
         run: python poll.py --lookback-days ${{ github.event.inputs.lookback_days || '1' }}
 
-      - name: Classify new items (rules first, Haiku fallback)
+      - name: Classify new items (rules-only — misses tagged 'unclassified')
         working-directory: surveillance
-        env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: python classify_batch.py
 
       - name: Upload updated DuckDB back to R2

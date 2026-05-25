@@ -1,8 +1,9 @@
 name: Daily Surveillance + Build
 
 # Consolidated daily workflow:
-#   Job 1 (surveillance): poll new SET disclosures, classify with rules-first
-#                         + Haiku fallback, send critical + digest emails,
+#   Job 1 (surveillance): poll new SET disclosures, classify with rules-only
+#                         engine (misses tagged 'unclassified' for offline
+#                         rule-mining), send critical + digest emails,
 #                         upload DuckDB to R2 (for laptop sync) and as a
 #                         workflow artifact (for Job 2).
 #   Job 2 (build):        download DuckDB artifact from Job 1, run 4 SETSMART
@@ -83,10 +84,8 @@ jobs:
         working-directory: surveillance
         run: python poll.py --lookback-days 2
 
-      - name: Classify (rules first, Haiku fallback)
+      - name: Classify (rules-only — misses tagged 'unclassified')
         working-directory: surveillance
-        env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: python classify_batch.py
 
       - name: Send critical alerts (one batched email per RM)
