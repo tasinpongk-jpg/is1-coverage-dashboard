@@ -574,15 +574,17 @@
       "sector": "PFREIT",
       "type": "Price gap",
       "atype": "gap",
-      "severity": "high",
+      "severity": "medium",
       "value": 7.563,
       "label": "-7.56% open gap",
       "evidence": {
         "open": 1.1,
         "prevClose": 1.19
       },
-      "filingsLinked": 0,
-      "filingsTitles": []
+      "filingsLinked": 1,
+      "filingsTitles": [
+        "Report NAV as of 30 April 2026"
+      ]
     },
     {
       "tk": "GEL",
@@ -1312,23 +1314,6 @@
       ]
     },
     {
-      "tk": "TU-PF",
-      "sector": "PFREIT",
-      "alertCount": 1,
-      "highestSeverity": "high",
-      "filingsLinked": 0,
-      "alertTypes": [
-        {
-          "atype": "gap",
-          "type": "Price gap",
-          "severity": "high"
-        }
-      ],
-      "summary": [
-        "Price gap: -7.56% open gap"
-      ]
-    },
-    {
       "tk": "XBIO",
       "sector": "FOOD",
       "alertCount": 1,
@@ -1662,8 +1647,25 @@
       "summary": [
         "Intraday move: -5.41% intraday"
       ]
+    },
+    {
+      "tk": "TU-PF",
+      "sector": "PFREIT",
+      "alertCount": 1,
+      "highestSeverity": "medium",
+      "filingsLinked": 1,
+      "alertTypes": [
+        {
+          "atype": "gap",
+          "type": "Price gap",
+          "severity": "medium"
+        }
+      ],
+      "summary": [
+        "Price gap: -7.56% open gap"
+      ]
     }
   ],
-  "_built_at": "2026-05-25T02:31:40.377273+00:00",
+  "_built_at": "2026-05-25T07:04:10.298602+00:00",
   "_coverage_size": 231
 }
