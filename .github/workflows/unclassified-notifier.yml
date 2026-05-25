@@ -1,0 +1,71 @@
+name: Unclassified Rule-Mining Notifier
+
+# Weekly nudge to mine the accumulated `severity='unclassified'` rows back
+# into deterministic rules in surveillance/rules.py.
+#
+# Behavior (see scripts/notify_unclassified_threshold.py):
+#   1. Downloads the production surveillance.duckdb from R2.
+#   2. Counts rows tagged severity='unclassified'.
+#   3. If >= THRESHOLD and no open issue with label 'unclassified-mining':
+#      opens a new issue with a cluster summary + mining instructions.
+#   4. If < THRESHOLD and an open issue exists: auto-closes it (the queue
+#      has shrunk on its own, no nudge needed).
+#
+# Schedule: Sunday 03:00 UTC = Sunday 10:00 BKK. Once a week is enough — the
+# unclassified queue grows slowly and mining is a deliberate human action.
+#
+# Secrets required: R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_ENDPOINT, R2_BUCKET.
+# GITHUB_TOKEN is provided automatically with `issues: write` permission below.
+
+on:
+  schedule:
+    - cron: '0 3 * * 0'    # Sunday 10:00 BKK
+  workflow_dispatch:
+    inputs:
+      threshold:
+        description: 'Override the default threshold (30) for this run only.'
+        required: false
+        default: '30'
+
+permissions:
+  contents: read
+  issues: write
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      SURVEILLANCE_DB_PATH: /tmp/surveillance.duckdb
+      PYTHONUTF8: '1'
+      AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+      AWS_DEFAULT_REGION: auto
+      AWS_EC2_METADATA_DISABLED: 'true'
+      R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+      R2_BUCKET: ${{ secrets.R2_BUCKET }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+          cache-dependency-path: surveillance/requirements.txt
+
+      - name: Install duckdb + boto3
+        run: pip install duckdb boto3
+
+      - name: Download surveillance.duckdb from R2
+        run: python surveillance/r2_sync.py download
+
+      - name: Check unclassified count and open/close issue as needed
+        run: |
+          THRESHOLD="${{ github.event.inputs.threshold || '30' }}"
+          python scripts/notify_unclassified_threshold.py --threshold "$THRESHOLD"
