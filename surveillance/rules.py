@@ -71,6 +71,23 @@ _CRITICAL_RULES: list[Rule] = [
         suggested_action="Open the disclosure PDF and the underlying news article before market open; brief sector head.",
         rationale="Clarification filing — typically SET-mandated; treat as critical per rubric.",
     ),
+    # TSR / paired-security delisting — "[Month] [N], YYYY is the last trading day of TSR …"
+    # Different from warrant_last_trading_day (catches -W\d patterns) and from
+    # trading_sign_posted's "is the last day of trading" delisting phrasing. Empirically
+    # rated critical/trading_sign by Haiku.
+    Rule(
+        name="last_trading_day_tsr",
+        pattern=re.compile(
+            r"\bis\s+the\s+last\s+trading\s+day\s+of\s+(TSR|[A-Z]+-TSR|[A-Z]+\s+and\s+[A-Z]+)\b",
+            re.IGNORECASE,
+        ),
+        severity="critical",
+        category="trading_sign",
+        summary_template="{symbol} last trading day of TSR notice: {hl}",
+        summary_th_template="{symbol} แจ้งวันซื้อขายวันสุดท้ายของใบสำคัญแสดงสิทธิ TSR: {hl}",
+        suggested_action="Open the disclosure; identify counterparties and final-settlement procedure.",
+        rationale="Last trading day of TSR / paired-security notice — automatic critical per rubric.",
+    ),
     # Trading-sign / suspension / delisting / free-float / Auto Pause
     Rule(
         name="trading_sign_posted",
@@ -94,14 +111,17 @@ _CRITICAL_RULES: list[Rule] = [
         suggested_action="Read the full announcement immediately; confirm impact on the covered name and notify desk.",
         rationale="Trading-sign / suspension / delisting events — automatic critical per rubric.",
     ),
-    # Senior-exec resignation (CEO/CFO/Chair/President/MD)
+    # Senior-exec resignation (CEO/Chair/President/MD) — RESIGNATION is critical.
+    # Standalone "Changing of CFO" is excluded here and handled as material in the
+    # changing_of_cfo_standalone material rule, because empirically Haiku rates the
+    # standalone CFO change as material (governance signal but not page-the-RM-immediately).
     Rule(
         name="exec_resignation",
         pattern=re.compile(
             r"^(Notification\s+of\s+(the\s+)?)?Resignation\s+of\s+(the\s+)?"
             r"(Chief\s+(Executive|Financial)\s+Officer|CEO|CFO|"
             r"Chairman|Chair\b|President\b|Managing\s+Director)|"
-            r"^Changing\s+of\s+(CEO|CFO|Chief\s+(Executive|Financial)\s+Officer)\b",
+            r"^Changing\s+of\s+(CEO|Chief\s+Executive\s+Officer)\b",
             re.IGNORECASE,
         ),
         severity="critical",
@@ -109,7 +129,7 @@ _CRITICAL_RULES: list[Rule] = [
         summary_template="Senior-exec resignation / change at {symbol}: {hl}",
         summary_th_template="ผู้บริหารระดับสูง {symbol} ลาออก/เปลี่ยนแปลง: {hl}",
         suggested_action="Call IR within the hour; check for related operational issues or pending disclosures.",
-        rationale="Unexpected CEO/CFO/Chair resignation — automatic critical per rubric.",
+        rationale="Unexpected CEO/CFO resignation or CEO change — automatic critical per rubric.",
     ),
     # Capital reduction
     Rule(
@@ -218,8 +238,8 @@ _CRITICAL_RULES: list[Rule] = [
         suggested_action="Open the disclosure; identify outgoing/incoming entity, fee structure changes, and unitholder vote requirement.",
         rationale="REIT-manager or trustee change — critical per PFREIT rubric.",
     ),
-    # BOD / Board Meeting resolutions bundled with No Dividend / capital change
-    # Accepts "BOD Meeting" or "Board Meeting" or "Board of Directors' Meeting"
+    # BOD / Board Meeting resolutions bundled with No Dividend / capital change.
+    # Accepts "BOD Meeting" or "Board Meeting" or "Board of Directors' Meeting".
     Rule(
         name="bod_no_dividend",
         pattern=re.compile(
@@ -270,6 +290,80 @@ _CRITICAL_RULES: list[Rule] = [
         suggested_action="Open the disclosure; identify counterparty, loan amount, terms, and connected-party flags.",
         rationale="Financial assistance disclosure (often connected-party loan/guarantee) — critical per rubric.",
     ),
+    # Clarification regarding auditor disclaimer / qualified opinion / going concern
+    Rule(
+        name="clarification_auditor_disclaimer",
+        pattern=re.compile(
+            r"^Clarification\s+regarding\s+the\s+auditor'?s\s+report\s+"
+            r"(disclaiming|qualifying|with\s+(a\s+)?(disclaimer|qualified))",
+            re.IGNORECASE,
+        ),
+        severity="critical",
+        category="auditor_change",
+        summary_template="{symbol} clarification on auditor disclaimer/qualified opinion: {hl}",
+        summary_th_template="{symbol} คำชี้แจงเรื่องผู้สอบบัญชีไม่แสดงความเห็น/แสดงความเห็นแบบมีเงื่อนไข: {hl}",
+        suggested_action="Open the disclosure immediately; read the disclaimer text in full; check for restatement risk; brief desk before market open.",
+        rationale="Clarification on auditor disclaimer / qualified opinion — automatic critical (financial-statement reliability red flag).",
+    ),
+    # Clarification on SEC News release (issuer-side response to SEC news item)
+    Rule(
+        name="clarification_sec_news_release",
+        pattern=re.compile(
+            r"^Clarification\s+Regarding\s+the\s+Securities\s+and\s+Exchange\s+Commission'?s\s+News\s+Release",
+            re.IGNORECASE,
+        ),
+        severity="critical",
+        category="set_clarification",
+        summary_template="{symbol} clarification on SEC News release: {hl}",
+        summary_th_template="{symbol} คำชี้แจงต่อข่าวจากสำนักงาน ก.ล.ต.: {hl}",
+        suggested_action="Open the disclosure and the underlying SEC news release before market open; brief sector head.",
+        rationale="Clarification triggered by an SEC News release — treat as critical per rubric.",
+    ),
+    # BOD resolution bundled with a Connected Transaction approval (RPT acquisition/disposal)
+    Rule(
+        name="bod_resolution_connected_transaction",
+        pattern=re.compile(
+            r"^Notification\s+Of\s+Board\s+Resolution\s+Regarding\s+The\s+Approval\s+Of\s+A\s+Connected\s+Transaction|"
+            r"^Notification\s+of\s+the\s+Resolutions\s+of\s+the\s+BOD\s+No\..*\b(Related\s+Company|Connected\s+Person|Disposal\s+of\s+(the\s+)?warehouse)",
+            re.IGNORECASE,
+        ),
+        severity="critical",
+        category="connected_transaction",
+        summary_template="{symbol} BOD-approved connected-party transaction: {hl}",
+        summary_th_template="{symbol} มติคณะกรรมการอนุมัติรายการที่เกี่ยวโยงกัน: {hl}",
+        suggested_action="Open the resolution PDF; check counterparty, valuation, IFA opinion, and shareholder-meeting requirement.",
+        rationale="BOD resolution approving a connected/related-party transaction — automatic critical.",
+    ),
+    # BOD bundled resolution naming a specific share acquisition (asset acquisition) as the headline driver.
+    Rule(
+        name="bod_resolution_share_acquisition",
+        pattern=re.compile(
+            r"^Notification\s+of\s+the\s+BOD\s+Meeting\s+No\..*\bre:\s*Share\s+Acquisition\s+in\b",
+            re.IGNORECASE,
+        ),
+        severity="critical",
+        category="ma_acquisition_disposal",
+        summary_template="{symbol} BOD resolution approving share acquisition: {hl}",
+        summary_th_template="{symbol} มติคณะกรรมการอนุมัติเข้าซื้อหุ้น: {hl}",
+        suggested_action="Open the resolution PDF; size the acquisition vs total assets; identify counterparty and connected-party flags.",
+        rationale="BOD resolution approving a share/asset acquisition — material M&A action, escalate.",
+    ),
+    # BOD bundled resolution headline that names a Capital Reduction / Increase action explicitly
+    Rule(
+        name="bod_resolution_capital_action",
+        pattern=re.compile(
+            r"^Notification\s+of\s+Board\s+Meeting\s+No\..*\bResolutions:.*\b("
+            r"Capital\s+Reduction|Capital\s+Increase|Capital\s+Reduction\s+and\s+Increase|"
+            r"No\s+Dividend)\b",
+            re.IGNORECASE,
+        ),
+        severity="critical",
+        category="capital_change",
+        summary_template="{symbol} BOD bundled resolution (capital action / no dividend): {hl}",
+        summary_th_template="{symbol} มติคณะกรรมการ (ลด/เพิ่มทุน หรือ งดปันผล): {hl}",
+        suggested_action="Read the full BOD resolution; quantify cumulative capital impact and dividend driver.",
+        rationale="BOD bundled resolution naming capital reduction/increase or no-dividend — critical.",
+    ),
     # Performance-swing >20% mandatory clarification
     Rule(
         name="performance_swing_clarification",
@@ -306,14 +400,19 @@ _MATERIAL_RULES: list[Rule] = [
         suggested_action="Read the MD&A in full; flag drivers and any guidance changes for the morning meeting.",
         rationale="MD&A release for a covered name — material per rubric.",
     ),
-    # F45 financial performance — covers Reviewed/Audited/Unreviewed/Revised forms
+    # F45 financial performance — covers Reviewed/Audited/Unreviewed/Revised forms.
     # The "Reviewed " prefix is the lowercased-headline variant SET emits at quarter-end
     # (auditors only review, not audit, between annual filings). Without it, Haiku had
     # been picking up "Reviewed financial performance quarter 1 (F45)" — promoted to a rule.
+    # Also handles SET's "Audited Yearly financial performance (F45)" word-order variant
+    # where the period qualifier ("Yearly"/"Quarter N") sits BETWEEN the audit prefix and
+    # "financial performance".
     Rule(
         name="financial_performance_f45",
         pattern=re.compile(
-            r"^(Audited\s+|Unreviewed\s+|Reviewed\s+)?(Financial\s+Performance\s+(Quarter|Yearly)|"
+            r"^(Audited\s+|Unreviewed\s+|Reviewed\s+)?"
+            r"((Yearly|Quarter(\s+\d)?)\s+)?"
+            r"(Financial\s+Performance(\s+(Quarter|Yearly))?|"
             r"Quarter\s+\d/\d{4}\s+and\s+Consolidated\s+F/S)\b.*\(F45\)",
             re.IGNORECASE,
         ),
@@ -323,6 +422,21 @@ _MATERIAL_RULES: list[Rule] = [
         summary_th_template="{symbol} ยื่นแบบ F45 ผลประกอบการทางการเงิน: {hl}",
         suggested_action="Compare reported numbers vs prior period; flag any 20%+ swings for clarification check.",
         rationale="F45 quarterly/yearly financial performance — material per rubric.",
+    ),
+    # Operating Result Quarter N Ending DD MMM YYYY — same materiality as the F45
+    # variant; some funds/issuers use this phrasing instead of "Financial Performance".
+    Rule(
+        name="operating_result_quarterly",
+        pattern=re.compile(
+            r"^Operating\s+Result\s+(Quarter|Yearly)\b",
+            re.IGNORECASE,
+        ),
+        severity="material",
+        category="earnings",
+        summary_template="{symbol} filed quarterly/yearly operating result: {hl}",
+        summary_th_template="{symbol} เผยแพร่ผลการดำเนินงานรายไตรมาส/ประจำปี: {hl}",
+        suggested_action="Pull the figures vs prior period; flag any 20%+ swings for clarification check.",
+        rationale="Operating-result periodic report — material per rubric.",
     ),
     # Financial Statement (the full Reviewed/Audited statements). Includes the
     # "Separated " and "Consolidated " prefixes SET uses to distinguish parent-only
@@ -440,6 +554,204 @@ _MATERIAL_RULES: list[Rule] = [
         summary_th_template="{symbol} โครงการซื้อหุ้นคืน: {hl}",
         suggested_action="Note the cumulative shares repurchased and remaining authorization.",
         rationale="Share repurchase program update — material per rubric.",
+    ),
+    # BOD-resolution headline naming dividend payment + AGM schedule (material/dividend).
+    # Distinct from `bod_dividend_declaration` above (which captures the pure "regarding
+    # the payment of dividend" phrasing). This catches the longer "BOD's Meeting regarding
+    # the dividend payment, and the schedule of the AGM" / "Resolutions of BOD's meeting
+    # regarding Date and Agenda of AGM and Dividend Payment" / "Resolutions of the Board
+    # of Directors Meeting No. ... Set up the AGM ... and Dividend Payment" family.
+    # Negative lookahead excludes dividend-omission/suspension phrasings (those are critical
+    # and handled by the dividend_omission / bod_no_dividend rules above).
+    Rule(
+        name="bod_resolution_dividend_agm_schedule",
+        pattern=re.compile(
+            r"^(?!.*\b(omission\s+of|omit\s+|Suspension\s+of|No\s+Dividend)\b)"
+            r"(Notification\s+of\s+(the\s+)?resolution(s)?\s+of\s+(the\s+)?(BOD'?s\s+|Board\s+of\s+Directors'?\s+)?Meeting|"
+            r"Resolutions?\s+of\s+(the\s+)?Board\s+of\s+Directors'?\s+meeting|"
+            r"(The\s+)?[Rr]esolution\s+of\s+(the\s+)?Board\s+of\s+Directors(\s+regarding|\s+Meeting\s+No)|"
+            r"Notification\s+of\s+the\s+resolution\s+again,?\s+Meeting\s+No)"
+            r".*\b(dividend\s+payment|Dividend\s+Payment|Non-Annual\s+dividend\s+payment|"
+            r"payment\s+of\s+(an?\s+)?dividend)\b",
+            re.IGNORECASE,
+        ),
+        severity="material",
+        category="dividend",
+        summary_template="{symbol} BOD resolution (dividend + AGM schedule): {hl}",
+        summary_th_template="{symbol} มติคณะกรรมการเกี่ยวกับเงินปันผลและกำหนดประชุมผู้ถือหุ้น: {hl}",
+        suggested_action="Read the resolution; note dividend amount, X-D date proxy, and calendar the AGM.",
+        rationale="BOD resolution bundling dividend payment with AGM scheduling — material per rubric.",
+    ),
+    # BOD resolution headline naming appointment of subcommittees / directors / executives
+    # (Material catch-all for BOD-meeting director/exec composition changes).
+    Rule(
+        name="bod_resolution_director_subcommittee",
+        pattern=re.compile(
+            r"^Notification\s+of\s+the\s+Resolutions\s+of\s+the\s+Board\s+of\s+Directors'?\s+Meeting\s+"
+            r"No\.\s*\d+/\d+\s+regarding\s+the\s+appointment\s+of\s+(subcommittees'?\s+members|"
+            r"director|directors|executives|Sub-?Committees|Audit\s+Committee)",
+            re.IGNORECASE,
+        ),
+        severity="material",
+        category="director_mgmt_change",
+        summary_template="{symbol} BOD resolution on subcommittee/director appointment: {hl}",
+        summary_th_template="{symbol} มติคณะกรรมการเรื่องแต่งตั้งกรรมการชุดย่อย/กรรมการ: {hl}",
+        suggested_action="Note the appointment; check independence and committee composition.",
+        rationale="BOD resolution on subcommittee/director appointment — material governance event.",
+    ),
+    # Notification of Director's Resignation and Appointment — combined event, material.
+    Rule(
+        name="director_resignation_and_appointment",
+        pattern=re.compile(
+            r"^Notification\s+of\s+(the\s+)?Director'?s\s+Resignation\s+and\s+Appointment",
+            re.IGNORECASE,
+        ),
+        severity="material",
+        category="director_mgmt_change",
+        summary_template="{symbol} director resignation and replacement appointment: {hl}",
+        summary_th_template="{symbol} กรรมการลาออกและแต่งตั้งทดแทน: {hl}",
+        suggested_action="Identify outgoing vs incoming; check committee/independence implications.",
+        rationale="Director resignation paired with appointment — material governance change.",
+    ),
+    # Appointment of Chairman of Audit Committee / Nomination Committee — governance signal.
+    Rule(
+        name="appointment_chairman_committee",
+        pattern=re.compile(
+            r"^Notification\s+of\s+(the\s+)?Appointment\s+of\s+(the\s+)?Chairman\s+of\s+"
+            r"(the\s+)?(Audit\s+Committee|Nomination(\s+and\s+Remuneration)?\s+Committee)",
+            re.IGNORECASE,
+        ),
+        severity="material",
+        category="director_mgmt_change",
+        summary_template="{symbol} chairman appointment to a key committee: {hl}",
+        summary_th_template="{symbol} แต่งตั้งประธานคณะกรรมการชุดย่อย: {hl}",
+        suggested_action="Note the chairman appointment; check tenure and prior committee role.",
+        rationale="Chairman appointment to Audit / Nomination & Remuneration committee — material governance event.",
+    ),
+    # Appointment of senior executives + change of Person Responsible for Accounting/Finance
+    Rule(
+        name="senior_exec_appointment_acct",
+        pattern=re.compile(
+            r"^Appointment\s+of\s+Senior\s+Executives?\s+and\s+Change\s+of\s+the\s+Person\s+Responsible\s+for\s+Accounting",
+            re.IGNORECASE,
+        ),
+        severity="material",
+        category="director_mgmt_change",
+        summary_template="{symbol} senior-exec + accounting-officer change: {hl}",
+        summary_th_template="{symbol} แต่งตั้งผู้บริหารและเปลี่ยนผู้รับผิดชอบสายบัญชี: {hl}",
+        suggested_action="Identify outgoing vs incoming; check accounting-officer tenure implications.",
+        rationale="Senior-exec appointment paired with accounting-officer change — material governance event.",
+    ),
+    # Changing of CFO (standalone, no "Notification" wrapper). The exec_resignation rule
+    # in CRITICAL covers "Changing of CEO/CFO" but only when prefixed by the trigger.
+    # Standalone "Changing of CFO" is empirically material (succession often signaled).
+    Rule(
+        name="changing_of_cfo_standalone",
+        pattern=re.compile(
+            r"^Changing\s+of\s+CFO\s*$",
+            re.IGNORECASE,
+        ),
+        severity="material",
+        category="director_mgmt_change",
+        summary_template="{symbol} CFO change: {hl}",
+        summary_th_template="{symbol} เปลี่ยนแปลง CFO: {hl}",
+        suggested_action="Note the CFO change; check successor's background and effective date.",
+        rationale="Standalone CFO change notification — material governance event per rubric.",
+    ),
+    # Issuance of Debentures — material capital action.
+    Rule(
+        name="issuance_of_debentures",
+        pattern=re.compile(
+            r"^Issuance\s+of\s+Debentures\s*$",
+            re.IGNORECASE,
+        ),
+        severity="material",
+        category="capital_change",
+        summary_template="{symbol} issuance of debentures: {hl}",
+        summary_th_template="{symbol} ออกหุ้นกู้: {hl}",
+        suggested_action="Read the disclosure; size the debenture vs existing leverage and capture use-of-proceeds.",
+        rationale="Debenture issuance — material capital action per rubric.",
+    ),
+    # Share Repurchase INITIAL reporting form (first/no-ordinal filing, marks program kickoff).
+    # Material per rubric — this is the formal "Report on Repurchase of Shares" / "Reporting
+    # Share Repurchase Form" filing without the periodic ordinal qualifier. The follow-on
+    # periodic filings ("Reporting The Second/Third/Fourth Share Repurchase form...") are
+    # handled as a separate routine rule below to match Haiku's empirical labeling.
+    Rule(
+        name="share_repurchase_form_report",
+        pattern=re.compile(
+            r"^(Report(ing)?\s+(on\s+(Repurchase\s+of\s+Shares|the\s+First\s+Share\s+Repurchase)|"
+            r"Share\s+Repurchase\s+Form)\s+for\s+[Ff]inancial\s+[Mm]anagement\s+[Pp]urpose|"
+            r"^Reporting\s+The\s+First\s+Share\s+Repurchase\s+form\s+for\s+financial\s+management\s+purpose)",
+            re.IGNORECASE,
+        ),
+        severity="material",
+        category="capital_change",
+        summary_template="{symbol} share repurchase initial reporting form: {hl}",
+        summary_th_template="{symbol} รายงานการซื้อหุ้นคืนครั้งแรกเพื่อบริหารทางการเงิน: {hl}",
+        suggested_action="Note the cumulative shares repurchased and remaining authorization.",
+        rationale="Initial share-repurchase reporting form (financial management) — material per rubric.",
+    ),
+    # Investment-project approval (typically a capex investment in a new facility).
+    Rule(
+        name="investment_project_approval",
+        pattern=re.compile(
+            r"^To\s+Inform\s+the\s+Approving\s+an\s+Investment\s+Project",
+            re.IGNORECASE,
+        ),
+        severity="material",
+        category="ma_acquisition_disposal",
+        summary_template="{symbol} investment-project approval: {hl}",
+        summary_th_template="{symbol} อนุมัติโครงการลงทุน: {hl}",
+        suggested_action="Open the disclosure; size the project capex, identify counterparty and timeline.",
+        rationale="Approval of a new investment project — material per rubric.",
+    ),
+    # Contract signing for a major construction project — material business event.
+    Rule(
+        name="contract_signing_construction",
+        pattern=re.compile(
+            r"^Notification\s+on\s+the\s+Contract\s+Signing\s+for\s+(the\s+)?Construction",
+            re.IGNORECASE,
+        ),
+        severity="material",
+        category="ma_acquisition_disposal",
+        summary_template="{symbol} construction-contract signing: {hl}",
+        summary_th_template="{symbol} ลงนามสัญญาก่อสร้างโครงการ: {hl}",
+        suggested_action="Open the disclosure; capture project value, counterparty, and completion timeline.",
+        rationale="Major construction-contract signing — material business win per rubric.",
+    ),
+    # AGM-resolution variant phrasings ("Notification on the Resolutions of the AGM ..." and
+    # "Notification of Resolutions of the AGM ..."). The existing shareholders_resolution
+    # rule catches "Notification of the resolutions of the AGM" — these two prefix variants
+    # ("Notification ON" and "Notification of Resolutions [no 'the']") need their own catch.
+    Rule(
+        name="agm_resolution_notification_variants",
+        pattern=re.compile(
+            r"^Notification\s+(on\s+the|of)\s+Resolutions?\s+of\s+(the\s+)?(\d{4}\s+)?"
+            r"Annual\s+General\s+Meeting\s+of\s+Shareholders",
+            re.IGNORECASE,
+        ),
+        severity="material",
+        category="agm_resolution",
+        summary_template="{symbol} AGM resolutions: {hl}",
+        summary_th_template="{symbol} มติที่ประชุมสามัญผู้ถือหุ้น: {hl}",
+        suggested_action="Read the resolutions list; flag any capital, dividend, or related-party items.",
+        rationale="AGM resolution release (variant phrasing) — material per rubric.",
+    ),
+    # "Disclosure Minute of the AGM" / "Determination of meeting date and agenda" - material
+    # AGM resolution variants. Skipping minute publication conflict by anchoring tightly.
+    Rule(
+        name="agm_resolution_disclosure_minute",
+        pattern=re.compile(
+            r"^Disclosure\s+Minute\s+of\s+(the\s+)?(\d{4}\s+)?Annual\s+General\s+Meeting\s+of\s+Shareholders",
+            re.IGNORECASE,
+        ),
+        severity="material",
+        category="agm_resolution",
+        summary_template="{symbol} AGM minutes (resolution-bearing): {hl}",
+        summary_th_template="{symbol} เปิดเผยมติที่ประชุมสามัญผู้ถือหุ้น: {hl}",
+        suggested_action="Read the resolutions; flag any material capital, dividend or related-party items.",
+        rationale="AGM 'Disclosure Minute' phrasing — empirically material per rubric.",
     ),
     # Capital extension / discount offset
     Rule(
@@ -684,22 +996,39 @@ _ROUTINE_RULES: list[Rule] = [
         suggested_action="No action required; exercise event logged.",
         rationale="Standard warrant-exercise notification with no surprise — routine.",
     ),
-    # Warrant / share-issue F53-5 result reports
+    # Warrant exercise result (F53-5) — empirically Haiku labels these warrant_exercise
+    # not regulatory_filing. Split the rule: "Exercise of [TICKER]-W" goes to
+    # warrant_exercise; "sale of common shares" stays as regulatory_filing.
     Rule(
         name="warrant_exercise_result",
         pattern=re.compile(
-            r"^Report\s+on\s+the\s+results\s+of\s+(the\s+Exercise\s+of|"
-            r"sale\s+of\s+common\s+shares)",
+            r"^Report\s+on\s+the\s+results\s+of\s+the\s+Exercise\s+of\b",
+            re.IGNORECASE,
+        ),
+        severity="routine",
+        category="warrant_exercise",
+        summary_template="{symbol} warrant exercise result (F53-5): {hl}",
+        summary_th_template="{symbol} รายงานผลการใช้สิทธิวอร์แรนต์: {hl}",
+        suggested_action="Note the take-up rate; no immediate action.",
+        rationale="F53-5 warrant-exercise result filing — routine warrant_exercise per rubric.",
+    ),
+    # F53-5 result of share-sale (PP / RO / ESOP) — separate routine/regulatory_filing path.
+    Rule(
+        name="share_sale_result_f53",
+        pattern=re.compile(
+            r"^Report\s+on\s+the\s+results\s+of\s+sale\s+of\s+common\s+shares",
             re.IGNORECASE,
         ),
         severity="routine",
         category="regulatory_filing",
-        summary_template="{symbol} warrant/share-issue result (F53-5): {hl}",
-        summary_th_template="{symbol} รายงานผลการใช้สิทธิ/เสนอขายหุ้น: {hl}",
+        summary_template="{symbol} share-issue result (F53-5): {hl}",
+        summary_th_template="{symbol} รายงานผลการเสนอขายหุ้น: {hl}",
         suggested_action="Note the take-up rate; no immediate action.",
-        rationale="F53-5 result-of-exercise filing — routine.",
+        rationale="F53-5 share-sale result filing — routine regulatory cadence.",
     ),
-    # New shares listing (post-warrant, post-RO, etc.)
+    # New shares listing (post-warrant, post-RO, etc.) — empirically Haiku consistently
+    # labels these capital_change, not regulatory_filing (this is a balance-sheet event
+    # for the issuer rather than a procedural filing).
     Rule(
         name="new_shares_listing",
         pattern=re.compile(
@@ -707,11 +1036,11 @@ _ROUTINE_RULES: list[Rule] = [
             re.IGNORECASE,
         ),
         severity="routine",
-        category="regulatory_filing",
+        category="capital_change",
         summary_template="{symbol} new shares listing: {hl}",
         summary_th_template="{symbol} หุ้นใหม่เริ่มซื้อขาย: {hl}",
         suggested_action="No action required.",
-        rationale="Standard new-shares listing notice (post-exercise/RO) — routine.",
+        rationale="Standard new-shares listing notice (post-exercise/RO) — routine capital_change.",
     ),
     # Asset appraisal value (REITs/PFs)
     Rule(
@@ -980,6 +1309,510 @@ _ROUTINE_RULES: list[Rule] = [
         suggested_action="Calendar the bondholder-meeting date if material to credit position.",
         rationale="Bondholders' meeting notification — routine for equity-focused coverage.",
     ),
+    # Periodic share-repurchase reports (THE Second / Third / Fourth / Fifth / etc.) —
+    # the recurring filing during an open program. Distinct from share_repurchase_form_report
+    # above (the initial filing, material). Empirically Haiku rates these as routine.
+    Rule(
+        name="share_repurchase_periodic_report",
+        pattern=re.compile(
+            r"^Reporting\s+The\s+(Second|Third|Fourth|Fifth|Sixth|Seventh|Eighth|Ninth|Tenth|\d+(st|nd|rd|th))\s+"
+            r"Share\s+Repurchase\s+form\s+for\s+financial\s+management\s+purpose",
+            re.IGNORECASE,
+        ),
+        severity="routine",
+        category="capital_change",
+        summary_template="{symbol} periodic share-repurchase report: {hl}",
+        summary_th_template="{symbol} รายงานความคืบหน้าการซื้อหุ้นคืน: {hl}",
+        suggested_action="No action required; periodic cadence under an existing repurchase program.",
+        rationale="Periodic (2nd/3rd/…) share-repurchase reporting form — routine cadence.",
+    ),
+    # "Report NAV as at <date>" — extends the existing nav_per_unit_report rule which
+    # only catches "as of". Cluster majority is info_memo (6/10 = 60%); intentionally
+    # accepting the 4 intra-cluster category disagreements to recover 6+ agree wins.
+    Rule(
+        name="nav_report_as_at",
+        pattern=re.compile(
+            r"^Report\s+NAV\s+as\s+at\b",
+            re.IGNORECASE,
+        ),
+        severity="routine",
+        category="information_memo",
+        summary_template="{symbol} periodic NAV report: {hl}",
+        summary_th_template="{symbol} รายงานมูลค่าทรัพย์สินสุทธิ: {hl}",
+        suggested_action="Note the NAV; periodic disclosure logged.",
+        rationale="Scheduled REIT/PF NAV disclosure (Report NAV as at) — routine per PFREIT rubric.",
+    ),
+    # "Net Asset Value per Unit Report as at" — explicit longer-form NAV header used by
+    # some sub-funds. Cluster majority info_memo (4/6 = 67%); accepts 2 intra-cluster
+    # category disagreements to recover 4 agree wins.
+    Rule(
+        name="nav_per_unit_report_as_at",
+        pattern=re.compile(
+            r"^Net\s+Asset\s+Value\s+per\s+Unit\s+Report\s+as\s+at\b",
+            re.IGNORECASE,
+        ),
+        severity="routine",
+        category="information_memo",
+        summary_template="{symbol} periodic NAV-per-unit report: {hl}",
+        summary_th_template="{symbol} รายงานมูลค่าทรัพย์สินสุทธิต่อหน่วยลงทุน: {hl}",
+        suggested_action="Note the NAV; periodic disclosure logged.",
+        rationale="Scheduled REIT/PF NAV-per-unit (long-form) disclosure — routine per PFREIT rubric.",
+    ),
+    # AGM minutes phrasings that cluster to routine/agm_resolution (rather than other) —
+    # "Submission of Minutes" and "Disclosure of the Minutes of Meeting of the AGM" forms.
+    # Cluster majority agm_resolution; 50-67% within-cluster category agreement so a few
+    # intra-cluster disagreements are accepted in exchange for the agree wins.
+    Rule(
+        name="agm_minutes_agm_resolution",
+        pattern=re.compile(
+            r"^(Submission\s+of\s+(the\s+)?[Mm]inutes\s+of\s+(the\s+)?(\d{4}\s+)?Annual\s+General\s+Meeting|"
+            r"Disclosure\s+of\s+(the\s+)?[Mm]inutes\s+of\s+Meeting\s+of\s+the\s+(\d{4}\s+)?Annual\s+General\s+Meeting|"
+            r"Disclosure\s+of\s+[Mm]inutes\s+of\s+the\s+(\d{4}\s+)?Annual\s+General\s+Meeting)",
+            re.IGNORECASE,
+        ),
+        severity="routine",
+        category="agm_resolution",
+        summary_template="{symbol} AGM minutes (resolution-doc emphasis): {hl}",
+        summary_th_template="{symbol} เปิดเผยรายงานการประชุมผู้ถือหุ้น (มติ): {hl}",
+        suggested_action="No action required; resolution-document archive.",
+        rationale="AGM minutes (resolution-document phrasing) — routine/agm_resolution per cluster.",
+    ),
+    # AGM minutes — broad catch-all phrasings that empirically cluster to routine/other.
+    # Pairs with the existing `agm_minutes` rule (canonical Publication/Disclosure of
+    # Minutes form) and `agm_minutes_notification`. Excludes the Submission of Minutes
+    # and Disclosure of Minutes of Meeting forms (those are agm_resolution per cluster).
+    Rule(
+        name="agm_minutes_broad",
+        pattern=re.compile(
+            r"^(Announcement\s+of\s+(the\s+)?(M|m)inutes\s+(the\s+|of\s+the\s+)?(\d{4}\s+|No\.\s*\d+/\d+\s+)?(on\s+)?(the\s+Company)?Annual\s+General\s+Meeting|"
+            r"Dissemination\s+of\s+(the\s+|of\s+)?[Mm]inutes\s+of\s+(the\s+)?(\d{4}\s+)?Annual\s+General\s+Meeting|"
+            r"To\s+notify\s+the\s+publication\s+of\s+the\s+[Mm]inutes\s+of\b|"
+            r"Notification\s+of\s+Disclosure\s+of\s+(the\s+)?[Mm]inutes\s+of\s+the\s+(\d{4}\s+)?Annual\s+General\s+Meeting|"
+            r"The\s+[Dd]isclosure\s+of\s+(The|the)\s+[Mm]inutes\s+of\s+the\s+(\d{4}\s+)?Annual\s+General\s+Meeting|"
+            r"Dissemination\s+of\s+the\s+[Mm]inutes\s+of\s+the\s+(\d{4}\s+)?Two-?way\s+Communication)",
+            re.IGNORECASE,
+        ),
+        severity="routine",
+        category="other",
+        summary_template="{symbol} AGM/EGM minutes published: {hl}",
+        summary_th_template="{symbol} เผยแพร่รายงานการประชุมผู้ถือหุ้น: {hl}",
+        suggested_action="No action required; minutes archived for the meeting.",
+        rationale="Post-meeting minutes publication (broad phrasings) — routine.",
+    ),
+    # NOTE: "Submission of Minutes" / "Disclosure of the Minutes of Meeting of the AGM"
+    # phrasings (cluster majority routine/agm_resolution) intentionally NOT promoted —
+    # the 50-67% intra-cluster category agreement makes any rule emit too many
+    # disagreements. They fall through to LLM until they reach a tighter cluster.
+    # Routine notification of a single AGM resolution (not the full set) — the cluster
+    # "notification of the resolution of the annual general" was 5 rows all rated
+    # routine/agm_resolution, single-resolution-style notice (e.g. dividend confirmation)
+    # rather than a full resolutions release.
+    Rule(
+        name="agm_single_resolution_routine",
+        pattern=re.compile(
+            r"^Notification\s+of\s+the\s+[Rr]esolution\s+of\s+(the\s+)?(\d{4}\s+)?Annual\s+General\s+Meeting\s+of\s+Shareholders\s*("
+            r"for\s+the\s+year\s+\d{4})?\s*$",
+            re.IGNORECASE,
+        ),
+        severity="routine",
+        category="agm_resolution",
+        summary_template="{symbol} single AGM resolution notification: {hl}",
+        summary_th_template="{symbol} แจ้งมติที่ประชุมสามัญผู้ถือหุ้น (มติเดี่ยว): {hl}",
+        suggested_action="No action required; single-item resolution logged.",
+        rationale="Single-resolution AGM notification — routine per rubric.",
+    ),
+    # Two-way communication schedule / dissemination of the related report / Q&A summaries
+    # All PFREIT routine cadence for the annual unitholder report.
+    Rule(
+        name="two_way_communication_schedule",
+        pattern=re.compile(
+            r"^Notification\s+of\s+the\s+[Ss]chedul(e|ing)\s+(for|of)\s+(the\s+\d{4}\s+|the\s+)?[Tt]wo-?\s*[Ww]ay\s+[Cc]ommunication|"
+            r"^Notification\s+of\s+the\s+Dissemination\s+of\s+the\s+Report\s+for\s+the\s+(\d{4}\s+)?Two-?way\s+Communication",
+            re.IGNORECASE,
+        ),
+        severity="routine",
+        category="information_memo",
+        summary_template="{symbol} two-way communication schedule/dissemination: {hl}",
+        summary_th_template="{symbol} กำหนดการสื่อสารแบบ Two-way: {hl}",
+        suggested_action="No action required; periodic unitholder-communication cadence.",
+        rationale="REIT/PF annual two-way unitholder communication schedule — routine per rubric.",
+    ),
+    # Two-way communication Q&A / summary of significant matters / questions and answers
+    # All PFREIT routine unitholder Q&A cadence.
+    Rule(
+        name="two_way_communication_qa",
+        pattern=re.compile(
+            r"^(Notification\s+of\s+the\s+result\s+of\s+questions\s+received\s+in|"
+            r"Notification\s+of\s+summary\s+of\s+significant\s+(matters|questions)\b|"
+            r"Notification\s+on\s+the\s+Results\s+of\s+the\s+Opening\s+for\s+Questions|"
+            r"Summary\s+of\s+questions\s+and\s+answers\s+by\s+two\s*-\s*way\s+communication|"
+            r"Summary\s+of\s+significant\s+(I|i)ssues\s+by\s+way\s+of\s+questions\s+and\s+answers|"
+            r"Disclosure\s+of\s+the\s+summary\s+of\s+questions\s+and\s+answers|"
+            r"Disclosure\s+of\s+question\s+and\s+answer\s+from\s+Question\s+Form)",
+            re.IGNORECASE,
+        ),
+        severity="routine",
+        category="information_memo",
+        summary_template="{symbol} two-way communication Q&A summary: {hl}",
+        summary_th_template="{symbol} สรุปคำถามคำตอบจากการสื่อสาร Two-way: {hl}",
+        suggested_action="No action required; periodic unitholder Q&A log.",
+        rationale="REIT/PF two-way communication Q&A summary — routine per rubric.",
+    ),
+    # Dividend / distribution payment + book closing date (REIT/Fund periodic distributions).
+    # Pairs with the existing reit_distribution rule (which only matches "distribution
+    # payment for the period"). This covers the additional phrasings.
+    Rule(
+        name="fund_dividend_payment_routine",
+        pattern=re.compile(
+            r"^(Announcement\s+for\s+Dividend\s+Payment\s+and\s+(the\s+)?Record\s+Date|"
+            r"Notification\s+of\s+the\s+dividend\s+payment\s+and\s+book\s+closing\s+date|"
+            r"Notification\s+of\s+the\s+Distribution\s+of\s+Returns\s+Payment\s+and\s+Book\s+Closing\s+Date|"
+            r"Notification\s+of\s+Distributed?\s+Payment(\s+no\.?\s*\d+/\d+)?\s+and\s+book\s+closing\s+date|"
+            r"Notification\s+of\s+Distribution\s+Payment\s+and\s+Book\s+Closing\s+Date|"
+            r"Notification\s+of\s+distribution\s+payment\s+of\b|"
+            r"Notification\s+of\s+distribution\s+of\s+(WHA|CPN|Issara|Axtra|Sub\s+Sri\s+Thai|the)\b|"
+            r"Notification\s+of\s+Distribution\s+of\s+Returns\s+of\b|"
+            r"Notification\s+of\s+Distribution\s+of\s+Returns\s+and\s+the\s+\d{4}\s+Two-?Way|"
+            r"Notification\s+of\s+Interim\s+Distribution\s+Payment\b|"
+            r"Notification\s+of\s+Dividend\s+Payment\s*$|"
+            r"Publication\s+of\s+the\s+dividend\s+payment\s+on\s+the\s+Company'?s\s+website\s*$)",
+            re.IGNORECASE,
+        ),
+        severity="routine",
+        category="dividend",
+        summary_template="{symbol} fund/REIT distribution payment notice: {hl}",
+        summary_th_template="{symbol} แจ้งจ่ายผลประโยชน์ตอบแทน/เงินปันผล: {hl}",
+        suggested_action="No action required; scheduled distribution logged.",
+        rationale="Scheduled REIT/fund distribution / dividend payment notice — routine per PFREIT rubric.",
+    ),
+    # Top-N major unitholders (already-listed funds, routine periodic register)
+    Rule(
+        name="major_unitholders_announcement",
+        pattern=re.compile(
+            r"^Announcement\s+of\s+(\d+\s+Major|the\s+first\s+\d+)\s+[Uu]nit(\s|-)?[Hh]olders|"
+            r"^Announcement\s+of\s+the\s+first\s+\d+\s+unit\s+holders",
+            re.IGNORECASE,
+        ),
+        severity="routine",
+        category="regulatory_filing",
+        summary_template="{symbol} major unitholders disclosure: {hl}",
+        summary_th_template="{symbol} รายชื่อผู้ถือหน่วยลงทุนรายใหญ่: {hl}",
+        suggested_action="No action required; periodic register disclosure.",
+        rationale="Routine major-unitholder register disclosure for funds.",
+    ),
+    # Details of Assets — narrow to the "Details of Assets" (plural, no date) form only.
+    # The "Details of Asset as of <date>" variant has 33% LLM disagreement on category
+    # (regulatory_filing vs information_memo) so we leave it unclassified.
+    Rule(
+        name="details_of_assets",
+        pattern=re.compile(
+            r"^Details\s+of\s+Assets\s*$|"
+            r"^Details\s+of\s+(LH|WHA|CPN|MFC|the)\s+\S+.*Real\s+Estate\s+Investment\s+Trust",
+            re.IGNORECASE,
+        ),
+        severity="routine",
+        category="information_memo",
+        summary_template="{symbol} fund asset details: {hl}",
+        summary_th_template="{symbol} รายละเอียดทรัพย์สินของกองทุน: {hl}",
+        suggested_action="No action required; periodic asset details logged.",
+        rationale="Periodic REIT/fund asset-details disclosure (clean variant) — routine per PFREIT rubric.",
+    ),
+    # AGM postponement / cancellation / rescheduling notices (routine logistical)
+    Rule(
+        name="agm_postponement_cancellation",
+        pattern=re.compile(
+            r"^Notification\s+of\s+(postponement|Cancellation)\s+of\s+(the\s+)?(\d{4}\s+|Previously\s+Scheduled\s+Date\s+for\s+the\s+\d{4}\s+)?Annual\s+General\s+Meeting",
+            re.IGNORECASE,
+        ),
+        severity="routine",
+        category="other",
+        summary_template="{symbol} AGM postponement/cancellation notice: {hl}",
+        summary_th_template="{symbol} แจ้งเลื่อน/ยกเลิกประชุมสามัญผู้ถือหุ้น: {hl}",
+        suggested_action="Update the AGM calendar; no immediate action.",
+        rationale="AGM postponement/cancellation — routine logistical change.",
+    ),
+    # Subsidiary establishment (non-material, e.g. small SPVs) — empirically Haiku
+    # consistently labels these routine when the headline is the plain "establishment of
+    # subsidiary company" form (no acquisition / connected-party qualifier).
+    Rule(
+        name="subsidiary_establishment_routine",
+        pattern=re.compile(
+            r"^Notification\s+of\s+the\s+establishment\s+of\s+subsidiary\s+company\s*$",
+            re.IGNORECASE,
+        ),
+        severity="routine",
+        category="other",
+        summary_template="{symbol} subsidiary establishment notice: {hl}",
+        summary_th_template="{symbol} แจ้งการจัดตั้งบริษัทย่อย: {hl}",
+        suggested_action="No action required; small SPV / subsidiary established.",
+        rationale="Plain subsidiary-establishment notice (no acquisition qualifier) — routine per rubric.",
+    ),
+    # Head office relocation — routine operational
+    Rule(
+        name="head_office_relocation",
+        pattern=re.compile(
+            r"^Notification\s+of\s+Head\s+Office\s+Relocation",
+            re.IGNORECASE,
+        ),
+        severity="routine",
+        category="other",
+        summary_template="{symbol} head office relocation: {hl}",
+        summary_th_template="{symbol} แจ้งย้ายสำนักงานใหญ่: {hl}",
+        suggested_action="No action required; operational change.",
+        rationale="Head-office relocation — routine operational notice.",
+    ),
+    # Roadshow presentation disclosure (IR material publishing)
+    Rule(
+        name="roadshow_presentation",
+        pattern=re.compile(
+            r"^Disclosure\s+of\s+the\s+Roadshow\s+Presentation\s+on\s+the\s+Company'?s\s+Website",
+            re.IGNORECASE,
+        ),
+        severity="routine",
+        category="information_memo",
+        summary_template="{symbol} roadshow presentation disclosed: {hl}",
+        summary_th_template="{symbol} เผยแพร่เอกสารโรดโชว์บนเว็บไซต์บริษัท: {hl}",
+        suggested_action="No action required; IR material logged.",
+        rationale="Roadshow-presentation website publication — routine IR cadence.",
+    ),
+    # Final-exercise + suspension request (warrant winding down)
+    Rule(
+        name="warrant_final_exercise_suspension",
+        pattern=re.compile(
+            r"^Notification\s+the\s+final\s+exercise\s+and\s+request\s+for\s+suspension\s+of\s+\S+-W\d",
+            re.IGNORECASE,
+        ),
+        severity="routine",
+        category="warrant_exercise",
+        summary_template="{symbol} warrant final exercise / suspension request: {hl}",
+        summary_th_template="{symbol} แจ้งการใช้สิทธิครั้งสุดท้ายและขอพักการซื้อขายวอร์แรนต์: {hl}",
+        suggested_action="No action required; warrant winding down.",
+        rationale="Final-exercise + suspension request for warrant — routine wind-down.",
+    ),
+    # Publication of the Minutes of AGM — additional phrasings (Uploading of the Minutes,
+    # Publicity of the minutes, Disseminate of the minutes, the plain "Minutes of the
+    # YYYY AGM" header). The existing agm_minutes_notification rule catches one specific
+    # form; this broadens it conservatively.
+    Rule(
+        name="agm_minutes_publication_broad",
+        pattern=re.compile(
+            r"^(Uploading\s+of\s+the\s+[Mm]inutes\s+of\s+the\s+(\d{4}\s+|Annual\s+General)|"
+            r"Publicity\s+of\s+the\s+[Mm]inutes\s+of\s+the\s+(\d{4}\s+)?Annual\s+General\s+Meeting|"
+            r"Disseminate\s+(the\s+)?[Mm]inutes\s+of\s+the\s+(\d{4}\s+)?Annual\s+General\s+Meeting|"
+            r"Dissemination\s+of\s+the\s+[Mm]inutes\s+and\s+clip\s+file|"
+            r"Minutes\s+of\s+the\s+\d{4}\s+Annual\s+General\s+Meeting\s+of\b|"
+            r"Notification\s+of\s+the\s+[Mm]inute\s+of\s+the\s+(\d{4}\s+|Annual\s+General))",
+            re.IGNORECASE,
+        ),
+        severity="routine",
+        category="other",
+        summary_template="{symbol} AGM minutes publication: {hl}",
+        summary_th_template="{symbol} เผยแพร่รายงานการประชุมสามัญผู้ถือหุ้น: {hl}",
+        suggested_action="No action required; minutes archived for the meeting.",
+        rationale="Post-AGM minutes publication (additional phrasings) — routine.",
+    ),
+    # Earnings call presentation slides publication (post-event material, not invitation)
+    Rule(
+        name="earnings_call_presentation",
+        pattern=re.compile(
+            r"^Earnings\s+Call\s+for\s+(Q\d|Quarter\s+\d)\s+\d{4}\s+Business\s+and\s+Operating\s+Performance\s+Presentation",
+            re.IGNORECASE,
+        ),
+        severity="routine",
+        category="information_memo",
+        summary_template="{symbol} earnings-call presentation deck: {hl}",
+        summary_th_template="{symbol} เอกสารประกอบการประชุมแถลงผลประกอบการ: {hl}",
+        suggested_action="No action required; deck archived.",
+        rationale="Earnings-call presentation deck publication — routine IR cadence.",
+    ),
+    # Capital reduction/increase REGISTRATION with the Department of Business Development —
+    # the procedural follow-on to the BOD/AGM resolution (already classified material/critical
+    # above). Empirically Haiku rates this routine.
+    Rule(
+        name="capital_change_registration",
+        pattern=re.compile(
+            r"^Notification\s+of\s+registration\s+of\s+capital\s+(reduction|increase)\s+with\s+the\b",
+            re.IGNORECASE,
+        ),
+        severity="routine",
+        category="capital_change",
+        summary_template="{symbol} capital-change registration with DBD: {hl}",
+        summary_th_template="{symbol} จดทะเบียนเปลี่ยนแปลงทุนกับกระทรวงพาณิชย์: {hl}",
+        suggested_action="No action required; registration follows an already-approved capital change.",
+        rationale="Capital-change registration with DBD (procedural follow-on) — routine.",
+    ),
+    # Change of company secretary / change of authorized directors / appointment of
+    # assistant managing director — sub-executive governance changes empirically rated
+    # routine by Haiku (NOT material like director appointment).
+    Rule(
+        name="sub_executive_change",
+        pattern=re.compile(
+            r"^(Change\s+of\s+(the\s+)?[Cc]ompany\s+[Ss]ecretary|"
+            r"Change\s+of\s+(the\s+)?[Aa]uthorized\s+[Dd]irectors|"
+            r"Notification\s+of\s+[Aa]ppointment\s+of\s+(the\s+)?[Aa]ssistant\s+[Mm]anaging\s+[Dd]irector|"
+            r"Appointment\s+of\s+Subcommittee\s+Member|"
+            r"Notification\s+of\s+progress\s+regarding\s+the\s+nomination\s+and\s+appointment\b)",
+            re.IGNORECASE,
+        ),
+        severity="routine",
+        category="director_mgmt_change",
+        summary_template="{symbol} sub-executive / committee role change: {hl}",
+        summary_th_template="{symbol} เปลี่ยนแปลงเลขานุการ/กรรมการมีอำนาจ/ผู้บริหารระดับรอง: {hl}",
+        suggested_action="No action required.",
+        rationale="Sub-executive role change (secretary / authorized directors / committee) — routine procedural.",
+    ),
+    # Change of subsidiary name, company profile updates (routine housekeeping)
+    Rule(
+        name="company_subsidiary_admin",
+        pattern=re.compile(
+            r"^Notification\s+of\s+change\s+of\s+subsidiary\s+company\s+name|"
+            r"^Change\s+of\s+[Cc]ompany\s+[Pp]rofile",
+            re.IGNORECASE,
+        ),
+        severity="routine",
+        category="other",
+        summary_template="{symbol} company / subsidiary administrative update: {hl}",
+        summary_th_template="{symbol} เปลี่ยนแปลงข้อมูลบริษัท/บริษัทย่อย: {hl}",
+        suggested_action="No action required; administrative update.",
+        rationale="Company-info / subsidiary-name administrative update — routine housekeeping.",
+    ),
+    # Numbered dividend payment / interim dividend / change in cash distribution frequency
+    # — these are scheduled REIT/Fund distribution events.
+    Rule(
+        name="numbered_dividend_payment_routine",
+        pattern=re.compile(
+            r"^Notification\s+of\s+the\s+\d+(st|nd|rd|th)\s+[Dd]ividend\s+[Pp]ayment|"
+            r"^Notification\s+of\s+Dividend\s+Payment\s+\([Rr]evised\)|"
+            r"^Payment\s+of\s+[Ii]nterim\s+[Dd]ividend\s*$",
+            re.IGNORECASE,
+        ),
+        severity="routine",
+        category="dividend",
+        summary_template="{symbol} scheduled / numbered dividend payment: {hl}",
+        summary_th_template="{symbol} จ่ายเงินปันผลตามรอบ/ระหว่างกาล: {hl}",
+        suggested_action="No action required; scheduled distribution.",
+        rationale="Periodic / numbered REIT/Fund dividend payment — routine per PFREIT rubric.",
+    ),
+    # NOTE: "Dissemination of dividend payment announcement" / financial-statement
+    # publication phrasings intentionally NOT promoted — clusters too LLM-noisy on
+    # category (dividend vs other vs earnings split). Fall through to LLM.
+
+    # Interim distribution payment of <FundName> (routine PFREIT cadence)
+    Rule(
+        name="interim_distribution_payment",
+        pattern=re.compile(
+            r"^Notification\s+of\s+Interim\s+Distributed?\s+Payment\b",
+            re.IGNORECASE,
+        ),
+        severity="routine",
+        category="dividend",
+        summary_template="{symbol} interim distribution payment: {hl}",
+        summary_th_template="{symbol} จ่ายผลประโยชน์ตอบแทนระหว่างกาล: {hl}",
+        suggested_action="No action required; interim distribution logged.",
+        rationale="Routine REIT/PF interim distribution payment — routine per PFREIT rubric.",
+    ),
+    # NAV / NAV-per-unit additional headers without "Report" prefix
+    Rule(
+        name="nav_per_unit_plain",
+        pattern=re.compile(
+            r"^Net\s+Asset\s+Value\s+per\s+Unit\s+as\s+of\b",
+            re.IGNORECASE,
+        ),
+        severity="routine",
+        category="information_memo",
+        summary_template="{symbol} NAV-per-unit periodic report: {hl}",
+        summary_th_template="{symbol} มูลค่าทรัพย์สินสุทธิต่อหน่วยลงทุน: {hl}",
+        suggested_action="No action required; periodic NAV log.",
+        rationale="Plain NAV-per-unit periodic disclosure — routine per PFREIT rubric.",
+    ),
+    # AGM minutes — additional "Annual General Shareholders' Meeting" phrasing (typo
+    # for "Annual General Meeting of Shareholders") and "Annual General Shareholders'"
+    Rule(
+        name="agm_minutes_general_shareholders",
+        pattern=re.compile(
+            r"^Publication\s+of\s+(the\s+)?Minutes\s+of\s+(Annual\s+General\s+Shareholders'?\s+Meeting|"
+            r"the\s+(\d+/)?\d{4}\s+Annual\s+General\s+Shareholders'?\s+Meeting)|"
+            r"^Announcement\s+of\s+the\s+[Mm]inutes\s+of\s+Annual\s+General\s+Meeting\s+of\s+Shareholders|"
+            r"^Disclosure\s+of\s+the\s+minutes\s+of\s+the\s+Annual\s+General\s+Shareholders'?\s+Meeting|"
+            r"^Notification\s+of\s+the\s+Submission\s+of\s+the\s+Minutes\s+of\s+th\s+\d{4}\s+Annual\s+General|"
+            r"^Notification\s+of\s+the\s+disclosure\s+of\s+minutes\s+of\s+the\s+\d{4}\s+Annual\s+General|"
+            r"^Minute\s+of\s+the\s+Annual\s+General\s+Meeting\s+of\s+Shareholders",
+            re.IGNORECASE,
+        ),
+        severity="routine",
+        category="other",
+        summary_template="{symbol} AGM minutes published (variant phrasing): {hl}",
+        summary_th_template="{symbol} เผยแพร่รายงานการประชุมผู้ถือหุ้นประจำปี: {hl}",
+        suggested_action="No action required; minutes archived.",
+        rationale="Post-AGM minutes publication (alt phrasings) — routine.",
+    ),
+    # Earnings conference call — distinct from earnings_call_invite (which catches
+    # "Notification convening date of the Earnings Call"). This is the plain
+    # "Notification of the JMART GROUP Earnings Conference Call for QN" form.
+    Rule(
+        name="earnings_conference_call_invite",
+        pattern=re.compile(
+            r"^Notification\s+of\s+(the\s+)?\S+\s+(GROUP\s+|group\s+)?Earnings\s+Conference\s+Call\s+for\s+Q\d",
+            re.IGNORECASE,
+        ),
+        severity="routine",
+        category="information_memo",
+        summary_template="{symbol} earnings conference call invitation: {hl}",
+        summary_th_template="{symbol} แจ้งการประชุมแถลงผลประกอบการ: {hl}",
+        suggested_action="Calendar the call date.",
+        rationale="Earnings conference call invitation — routine per rubric.",
+    ),
+    # Notification of Interim Distributed Payment (older phrasing variant)
+    # NOTE: SET allows trading on securities / TTCL Securities are not permitted for
+    # Short Selling — small operational SET notices that LLM rates routine/trading_sign.
+    Rule(
+        name="set_trading_admin_routine",
+        pattern=re.compile(
+            r"^SET\s+allows\s+trading\s+on\s+securities\s+of\b|"
+            r"^[A-Z]+\s+Securities\s+are\s+not\s+permitted\s+for\s+Short\s+Selling",
+            re.IGNORECASE,
+        ),
+        severity="routine",
+        category="trading_sign",
+        summary_template="{symbol} SET trading administrative notice: {hl}",
+        summary_th_template="{symbol} ประกาศการซื้อขายจากตลาดหลักทรัพย์: {hl}",
+        suggested_action="No action required; administrative trading notice.",
+        rationale="SET trading admin notice (cash balance, no short selling, etc.) — routine trading_sign.",
+    ),
+    # Two-way communication: additional Q&A summary phrasings
+    Rule(
+        name="two_way_qa_more_variants",
+        pattern=re.compile(
+            r"^(Summary\s+of\s+inquiries\s+from\s+unitholders\s+regarding\s+the\s+two-way|"
+            r"Notification\s+on\s+the\s+summary\s+of\s+questions\s+and\s+concerns|"
+            r"Notification\s+of\s+the\s+disclosure\s+of\s+the\s+summary\s+of\s+questions|"
+            r"Publication\s+of\s+summary\s+of\s+questions\s+and\s+answers\s+from|"
+            r"Notification\s+of\s+summary\s+of\s+questions\s+from\s+unitholders\s+on\b)",
+            re.IGNORECASE,
+        ),
+        severity="routine",
+        category="information_memo",
+        summary_template="{symbol} two-way communication Q&A: {hl}",
+        summary_th_template="{symbol} สรุปคำถามคำตอบจาก Two-way communication: {hl}",
+        suggested_action="No action required; periodic unitholder Q&A log.",
+        rationale="Two-way unitholder Q&A summary (additional phrasings) — routine.",
+    ),
+    # "Detail of <Fund Name> assets" header (REIT/Fund asset register, plain phrasing).
+    # Narrower than the no_match pattern would suggest, because broader phrasings have
+    # 50/50 LLM splits on category (information_memo vs regulatory_filing).
+    Rule(
+        name="asset_details_disclosure",
+        pattern=re.compile(
+            r"^Detail\s+of\s+\S+\s+.*Real\s+Estate\s+Investment\s+Trust\s+assets",
+            re.IGNORECASE,
+        ),
+        severity="routine",
+        category="information_memo",
+        summary_template="{symbol} fund asset details disclosure: {hl}",
+        summary_th_template="{symbol} เปิดเผยรายละเอียดทรัพย์สินของกองทุน: {hl}",
+        suggested_action="No action required; periodic asset register.",
+        rationale="REIT/PF asset-details disclosure — routine per PFREIT rubric.",
+    ),
     # Routine website publication of a dividend payment already approved by BOD.
     # Distinct from bod_dividend_declaration (material BOD resolution) and from
     # dividend_omission (critical). This is the post-resolution publicity step.
@@ -1031,6 +1864,35 @@ _TH_RULES: list[Rule] = [
         summary_th_template="{symbol} ยื่นงบการเงิน/คำอธิบายและวิเคราะห์ของฝ่ายจัดการ: {hl}",
         suggested_action="EN twin usually follows within hours; pull the PDF for analyst review.",
         rationale="Thai-first quarterly financial statement or MD&A — material per rubric.",
+    ),
+    # Thai BOD meeting resolution announcing dividend payment / financial assistance / AGM —
+    # mirror of the EN bod_resolution_dividend_agm_schedule rule on the TH side.
+    Rule(
+        name="th_bod_resolution_dividend",
+        pattern=re.compile(
+            r"^แจ้งมติที่ประชุมคณะกรรมการบริษัท\s+เรื่อง\s+(การจ่ายเงินปันผล|"
+            r"การให้ความช่วยเหลือทางการเงิน)",
+        ),
+        severity="material",
+        category="dividend",
+        summary_template="{symbol} TH BOD resolution (dividend + AGM): {hl}",
+        summary_th_template="{symbol} แจ้งมติคณะกรรมการเรื่องการจ่ายเงินปันผลและกำหนดประชุม: {hl}",
+        suggested_action="Read the resolution PDF; note dividend amount and calendar the AGM date.",
+        rationale="Thai-first BOD resolution declaring dividend payment + AGM schedule — material per rubric.",
+    ),
+    # Thai-only "การจัดตั้งบริษัทใหม่" — establishment of a new company. Empirically
+    # Haiku rates these material/ma_acquisition_disposal when filed Thai-first.
+    Rule(
+        name="th_new_company_establishment",
+        pattern=re.compile(
+            r"^การจัดตั้งบริษัทใหม่",
+        ),
+        severity="material",
+        category="ma_acquisition_disposal",
+        summary_template="{symbol} TH new-company establishment: {hl}",
+        summary_th_template="{symbol} แจ้งการจัดตั้งบริษัทใหม่: {hl}",
+        suggested_action="Open the disclosure; identify the new entity, capital and ownership structure.",
+        rationale="Thai-first new-company establishment notice — material per rubric.",
     ),
     # SEC News : สรุปแบบ XXX = SEC summary of regulatory form filings (Form 59 = major shareholder,
     # 246-2 = trustee report, 247-6 = tender offer admin, 250-2 = tender result). Daily SEC

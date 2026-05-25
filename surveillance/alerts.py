@@ -380,7 +380,7 @@ def fetch_unsent(severity: str, channel: str = EMAIL_CHANNEL,
 def mark_all_unsent_as_sent(channel: str = EMAIL_CHANNEL) -> dict[str, int]:
     """First-run cutover: silently mark every unsent classified item as sent."""
     counts: dict[str, int] = {}
-    for sev in ("critical", "material", "routine"):
+    for sev in ("critical", "material", "routine", "unclassified"):
         rows = fetch_unsent(sev, channel)
         if rows:
             mark_sent((r["news_id"] for r in rows), tier=f"backfill-{sev}",

@@ -19,7 +19,7 @@ MODEL_TH = "claude-haiku-4-5-20251001"   # TH-only path
 MODEL = MODEL_EN                          # legacy alias — keep callers working
 MAX_TOKENS = 600
 
-Severity = Literal["critical", "material", "routine"]
+Severity = Literal["critical", "material", "routine", "unclassified"]
 Category = Literal[
     "earnings",
     "guidance_change",
