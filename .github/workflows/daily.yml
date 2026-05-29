@@ -88,6 +88,14 @@ jobs:
         working-directory: surveillance
         run: python classify_batch.py
 
+      # External news / trading signs / SEC enforcement / macro overlays.
+      # Best-effort: any source that fails logs and continues. Failures in
+      # this step never block the SET pipeline above or the build job below.
+      - name: Fetch external sources (RSS, signs, SEC, macro)
+        working-directory: surveillance
+        run: python external_sources.py
+        continue-on-error: true
+
       - name: Send critical alerts (one batched email per RM)
         id: critical_email
         working-directory: surveillance
@@ -217,6 +225,13 @@ jobs:
           SURVEILLANCE_SQL: ${{ secrets.SURVEILLANCE_SQL }}
           PYTHONIOENCODING: utf-8
         run: python scripts/build_daily.py
+
+      # Pure DB -> JSON, ~2 sec. Reads same DuckDB artifact already on disk.
+      - name: Build external dashboard payloads
+        env:
+          PYTHONIOENCODING: utf-8
+        run: python scripts/build_external.py
+        continue-on-error: true
 
       - name: Commit and push if data changed
         # Only push from main. Manual dispatches from feature branches still
