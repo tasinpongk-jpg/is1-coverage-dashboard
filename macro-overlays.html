@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Macro Overlays — IS1 Team</title>
+<style>
+  :root {
+    --bg: #0f1117; --card: #1a1d27; --border: #2a2d3a; --text: #e2e8f0;
+    --muted: #7c8298; --accent: #6366f1;
+    --green: #22c55e; --yellow: #f59e0b;
+    --food: #3b82f6; --prop: #8b5cf6; --pfreit: #06b6d4;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', system-ui, sans-serif; font-size: 13px; }
+  header { display: flex; align-items: center; justify-content: space-between; padding: 14px 20px; border-bottom: 1px solid var(--border); background: var(--card); }
+  header h1 { font-size: 16px; font-weight: 600; }
+  .meta { font-size: 11px; color: var(--muted); margin-top: 3px; }
+  .nav { display: flex; gap: 14px; align-items: center; }
+  .nav a { color: var(--muted); text-decoration: none; font-size: 12px; padding: 4px 10px; border-radius: 6px; }
+  .nav a:hover { color: var(--text); background: var(--border); }
+  .nav a.active { color: var(--text); background: #6366f122; border: 1px solid #6366f155; }
+  .stale { font-size: 11px; padding: 3px 10px; border-radius: 20px; background: #22c55e22; color: var(--green); border: 1px solid #22c55e33; }
+  .stale.warn { background: #f59e0b22; color: var(--yellow); border-color: #f59e0b33; }
+
+  .grid { padding: 20px; display: grid; grid-template-columns: repeat(auto-fit, minmax(420px, 1fr)); gap: 16px; }
+  .col { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 16px; }
+  .col-hdr { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; padding-bottom: 10px; border-bottom: 1px solid var(--border); }
+  .col-name { font-size: 14px; font-weight: 700; letter-spacing: 0.3px; }
+  .col-cat { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
+  .col-count { font-size: 11px; color: var(--muted); }
+  .col ul { list-style: none; display: flex; flex-direction: column; gap: 8px; }
+  .col li { padding: 8px 10px; border: 1px solid var(--border); border-radius: 6px; background: #0f1117; }
+  .col li a { color: var(--text); text-decoration: none; font-size: 12.5px; line-height: 1.4; }
+  .col li a:hover { color: var(--accent); }
+  .empty { text-align: center; padding: 60px 20px; color: var(--muted); }
+
+  .src-THAIBMA { border-top: 3px solid var(--food); }
+  .src-REIC { border-top: 3px solid var(--prop); }
+  .src-OAE { border-top: 3px solid var(--green); }
+  .src-BLS { border-top: 3px solid var(--accent); }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>Macro Overlays <span style="color:var(--muted);font-weight:400;font-size:13px">— ThaiBMA / REIC / OAE / BLS daily snapshot</span></h1>
+    <div class="meta" id="meta">Loading...</div>
+  </div>
+  <nav class="nav">
+    <a href="index.html">Index</a>
+    <a href="disclosure-pulse.html">SETLink</a>
+    <a href="external-news.html">External</a>
+    <a href="trading-signs.html">Signs</a>
+    <a href="sec-enforcement.html">SEC</a>
+    <a href="macro-overlays.html" class="active">Macro</a>
+    <span class="stale" id="staleBadge">..</span>
+  </nav>
+</header>
+
+<div id="grid" class="grid"><div class="empty">Loading...</div></div>
+
+<script>
+const SRC_INFO = {
+  THAIBMA: { name: 'ThaiBMA', cat: 'Bond market - REIT/PROP refi signals' },
+  REIC: { name: 'REIC', cat: 'Property indices, transfer stats - PROP guidance lead' },
+  OAE: { name: 'OAE', cat: 'Agricultural commodities - AGRI/FOOD outlook' },
+  BLS: { name: 'Bualuang Securities', cat: 'Broker research notes - house-view setter' },
+};
+
+function freshnessLabel(builtAt) {
+  if (!builtAt) return { txt: '?', warn: true };
+  const ageH = (Date.now() - new Date(builtAt).getTime()) / 36e5;
+  return { txt: 'updated ' + (ageH < 1 ? Math.round(ageH * 60) + 'm' : Math.round(ageH) + 'h') + ' ago', warn: ageH > 36 };
+}
+async function init() {
+  try {
+    const dj = await fetch('./data/macro-overlays.json').then(r => r.json());
+    const items = dj.items || [];
+    const fresh = freshnessLabel(dj._built_at);
+    const badge = document.getElementById('staleBadge');
+    badge.textContent = fresh.txt;
+    if (fresh.warn) badge.classList.add('warn');
+    document.getElementById('meta').textContent = `${dj.total || 0} items across ${Object.keys(dj.bySource || {}).length} source(s) - as of ${dj.asOf || ''}`;
+
+    if (!items.length) {
+      document.getElementById('grid').innerHTML = '<div class="empty">No macro items captured yet. (First daily build may not have populated all sources.)</div>';
+      return;
+    }
+    const bySrc = {};
+    items.forEach(it => {
+      if (!bySrc[it.source]) bySrc[it.source] = [];
+      bySrc[it.source].push(it);
+    });
+    document.getElementById('grid').innerHTML = Object.keys(bySrc).sort().map(src => {
+      const info = SRC_INFO[src] || { name: src, cat: '' };
+      const items = bySrc[src].slice(0, 30);
+      return `<div class="col src-${src}">
+        <div class="col-hdr">
+          <div>
+            <div class="col-name">${info.name}</div>
+            <div class="col-cat">${info.cat}</div>
+          </div>
+          <div class="col-count">${bySrc[src].length} items</div>
+        </div>
+        <ul>
+          ${items.map(it => `<li><a href="${it.url}" target="_blank" rel="noopener">${it.title}</a></li>`).join('')}
+        </ul>
+      </div>`;
+    }).join('');
+  } catch(e) {
+    document.getElementById('grid').innerHTML = `<div class="empty">Error: ${e.message}</div>`;
+  }
+}
+init();
+</script>
+</body>
+</html>

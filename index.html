@@ -141,6 +141,49 @@
       <div class="dash-desc">Volume spikes, price moves, 52W highs / lows. Filings cross-linked when present.</div>
       <div class="dash-meta"><span>auto-refreshed</span><span>→</span></div>
     </a>
+    <a class="dash-card" href="external-news.html">
+      <div class="dash-icon" style="font-size:14px;color:var(--muted);letter-spacing:1px">RSS</div>
+      <div class="dash-title">External News</div>
+      <div class="dash-desc">RYT9, Kaohoon, Hoonsmart, Prachachat, Bangkok Biznews — ticker-matched wire flow.</div>
+      <div class="dash-meta"><span id="extNewsMeta">—</span><span>→</span></div>
+    </a>
+    <a class="dash-card" href="trading-signs.html">
+      <div class="dash-icon" style="font-size:14px;color:var(--muted);letter-spacing:1px">SP</div>
+      <div class="dash-title">Trading Signs</div>
+      <div class="dash-desc">Current SP / CC / NP / NC / C / ST / DS / CB flags on coverage tickers.</div>
+      <div class="dash-meta"><span id="signsMeta">—</span><span>→</span></div>
+    </a>
+    <a class="dash-card" href="sec-enforcement.html">
+      <div class="dash-icon" style="font-size:14px;color:var(--muted);letter-spacing:1px">SEC</div>
+      <div class="dash-title">SEC Enforcement</div>
+      <div class="dash-desc">Thai SEC iDisc actions — civil / criminal / admin, matched to coverage.</div>
+      <div class="dash-meta"><span id="secMeta">—</span><span>→</span></div>
+    </a>
+    <a class="dash-card" href="macro-overlays.html">
+      <div class="dash-icon" style="font-size:14px;color:var(--muted);letter-spacing:1px">MAC</div>
+      <div class="dash-title">Macro Overlays</div>
+      <div class="dash-desc">ThaiBMA bonds, REIC property, OAE commodities, BLS broker research.</div>
+      <div class="dash-meta"><span id="macroMeta">—</span><span>→</span></div>
+    </a>
+  </div>
+
+  <div class="section-title">Pipeline health</div>
+  <div id="diagnosticsPanel" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px">
+    <div class="dash-card" style="cursor:default">
+      <div class="dash-title">RM staleness</div>
+      <div class="dash-desc" style="margin-top:8px">Hours since each RM's most recent classified filing. Yellow above 36h on a weekday.</div>
+      <div id="rmStaleness" style="margin-top:10px;display:flex;flex-direction:column;gap:5px;font-size:12px"></div>
+    </div>
+    <div class="dash-card" style="cursor:default">
+      <div class="dash-title">Unclassified queue</div>
+      <div class="dash-desc" style="margin-top:8px">Rule-misses awaiting the offline mining pass. Triggers an issue at ≥ 30.</div>
+      <div id="unclassQueue" style="margin-top:10px;font-size:12px;color:var(--muted)"></div>
+    </div>
+    <div class="dash-card" style="cursor:default">
+      <div class="dash-title">Coverage gap</div>
+      <div class="dash-desc" style="margin-top:8px">Symbols seen in the firehose in the last 14 days that are NOT in <code>tickers.json</code>.</div>
+      <div id="coverageGap" style="margin-top:10px;font-size:12px;color:var(--muted)"></div>
+    </div>
   </div>
 </main>
 
@@ -211,6 +254,67 @@ async function init() {
   document.getElementById('sectorStrip').innerHTML = sortedSectors.map(([s, n]) =>
     `<div class="sector-pill"><span class="dot" style="background:${SECTOR_COLOR[s] || '#5a627a'}"></span>${s}<span class="n">${n}</span></div>`
   ).join('');
+
+  // New tiles + diagnostics. Each fetch is best-effort — missing/empty payload
+  // doesn't break the page.
+  const safe = (p) => p.then(r => r.json()).catch(() => null);
+  const [extNews, signs, sec, macro, diag] = await Promise.all([
+    safe(fetch('./data/external-news.json')),
+    safe(fetch('./data/trading-signs.json')),
+    safe(fetch('./data/sec-enforcement.json')),
+    safe(fetch('./data/macro-overlays.json')),
+    safe(fetch('./data/diagnostics.json')),
+  ]);
+
+  if (extNews) {
+    const items = extNews.items || [];
+    const last7d = items.filter(it => it.ts && (Date.now() - new Date(it.ts).getTime()) < 7 * 86400 * 1000);
+    document.getElementById('extNewsMeta').textContent = `${last7d.length} hits / 7d`;
+  }
+  if (signs) {
+    const total = signs.total || 0;
+    document.getElementById('signsMeta').textContent = total ? `${total} active` : 'none';
+  }
+  if (sec) {
+    const cov = sec.in_coverage_count || 0;
+    document.getElementById('secMeta').textContent = `${cov} in coverage / ${sec.total || 0}`;
+  }
+  if (macro) {
+    document.getElementById('macroMeta').textContent = `${macro.total || 0} items`;
+  }
+
+  // Diagnostics panel
+  if (diag) {
+    const rmRows = diag.rm_staleness || [];
+    document.getElementById('rmStaleness').innerHTML = rmRows.length
+      ? rmRows.map(r => {
+          const age = r.age_hours;
+          const color = age == null ? 'var(--muted)' : (age > 36 ? '#f59e0b' : '#22c55e');
+          const ageTxt = age == null ? 'unknown' : (age < 24 ? `${age.toFixed(1)}h` : `${(age/24).toFixed(1)}d`);
+          return `<div style="display:flex;justify-content:space-between"><span style="font-weight:600">${r.rm}</span><span style="color:${color};font-variant-numeric:tabular-nums">${ageTxt}</span></div>`;
+        }).join('')
+      : '<span style="color:var(--muted)">no data</span>';
+
+    const u = diag.unclassified || {};
+    const uTotal = u.total || 0;
+    const uColor = uTotal >= 30 ? '#f59e0b' : (uTotal === 0 ? '#22c55e' : 'var(--text)');
+    const recentHtml = (u.recent || []).slice(0, 5).map(r =>
+      `<div style="padding:4px 0;border-top:1px dashed var(--border);font-size:11px"><span style="font-weight:600">${r.tk}</span> <span style="color:var(--muted)">${(r.headline||'').slice(0, 80)}</span></div>`
+    ).join('');
+    document.getElementById('unclassQueue').innerHTML = `
+      <div style="font-size:22px;font-weight:700;color:${uColor};font-variant-numeric:tabular-nums">${uTotal}</div>
+      <div style="margin-top:2px">rule-misses awaiting mining ${uTotal >= 30 ? '<span style="color:#f59e0b">(threshold reached)</span>' : ''}</div>
+      ${recentHtml ? `<div style="margin-top:10px">${recentHtml}</div>` : ''}`;
+
+    const gap = diag.coverage_gap || [];
+    document.getElementById('coverageGap').innerHTML = gap.length
+      ? `<div style="font-size:22px;font-weight:700;color:#f59e0b;font-variant-numeric:tabular-nums">${gap.length}</div>
+         <div style="margin-top:2px">tickers in our industry, not on the RM list</div>
+         <div style="margin-top:10px;display:flex;flex-wrap:wrap;gap:4px">
+           ${gap.slice(0, 10).map(g => `<span style="font-size:11px;padding:2px 7px;background:#0f1117;border:1px solid var(--border);border-radius:4px"><strong>${g.tk}</strong> <span style="color:var(--muted)">·${g.count_14d}</span></span>`).join('')}
+         </div>`
+      : '<div style="font-size:14px;color:#22c55e">No gap detected · all firehose hits matched coverage</div>';
+  }
 }
 init();
 </script>

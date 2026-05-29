@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>SEC Enforcement — IS1 Team</title>
+<style>
+  :root {
+    --bg: #0f1117; --card: #1a1d27; --border: #2a2d3a; --text: #e2e8f0;
+    --muted: #7c8298; --accent: #6366f1;
+    --crit: #ef4444; --mat: #f59e0b; --green: #22c55e; --yellow: #f59e0b;
+    --food: #3b82f6; --prop: #8b5cf6; --pfreit: #06b6d4;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', system-ui, sans-serif; font-size: 13px; }
+  header { display: flex; align-items: center; justify-content: space-between; padding: 14px 20px; border-bottom: 1px solid var(--border); background: var(--card); }
+  header h1 { font-size: 16px; font-weight: 600; }
+  .meta { font-size: 11px; color: var(--muted); margin-top: 3px; }
+  .nav { display: flex; gap: 14px; align-items: center; }
+  .nav a { color: var(--muted); text-decoration: none; font-size: 12px; padding: 4px 10px; border-radius: 6px; }
+  .nav a:hover { color: var(--text); background: var(--border); }
+  .nav a.active { color: var(--text); background: #6366f122; border: 1px solid #6366f155; }
+  .stale { font-size: 11px; padding: 3px 10px; border-radius: 20px; background: #22c55e22; color: var(--green); border: 1px solid #22c55e33; }
+  .stale.warn { background: #f59e0b22; color: var(--yellow); border-color: #f59e0b33; }
+
+  .stats { display: flex; gap: 0; border-bottom: 1px solid var(--border); }
+  .stat { flex: 1; text-align: center; padding: 14px; border-right: 1px solid var(--border); }
+  .stat:last-child { border-right: none; }
+  .stat-val { font-size: 22px; font-weight: 700; }
+  .stat-lbl { font-size: 11px; color: var(--muted); margin-top: 2px; }
+
+  .tab-bar { background: var(--card); border-bottom: 1px solid var(--border); padding: 0 20px; }
+  .tab-row { display: flex; gap: 4px; padding: 8px 0; align-items: center; flex-wrap: wrap; }
+  .tab { padding: 5px 14px; border-radius: 6px; cursor: pointer; font-size: 12px; color: var(--muted); border: 1px solid transparent; user-select: none; }
+  .tab.active { background: #6366f122; border-color: #6366f155; color: var(--text); font-weight: 600; }
+
+  .feed { padding: 12px 20px 20px; display: flex; flex-direction: column; gap: 8px; }
+  .item { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; border-left: 3px solid var(--muted); }
+  .item.matched { border-left-color: var(--crit); }
+  .item-top { display: flex; align-items: flex-start; gap: 10px; }
+  .item-date { min-width: 90px; font-variant-numeric: tabular-nums; color: var(--muted); font-size: 12px; padding-top: 1px; }
+  .item-content { flex: 1; }
+  .item-resp { font-size: 13px; font-weight: 600; line-height: 1.35; }
+  .item-meta { display: flex; gap: 8px; margin-top: 5px; flex-wrap: wrap; align-items: center; }
+  .tag { font-size: 10px; padding: 2px 7px; border-radius: 4px; font-weight: 600; }
+  .tag-matched { background: #ef444433; color: var(--crit); }
+  .tag-uncov { background: #7c829822; color: var(--muted); }
+  .tag-case { background: #6366f122; color: #a5b4fc; font-variant-numeric: tabular-nums; }
+  .desc { margin-top: 6px; font-size: 12px; color: var(--muted); line-height: 1.4; }
+  .empty, .loading { text-align: center; padding: 60px; color: var(--muted); }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>SEC Enforcement <span style="color:var(--muted);font-weight:400;font-size:13px">— Thai SEC iDisc actions, coverage matches highlighted</span></h1>
+    <div class="meta" id="meta">Loading...</div>
+  </div>
+  <nav class="nav">
+    <a href="index.html">Index</a>
+    <a href="disclosure-pulse.html">SETLink</a>
+    <a href="external-news.html">External</a>
+    <a href="trading-signs.html">Signs</a>
+    <a href="sec-enforcement.html" class="active">SEC</a>
+    <span class="stale" id="staleBadge">..</span>
+  </nav>
+</header>
+
+<div class="stats" id="statsBar"></div>
+
+<div class="tab-bar">
+  <div class="tab-row">
+    <span style="font-size:11px;color:var(--muted);margin-right:8px;min-width:60px">Scope:</span>
+    <div class="tab active" data-scope="ALL" onclick="setScope('ALL')">All</div>
+    <div class="tab" data-scope="COVERAGE" onclick="setScope('COVERAGE')">In coverage</div>
+  </div>
+</div>
+
+<div id="feed" class="feed"><div class="loading">Fetching SEC enforcement actions...</div></div>
+
+<script>
+let ITEMS = [], activeScope = 'ALL';
+
+function freshnessLabel(builtAt) {
+  if (!builtAt) return { txt: '?', warn: true };
+  const ageH = (Date.now() - new Date(builtAt).getTime()) / 36e5;
+  return { txt: 'updated ' + (ageH < 1 ? Math.round(ageH * 60) + 'm' : Math.round(ageH) + 'h') + ' ago', warn: ageH > 36 };
+}
+function setScope(s) {
+  activeScope = s;
+  document.querySelectorAll('[data-scope]').forEach(el => el.classList.toggle('active', el.dataset.scope === s));
+  render();
+}
+function filtered() {
+  if (activeScope === 'COVERAGE') return ITEMS.filter(i => i.matched_ticker);
+  return ITEMS;
+}
+function render() {
+  const rows = filtered();
+  const feed = document.getElementById('feed');
+  if (!rows.length) {
+    feed.innerHTML = '<div class="empty">No SEC enforcement actions in scope.</div>';
+    return;
+  }
+  feed.innerHTML = rows.map(it => `<div class="item ${it.matched_ticker ? 'matched' : ''}">
+    <div class="item-top">
+      <div class="item-date">${it.action_date || '-'}</div>
+      <div class="item-content">
+        <div class="item-resp">${it.respondent || it.description || '-'}</div>
+        <div class="item-meta">
+          ${it.matched_ticker ? `<span class="tag tag-matched">${it.matched_ticker}</span>` : `<span class="tag tag-uncov">out-of-coverage</span>`}
+          ${it.case_no ? `<span class="tag tag-case">${it.case_no}</span>` : ''}
+          ${it.action_type ? `<span style="font-size:11px;color:var(--muted)">${it.action_type}</span>` : ''}
+          ${it.url ? `<a href="${it.url}" target="_blank" rel="noopener" style="font-size:11px;color:var(--accent)">SEC iDisc</a>` : ''}
+        </div>
+        ${it.description && it.description !== it.respondent ? `<div class="desc">${it.description}</div>` : ''}
+      </div>
+    </div>
+  </div>`).join('');
+}
+async function init() {
+  try {
+    const dj = await fetch('./data/sec-enforcement.json').then(r => r.json());
+    ITEMS = dj.items || [];
+    const fresh = freshnessLabel(dj._built_at);
+    const badge = document.getElementById('staleBadge');
+    badge.textContent = fresh.txt;
+    if (fresh.warn) badge.classList.add('warn');
+    document.getElementById('meta').textContent = `${dj.total || 0} actions - ${dj.in_coverage_count || 0} in coverage - as of ${dj.asOf || ''}`;
+    document.getElementById('statsBar').innerHTML = `
+      <div class="stat"><div class="stat-val" style="color:var(--crit)">${dj.in_coverage_count || 0}</div><div class="stat-lbl">Coverage hits</div></div>
+      <div class="stat"><div class="stat-val">${dj.total || 0}</div><div class="stat-lbl">Total actions</div></div>
+      <div class="stat"><div class="stat-val">${ITEMS.filter(i => i.action_type && i.action_type.toLowerCase().includes('criminal')).length}</div><div class="stat-lbl">Criminal</div></div>
+      <div class="stat"><div class="stat-val">${ITEMS.filter(i => i.action_type && i.action_type.toLowerCase().includes('civil')).length}</div><div class="stat-lbl">Civil</div></div>`;
+    render();
+  } catch(e) {
+    document.getElementById('feed').innerHTML = `<div class="empty">Error: ${e.message}</div>`;
+  }
+}
+init();
+</script>
+</body>
+</html>

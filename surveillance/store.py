@@ -129,6 +129,69 @@ def conn() -> Iterator[duckdb.DuckDBPyConnection]:
             )
             """
         )
+        # External RSS / wire-news matched to coverage tickers. One row per
+        # (source, url) — multi-ticker hits expand into multiple rows.
+        c.execute(
+            """
+            CREATE TABLE IF NOT EXISTS external_news (
+                id              VARCHAR NOT NULL,
+                source          VARCHAR NOT NULL,
+                symbol          VARCHAR NOT NULL,
+                sector          VARCHAR,
+                datetime_iso    VARCHAR NOT NULL,
+                headline        VARCHAR,
+                url             VARCHAR,
+                body_excerpt    VARCHAR,
+                lang            VARCHAR,
+                first_seen_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                PRIMARY KEY (id, symbol)
+            )
+            """
+        )
+        # SET trading-sign daily snapshot. Current-state table — one row per
+        # active (symbol, sign) pair; cleared and rewritten each scrape.
+        c.execute(
+            """
+            CREATE TABLE IF NOT EXISTS trading_signs (
+                symbol          VARCHAR NOT NULL,
+                sign            VARCHAR NOT NULL,
+                effective_date  VARCHAR,
+                reason          VARCHAR,
+                scraped_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                PRIMARY KEY (symbol, sign)
+            )
+            """
+        )
+        c.execute(
+            """
+            CREATE TABLE IF NOT EXISTS sec_enforcement (
+                id              VARCHAR PRIMARY KEY,
+                case_no         VARCHAR,
+                action_date     VARCHAR,
+                respondent      VARCHAR,
+                action_type     VARCHAR,
+                matched_ticker  VARCHAR,
+                description     VARCHAR,
+                url             VARCHAR,
+                scraped_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+            """
+        )
+        c.execute(
+            """
+            CREATE TABLE IF NOT EXISTS macro_items (
+                id              VARCHAR PRIMARY KEY,
+                source          VARCHAR NOT NULL,
+                category        VARCHAR,
+                datetime_iso    VARCHAR,
+                headline        VARCHAR,
+                url             VARCHAR,
+                body_excerpt    VARCHAR,
+                relevance_tags  VARCHAR,
+                scraped_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+            """
+        )
         yield c
     finally:
         c.close()
