@@ -170,7 +170,7 @@
       "sector": "AGRI",
       "type": "Intraday move",
       "atype": "intraday",
-      "severity": "high",
+      "severity": "medium",
       "value": 7.143,
       "label": "-7.14% intraday",
       "evidence": {
@@ -179,8 +179,11 @@
         "high": 0.98,
         "low": 0.9
       },
-      "filingsLinked": 0,
-      "filingsTitles": []
+      "filingsLinked": 2,
+      "filingsTitles": [
+        "Notification of Procedure for the Exercise of Warrants to Purchase the Newly Issued Ordinary Shares of Thai Rubber Latex",
+        "Notification the exercise of TRUBB-W3"
+      ]
     },
     {
       "tk": "PPPM",
@@ -527,7 +530,7 @@
       "sector": "FOOD",
       "type": "Intraday move",
       "atype": "intraday",
-      "severity": "medium",
+      "severity": "low",
       "value": 4.918,
       "label": "-4.92% intraday",
       "evidence": {
@@ -536,8 +539,10 @@
         "high": 1.22,
         "low": 1.16
       },
-      "filingsLinked": 0,
-      "filingsTitles": []
+      "filingsLinked": 1,
+      "filingsTitles": [
+        "Changing of CFO"
+      ]
     },
     {
       "tk": "TFG",
@@ -864,7 +869,7 @@
       "sector": "PROP",
       "type": "Volume spike",
       "atype": "vol_spike",
-      "severity": "high",
+      "severity": "medium",
       "value": 3.213,
       "label": "3.2σ vs 20D avg",
       "evidence": {
@@ -872,8 +877,10 @@
         "vol20dAvg": 746198.4,
         "vol20dStd": 705706.6158975272
       },
-      "filingsLinked": 0,
-      "filingsTitles": []
+      "filingsLinked": 1,
+      "filingsTitles": [
+        "Notification of the resolutions of the bond issue meeting No. 1/2026."
+      ]
     },
     {
       "tk": "KC",
@@ -889,8 +896,10 @@
         "high": 0.03,
         "low": 0.02
       },
-      "filingsLinked": 0,
-      "filingsTitles": []
+      "filingsLinked": 1,
+      "filingsTitles": [
+        "Notification of Resignation of Directors"
+      ]
     }
   ],
   "byTicker": [
@@ -1124,23 +1133,6 @@
       ]
     },
     {
-      "tk": "KC",
-      "sector": "PROP",
-      "alertCount": 1,
-      "highestSeverity": "high",
-      "filingsLinked": 0,
-      "alertTypes": [
-        {
-          "atype": "intraday",
-          "type": "Intraday move",
-          "severity": "high"
-        }
-      ],
-      "summary": [
-        "Intraday move: -33.33% intraday"
-      ]
-    },
-    {
       "tk": "LHRREIT",
       "sector": "PFREIT",
       "alertCount": 1,
@@ -1277,23 +1269,6 @@
       ]
     },
     {
-      "tk": "RICHY",
-      "sector": "PROP",
-      "alertCount": 1,
-      "highestSeverity": "high",
-      "filingsLinked": 0,
-      "alertTypes": [
-        {
-          "atype": "vol_spike",
-          "type": "Volume spike",
-          "severity": "high"
-        }
-      ],
-      "summary": [
-        "Volume spike: 3.2σ vs 20D avg"
-      ]
-    },
-    {
       "tk": "S",
       "sector": "PROP",
       "alertCount": 1,
@@ -1413,23 +1388,6 @@
       ]
     },
     {
-      "tk": "TRUBB",
-      "sector": "AGRI",
-      "alertCount": 1,
-      "highestSeverity": "high",
-      "filingsLinked": 0,
-      "alertTypes": [
-        {
-          "atype": "intraday",
-          "type": "Intraday move",
-          "severity": "high"
-        }
-      ],
-      "summary": [
-        "Intraday move: -7.14% intraday"
-      ]
-    },
-    {
       "tk": "WIIK",
       "sector": "CONMAT",
       "alertCount": 1,
@@ -1444,6 +1402,23 @@
       ],
       "summary": [
         "Volume spike: 5.9σ vs 20D avg"
+      ]
+    },
+    {
+      "tk": "KC",
+      "sector": "PROP",
+      "alertCount": 1,
+      "highestSeverity": "high",
+      "filingsLinked": 1,
+      "alertTypes": [
+        {
+          "atype": "intraday",
+          "type": "Intraday move",
+          "severity": "high"
+        }
+      ],
+      "summary": [
+        "Intraday move: -33.33% intraday"
       ]
     },
     {
@@ -1578,23 +1553,6 @@
       ]
     },
     {
-      "tk": "PLUS",
-      "sector": "FOOD",
-      "alertCount": 1,
-      "highestSeverity": "medium",
-      "filingsLinked": 0,
-      "alertTypes": [
-        {
-          "atype": "intraday",
-          "type": "Intraday move",
-          "severity": "medium"
-        }
-      ],
-      "summary": [
-        "Intraday move: -4.92% intraday"
-      ]
-    },
-    {
       "tk": "PRIN",
       "sector": "PROP",
       "alertCount": 1,
@@ -1712,8 +1670,59 @@
       "summary": [
         "Intraday move: +4.67% intraday"
       ]
+    },
+    {
+      "tk": "RICHY",
+      "sector": "PROP",
+      "alertCount": 1,
+      "highestSeverity": "medium",
+      "filingsLinked": 1,
+      "alertTypes": [
+        {
+          "atype": "vol_spike",
+          "type": "Volume spike",
+          "severity": "medium"
+        }
+      ],
+      "summary": [
+        "Volume spike: 3.2σ vs 20D avg"
+      ]
+    },
+    {
+      "tk": "TRUBB",
+      "sector": "AGRI",
+      "alertCount": 1,
+      "highestSeverity": "medium",
+      "filingsLinked": 2,
+      "alertTypes": [
+        {
+          "atype": "intraday",
+          "type": "Intraday move",
+          "severity": "medium"
+        }
+      ],
+      "summary": [
+        "Intraday move: -7.14% intraday"
+      ]
+    },
+    {
+      "tk": "PLUS",
+      "sector": "FOOD",
+      "alertCount": 1,
+      "highestSeverity": "low",
+      "filingsLinked": 1,
+      "alertTypes": [
+        {
+          "atype": "intraday",
+          "type": "Intraday move",
+          "severity": "low"
+        }
+      ],
+      "summary": [
+        "Intraday move: -4.92% intraday"
+      ]
     }
   ],
-  "_built_at": "2026-06-02T02:32:42.367590+00:00",
+  "_built_at": "2026-06-02T07:15:48.855736+00:00",
   "_coverage_size": 231
 }
