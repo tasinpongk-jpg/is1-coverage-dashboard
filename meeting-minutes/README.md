@@ -22,6 +22,34 @@ cp my-meeting.m4a ~/Meetings/inbox/2026-05-14-test-set.m4a
 tail -f ~/Meetings/logs/pipeline.log
 ```
 
+## Just transcription (no diarization, no LLM)
+
+If you only want a transcript — not full SET-style minutes — use the
+standalone `transcribe.sh`. It's a strict subset of `pipeline.py` stage 2:
+same `mlx-whisper large-v3-turbo`, same Apple-Silicon optimizations, but no
+Ollama, no pyannote, no launchd, no HF gated-model agreements.
+
+```bash
+# One-time install (~5 min: ffmpeg + uv + mlx-whisper, no HF login required)
+./meeting-minutes/bin/install-transcribe.sh
+
+# Transcribe (auto-detect language, writes .txt + .json next to the audio)
+./meeting-minutes/bin/transcribe.sh meeting.m4a
+
+# Thai meeting, also emit .srt subtitles
+./meeting-minutes/bin/transcribe.sh --language th --formats txt,srt,json talk.m4a
+
+# Batch + custom output dir + smaller model for speed
+./meeting-minutes/bin/transcribe.sh --model small --output-dir ~/Transcripts *.m4a
+```
+
+Good for: one-off transcripts, debugging Whisper output before running the
+full pipeline, environments where you can't accept the HF gated-model
+agreements diarization needs. If `~/Meetings/venv` from the full installer
+already exists, `transcribe.sh` will use it — no separate venv needed.
+
+## Full pipeline (transcription + diarization + Thai minutes)
+
 Filename suffix selects the output template:
 
 | Suffix         | Template                            | Output dir                    |
@@ -78,9 +106,12 @@ meeting-minutes/
 ├── README.md                                  this file
 ├── bin/
 │   ├── install.sh                             one-command installer (idempotent)
+│   ├── install-transcribe.sh                  minimal installer (ASR only)
 │   ├── uninstall.sh                           removes launchd + symlinks
 │   ├── preflight.sh                           PASS/FAIL/WARN environment check
 │   ├── pipeline.py                            6-stage Python orchestrator
+│   ├── transcribe.py                          standalone ASR CLI
+│   ├── transcribe.sh                          venv wrapper for transcribe.py
 │   ├── process_inbox.sh                       launchd-invoked watcher
 │   └── cleanup_processing.sh                  30-day GC for stale jobs
 ├── templates/
