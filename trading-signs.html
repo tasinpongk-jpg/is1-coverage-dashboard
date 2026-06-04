@@ -27,9 +27,9 @@
   .sign-stat .v { font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; }
   .sign-stat .l { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; margin-top: 2px; }
   .sign-stat.SP { border-left: 3px solid var(--crit); }
-  .sign-stat.CC, .sign-stat.C { border-left: 3px solid var(--mat); }
+  .sign-stat.CC, .sign-stat.CB, .sign-stat.CS, .sign-stat.CF, .sign-stat.C { border-left: 3px solid var(--mat); }
   .sign-stat.NP, .sign-stat.NC { border-left: 3px solid var(--muted); }
-  .sign-stat.DS, .sign-stat.ST, .sign-stat.CB { border-left: 3px solid var(--accent); }
+  .sign-stat.DS, .sign-stat.ST { border-left: 3px solid var(--accent); }
 
   .grid { padding: 18px 20px; }
   table { width: 100%; border-collapse: collapse; background: var(--card); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
@@ -39,9 +39,9 @@
   .tk { font-weight: 700; font-size: 13px; }
   .sign-pill { display: inline-block; font-size: 11px; padding: 2px 8px; border-radius: 4px; font-weight: 700; margin-right: 4px; }
   .sign-SP { background: #ef444433; color: var(--crit); }
-  .sign-CC, .sign-C { background: #f59e0b33; color: var(--mat); }
+  .sign-CC, .sign-CB, .sign-CS, .sign-CF, .sign-C { background: #f59e0b33; color: var(--mat); }
   .sign-NP, .sign-NC { background: #7c829833; color: var(--muted); }
-  .sign-DS, .sign-ST, .sign-CB { background: #6366f133; color: #a5b4fc; }
+  .sign-DS, .sign-ST { background: #6366f133; color: #a5b4fc; }
   .rm-badge { font-size: 10px; padding: 2px 7px; border-radius: 4px; font-weight: 600; background: #6366f122; color: #a5b4fc; }
   .sector-badge { font-size: 10px; padding: 2px 7px; border-radius: 4px; font-weight: 600; }
   .s-FOOD, .s-AGRI { background: #3b82f622; color: var(--food); }
@@ -56,7 +56,7 @@
 
 <header>
   <div>
-    <h1>Trading Signs <span style="color:var(--muted);font-weight:400;font-size:13px">— Current SP/CC/NP/NC/C/ST/DS/CB on coverage</span></h1>
+    <h1>Trading Signs <span style="color:var(--muted);font-weight:400;font-size:13px">— Current SP / CB / CS / CF / CC / NP / NC / ST / DS on coverage</span></h1>
     <div class="meta" id="meta">Loading...</div>
   </div>
   <nav class="nav">
@@ -81,14 +81,16 @@
 
 <div class="legend">
   <strong>Signs:</strong>
-  <code>SP</code> Suspension
-  <code>CC</code> Caution sign
+  <code>SP</code> Suspension ·
+  <code>CB</code> Caution - Business ·
+  <code>CS</code> Caution - Financial Statement ·
+  <code>CF</code> Caution - Free Float ·
+  <code>CC</code> Caution - Non-Compliance ·
   <code>C</code> Causes
-  <code>NP</code> Notice Pending
-  <code>NC</code> Non-Compliance
-  <code>ST</code> Stabilization
+  <code>NP</code> Notice Pending ·
+  <code>NC</code> Non-Compliance ·
+  <code>ST</code> Stabilization ·
   <code>DS</code> Designated Securities
-  <code>CB</code> Circuit Breaker
 </div>
 
 <script>
@@ -112,8 +114,8 @@ function render() {
     if (it.effective_date) byTk[it.tk].dates.add(it.effective_date);
   });
   const rows = Object.values(byTk).sort((a, b) => {
-    const sa = a.signs.some(s => s === 'SP') ? 0 : a.signs.some(s => ['CC','C'].includes(s)) ? 1 : 2;
-    const sb = b.signs.some(s => s === 'SP') ? 0 : b.signs.some(s => ['CC','C'].includes(s)) ? 1 : 2;
+    const sa = a.signs.some(s => s === 'SP') ? 0 : a.signs.some(s => ['CC','CB','CS','CF','C'].includes(s)) ? 1 : 2;
+    const sb = b.signs.some(s => s === 'SP') ? 0 : b.signs.some(s => ['CC','CB','CS','CF','C'].includes(s)) ? 1 : 2;
     return sa - sb || a.tk.localeCompare(b.tk);
   });
   grid.innerHTML = `
@@ -135,7 +137,7 @@ function render() {
 }
 
 function buildSummary(bySign) {
-  const order = ['SP','CC','C','NP','NC','DS','ST','CB'];
+  const order = ['SP','CB','CS','CF','CC','C','NP','NC','DS','ST'];
   const keys = Object.keys(bySign).sort((a,b) => (order.indexOf(a) + (order.indexOf(a) < 0 ? 99 : 0)) - (order.indexOf(b) + (order.indexOf(b) < 0 ? 99 : 0)));
   document.getElementById('summary').innerHTML = keys.length
     ? keys.map(k => `<div class="sign-stat ${k}"><div class="v">${bySign[k]}</div><div class="l">${k}</div></div>`).join('')
