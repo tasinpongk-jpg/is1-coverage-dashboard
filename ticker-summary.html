@@ -616,6 +616,14 @@ function buildCard(t, idx){
   const arrow=ca==null?'':ca>0?'▲':ca<0?'▼':'';
   const seg=t.segment&&t.segment!==t.sector?t.segment:null;
   const mktStr=t.mktcap!=null?'฿'+fmb(t.mktcap/1e6):'';
+  // Latest full-year highlights for NPM/GPM/D·E/OpCF
+  const hl=t.highlights||[];
+  const fy=hl.filter(h=>(h.months||12)===12).slice(-1)[0]||hl.slice(-1)[0]||null;
+  const npm=fy?.npm??null, gpm=fy?.gpm??null, de=fy?.deRatio??null, opcf=fy?.netOperating??null;
+  const npmCls=npm==null?'mv-null':npm>=10?'mv-good':npm>=0?'mv-warn':'mv-bad';
+  const gpmCls=gpm==null?'mv-null':gpm>=20?'mv-good':gpm>=10?'mv-warn':'mv-bad';
+  const deCls =de ==null?'mv-null':de <=0.5?'mv-good':de <=1.2?'mv-warn':'mv-bad';
+  const cfCls =opcf==null?'mv-null':opcf>0?'mv-good':'mv-bad';
   const esgB=esgBadge(t.esgRating);
   const cacB=t.cacFlag?'<span class="badge b-cac">CAC</span>':'';
   const isStarred=STARRED.has(t.tk);
@@ -654,6 +662,12 @@ function buildCard(t, idx){
         <div class="metric"><div class="metric-lbl">PBV</div><div class="metric-val ${pbvCls(t.pbv)}">${t.pbv!=null?f2(t.pbv):'—'}</div></div>
         <div class="metric"><div class="metric-lbl">DY %</div><div class="metric-val ${dyCls(t.dy)}">${t.dy!=null?f2(t.dy):'—'}</div></div>
         <div class="metric"><div class="metric-lbl">Mkt Cap</div><div class="metric-val mv-null" style="font-size:10px">${t.mktcap!=null?fmb(t.mktcap/1e6):'—'}</div></div>
+      </div>
+      <div class="metrics">
+        <div class="metric"><div class="metric-lbl">NPM %</div><div class="metric-val ${npmCls}">${npm!=null?f1(npm)+'%':'—'}</div></div>
+        <div class="metric"><div class="metric-lbl">GPM %</div><div class="metric-val ${gpmCls}">${gpm!=null?f1(gpm)+'%':'—'}</div></div>
+        <div class="metric"><div class="metric-lbl">D/E</div><div class="metric-val ${deCls}">${de!=null?f2(de)+'×':'—'}</div></div>
+        <div class="metric"><div class="metric-lbl">Op CF</div><div class="metric-val ${cfCls}" style="font-size:10px">${opcf!=null?fmb(opcf)+'฿':'—'}</div></div>
       </div>
       <div class="returns">
         <div class="ret"><div class="ret-lbl">1D</div><div class="ret-val ${retCls(t.pct1d)}">${dash(pct(t.pct1d))}</div></div>
