@@ -1,0 +1,567 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bond Summary — IS1 Coverage Desk</title>
+<style>
+:root{
+  --bg:#0a0c12;--bg2:#0f1117;--card:#14171f;--card2:#1a1d27;
+  --border:#232733;--border2:#2a2f3d;
+  --text:#e6e8ed;--muted:#8089a0;--dim:#5a627a;
+  --accent:#6366f1;--glow:#6366f130;
+  --green:#22c55e;--red:#ef4444;--yellow:#f59e0b;--blue:#3b82f6;
+  --food:#3b82f6;--agri:#10b981;--prop:#8b5cf6;
+  --cons:#f97316;--conmat:#ec4899;--pfreit:#06b6d4;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{background:var(--bg);color:var(--text);font-family:'Inter','Segoe UI',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+body{min-height:100vh;display:flex;flex-direction:column}
+body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellipse at top,#1a1d3022 0%,transparent 55%);pointer-events:none;z-index:0}
+
+/* HEADER */
+header{padding:14px 24px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;background:#0a0c12ee;backdrop-filter:blur(14px)}
+.brand{display:flex;align-items:center;gap:10px;text-decoration:none;color:inherit}
+.brand-mark{width:26px;height:26px;border-radius:6px;background:linear-gradient(135deg,var(--accent),#8b5cf6);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:11px;flex-shrink:0;color:#fff}
+.brand-name{font-size:14px;font-weight:700;letter-spacing:-.2px}
+.brand-sub{font-size:10px;color:var(--muted);letter-spacing:.4px;text-transform:uppercase}
+nav.nav{display:flex;gap:2px;align-items:center;flex-wrap:wrap}
+nav.nav a{color:var(--muted);text-decoration:none;font-size:12px;padding:5px 8px;border-radius:5px;transition:color .12s,background .12s;white-space:nowrap}
+nav.nav a:hover{color:var(--text);background:var(--border)}
+nav.nav a.active{color:var(--text);background:#6366f118;border:1px solid #6366f133}
+.stale{font-size:11px;padding:4px 10px;border-radius:20px;background:#22c55e15;color:var(--green);border:1px solid #22c55e30;white-space:nowrap}
+.stale.warn{background:#f59e0b15;color:var(--yellow);border-color:#f59e0b30}
+.stale.unknown{background:#5a627a15;color:var(--muted);border-color:#5a627a30}
+
+/* MAIN */
+main{flex:1;max-width:1440px;width:100%;margin:0 auto;padding:22px 24px 48px;position:relative;z-index:1}
+.pg-title{font-size:20px;font-weight:800;letter-spacing:-.4px}
+.pg-sub{font-size:12px;color:var(--muted);margin-top:2px}
+
+/* HERO STATS */
+.hero{display:flex;gap:10px;margin:16px 0 22px;flex-wrap:wrap}
+.hstat{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px 18px;flex:1;min-width:130px;position:relative;overflow:hidden}
+.hstat::after{content:'';position:absolute;top:0;left:0;width:3px;height:100%;background:var(--hc,var(--accent))}
+.hstat-lbl{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin-bottom:5px}
+.hstat-val{font-size:22px;font-weight:800;font-variant-numeric:tabular-nums;letter-spacing:-.5px}
+.hstat-hint{font-size:10px;color:var(--dim);margin-top:3px}
+
+/* CHART PANELS */
+.chart-panel{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:20px 22px;margin-bottom:18px}
+.chart-title{font-size:13px;font-weight:700;margin-bottom:3px}
+.chart-sub{font-size:11px;color:var(--muted);margin-bottom:16px}
+
+/* TWO COL */
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:18px}
+
+/* CONTROLS */
+.controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:16px;padding:14px 16px;background:var(--card);border:1px solid var(--border);border-radius:10px}
+.ctrl-lbl{font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:.5px;font-weight:600;white-space:nowrap}
+.ctrl-row{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.sbtn{padding:5px 11px;border-radius:6px;font-size:11px;font-weight:700;letter-spacing:.2px;cursor:pointer;border:1px solid var(--border);color:var(--muted);background:var(--bg2);transition:all .12s;user-select:none}
+.sbtn:hover{color:var(--text)}
+.sbtn.active{background:var(--accent);color:#fff;border-color:transparent}
+.sbtn[data-s="FOOD"].active{background:var(--food)}
+.sbtn[data-s="AGRI"].active{background:var(--agri)}
+.sbtn[data-s="PROP"].active{background:var(--prop)}
+.sbtn[data-s="CONS"].active{background:var(--cons)}
+.sbtn[data-s="CONMAT"].active{background:var(--conmat)}
+.sbtn[data-s="PFREIT"].active{background:var(--pfreit)}
+.toggle-btn{padding:5px 12px;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid var(--border);color:var(--muted);background:var(--bg2);transition:all .12s;user-select:none}
+.toggle-btn.on{background:#22c55e18;color:var(--green);border-color:#22c55e40}
+.sort-sel{background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:5px 24px 5px 8px;font-size:11px;color:var(--text);outline:none;cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%235a627a'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 7px center}
+.cnt-lbl{font-size:11px;color:var(--dim);margin-left:auto}
+
+/* GRID */
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:12px}
+
+/* ISSUER CARD */
+.icard{background:var(--card);border:1px solid var(--border);border-radius:14px;overflow:hidden;transition:border-color .18s,transform .18s,box-shadow .18s;display:flex;flex-direction:column}
+.icard:hover{border-color:var(--sc,var(--accent));transform:translateY(-2px);box-shadow:0 10px 36px #00000048}
+.icard[data-sector="FOOD"]{--sc:var(--food);--sbg:#3b82f612}
+.icard[data-sector="AGRI"]{--sc:var(--agri);--sbg:#10b98112}
+.icard[data-sector="PROP"]{--sc:var(--prop);--sbg:#8b5cf612}
+.icard[data-sector="CONS"]{--sc:var(--cons);--sbg:#f9731612}
+.icard[data-sector="CONMAT"]{--sc:var(--conmat);--sbg:#ec489912}
+.icard[data-sector="PFREIT"]{--sc:var(--pfreit);--sbg:#06b6d412}
+.icard-stripe{height:3px;background:var(--sc,var(--accent))}
+.icard-body{padding:15px;display:flex;flex-direction:column;gap:11px;flex:1}
+
+/* Card header */
+.icard-top{display:flex;justify-content:space-between;align-items:flex-start;gap:6px}
+.icard-tk{font-size:20px;font-weight:800;letter-spacing:-.5px}
+.icard-badges{display:flex;flex-wrap:wrap;gap:3px;justify-content:flex-end}
+.badge{display:inline-block;padding:2px 6px;border-radius:4px;font-size:9px;font-weight:700;letter-spacing:.2px;white-space:nowrap}
+.b-sect{color:var(--sc,var(--accent));background:var(--sbg,var(--glow))}
+.b-rm{color:#a5b4fc;background:#6366f118}
+.b-esg{color:var(--green);background:#22c55e18}
+.b-rating{background:var(--border2);color:var(--muted)}
+
+/* Outstanding big */
+.out-big{display:flex;align-items:baseline;gap:6px}
+.out-val{font-size:26px;font-weight:800;font-variant-numeric:tabular-nums;letter-spacing:-.6px}
+.out-unit{font-size:12px;color:var(--muted)}
+.out-meta{font-size:11px;color:var(--dim)}
+
+/* Count pills */
+.count-pills{display:flex;gap:6px}
+.pill{padding:3px 10px;border-radius:20px;font-size:10px;font-weight:600}
+.pill-long{background:#6366f118;color:#a5b4fc}
+.pill-short{background:#f59e0b18;color:var(--yellow)}
+
+/* Maturity timeline */
+.timeline-wrap{padding:4px 0}
+.timeline-label{display:flex;justify-content:space-between;font-size:9px;color:var(--dim);margin-bottom:4px}
+.timeline-svg{display:block;width:100%;overflow:visible}
+
+/* Bond table */
+.bond-tbl{width:100%;border-collapse:collapse;font-size:10px}
+.bond-tbl th{text-align:left;padding:4px 5px;color:var(--dim);font-weight:600;font-size:9px;text-transform:uppercase;border-bottom:1px solid var(--border);letter-spacing:.3px}
+.bond-tbl th:not(:first-child){text-align:right}
+.bond-tbl td{padding:4px 5px;border-bottom:1px dashed #1e2233;font-variant-numeric:tabular-nums}
+.bond-tbl td:not(:first-child){text-align:right}
+.bond-tbl tr:last-child td{border-bottom:none}
+.bond-tbl .sym{font-weight:700;font-size:11px}
+.bond-tbl .dist{font-size:9px;padding:1px 5px;border-radius:3px;background:var(--border);color:var(--muted)}
+.ttm-badge{font-size:9px;padding:1px 5px;border-radius:3px;font-weight:700}
+.ttm-red{color:var(--red);background:#ef444418}
+.ttm-yellow{color:var(--yellow);background:#f59e0b18}
+.ttm-green{color:var(--green);background:#22c55e18}
+.esg-icon{font-size:9px;color:var(--green)}
+
+/* Card footer */
+.icard-foot{display:flex;align-items:center;justify-content:space-between;padding-top:2px;margin-top:auto}
+.thaibma-link{font-size:10px;color:var(--muted);text-decoration:none;padding:4px 8px;border-radius:5px;border:1px solid var(--border);transition:all .12s}
+.thaibma-link:hover{color:var(--text);border-color:var(--sc,var(--accent));background:var(--glow)}
+
+/* Loading */
+#loading{text-align:center;padding:70px 20px;color:var(--muted)}
+.spinner{width:26px;height:26px;border:2px solid var(--border2);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite;margin:0 auto 12px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.empty{text-align:center;padding:50px 20px;color:var(--muted);grid-column:1/-1}
+
+/* Legend */
+.legend{display:flex;gap:12px;flex-wrap:wrap;margin-top:8px}
+.legend-item{display:flex;align-items:center;gap:4px;font-size:10px;color:var(--muted)}
+.legend-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+
+footer{padding:14px 24px;border-top:1px solid var(--border);font-size:11px;color:var(--dim);display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;position:relative;z-index:1}
+footer a{color:var(--muted);text-decoration:none}
+
+@media(max-width:640px){
+  main{padding:12px 12px 40px}
+  header{padding:10px 12px}
+  nav.nav a{font-size:10px;padding:4px 5px}
+  .two-col{grid-template-columns:1fr}
+  .grid{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <a class="brand" href="index.html">
+    <div class="brand-mark">IS</div>
+    <div><div class="brand-name">Coverage Desk</div><div class="brand-sub">SET Issuer Dept 1</div></div>
+  </a>
+  <nav class="nav">
+    <a href="index.html">Index</a>
+    <a href="coverage-morning-brief.html">Brief</a>
+    <a href="disclosure-pulse.html">Disclosures</a>
+    <a href="sector-heatmap.html">Heatmap</a>
+    <a href="ticker-summary.html">Tickers</a>
+    <a href="sector-comparison.html">Compare</a>
+    <a href="bond-summary.html" class="active">Bonds</a>
+    <a href="unusual-trading.html">Alerts</a>
+    <a href="external-news.html">External</a>
+    <a href="trading-signs.html">Signs</a>
+    <a href="sec-enforcement.html">SEC</a>
+    <a href="macro-overlays.html">Macro</a>
+    <span class="stale unknown" id="staleBadge">● loading</span>
+  </nav>
+</header>
+
+<main>
+  <div><div class="pg-title">Bond Summary</div><div class="pg-sub" id="pgSub">Loading ThaiBMA bond data…</div></div>
+  <div class="hero" id="hero"></div>
+
+  <!-- Maturity Wall -->
+  <div class="chart-panel" id="wallPanel" style="display:none">
+    <div class="chart-title">Maturity Wall</div>
+    <div class="chart-sub">Total outstanding by maturity year · M฿ · stacked by sector</div>
+    <div id="wallChart"></div>
+    <div class="legend" id="wallLegend"></div>
+  </div>
+
+  <!-- Two-column: Donut + Top Issuers -->
+  <div class="two-col" id="twoCol" style="display:none">
+    <div class="chart-panel">
+      <div class="chart-title">Outstanding by Sector</div>
+      <div class="chart-sub">Share of total bond outstanding</div>
+      <div id="donutChart" style="display:flex;gap:20px;align-items:center;flex-wrap:wrap"></div>
+    </div>
+    <div class="chart-panel">
+      <div class="chart-title">Top Issuers by Outstanding</div>
+      <div class="chart-sub">M฿ outstanding · long + short term</div>
+      <div id="topIssuers"></div>
+    </div>
+  </div>
+
+  <!-- Controls -->
+  <div class="controls" id="controls" style="display:none">
+    <div class="ctrl-row"><span class="ctrl-lbl">Sector</span><div id="sectFilter"></div></div>
+    <div class="ctrl-row"><span class="ctrl-lbl">RM</span><div id="rmFilter"></div></div>
+    <button class="toggle-btn" id="esgToggle" onclick="toggleESG()">🌿 ESG only</button>
+    <button class="toggle-btn" id="nearToggle" onclick="toggleNear()">⚠ Maturing ≤ 1yr</button>
+    <select class="sort-sel" id="sortSel" onchange="sortKey=this.value;render()">
+      <option value="out-d">Outstanding ↓</option>
+      <option value="bonds-d">Bond count ↓</option>
+      <option value="ttm-a">TTM ↑ (nearest maturity first)</option>
+      <option value="tk">A–Z</option>
+    </select>
+    <span class="cnt-lbl" id="cntLbl">—</span>
+  </div>
+
+  <div id="loading"><div class="spinner"></div>Fetching bond data…</div>
+  <div class="grid" id="grid" style="display:none"></div>
+</main>
+
+<footer>
+  <span id="fsrc">IS1 Coverage Desk · Bond Summary</span>
+  <span>Source: <a href="https://www.thaibma.or.th" target="_blank" rel="noopener">ThaiBMA.or.th</a> · No API key required</span>
+</footer>
+
+<script>
+// ── constants ────────────────────────────────────────────────────────────────
+const SCOL={FOOD:'#3b82f6',AGRI:'#10b981',PROP:'#8b5cf6',CONS:'#f97316',CONMAT:'#ec4899',PFREIT:'#06b6d4'};
+const SECT_ORDER=['FOOD','AGRI','PROP','CONS','CONMAT','PFREIT'];
+const esc=s=>(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const fmb=v=>v==null?'—':v>=1000?`${(v/1000).toFixed(1)}B`:v>=1?`${v.toFixed(0)}M`:`${v.toFixed(1)}M`;
+const f2=v=>v==null?'—':v.toFixed(2);
+
+// TTM color
+function ttmCol(ttm){return ttm==null?'#5a627a':ttm<1?'#ef4444':ttm<3?'#f59e0b':'#22c55e'}
+function ttmCls(ttm){return ttm==null?'':'ttm-'+(ttm<1?'red':ttm<3?'yellow':'green')}
+
+// ── MATURITY WALL CHART ───────────────────────────────────────────────────────
+function renderMaturityWall(byYearSector, byYear){
+  const years=Object.keys(byYear).sort();
+  if(!years.length) return;
+  const W=860,LEFT=56,RIGHT=12,BOTTOM=28,TOP=8;
+  const CHART_W=W-LEFT-RIGHT, CHART_H=180;
+  const H=CHART_H+TOP+BOTTOM;
+  const sectors=SECT_ORDER.filter(s=>years.some(y=>byYearSector[y]?.[s]>0));
+  const maxTotal=Math.max(...years.map(y=>byYear[y]||0))||1;
+  const barW=(CHART_W/years.length)*0.72;
+  const barGap=(CHART_W/years.length)*0.28/2;
+
+  // Y axis ticks
+  const yTicks=4;
+  let ytickSvg='',xgridSvg='';
+  for(let i=0;i<=yTicks;i++){
+    const val=maxTotal*(i/yTicks);
+    const y=TOP+CHART_H-(CHART_H*i/yTicks);
+    const lbl=val>=1000?`${(val/1000).toFixed(0)}B`:val>=1?`${val.toFixed(0)}M`:'0';
+    ytickSvg+=`<text x="${LEFT-5}" y="${y+3}" text-anchor="end" fill="#5a627a" font-size="9">${lbl}</text>`;
+    if(i>0) xgridSvg+=`<line x1="${LEFT}" y1="${y}" x2="${LEFT+CHART_W}" y2="${y}" stroke="#1e2130" stroke-width="1"/>`;
+  }
+
+  // Bars
+  let barsSvg='',xlabelSvg='',tooltipData=[];
+  years.forEach((yr,i)=>{
+    const x=LEFT+i*(CHART_W/years.length)+barGap;
+    let yOff=TOP+CHART_H;
+    const yearData=byYearSector[yr]||{};
+    let yearTotal=0;
+    sectors.forEach(s=>{
+      const val=yearData[s]||0;
+      if(!val) return;
+      const bh=Math.max(2,(val/maxTotal)*CHART_H);
+      yOff-=bh;
+      barsSvg+=`<rect x="${x.toFixed(1)}" y="${yOff.toFixed(1)}" width="${barW.toFixed(1)}" height="${bh.toFixed(1)}" rx="2" fill="${SCOL[s]}" opacity="0.82">
+        <title>${s}: ${fmb(val)} maturing ${yr}</title></rect>`;
+      yearTotal+=val;
+    });
+    xlabelSvg+=`<text x="${(x+barW/2).toFixed(1)}" y="${H-5}" text-anchor="middle" fill="${parseInt(yr)<=new Date().getFullYear()?'#ef4444':'#5a627a'}" font-size="10" font-weight="${parseInt(yr)<=new Date().getFullYear()?'700':'400'}">${yr}</text>`;
+    // Total label above bar
+    const totalY=yOff-4;
+    if(yearTotal>0) barsSvg+=`<text x="${(x+barW/2).toFixed(1)}" y="${totalY.toFixed(1)}" text-anchor="middle" fill="#8089a0" font-size="8">${fmb(yearTotal)}</text>`;
+  });
+
+  document.getElementById('wallChart').innerHTML=`<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" style="width:100%;display:block;overflow:visible">
+    ${xgridSvg}
+    <line x1="${LEFT}" y1="${TOP}" x2="${LEFT}" y2="${TOP+CHART_H}" stroke="#232733" stroke-width="1"/>
+    <line x1="${LEFT}" y1="${TOP+CHART_H}" x2="${LEFT+CHART_W}" y2="${TOP+CHART_H}" stroke="#232733" stroke-width="1"/>
+    ${ytickSvg}${barsSvg}${xlabelSvg}
+  </svg>`;
+
+  // Legend
+  document.getElementById('wallLegend').innerHTML=sectors.map(s=>
+    `<div class="legend-item"><div class="legend-dot" style="background:${SCOL[s]}"></div>${s}</div>`
+  ).join('')+'<div class="legend-item" style="margin-left:auto;color:var(--red)">■ Current year</div>';
+}
+
+// ── DONUT CHART ───────────────────────────────────────────────────────────────
+function renderDonut(bySector){
+  const data=Object.entries(bySector).filter(([,v])=>v>0).sort((a,b)=>b[1]-a[1]);
+  const total=data.reduce((s,[,v])=>s+v,0)||1;
+  const W=150,H=150,cx=75,cy=75,R=58,r=32;
+  let paths='',angle=-Math.PI/2;
+  data.forEach(([s,val])=>{
+    const a=(val/total)*2*Math.PI;
+    const ea=angle+a;
+    const x1=cx+R*Math.cos(angle),y1=cy+R*Math.sin(angle);
+    const x2=cx+R*Math.cos(ea),y2=cy+R*Math.sin(ea);
+    const xi1=cx+r*Math.cos(ea),yi1=cy+r*Math.sin(ea);
+    const xi2=cx+r*Math.cos(angle),yi2=cy+r*Math.sin(angle);
+    const lg=a>Math.PI?1:0;
+    const d=`M${x1.toFixed(1)},${y1.toFixed(1)} A${R},${R} 0 ${lg},1 ${x2.toFixed(1)},${y2.toFixed(1)} L${xi1.toFixed(1)},${yi1.toFixed(1)} A${r},${r} 0 ${lg},0 ${xi2.toFixed(1)},${yi2.toFixed(1)} Z`;
+    paths+=`<path d="${d}" fill="${SCOL[s]||'#6366f1'}" opacity="0.85"><title>${s}: ${fmb(val)} M฿ (${(val/total*100).toFixed(1)}%)</title></path>`;
+    angle=ea;
+  });
+  const donutSvg=`<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" xmlns="http://www.w3.org/2000/svg">
+    ${paths}
+    <circle cx="${cx}" cy="${cy}" r="${r-2}" fill="${'#14171f'}"/>
+    <text x="${cx}" y="${cy-6}" text-anchor="middle" fill="#e6e8ed" font-size="9" font-weight="600">Total</text>
+    <text x="${cx}" y="${cy+8}" text-anchor="middle" fill="#e6e8ed" font-size="11" font-weight="800">${fmb(total)}</text>
+  </svg>`;
+  const legendHtml=data.map(([s,val])=>
+    `<div style="display:flex;align-items:center;gap:6px;margin-bottom:5px">
+      <div style="width:10px;height:10px;border-radius:2px;background:${SCOL[s]||'#6366f1'};flex-shrink:0"></div>
+      <span style="font-size:11px;color:var(--muted);flex:1">${s}</span>
+      <span style="font-size:11px;font-weight:700;font-variant-numeric:tabular-nums">${fmb(val)}</span>
+      <span style="font-size:10px;color:var(--dim)">${(val/total*100).toFixed(0)}%</span>
+    </div>`
+  ).join('');
+  document.getElementById('donutChart').innerHTML=donutSvg+`<div style="flex:1;min-width:140px">${legendHtml}</div>`;
+}
+
+// ── TOP ISSUERS BAR CHART ─────────────────────────────────────────────────────
+function renderTopIssuers(issuers){
+  const top=issuers.slice(0,12);
+  const max=top[0]?.totalOutstanding||1;
+  const html=top.map(i=>{
+    const pct=Math.max(2,(i.totalOutstanding/max)*100);
+    const col=SCOL[i.sector]||'#6366f1';
+    return `<div style="margin-bottom:7px">
+      <div style="display:flex;justify-content:space-between;font-size:10px;margin-bottom:2px">
+        <span style="font-weight:700;color:${col}">${esc(i.tk)}</span>
+        <span style="color:var(--muted);font-variant-numeric:tabular-nums">${fmb(i.totalOutstanding)}</span>
+      </div>
+      <div style="height:6px;background:var(--border2);border-radius:3px">
+        <div style="height:100%;width:${pct.toFixed(1)}%;background:${col};border-radius:3px;opacity:.8"></div>
+      </div>
+    </div>`;
+  }).join('');
+  document.getElementById('topIssuers').innerHTML=html;
+}
+
+// ── MATURITY TIMELINE SVG (per card) ─────────────────────────────────────────
+function maturityTimeline(bonds){
+  if(!bonds.length) return '';
+  const now=new Date();
+  const nowMs=now.getTime();
+  const today=now.toISOString().slice(0,10);
+  const activeBonds=bonds.filter(b=>b.maturityDate>today);
+  if(!activeBonds.length) return '';
+  const maxDate=new Date(Math.max(...activeBonds.map(b=>new Date(b.maturityDate).getTime())));
+  const rangeMs=Math.max(maxDate.getTime()-nowMs,1);
+  const W=260,H=38,PAD=8,TRACK_Y=22,TRACK_H=4;
+
+  const px=d=>{
+    const ms=new Date(d).getTime()-nowMs;
+    return PAD+Math.max(0,Math.min(1,ms/rangeMs))*(W-PAD*2);
+  };
+
+  // Track gradient
+  let svg=`<defs><linearGradient id="tg${bonds[0].symbol}" x1="0" y1="0" x2="1" y2="0">
+    <stop offset="0%" stop-color="#ef4444" stop-opacity="0.6"/>
+    <stop offset="40%" stop-color="#f59e0b" stop-opacity="0.6"/>
+    <stop offset="100%" stop-color="#22c55e" stop-opacity="0.6"/>
+  </linearGradient></defs>`;
+  svg+=`<rect x="${PAD}" y="${TRACK_Y}" width="${W-PAD*2}" height="${TRACK_H}" rx="2" fill="url(#tg${bonds[0].symbol})"/>`;
+
+  // Year ticks
+  const startYr=now.getFullYear(), endYr=maxDate.getFullYear();
+  for(let yr=startYr+1;yr<=endYr;yr++){
+    const x=px(`${yr}-01-01`);
+    if(x>PAD+6&&x<W-PAD-6){
+      svg+=`<line x1="${x.toFixed(1)}" y1="${TRACK_Y-3}" x2="${x.toFixed(1)}" y2="${TRACK_Y+TRACK_H+3}" stroke="#232733" stroke-width="1"/>`;
+      svg+=`<text x="${x.toFixed(1)}" y="${TRACK_Y+TRACK_H+12}" text-anchor="middle" fill="#5a627a" font-size="8">${yr}</text>`;
+    }
+  }
+
+  // Bond circles — size proportional to outstanding, min/max clamped
+  const outVals=activeBonds.map(b=>b.outstanding||0);
+  const maxOut=Math.max(...outVals)||1;
+  activeBonds.forEach(b=>{
+    const x=px(b.maturityDate);
+    const r=Math.max(4,Math.min(9,4+(b.outstanding/maxOut)*5));
+    const col=ttmCol(b.ttm);
+    svg+=`<circle cx="${x.toFixed(1)}" cy="${TRACK_Y+TRACK_H/2}" r="${r.toFixed(1)}" fill="${col}" stroke="#14171f" stroke-width="1.5" opacity="0.9">
+      <title>${esc(b.symbol)}: ${fmb(b.outstanding)} · matures ${b.maturityDate} · TTM ${b.ttm?.toFixed(1)||'?'}y</title></circle>`;
+  });
+
+  // "Today" label
+  svg+=`<text x="${PAD}" y="${TRACK_Y-5}" fill="#5a627a" font-size="8">Today</text>`;
+  svg+=`<text x="${(W-PAD).toFixed(1)}" y="${TRACK_Y-5}" text-anchor="end" fill="#5a627a" font-size="8">${maxDate.getFullYear()}</text>`;
+
+  return `<div class="timeline-wrap">
+    <svg class="timeline-svg" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg">${svg}</svg>
+  </div>`;
+}
+
+// ── BOND TABLE ─────────────────────────────────────────────────────────────────
+function bondTable(bonds){
+  const today=new Date().toISOString().slice(0,10);
+  const active=bonds.filter(b=>b.maturityDate>today).slice(0,8);
+  if(!active.length) return '';
+  const rows=active.map(b=>{
+    const esgIcon=b.esg?'<span class="esg-icon" title="'+esc(b.esg)+'">🌿</span>':'';
+    const ttmBadge=b.ttm!=null?`<span class="ttm-badge ${ttmCls(b.ttm)}">${b.ttm.toFixed(1)}y</span>`:'';
+    return `<tr>
+      <td><span class="sym">${esc(b.symbol)}</span> ${esgIcon}</td>
+      <td>${fmb(b.outstanding)}</td>
+      <td>${(b.maturityDate||'').slice(0,7)}</td>
+      <td>${ttmBadge}</td>
+      <td><span class="dist">${esc(b.distribution)}</span></td>
+    </tr>`;
+  }).join('');
+  const more=bonds.length>active.length?`<tr><td colspan="5" style="text-align:center;color:var(--dim);font-size:9px;padding:4px">+${bonds.length-active.length} more</td></tr>`:'';
+  return `<table class="bond-tbl"><thead><tr><th>Symbol</th><th>Out (M฿)</th><th>Maturity</th><th>TTM</th><th>Dist</th></tr></thead><tbody>${rows}${more}</tbody></table>`;
+}
+
+// ── ISSUER CARD ───────────────────────────────────────────────────────────────
+function buildCard(issuer){
+  const s=issuer.sector;
+  const ratingBadge=issuer.rating?`<span class="badge b-rating">${esc(issuer.rating)}</span>`:'';
+  const esgBadge=issuer.hasESG?'<span class="badge b-esg">🌿 ESG</span>':'';
+  const nearCount=issuer.bonds.filter(b=>b.ttm!=null&&b.ttm<=1).length;
+  const nearWarn=nearCount?`<span style="font-size:10px;color:var(--red)">⚠ ${nearCount} maturing ≤1yr</span>`:'';
+  const thaibmaUrl=`https://www.thaibma.or.th/EN/Issuer/IssuerDetail.aspx?issuer=${encodeURIComponent(issuer.tk)}`;
+  return `<div class="icard" data-sector="${esc(s)}" data-rm="${esc(issuer.rm)}">
+    <div class="icard-stripe"></div>
+    <div class="icard-body">
+      <div class="icard-top">
+        <div class="icard-tk">${esc(issuer.tk)}</div>
+        <div class="icard-badges">
+          <span class="badge b-sect">${esc(s)}</span>
+          <span class="badge b-rm">${esc(issuer.rm||'—')}</span>
+          ${ratingBadge}${esgBadge}
+        </div>
+      </div>
+      <div>
+        <div class="out-big">
+          <span class="out-val">฿${fmb(issuer.totalOutstanding)}</span>
+          <span class="out-unit">outstanding</span>
+        </div>
+        <div class="out-meta">${nearWarn}</div>
+      </div>
+      <div class="count-pills">
+        <span class="pill pill-long">${issuer.longCount} long-term</span>
+        <span class="pill pill-short">${issuer.shortCount} short-term</span>
+      </div>
+      ${maturityTimeline(issuer.bonds)}
+      ${bondTable(issuer.bonds)}
+      <div class="icard-foot">
+        <span style="font-size:10px;color:var(--dim)">${issuer.bonds.length} bond${issuer.bonds.length!==1?'s':''} total</span>
+        <a class="thaibma-link" href="${thaibmaUrl}" target="_blank" rel="noopener">ThaiBMA ↗</a>
+      </div>
+    </div>
+  </div>`;
+}
+
+// ── STATE & RENDER ────────────────────────────────────────────────────────────
+let ALL=[], sectFilter='ALL', rmFilter='', esgOnly=false, nearOnly=false, sortKey='out-d';
+
+function applyFilters(){
+  return ALL.filter(i=>{
+    if(sectFilter!=='ALL'&&i.sector!==sectFilter) return false;
+    if(rmFilter&&i.rm!==rmFilter) return false;
+    if(esgOnly&&!i.hasESG) return false;
+    if(nearOnly&&!i.bonds.some(b=>b.ttm!=null&&b.ttm<=1)) return false;
+    return true;
+  });
+}
+function applySort(arr){
+  return [...arr].sort((a,b)=>{
+    if(sortKey==='tk') return a.tk.localeCompare(b.tk);
+    if(sortKey==='bonds-d') return (b.longCount+b.shortCount)-(a.longCount+a.shortCount);
+    if(sortKey==='ttm-a'){
+      const ta=a.nearestMaturity||'9999', tb=b.nearestMaturity||'9999';
+      return ta.localeCompare(tb);
+    }
+    return b.totalOutstanding-a.totalOutstanding;
+  });
+}
+function render(){
+  const filtered=applySort(applyFilters());
+  document.getElementById('cntLbl').textContent=`${filtered.length} / ${ALL.length} issuers`;
+  const grid=document.getElementById('grid');
+  if(!filtered.length){grid.innerHTML='<div class="empty">No issuers match the current filter.</div>';return;}
+  grid.innerHTML=filtered.map(buildCard).join('');
+}
+function toggleESG(){esgOnly=!esgOnly;document.getElementById('esgToggle').classList.toggle('on',esgOnly);render();}
+function toggleNear(){nearOnly=!nearOnly;document.getElementById('nearToggle').classList.toggle('on',nearOnly);render();}
+
+function initControls(issuers){
+  const sects=['ALL',...new Set(issuers.map(i=>i.sector).filter(Boolean))];
+  const sf=document.getElementById('sectFilter');
+  sf.innerHTML=sects.map(s=>`<button class="sbtn${s==='ALL'?' active':''}" data-s="${s}">${s}</button>`).join('');
+  sf.addEventListener('click',e=>{const b=e.target.closest('[data-s]');if(!b)return;sf.querySelectorAll('[data-s]').forEach(x=>x.classList.remove('active'));b.classList.add('active');sectFilter=b.dataset.s;render();});
+  const rms=['ALL',...new Set(issuers.map(i=>i.rm).filter(Boolean))];
+  const rf=document.getElementById('rmFilter');
+  rf.innerHTML=rms.map(r=>`<button class="sbtn${r==='ALL'?' active':''}" data-rm="${r}">${r==='ALL'?'All':r}</button>`).join('');
+  rf.addEventListener('click',e=>{const b=e.target.closest('[data-rm]');if(!b)return;rf.querySelectorAll('[data-rm]').forEach(x=>x.classList.remove('active'));b.classList.add('active');rmFilter=b.dataset.rm==='ALL'?'':b.dataset.rm;render();});
+}
+
+// ── HERO STATS ────────────────────────────────────────────────────────────────
+function renderHero(summary,issuers){
+  const cur=new Date().getFullYear();
+  const stats=[
+    ['Total Outstanding','--hc:#6366f1',`฿${fmb(summary.totalOutstanding)}`,'across all bonds'],
+    ['Issuers with Bonds','--hc:#22c55e',`${summary.issuersWithBonds}`,`of ${issuers.length+summary.issuersWithBonds} covered`],
+    ['Total Issues','--hc:#3b82f6',`${summary.totalBonds}`,'outstanding bonds'],
+    ['Maturing ≤ 1yr','--hc:#ef4444',`฿${fmb(summary.maturingThisYear+summary.maturingNextYear)}`,'high urgency'],
+    ['Avg TTM','--hc:#f59e0b',`${summary.avgTTM?.toFixed(1)||'—'}y`,'years to maturity'],
+    ['ESG Bonds','--hc:#10b981',`${summary.esgBondCount}`,'green/social/sustainability'],
+  ];
+  document.getElementById('hero').innerHTML=stats.map(([lbl,hc,val,hint])=>
+    `<div class="hstat" style="${hc}"><div class="hstat-lbl">${lbl}</div><div class="hstat-val">${val}</div><div class="hstat-hint">${hint}</div></div>`
+  ).join('');
+}
+
+// ── BOOT ──────────────────────────────────────────────────────────────────────
+(async()=>{
+  try{
+    const r=await fetch('data/bond-summary.json');
+    if(!r.ok) throw new Error('bond-summary.json not found — run build_bond_summary.py first');
+    const d=await r.json();
+    ALL=d.issuers||[];
+    const summ=d.summary||{};
+    document.getElementById('loading').style.display='none';
+    document.getElementById('grid').style.display='';
+    document.getElementById('wallPanel').style.display='';
+    document.getElementById('twoCol').style.display='';
+    document.getElementById('controls').style.display='flex';
+    document.getElementById('pgSub').textContent=`${ALL.length} issuers with outstanding bonds · as of ${d.asOf||'—'} · Source: ThaiBMA (no API key)`;
+    document.getElementById('fsrc').textContent=`IS1 Bond Summary · ${d.asOf||'—'} · ${d.source||''}`;
+    const badge=document.getElementById('staleBadge');
+    if(d._built_at){const h=(Date.now()-new Date(d._built_at).getTime())/3600000;badge.textContent=`● ${d.asOf}`;badge.className=h>24*35?'stale warn':'stale';}
+    renderHero(summ, ALL);
+    renderMaturityWall(summ.byYearSector||{}, summ.byYear||{});
+    renderDonut(summ.bySector||{});
+    renderTopIssuers(ALL);
+    initControls(ALL);
+    render();
+  }catch(err){
+    document.getElementById('loading').innerHTML=`<div style="color:var(--red);max-width:500px;margin:0 auto">
+      <div style="font-size:16px;font-weight:700;margin-bottom:8px">Bond data not available</div>
+      <div style="font-size:12px;color:var(--muted)">${esc(err.message)}</div>
+      <div style="margin-top:12px;font-size:11px;color:var(--dim)">Run: <code style="background:var(--border);padding:2px 6px;border-radius:4px">python scripts/build_bond_summary.py</code></div>
+    </div>`;
+  }
+})();
+</script>
+</body>
+</html>
