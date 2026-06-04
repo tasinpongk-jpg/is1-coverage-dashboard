@@ -62,8 +62,12 @@ main{flex:1;max-width:1540px;width:100%;margin:0 auto;padding:22px 24px 48px;pos
 .sbtn[data-s="CONS"].active{background:var(--cons)}
 .sbtn[data-s="CONMAT"].active{background:var(--conmat)}
 .sbtn[data-s="PFREIT"].active,.sbtn[data-s="PF&REIT"].active{background:var(--pfreit)}
-select.ctrl{background:var(--card);border:1px solid var(--border);border-radius:7px;padding:6px 26px 6px 9px;font-size:12px;color:var(--text);outline:none;cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%235a627a'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 7px center}
 .count-lbl{font-size:11px;color:var(--dim);margin-left:auto;white-space:nowrap}
+/* row labels */
+.ctrl-row{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.ctrl-lbl{font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:.5px;white-space:nowrap;font-weight:600}
+/* sort buttons — same base as .sbtn but accent-coloured when active */
+.sort-btn.active{background:var(--accent);color:#fff;border-color:transparent}
 
 /* ── GRID ── */
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(285px,1fr));gap:11px}
@@ -316,19 +320,16 @@ footer a{color:var(--muted);text-decoration:none}
 <main>
   <div><div class="pg-title">Ticker Summary</div><div class="pg-sub" id="pgSub">Loading…</div></div>
   <div class="hero" id="hero"></div>
-  <div class="controls">
-    <div class="srchwrap"><input id="srch" type="text" placeholder="Search ticker / segment…" autocomplete="off" spellcheck="false"></div>
-    <div class="filter-row" id="sectFilter"></div>
-    <select class="ctrl" id="rmFilter"><option value="">All RMs</option></select>
-    <select class="ctrl" id="sortSel">
-      <option value="tk">A–Z</option>
-      <option value="last-d">Price ↓</option>
-      <option value="pct1d-d">1D ↓</option><option value="pct1d-a">1D ↑</option>
-      <option value="pctYtd-d">YTD ↓</option><option value="pctYtd-a">YTD ↑</option>
-      <option value="pe-a">PE ↑</option><option value="pbv-a">PBV ↑</option>
-      <option value="dy-d">DY ↓</option><option value="mktcap-d">Mkt Cap ↓</option>
-    </select>
-    <span class="count-lbl" id="cntLbl">—</span>
+  <div class="controls" style="flex-direction:column;align-items:stretch;gap:8px">
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <div class="srchwrap"><input id="srch" type="text" placeholder="Search ticker / segment…" autocomplete="off" spellcheck="false"></div>
+      <div class="ctrl-row"><span class="ctrl-lbl">Sector</span><div class="filter-row" id="sectFilter"></div></div>
+      <span class="count-lbl" id="cntLbl">—</span>
+    </div>
+    <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center">
+      <div class="ctrl-row"><span class="ctrl-lbl">RM</span><div class="filter-row" id="rmFilter"></div></div>
+      <div class="ctrl-row"><span class="ctrl-lbl">Sort</span><div class="filter-row" id="sortFilter"></div></div>
+    </div>
   </div>
   <div id="loading"><div class="spinner"></div>Fetching ticker data…</div>
   <div class="grid" id="grid" style="display:none"></div>
@@ -911,17 +912,58 @@ function renderHero(tickers){
   ].map(([ic,lbl,val,style])=>`<div class="hstat"><span>${ic}</span><div><div class="hstat-lbl">${lbl}</div><div class="hstat-val" style="${style}">${val}</div></div></div>`).join('');
 }
 
+// ── sort options ──────────────────────────────────────────────────────────────
+const SORT_OPTS=[
+  {key:'tk',    label:'A–Z',   def:'a'},
+  {key:'last',  label:'Price', def:'d'},
+  {key:'pct1d', label:'1D',    def:'d'},
+  {key:'pctYtd',label:'YTD',   def:'d'},
+  {key:'pe',    label:'PE',    def:'a'},
+  {key:'pbv',   label:'PBV',   def:'a'},
+  {key:'dy',    label:'DY',    def:'d'},
+  {key:'mktcap',label:'Cap',   def:'d'},
+];
+
+function buildSortButtons(){
+  const [ak,ad]=sortKey.includes('-')
+    ?[sortKey.slice(0,sortKey.lastIndexOf('-')),sortKey.slice(sortKey.lastIndexOf('-')+1)]
+    :[sortKey,'a'];
+  document.getElementById('sortFilter').innerHTML=SORT_OPTS.map(({key,label,def})=>{
+    const active=key===ak;
+    const arrow=active?(ad==='a'?' ↑':' ↓'):'';
+    return `<button class="sbtn sort-btn${active?' active':''}" onclick="clickSort('${key}','${def}')">${label}${arrow}</button>`;
+  }).join('');
+}
+
+function clickSort(key,def){
+  const [ak,ad]=sortKey.includes('-')
+    ?[sortKey.slice(0,sortKey.lastIndexOf('-')),sortKey.slice(sortKey.lastIndexOf('-')+1)]
+    :[sortKey,'a'];
+  if(key===ak){
+    sortKey=key==='tk'?'tk':key+'-'+(ad==='a'?'d':'a');
+  } else {
+    sortKey=key==='tk'?'tk':key+'-'+def;
+  }
+  buildSortButtons(); render();
+}
+
 // ── init controls ────────────────────────────────────────────────────────────
 function initControls(tickers){
+  // Sector filter
   const sects=['ALL',...new Set(tickers.map(t=>ns(t.sector)).filter(Boolean)),'STARRED'];
   const sf=document.getElementById('sectFilter');
   sf.innerHTML=sects.map(s=>`<button class="sbtn${s==='ALL'?' active':''}" data-s="${s}">${s==='STARRED'?'★ Starred':s}</button>`).join('');
   sf.addEventListener('click',e=>{const b=e.target.closest('.sbtn');if(!b)return;sf.querySelectorAll('.sbtn').forEach(x=>x.classList.remove('active'));b.classList.add('active');sectFilter=b.dataset.s;render();});
-  const rms=[...new Set(tickers.map(t=>t.rm).filter(Boolean))].sort();
-  const rs=document.getElementById('rmFilter');
-  rms.forEach(r=>{const o=document.createElement('option');o.value=r;o.textContent=r;rs.appendChild(o);});
-  rs.addEventListener('change',e=>{rmFilter=e.target.value;render();});
-  document.getElementById('sortSel').addEventListener('change',e=>{sortKey=e.target.value;render();});
+
+  // RM filter as buttons
+  const rms=['ALL',...new Set(tickers.map(t=>t.rm).filter(Boolean)).values()];
+  const rf=document.getElementById('rmFilter');
+  rf.innerHTML=rms.map(r=>`<button class="sbtn${r==='ALL'?' active':''}" data-rm="${r}">${r==='ALL'?'All':r}</button>`).join('');
+  rf.addEventListener('click',e=>{const b=e.target.closest('[data-rm]');if(!b)return;rf.querySelectorAll('[data-rm]').forEach(x=>x.classList.remove('active'));b.classList.add('active');rmFilter=b.dataset.rm==='ALL'?'':b.dataset.rm;render();});
+
+  // Sort buttons
+  buildSortButtons();
+
   document.getElementById('srch').addEventListener('input',e=>{searchQ=e.target.value.trim();render();});
 }
 
