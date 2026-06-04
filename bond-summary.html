@@ -69,7 +69,7 @@ main{flex:1;max-width:1440px;width:100%;margin:0 auto;padding:22px 24px 48px;pos
 .sbtn[data-s="PFREIT"].active{background:var(--pfreit)}
 .toggle-btn{padding:5px 12px;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid var(--border);color:var(--muted);background:var(--bg2);transition:all .12s;user-select:none}
 .toggle-btn.on{background:#22c55e18;color:var(--green);border-color:#22c55e40}
-.sort-sel{background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:5px 24px 5px 8px;font-size:11px;color:var(--text);outline:none;cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%235a627a'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 7px center}
+.sort-btn.active{background:var(--accent);color:#fff;border-color:transparent}
 .cnt-lbl{font-size:11px;color:var(--dim);margin-left:auto}
 
 /* GRID */
@@ -213,12 +213,7 @@ footer a{color:var(--muted);text-decoration:none}
     <div class="ctrl-row"><span class="ctrl-lbl">RM</span><div id="rmFilter"></div></div>
     <button class="toggle-btn" id="esgToggle" onclick="toggleESG()">🌿 ESG only</button>
     <button class="toggle-btn" id="nearToggle" onclick="toggleNear()">⚠ Maturing ≤ 1yr</button>
-    <select class="sort-sel" id="sortSel" onchange="sortKey=this.value;render()">
-      <option value="out-d">Outstanding ↓</option>
-      <option value="bonds-d">Bond count ↓</option>
-      <option value="ttm-a">TTM ↑ (nearest maturity first)</option>
-      <option value="tk">A–Z</option>
-    </select>
+    <div class="ctrl-row"><span class="ctrl-lbl">Sort</span><div id="sortFilter"></div></div>
     <span class="cnt-lbl" id="cntLbl">—</span>
   </div>
 
@@ -436,9 +431,21 @@ function buildCard(issuer){
   const s=issuer.sector;
   const ratingBadge=issuer.rating?`<span class="badge b-rating">${esc(issuer.rating)}</span>`:'';
   const esgBadge=issuer.hasESG?'<span class="badge b-esg">🌿 ESG</span>':'';
-  const nearCount=issuer.bonds.filter(b=>b.ttm!=null&&b.ttm<=1).length;
-  const nearWarn=nearCount?`<span style="font-size:10px;color:var(--red)">⚠ ${nearCount} maturing ≤1yr</span>`:'';
+  const nearBonds=issuer.bonds.filter(b=>b.ttm!=null&&b.ttm<=1);
+  const nearAmt=nearBonds.reduce((s,b)=>s+(b.outstanding||0),0);
+  const nearPct=issuer.totalOutstanding>0?Math.round(nearAmt/issuer.totalOutstanding*100):0;
   const thaibmaUrl=`https://www.thaibma.or.th/EN/Issuer/IssuerDetail.aspx?issuer=${encodeURIComponent(issuer.tk)}`;
+  // Maturing ≤1yr proportion bar
+  const matBar=nearAmt>0?`
+    <div style="margin-top:6px">
+      <div style="display:flex;justify-content:space-between;font-size:10px;margin-bottom:3px">
+        <span style="color:var(--red);font-weight:700">⚠ Maturing ≤ 1yr</span>
+        <span style="color:var(--red);font-weight:800;font-variant-numeric:tabular-nums">฿${fmb(nearAmt)} <span style="font-weight:400;color:var(--dim)">(${nearPct}%)</span></span>
+      </div>
+      <div style="height:5px;background:var(--border2);border-radius:3px;overflow:hidden">
+        <div style="height:100%;width:${nearPct}%;background:#ef4444;border-radius:3px;opacity:.8"></div>
+      </div>
+    </div>`:'';
   return `<div class="icard" data-sector="${esc(s)}" data-rm="${esc(issuer.rm)}">
     <div class="icard-stripe"></div>
     <div class="icard-body">
@@ -455,7 +462,7 @@ function buildCard(issuer){
           <span class="out-val">฿${fmb(issuer.totalOutstanding)}</span>
           <span class="out-unit">outstanding</span>
         </div>
-        <div class="out-meta">${nearWarn}</div>
+        ${matBar}
       </div>
       <div class="count-pills">
         <span class="pill pill-long">${issuer.longCount} long-term</span>
@@ -483,10 +490,13 @@ function applyFilters(){
     return true;
   });
 }
+function nearAmt(issuer){ return issuer.bonds.filter(b=>b.ttm!=null&&b.ttm<=1).reduce((s,b)=>s+(b.outstanding||0),0); }
+
 function applySort(arr){
   return [...arr].sort((a,b)=>{
     if(sortKey==='tk') return a.tk.localeCompare(b.tk);
     if(sortKey==='bonds-d') return (b.longCount+b.shortCount)-(a.longCount+a.shortCount);
+    if(sortKey==='near-d') return nearAmt(b)-nearAmt(a);
     if(sortKey==='ttm-a'){
       const ta=a.nearestMaturity||'9999', tb=b.nearestMaturity||'9999';
       return ta.localeCompare(tb);
@@ -504,6 +514,22 @@ function render(){
 function toggleESG(){esgOnly=!esgOnly;document.getElementById('esgToggle').classList.toggle('on',esgOnly);render();}
 function toggleNear(){nearOnly=!nearOnly;document.getElementById('nearToggle').classList.toggle('on',nearOnly);render();}
 
+// ── SORT TOGGLE BUTTONS ───────────────────────────────────────────────────────
+const SORT_OPTS=[
+  {key:'out-d',  label:'Outstanding ↓'},
+  {key:'near-d', label:'≤1yr ↓'},
+  {key:'bonds-d',label:'Bonds ↓'},
+  {key:'ttm-a',  label:'TTM ↑'},
+  {key:'tk',     label:'A–Z'},
+];
+
+function buildSortButtons(){
+  document.getElementById('sortFilter').innerHTML=SORT_OPTS.map(({key,label})=>
+    `<button class="sbtn sort-btn${key===sortKey?' active':''}" onclick="setSort('${key}')">${label}</button>`
+  ).join('');
+}
+function setSort(key){ sortKey=key; buildSortButtons(); render(); }
+
 function initControls(issuers){
   const sects=['ALL',...new Set(issuers.map(i=>i.sector).filter(Boolean))];
   const sf=document.getElementById('sectFilter');
@@ -513,6 +539,7 @@ function initControls(issuers){
   const rf=document.getElementById('rmFilter');
   rf.innerHTML=rms.map(r=>`<button class="sbtn${r==='ALL'?' active':''}" data-rm="${r}">${r==='ALL'?'All':r}</button>`).join('');
   rf.addEventListener('click',e=>{const b=e.target.closest('[data-rm]');if(!b)return;rf.querySelectorAll('[data-rm]').forEach(x=>x.classList.remove('active'));b.classList.add('active');rmFilter=b.dataset.rm==='ALL'?'':b.dataset.rm;render();});
+  buildSortButtons();
 }
 
 // ── HERO STATS ────────────────────────────────────────────────────────────────
@@ -522,7 +549,7 @@ function renderHero(summary,issuers){
     ['Total Outstanding','--hc:#6366f1',`฿${fmb(summary.totalOutstanding)}`,'across all bonds'],
     ['Issuers with Bonds','--hc:#22c55e',`${summary.issuersWithBonds}`,`of ${issuers.length+summary.issuersWithBonds} covered`],
     ['Total Issues','--hc:#3b82f6',`${summary.totalBonds}`,'outstanding bonds'],
-    ['Maturing ≤ 1yr','--hc:#ef4444',`฿${fmb(summary.maturingThisYear+summary.maturingNextYear)}`,'high urgency'],
+    ['Maturing ≤ 1yr','--hc:#ef4444',`฿${fmb(issuers.reduce((s,i)=>s+nearAmt(i),0))}`,'TTM ≤ 1 year'],
     ['Avg TTM','--hc:#f59e0b',`${summary.avgTTM?.toFixed(1)||'—'}y`,'years to maturity'],
     ['ESG Bonds','--hc:#10b981',`${summary.esgBondCount}`,'green/social/sustainability'],
   ];
