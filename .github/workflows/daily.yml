@@ -233,6 +233,15 @@ jobs:
         run: python scripts/build_external.py
         continue-on-error: true
 
+      - name: Build ticker summary (company profile + financials + governance)
+        env:
+          SETSMART_API_KEY: ${{ secrets.SETSMART_API_KEY }}
+          SET_MAX_CONCURRENT: "3"
+          SET_THROTTLE_S: "0.28"
+          PYTHONIOENCODING: utf-8
+        run: python scripts/build_ticker_summary.py
+        continue-on-error: true
+
       - name: Commit and push if data changed
         # Only push from main. Manual dispatches from feature branches still
         # exercise the full build (and surface failures in build-status.json
