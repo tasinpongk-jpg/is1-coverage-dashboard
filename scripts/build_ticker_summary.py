@@ -200,8 +200,13 @@ async def fetch_highlights(client: httpx.AsyncClient, tk: str, sem: asyncio.Sema
         ts = item.get("tradingStat") or {}
         # financialData values are in thousands THB → divide by 1000 for M฿
         def mbht(v): return round(v / 1000, 1) if v else None
+        # quarter field: Q1=3M, Q2=6M, Q3=9M, Q9=full year (annual)
+        quarter = fd.get("quarter") or ""
+        months = {"Q1": 3, "Q2": 6, "Q3": 9, "Q4": 12, "Q9": 12}.get(quarter, 12)
         out.append({
             "year":        item.get("year"),
+            "quarter":     quarter,
+            "months":      months,
             "revenue":     mbht(fd.get("totalRevenue")),
             "sales":       mbht(fd.get("sales")),
             "ebitda":      mbht(fd.get("ebitda")),
