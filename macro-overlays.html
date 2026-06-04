@@ -37,14 +37,13 @@
   .src-THAIBMA { border-top: 3px solid var(--food); }
   .src-REIC { border-top: 3px solid var(--prop); }
   .src-OAE { border-top: 3px solid var(--green); }
-  .src-BLS { border-top: 3px solid var(--accent); }
 </style>
 </head>
 <body>
 
 <header>
   <div>
-    <h1>Macro Overlays <span style="color:var(--muted);font-weight:400;font-size:13px">— ThaiBMA / REIC / OAE / BLS daily snapshot</span></h1>
+    <h1>Macro Overlays <span style="color:var(--muted);font-weight:400;font-size:13px">— ThaiBMA / REIC / OAE daily snapshot</span></h1>
     <div class="meta" id="meta">Loading...</div>
   </div>
   <nav class="nav">
@@ -71,7 +70,6 @@ const SRC_INFO = {
   THAIBMA: { name: 'ThaiBMA', cat: 'Bond market - REIT/PROP refi signals' },
   REIC: { name: 'REIC', cat: 'Property indices, transfer stats - PROP guidance lead' },
   OAE: { name: 'OAE', cat: 'Agricultural commodities - AGRI/FOOD outlook' },
-  BLS: { name: 'Bualuang Securities', cat: 'Broker research notes - house-view setter' },
 };
 
 function freshnessLabel(builtAt) {
@@ -98,7 +96,7 @@ async function init() {
       if (!bySrc[it.source]) bySrc[it.source] = [];
       bySrc[it.source].push(it);
     });
-    document.getElementById('grid').innerHTML = Object.keys(bySrc).sort().map(src => {
+    document.getElementById('grid').innerHTML = Object.keys(bySrc).filter(s=>s!=='BLS').sort().map(src => {
       const info = SRC_INFO[src] || { name: src, cat: '' };
       const items = bySrc[src].slice(0, 30);
       return `<div class="col src-${src}">
