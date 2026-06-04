@@ -252,6 +252,33 @@ select.ctrl{background:var(--card);border:1px solid var(--border);border-radius:
 .peer-rank-good{color:var(--green);background:#22c55e18}
 .peer-rank-bad{color:var(--red);background:#ef444418}
 
+/* ── watchlist star ── */
+.star-btn{position:absolute;top:10px;right:10px;background:none;border:none;font-size:16px;cursor:pointer;color:var(--dim);line-height:1;padding:2px;transition:color .12s;z-index:2}
+.star-btn:hover{color:var(--yellow)}
+.star-btn.starred{color:var(--yellow)}
+.card{position:relative}
+
+/* ── disc strip on card ── */
+.disc-strip{display:flex;flex-direction:column;gap:3px;padding-top:2px}
+.disc-item{display:flex;align-items:center;gap:5px;font-size:10px;color:var(--muted);line-height:1.3;overflow:hidden}
+.disc-sev{flex-shrink:0;padding:1px 5px;border-radius:3px;font-size:9px;font-weight:700}
+.disc-sev-high,.disc-sev-critical{color:#ef4444;background:#ef444418}
+.disc-sev-medium,.disc-sev-material{color:#f59e0b;background:#f59e0b18}
+.disc-sev-low,.disc-sev-routine{color:#5a627a;background:#5a627a18}
+.disc-title{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1}
+
+/* ── drawer disclosures tab ── */
+.disc-row{padding:8px 0;border-bottom:1px dashed #1e2233;display:flex;gap:8px;align-items:flex-start}
+.disc-row:last-child{border-bottom:none}
+.disc-row-left{display:flex;flex-direction:column;gap:3px;flex-shrink:0;width:46px}
+.disc-row-sev{font-size:9px;font-weight:700;padding:2px 5px;border-radius:3px;text-align:center}
+.disc-row-ts{font-size:9px;color:var(--dim)}
+.disc-row-body{flex:1;min-width:0}
+.disc-row-title{font-size:11px;line-height:1.45}
+.disc-row-title a{color:var(--text);text-decoration:none}
+.disc-row-title a:hover{text-decoration:underline;color:var(--accent)}
+.disc-row-meta{font-size:10px;color:var(--dim);margin-top:2px}
+
 footer{padding:14px 24px;border-top:1px solid var(--border);font-size:11px;color:var(--dim);display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;position:relative;z-index:1}
 footer a{color:var(--muted);text-decoration:none}
 
@@ -317,6 +344,7 @@ footer a{color:var(--muted);text-decoration:none}
     <div class="dtab" data-tab="financials">Financials</div>
     <div class="dtab" data-tab="company">Company</div>
     <div class="dtab" data-tab="governance">Governance</div>
+    <div class="dtab" data-tab="disclosures">Disclosures</div>
   </div>
   <div id="dcontent"></div>
   <div class="dfooter" id="dfooter"></div>
@@ -586,10 +614,19 @@ function buildCard(t, idx){
   const ca=t.pct1d;
   const arrow=ca==null?'':ca>0?'▲':ca<0?'▼':'';
   const seg=t.segment&&t.segment!==t.sector?t.segment:null;
-  const mktStr=t.mktcap!=null?'฿'+fmb(t.mktcap/1e6):'';  // mktcap in baht from SETSMART
+  const mktStr=t.mktcap!=null?'฿'+fmb(t.mktcap/1e6):'';
   const esgB=esgBadge(t.esgRating);
   const cacB=t.cacFlag?'<span class="badge b-cac">CAC</span>':'';
+  const isStarred=STARRED.has(t.tk);
+  // recent disclosures strip (last 2)
+  const discs=(DISC_MAP[t.tk]||[]).slice(0,2);
+  const discHtml=discs.length?`<div class="disc-strip">${discs.map(f=>{
+    const sev=(f.severity||'low').toLowerCase();
+    const title=f.title||f.headline||'';
+    return `<div class="disc-item"><span class="${discClass(sev)}">${sev==='high'||sev==='critical'?'CRIT':sev==='medium'||sev==='material'?'MAT':'LOW'}</span><span class="disc-title">${esc(title)}</span><span style="flex-shrink:0;color:var(--dim);font-size:9px">${formatDiscTs(f.ts)}</span></div>`;
+  }).join('')}</div>`:'';
   return `<div class="card" data-sector="${esc(t.sector)}" data-tk="${esc(t.tk)}" data-idx="${idx}" onclick="openDrawer(${idx})">
+    <button class="star-btn${isStarred?' starred':''}" onclick="toggleStar('${esc(t.tk)}',event)" title="${isStarred?'Unstar':'Star'}">${isStarred?'★':'☆'}</button>
     <div class="card-stripe"></div>
     <div class="card-body">
       <div class="card-top">
@@ -623,6 +660,7 @@ function buildCard(t, idx){
         <div class="ret"><div class="ret-lbl">MTD</div><div class="ret-val ${retCls(t.pctMtd)}">${dash(pct(t.pctMtd))}</div></div>
         <div class="ret"><div class="ret-lbl">YTD</div><div class="ret-val ${retCls(t.pctYtd)}">${dash(pct(t.pctYtd))}</div></div>
       </div>
+      ${discHtml}
       <div class="card-foot">
         <span class="mktcap-lbl">${mktStr?'Cap '+mktStr+'฿':''}</span>
         <button class="open-btn">Details ↗</button>
@@ -675,7 +713,9 @@ function openDrawer(idx){
   const setUrl=`https://www.set.or.th/en/market/product/stock/quote/${encodeURIComponent(t.tk)}/factsheet`;
   document.getElementById('dfooter').innerHTML = `
     <a class="dfoot-link" href="${setUrl}" target="_blank" rel="noopener">SET Factsheet ↗</a>
-    ${t.website?`<a class="dfoot-link" href="${esc(t.website.startsWith('http')?t.website:'http://'+t.website)}" target="_blank" rel="noopener">Company Website ↗</a>`:''}`;
+    ${t.website?`<a class="dfoot-link" href="${esc(t.website.startsWith('http')?t.website:'http://'+t.website)}" target="_blank" rel="noopener">Company Site ↗</a>`:''}
+    <a class="dfoot-link" href="disclosure-pulse.html?ticker=${encodeURIComponent(t.tk)}" target="_blank">Disclosures ↗</a>
+    <a class="dfoot-link" href="unusual-trading.html?ticker=${encodeURIComponent(t.tk)}" target="_blank">Alerts ↗</a>`;
 
   document.getElementById('overlay').classList.add('show');
   document.getElementById('drawer').classList.add('show');
@@ -768,11 +808,60 @@ function renderTab(tab){
     }
   }
 
+  if(tab==='disclosures'){
+    const filings=(DISC_MAP[t.tk]||[]);
+    if(!filings.length){
+      html='<div style="color:var(--muted);padding:24px 0;text-align:center">No disclosures in the 90-day window for this ticker.</div>';
+    } else {
+      const SEV_LABEL={high:'CRIT',critical:'CRIT',medium:'MAT',material:'MAT',low:'LOW',routine:'LOW'};
+      const SEV_COL={high:'#ef4444',critical:'#ef4444',medium:'#f59e0b',material:'#f59e0b',low:'#5a627a',routine:'#5a627a'};
+      const SEV_BG={high:'#ef444418',critical:'#ef444418',medium:'#f59e0b18',material:'#f59e0b18',low:'#5a627a18',routine:'#5a627a18'};
+      html+=`<div class="ds"><div class="ds-title">${filings.length} filing${filings.length!==1?'s':''} · last 90 days</div>`;
+      filings.forEach(f=>{
+        const sev=(f.severity||'low').toLowerCase();
+        const title=esc(f.title||f.headline||'—');
+        const linked=f.url?`<a href="${esc(f.url)}" target="_blank" rel="noopener">${title}</a>`:title;
+        const summ=f._summary||f.summary||'';
+        html+=`<div class="disc-row">
+          <div class="disc-row-left">
+            <span class="disc-row-sev" style="color:${SEV_COL[sev]||'#5a627a'};background:${SEV_BG[sev]||'#5a627a18'}">${SEV_LABEL[sev]||'LOW'}</span>
+            <span class="disc-row-ts">${formatDiscTs(f.ts)}</span>
+          </div>
+          <div class="disc-row-body">
+            <div class="disc-row-title">${linked}</div>
+            ${f.type?`<div class="disc-row-meta">${esc(f.type)}</div>`:''}
+            ${summ?`<div style="font-size:10px;color:var(--dim);margin-top:3px;line-height:1.5">${esc(summ.slice(0,160))}${summ.length>160?'…':''}</div>`:''}
+          </div>
+        </div>`;
+      });
+      html+='</div>';
+    }
+  }
+
   document.getElementById('dcontent').innerHTML=html;
 }
 
 // ── state & render ───────────────────────────────────────────────────────────
-let ALL=[], SECTOR_STATS={}, sectFilter='ALL', rmFilter='', sortKey='tk', searchQ='';
+let ALL=[], SECTOR_STATS={}, DISC_MAP={}, sectFilter='ALL', rmFilter='', sortKey='tk', searchQ='';
+let STARRED = new Set(JSON.parse(localStorage.getItem('is1_starred')||'[]'));
+
+function saveStarred(){ localStorage.setItem('is1_starred', JSON.stringify([...STARRED])); }
+function toggleStar(tk, e){
+  e.stopPropagation();
+  if(STARRED.has(tk)) STARRED.delete(tk); else STARRED.add(tk);
+  saveStarred(); render();
+}
+
+const SEV_ORDER = {high:0,critical:0,medium:1,material:1,low:2,routine:2};
+function discClass(sev){ return 'disc-sev disc-sev-'+(sev||'low').toLowerCase(); }
+function formatDiscTs(ts){
+  if(!ts) return '';
+  const d=new Date(ts), now=Date.now(), diff=now-d.getTime();
+  const h=diff/3600000;
+  if(h<1) return Math.round(diff/60000)+'m ago';
+  if(h<24) return Math.round(h)+'h ago';
+  return Math.round(h/24)+'d ago';
+}
 
 function sortTickers(arr){
   const [key,dir]=sortKey.includes('-')?[sortKey.slice(0,sortKey.lastIndexOf('-')),sortKey.slice(sortKey.lastIndexOf('-')+1)]:[sortKey,'a'];
@@ -789,6 +878,7 @@ function render(){
   const q=searchQ.toUpperCase();
   const cardIndices=[];
   let filtered=ALL.filter((t,i)=>{
+    if(sectFilter==='STARRED') return STARRED.has(t.tk);
     if(sectFilter!=='ALL'&&ns(t.sector)!==sectFilter&&t.sector!==sectFilter) return false;
     if(rmFilter&&t.rm!==rmFilter) return false;
     if(q&&!t.tk.includes(q)&&!(t.segment||'').toUpperCase().includes(q)&&!(t.name||'').toUpperCase().includes(q)) return false;
@@ -823,9 +913,9 @@ function renderHero(tickers){
 
 // ── init controls ────────────────────────────────────────────────────────────
 function initControls(tickers){
-  const sects=['ALL',...new Set(tickers.map(t=>ns(t.sector)).filter(Boolean))];
+  const sects=['ALL',...new Set(tickers.map(t=>ns(t.sector)).filter(Boolean)),'STARRED'];
   const sf=document.getElementById('sectFilter');
-  sf.innerHTML=sects.map(s=>`<button class="sbtn${s==='ALL'?' active':''}" data-s="${s}">${s}</button>`).join('');
+  sf.innerHTML=sects.map(s=>`<button class="sbtn${s==='ALL'?' active':''}" data-s="${s}">${s==='STARRED'?'★ Starred':s}</button>`).join('');
   sf.addEventListener('click',e=>{const b=e.target.closest('.sbtn');if(!b)return;sf.querySelectorAll('.sbtn').forEach(x=>x.classList.remove('active'));b.classList.add('active');sectFilter=b.dataset.s;render();});
   const rms=[...new Set(tickers.map(t=>t.rm).filter(Boolean))].sort();
   const rs=document.getElementById('rmFilter');
@@ -865,6 +955,19 @@ async function loadData(){
     const{tickers,asOf,source,built}=await loadData();
     ALL=tickers;
     SECTOR_STATS=computeSectorStats(tickers);
+    // Load disclosures best-effort, re-render cards when ready
+    fetch('data/disclosure-pulse.json').then(r=>r.ok?r.json():null).then(d=>{
+      if(!d) return;
+      (d.filings||d.items||[]).forEach(f=>{
+        if(!f.tk) return;
+        if(!DISC_MAP[f.tk]) DISC_MAP[f.tk]=[];
+        DISC_MAP[f.tk].push(f);
+      });
+      Object.keys(DISC_MAP).forEach(tk=>{
+        DISC_MAP[tk].sort((a,b)=>(b.ts||'').localeCompare(a.ts||'')).splice(10);
+      });
+      render();
+    }).catch(()=>{});
     document.getElementById('loading').style.display='none';
     document.getElementById('grid').style.display='';
     document.getElementById('pgSub').textContent=`${tickers.length} tickers · ${asOf||'—'} · ${source||''}`;

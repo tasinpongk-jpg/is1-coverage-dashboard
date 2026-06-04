@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>404 — IS1 Coverage Desk</title>
+<style>
+:root{--bg:#0a0c12;--card:#14171f;--border:#232733;--text:#e6e8ed;--muted:#8089a0;--dim:#5a627a;--accent:#6366f1}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{background:var(--bg);color:var(--text);font-family:'Inter','Segoe UI',system-ui,sans-serif;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;-webkit-font-smoothing:antialiased}
+body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellipse at top,#1a1d3022 0%,transparent 55%);pointer-events:none}
+.box{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:48px 56px;text-align:center;max-width:420px;width:90%;position:relative;z-index:1}
+.code{font-size:72px;font-weight:800;letter-spacing:-4px;background:linear-gradient(135deg,var(--accent),#8b5cf6);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;line-height:1}
+.msg{font-size:16px;font-weight:600;margin:12px 0 6px}
+.sub{font-size:13px;color:var(--muted);line-height:1.6}
+.btn{display:inline-block;margin-top:28px;padding:10px 24px;background:var(--accent);color:#fff;text-decoration:none;border-radius:8px;font-size:13px;font-weight:600;transition:opacity .15s}
+.btn:hover{opacity:.85}
+.brand{position:fixed;top:20px;left:24px;display:flex;align-items:center;gap:10px;text-decoration:none;color:var(--muted);font-size:13px;z-index:2}
+.brand-mark{width:24px;height:24px;border-radius:6px;background:linear-gradient(135deg,var(--accent),#8b5cf6);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:10px;color:#fff}
+</style>
+</head>
+<body>
+<a class="brand" href="index.html">
+  <div class="brand-mark">IS</div>
+  Coverage Desk
+</a>
+<div class="box">
+  <div class="code">404</div>
+  <div class="msg">Page not found</div>
+  <div class="sub">The page you're looking for doesn't exist or has been moved.</div>
+  <a class="btn" href="index.html">← Back to Coverage Desk</a>
+</div>
+</body>
+</html>

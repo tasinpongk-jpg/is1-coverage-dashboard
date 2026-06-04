@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sector Comparison — IS1 Coverage Desk</title>
+<style>
+:root{
+  --bg:#0a0c12;--bg2:#0f1117;--card:#14171f;--card2:#1a1d27;
+  --border:#232733;--border2:#2a2f3d;
+  --text:#e6e8ed;--muted:#8089a0;--dim:#5a627a;
+  --accent:#6366f1;--glow:#6366f130;
+  --green:#22c55e;--red:#ef4444;--yellow:#f59e0b;
+  --food:#3b82f6;--agri:#10b981;--prop:#8b5cf6;
+  --cons:#f97316;--conmat:#ec4899;--pfreit:#06b6d4;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{background:var(--bg);color:var(--text);font-family:'Inter','Segoe UI',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+body{min-height:100vh;display:flex;flex-direction:column}
+body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellipse at top,#1a1d3022 0%,transparent 55%);pointer-events:none;z-index:0}
+
+header{padding:14px 24px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;background:#0a0c12ee;backdrop-filter:blur(14px)}
+.brand{display:flex;align-items:center;gap:10px;text-decoration:none;color:inherit}
+.brand-mark{width:26px;height:26px;border-radius:6px;background:linear-gradient(135deg,var(--accent),#8b5cf6);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:11px;flex-shrink:0;color:#fff}
+.brand-name{font-size:14px;font-weight:700;letter-spacing:-.2px}
+.brand-sub{font-size:10px;color:var(--muted);letter-spacing:.4px;text-transform:uppercase}
+nav.nav{display:flex;gap:2px;align-items:center;flex-wrap:wrap}
+nav.nav a{color:var(--muted);text-decoration:none;font-size:12px;padding:5px 8px;border-radius:5px;transition:color .12s,background .12s;white-space:nowrap}
+nav.nav a:hover{color:var(--text);background:var(--border)}
+nav.nav a.active{color:var(--text);background:#6366f118;border:1px solid #6366f133}
+.stale{font-size:11px;padding:4px 10px;border-radius:20px;background:#22c55e15;color:var(--green);border:1px solid #22c55e30;white-space:nowrap}
+.stale.warn{background:#f59e0b15;color:var(--yellow);border-color:#f59e0b30}
+.stale.unknown{background:#5a627a15;color:var(--muted);border-color:#5a627a30}
+
+main{flex:1;max-width:1100px;width:100%;margin:0 auto;padding:24px 24px 48px;position:relative;z-index:1}
+.pg-title{font-size:20px;font-weight:800;letter-spacing:-.4px}
+.pg-sub{font-size:12px;color:var(--muted);margin-top:2px}
+
+/* metric section */
+.metric-section{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:22px 24px;margin-top:18px}
+.metric-title{font-size:14px;font-weight:700;margin-bottom:4px}
+.metric-desc{font-size:11px;color:var(--muted);margin-bottom:18px}
+
+/* box plot chart */
+.chart-wrap{overflow-x:auto;margin-bottom:18px}
+.chart-wrap svg{display:block;min-width:460px}
+
+/* summary table */
+.sum-table{width:100%;border-collapse:collapse;font-size:11px}
+.sum-table th{text-align:right;padding:5px 8px;color:var(--muted);font-size:10px;font-weight:600;border-bottom:1px solid var(--border)}
+.sum-table th:first-child{text-align:left}
+.sum-table td{text-align:right;padding:5px 8px;border-bottom:1px dashed #1e2233;font-variant-numeric:tabular-nums}
+.sum-table td:first-child{text-align:left}
+.sum-table tr:last-child td{border-bottom:none}
+.sum-table .sect-dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:5px;vertical-align:middle}
+
+/* loading */
+#loading{text-align:center;padding:70px 20px;color:var(--muted)}
+.spinner{width:26px;height:26px;border:2px solid var(--border2);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite;margin:0 auto 12px}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+footer{padding:14px 24px;border-top:1px solid var(--border);font-size:11px;color:var(--dim);display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;position:relative;z-index:1}
+footer a{color:var(--muted);text-decoration:none}
+
+@media(max-width:600px){main{padding:12px 12px 40px}header{padding:10px 12px}nav.nav a{font-size:10px;padding:4px 5px}}
+</style>
+</head>
+<body>
+
+<header>
+  <a class="brand" href="index.html">
+    <div class="brand-mark">IS</div>
+    <div><div class="brand-name">Coverage Desk</div><div class="brand-sub">SET Issuer Dept 1</div></div>
+  </a>
+  <nav class="nav">
+    <a href="index.html">Index</a>
+    <a href="coverage-morning-brief.html">Brief</a>
+    <a href="disclosure-pulse.html">Disclosures</a>
+    <a href="sector-heatmap.html">Heatmap</a>
+    <a href="ticker-summary.html">Tickers</a>
+    <a href="sector-comparison.html" class="active">Compare</a>
+    <a href="unusual-trading.html">Alerts</a>
+    <a href="external-news.html">External</a>
+    <a href="trading-signs.html">Signs</a>
+    <a href="sec-enforcement.html">SEC</a>
+    <a href="macro-overlays.html">Macro</a>
+    <span class="stale unknown" id="staleBadge">● loading</span>
+  </nav>
+</header>
+
+<main>
+  <div><div class="pg-title">Sector Comparison</div><div class="pg-sub" id="pgSub">Loading…</div></div>
+  <div id="loading"><div class="spinner"></div>Building sector statistics…</div>
+  <div id="sections"></div>
+</main>
+
+<footer>
+  <span id="fsrc">IS1 Coverage Desk · Sector Comparison</span>
+  <span>Data: <a href="https://www.set.or.th" target="_blank" rel="noopener">SET.or.th</a> · SETSMART</span>
+</footer>
+
+<script>
+const SCOL={FOOD:'#3b82f6',AGRI:'#10b981',PROP:'#8b5cf6',CONS:'#f97316',CONMAT:'#ec4899',PFREIT:'#06b6d4'};
+const SECT_ORDER=['FOOD','AGRI','PROP','CONS','CONMAT','PFREIT'];
+const ns=s=>s==='PF&REIT'?'PFREIT':(s||'');
+
+const METRICS=[
+  {key:'pe',  label:'Price-to-Earnings (PE)', desc:'Lower = cheaper relative to earnings. N/A for loss-making companies.', unit:'×', lowerBetter:true,  fmt:v=>v==null?null:v.toFixed(1)+'×'},
+  {key:'pbv', label:'Price-to-Book (PBV)',     desc:'Lower = cheaper relative to net assets. REITs/PFs typically trade near 1×.', unit:'×', lowerBetter:true,  fmt:v=>v==null?null:v.toFixed(2)+'×'},
+  {key:'dy',  label:'Dividend Yield (DY)',     desc:'Higher = more income return. Excludes special dividends.', unit:'%', lowerBetter:false, fmt:v=>v==null?null:v.toFixed(2)+'%'},
+  {key:'npm', label:'Net Profit Margin (NPM)', desc:'Higher = more profitable per baht of revenue. From latest annual highlights.', unit:'%', lowerBetter:false, fmt:v=>v==null?null:v.toFixed(1)+'%'},
+];
+
+// ── stats computation ────────────────────────────────────────────────────────
+function percentile(sorted, p){ const i=Math.floor(sorted.length*p); return sorted[Math.min(i,sorted.length-1)]; }
+function median(sorted){ const n=sorted.length; return n%2===0?(sorted[n/2-1]+sorted[n/2])/2:sorted[Math.floor(n/2)]; }
+function mean(arr){ return arr.reduce((a,b)=>a+b,0)/arr.length; }
+
+function computeStats(tickers){
+  const bySector={};
+  tickers.forEach(t=>{
+    const s=ns(t.sector);
+    if(!bySector[s]) bySector[s]=[];
+    bySector[s].push(t);
+  });
+
+  const out={};
+  SECT_ORDER.forEach(sector=>{
+    const ts=bySector[sector]||[];
+    out[sector]={n:ts.length,metrics:{}};
+    METRICS.forEach(({key})=>{
+      // For npm, pull from latest highlights year
+      const vals=ts.map(t=>{
+        if(key==='npm'){
+          const hl=t.highlights||[];
+          const last=hl.filter(h=>(h.months||12)===12).slice(-1)[0]||hl.slice(-1)[0];
+          return last?last.npm:null;
+        }
+        return t[key];
+      }).filter(v=>v!=null&&v>0&&isFinite(v)).sort((a,b)=>a-b);
+      if(!vals.length) return;
+      out[sector].metrics[key]={
+        vals, n:vals.length,
+        p10:percentile(vals,.10), p25:percentile(vals,.25),
+        median:median(vals),
+        p75:percentile(vals,.75), p90:percentile(vals,.90),
+        mean:+mean(vals).toFixed(3),
+        min:vals[0], max:vals[vals.length-1],
+      };
+    });
+  });
+  return out;
+}
+
+// ── box plot SVG ─────────────────────────────────────────────────────────────
+function boxPlot(stats, metricKey, fmt, lowerBetter){
+  const W=680, LEFT=74, RIGHT=20, CHART=W-LEFT-RIGHT;
+  const ROW=46, TOP=14, BOTTOM=28;
+  const sectors=SECT_ORDER.filter(s=>stats[s]?.metrics[metricKey]);
+  if(!sectors.length) return '<p style="color:var(--dim);font-size:12px;padding:8px 0">No data for this metric.</p>';
+  const H=TOP+sectors.length*ROW+BOTTOM;
+
+  // Determine x range across all sectors
+  const allVals=sectors.flatMap(s=>stats[s].metrics[metricKey].vals);
+  const globalMin=Math.min(...allVals), globalMax=Math.max(...allVals);
+  const pad=(globalMax-globalMin)*0.08||1;
+  const xMin=Math.max(0,globalMin-pad), xMax=globalMax+pad;
+  const xRange=xMax-xMin||1;
+  const px=v=>LEFT+((v-xMin)/xRange)*CHART;
+
+  // X axis ticks (4–5 ticks)
+  const tickCount=5;
+  const tickStep=+((xMax-xMin)/(tickCount-1)).toPrecision(2);
+  const ticks=Array.from({length:tickCount},(_,i)=>+(xMin+i*tickStep).toFixed(2));
+
+  let svg=`<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" style="font-family:'Inter','Segoe UI',system-ui,sans-serif">`;
+
+  // Grid lines
+  ticks.forEach(v=>{
+    const x=px(v);
+    svg+=`<line x1="${x}" y1="${TOP}" x2="${x}" y2="${TOP+sectors.length*ROW}" stroke="#1e2130" stroke-width="1"/>`;
+    svg+=`<text x="${x}" y="${H-6}" text-anchor="middle" fill="#5a627a" font-size="10">${fmt(v).replace('×','x')}</text>`;
+  });
+  // Baseline
+  svg+=`<line x1="${LEFT}" y1="${TOP+sectors.length*ROW}" x2="${W-RIGHT}" y2="${TOP+sectors.length*ROW}" stroke="#232733" stroke-width="1"/>`;
+
+  sectors.forEach((sector,i)=>{
+    const m=stats[sector].metrics[metricKey];
+    const cy=TOP+i*ROW+ROW/2;
+    const col=SCOL[sector]||'#6366f1';
+
+    // Whiskers (p10–p90)
+    svg+=`<line x1="${px(m.p10)}" y1="${cy}" x2="${px(m.p90)}" y2="${cy}" stroke="${col}" stroke-width="1.5" opacity="0.4"/>`;
+    svg+=`<line x1="${px(m.p10)}" y1="${cy-5}" x2="${px(m.p10)}" y2="${cy+5}" stroke="${col}" stroke-width="1.5" opacity="0.4"/>`;
+    svg+=`<line x1="${px(m.p90)}" y1="${cy-5}" x2="${px(m.p90)}" y2="${cy+5}" stroke="${col}" stroke-width="1.5" opacity="0.4"/>`;
+
+    // Individual dots (jittered vertically, deterministic)
+    m.vals.forEach((v,j)=>{
+      const jy=((v*31+j*17)%22)-11;
+      svg+=`<circle cx="${px(v)}" cy="${cy+jy*0.45}" r="2.2" fill="${col}" opacity="0.28"/>`;
+    });
+
+    // IQR box
+    const boxX=px(m.p25), boxW=Math.max(2,px(m.p75)-px(m.p25));
+    svg+=`<rect x="${boxX}" y="${cy-9}" width="${boxW}" height="18" rx="3" fill="${col}" opacity="0.22"/>`;
+    svg+=`<rect x="${boxX}" y="${cy-9}" width="${boxW}" height="18" rx="3" fill="none" stroke="${col}" stroke-width="1.2" opacity="0.6"/>`;
+
+    // Median line
+    const medX=px(m.median);
+    svg+=`<line x1="${medX}" y1="${cy-11}" x2="${medX}" y2="${cy+11}" stroke="${col}" stroke-width="2.5"/>`;
+
+    // Sector label
+    svg+=`<text x="${LEFT-8}" y="${cy+4}" text-anchor="end" fill="${col}" font-size="11" font-weight="700">${sector}</text>`;
+
+    // Median value label
+    const lblX=medX+6, lblAnchor=medX>LEFT+CHART*0.8?'end':'start';
+    const lblXFinal=lblAnchor==='end'?medX-6:medX+6;
+    svg+=`<text x="${lblXFinal}" y="${cy-14}" text-anchor="${lblAnchor}" fill="${col}" font-size="9" font-weight="600" opacity="0.9">med ${fmt(m.median).replace('×','x')}</text>`;
+  });
+
+  // Legend
+  svg+=`<text x="${LEFT}" y="${H}" fill="#5a627a" font-size="9">▌ = IQR (25–75th pctile)  │ = median  ● = individual tickers  ─ = 10–90th pctile</text>`;
+
+  svg+='</svg>';
+  return svg;
+}
+
+// ── summary table ────────────────────────────────────────────────────────────
+function summaryTable(stats, metricKey, fmt, lowerBetter){
+  const sectors=SECT_ORDER.filter(s=>stats[s]?.metrics[metricKey]);
+  if(!sectors.length) return '';
+  let html=`<div style="overflow-x:auto"><table class="sum-table">
+    <thead><tr><th>Sector</th><th>n</th><th>p25</th><th>Median</th><th>p75</th><th>Mean</th></tr></thead><tbody>`;
+  sectors.forEach(s=>{
+    const m=stats[s].metrics[metricKey];
+    const col=SCOL[s]||'#6366f1';
+    html+=`<tr>
+      <td><span class="sect-dot" style="background:${col}"></span>${s}</td>
+      <td style="color:var(--dim)">${m.n}</td>
+      <td>${fmt(m.p25)}</td>
+      <td style="font-weight:700;color:${col}">${fmt(m.median)}</td>
+      <td>${fmt(m.p75)}</td>
+      <td style="color:var(--muted)">${fmt(m.mean)}</td>
+    </tr>`;
+  });
+  html+='</tbody></table></div>';
+  return html;
+}
+
+// ── render ────────────────────────────────────────────────────────────────────
+function renderSections(stats, asOf){
+  const el=document.getElementById('sections');
+  el.innerHTML=METRICS.map(({key,label,desc,fmt,lowerBetter})=>`
+    <div class="metric-section">
+      <div class="metric-title">${label}</div>
+      <div class="metric-desc">${desc}${lowerBetter?' Lower is more attractive for buyers.':' Higher is more attractive.'}</div>
+      <div class="chart-wrap">${boxPlot(stats,key,fmt,lowerBetter)}</div>
+      ${summaryTable(stats,key,fmt,lowerBetter)}
+    </div>`).join('');
+}
+
+// ── boot ─────────────────────────────────────────────────────────────────────
+(async()=>{
+  try{
+    const r=await fetch('data/ticker-summary.json');
+    if(!r.ok) throw new Error('ticker-summary.json not found');
+    const d=await r.json();
+    const tickers=d.tickers||[];
+    const stats=computeStats(tickers);
+    document.getElementById('loading').style.display='none';
+    document.getElementById('pgSub').textContent=`${tickers.length} tickers · ${d.asOf||'—'} · ${d.source||''}`;
+    document.getElementById('fsrc').textContent=`IS1 Sector Comparison · ${d.asOf||'—'}`;
+    const badge=document.getElementById('staleBadge');
+    if(d._built_at){
+      const h=(Date.now()-new Date(d._built_at).getTime())/3600000;
+      badge.textContent=`● ${d.asOf||'—'}`;
+      badge.className=h>24?'stale warn':'stale';
+    }
+    renderSections(stats, d.asOf);
+  }catch(err){
+    document.getElementById('loading').innerHTML=`<div style="color:var(--red)">Failed to load: ${err.message}<br><small style="color:var(--dim)">Run build_ticker_summary.py to generate data.</small></div>`;
+  }
+})();
+</script>
+</body>
+</html>

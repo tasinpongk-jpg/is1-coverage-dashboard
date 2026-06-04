@@ -76,6 +76,7 @@
     <a href="coverage-morning-brief.html">Brief</a>
     <a href="disclosure-pulse.html">Disclosures</a>
     <a href="sector-heatmap.html">Heatmap</a>
+    <a href="sector-comparison.html">Compare</a>
     <a href="unusual-trading.html" class="active">Alerts</a>
     <a href="external-news.html">External</a>
     <a href="trading-signs.html">Signs</a>
@@ -107,6 +108,7 @@
 <script>
 let TICKERS = {}, ALERTS = [];
 let activeRm = 'ALL', activeSev = 'ALL', activeType = 'ALL', activeSector = 'ALL';
+let activeTicker = new URLSearchParams(location.search).get('ticker') || null;
 
 function freshnessLabel(builtAt) {
   if (!builtAt) return { txt: '?', warn: true };
@@ -177,8 +179,28 @@ function filtered() {
     if (activeSev !== 'ALL' && (a.severity || '').toLowerCase() !== activeSev) return false;
     if (activeType !== 'ALL' && (a.atype || a.type) !== activeType) return false;
     if (activeSector !== 'ALL' && a.sector !== activeSector) return false;
+    if (activeTicker && a.tk !== activeTicker) return false;
     return true;
   });
+}
+
+function renderTickerBanner() {
+  let el = document.getElementById('tickerBanner');
+  if (!activeTicker) { if (el) el.remove(); return; }
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'tickerBanner';
+    el.style.cssText = 'margin:10px 20px;padding:8px 14px;background:#6366f118;border:1px solid #6366f133;border-radius:8px;font-size:12px;display:flex;align-items:center;justify-content:space-between;';
+    document.getElementById('grid').before(el);
+  }
+  el.innerHTML = `<span>Filtered by ticker: <strong style="color:#a5b4fc">${activeTicker}</strong></span><button onclick="clearTickerFilter()" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:14px;padding:0 4px">×</button>`;
+}
+
+function clearTickerFilter() {
+  activeTicker = null;
+  history.replaceState(null, '', location.pathname);
+  renderTickerBanner();
+  render(); updateStats();
 }
 
 function updateStats() {
@@ -195,6 +217,7 @@ function updateStats() {
 }
 
 function render() {
+  renderTickerBanner();
   const rows = filtered();
   const grid = document.getElementById('grid');
   if (!rows.length) { grid.innerHTML = '<div class="empty">No alerts matching filters.</div>'; return; }
