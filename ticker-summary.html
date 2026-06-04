@@ -235,6 +235,23 @@ select.ctrl{background:var(--card);border:1px solid var(--border);border-radius:
 @keyframes spin{to{transform:rotate(360deg)}}
 .empty{text-align:center;padding:50px 20px;color:var(--muted);grid-column:1/-1}
 
+/* ── peer comparison ── */
+.peer-grid{display:flex;flex-direction:column;gap:12px;margin-top:4px}
+.peer-row{display:grid;grid-template-columns:36px 48px 1fr 58px;gap:8px;align-items:center}
+.peer-lbl{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;font-weight:600}
+.peer-val{font-size:15px;font-weight:700;font-variant-numeric:tabular-nums;line-height:1}
+.peer-bar-wrap{display:flex;flex-direction:column;gap:3px}
+.peer-bar-svg{display:block;width:100%;overflow:visible}
+.peer-bar-legend{display:flex;justify-content:space-between;font-size:9px;color:var(--dim);font-variant-numeric:tabular-nums}
+.peer-meta{display:flex;flex-direction:column;gap:2px;text-align:right}
+.peer-med{font-size:10px;color:var(--dim);font-variant-numeric:tabular-nums}
+.peer-delta{font-size:10px;font-weight:700;white-space:nowrap}
+.peer-better{color:var(--green)}.peer-worse{color:var(--red)}
+.peer-rank-row{display:flex;gap:5px;flex-wrap:wrap;margin-top:6px}
+.peer-rank{font-size:10px;padding:2px 8px;border-radius:4px;font-weight:700}
+.peer-rank-good{color:var(--green);background:#22c55e18}
+.peer-rank-bad{color:var(--red);background:#ef444418}
+
 footer{padding:14px 24px;border-top:1px solid var(--border);font-size:11px;color:var(--dim);display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;position:relative;z-index:1}
 footer a{color:var(--muted);text-decoration:none}
 
@@ -467,6 +484,95 @@ function ownershipSection(t){
   return html;
 }
 
+// ── sector stats ─────────────────────────────────────────────────────────────
+function computeSectorStats(tickers){
+  const metrics=['pe','pbv','dy'];
+  const bySector={};
+  tickers.forEach(t=>{const s=ns(t.sector);if(!bySector[s])bySector[s]=[];bySector[s].push(t);});
+  const out={};
+  Object.entries(bySector).forEach(([sector,ts])=>{
+    out[sector]={n:ts.length};
+    metrics.forEach(m=>{
+      const vals=ts.map(t=>t[m]).filter(v=>v!=null&&v>0).sort((a,b)=>a-b);
+      if(!vals.length) return;
+      const n=vals.length;
+      const med=n%2===0?(vals[n/2-1]+vals[n/2])/2:vals[Math.floor(n/2)];
+      out[sector][m]={vals,n,median:+med.toFixed(3),
+        p10:vals[Math.floor(n*.10)],p25:vals[Math.floor(n*.25)],
+        p75:vals[Math.floor(n*.75)],p90:vals[Math.floor(n*.90)],
+        min:vals[0],max:vals[n-1]};
+    });
+  });
+  return out;
+}
+
+// ── peer comparison section ───────────────────────────────────────────────────
+function peerSection(t){
+  const s=ns(t.sector);
+  const ss=SECTOR_STATS[s];
+  if(!ss) return '';
+
+  const METRICS=[
+    {key:'pe',  label:'PE',   unit:'×', lowerBetter:true,  fmt:f1},
+    {key:'pbv', label:'PBV',  unit:'×', lowerBetter:true,  fmt:f2},
+    {key:'dy',  label:'DY',   unit:'%', lowerBetter:false, fmt:f2},
+  ].filter(({key})=>t[key]!=null&&t[key]>0&&ss[key]);
+  if(!METRICS.length) return '';
+
+  const col=SCOL[t.sector]||'#6366f1';
+  let rows='', rankBadges='';
+
+  METRICS.forEach(({key,label,unit,lowerBetter,fmt})=>{
+    const val=t[key], st=ss[key];
+    const {median,p25,p75,p10,p90,vals,n}=st;
+
+    // percentile rank (0-100)
+    const rank=Math.round(vals.filter(v=>v<=val).length/n*100);
+    const isBetter=lowerBetter?rank<=50:rank>=50;
+    const dotCol=isBetter?'#22c55e':'#ef4444';
+
+    const absDelta=Math.abs((val/median-1)*100).toFixed(0);
+    const deltaLbl=lowerBetter
+      ?(val<median?`${absDelta}% cheaper`:val===median?'at median':`${absDelta}% pricier`)
+      :(val>median?`${absDelta}% higher`:val===median?'at median':`${absDelta}% lower`);
+
+    // bullet bar SVG
+    const W=200, BH=8, H=20;
+    const lo=Math.min(p10??p25,val)*0.85;
+    const hi=Math.max(p90??p75,val)*1.15;
+    const rng=hi-lo||1;
+    const px=v=>Math.max(0,Math.min(W,((v-lo)/rng)*W));
+    const p25x=px(p25), p75x=px(p75), medx=px(median), valx=px(val);
+    const bar=`<svg class="peer-bar-svg" viewBox="0 0 ${W} ${H}" height="${H}">
+      <rect x="0" y="${(H-BH)/2}" width="${W}" height="${BH}" rx="${BH/2}" fill="#1a1d27"/>
+      <rect x="${p25x}" y="${(H-BH)/2-1}" width="${Math.max(4,p75x-p25x)}" height="${BH+2}" rx="${BH/2}" fill="#2a2f3d"/>
+      <line x1="${medx}" y1="2" x2="${medx}" y2="${H-2}" stroke="#5a627a" stroke-width="1.5" stroke-dasharray="2,1.5"/>
+      <circle cx="${valx}" cy="${H/2}" r="6" fill="${dotCol}" stroke="#0f1117" stroke-width="2"/>
+    </svg>`;
+
+    rows+=`<div class="peer-row">
+      <div class="peer-lbl">${label}</div>
+      <div class="peer-val" style="color:${dotCol}">${fmt(val)}${unit}</div>
+      <div class="peer-bar-wrap">
+        ${bar}
+        <div class="peer-bar-legend"><span>${fmt(st.min)}${unit}</span><span>med ${fmt(median)}${unit}</span><span>${fmt(st.max)}${unit}</span></div>
+      </div>
+      <div class="peer-meta">
+        <div class="peer-delta ${isBetter?'peer-better':'peer-worse'}">${deltaLbl}</div>
+        <div class="peer-med">${rank}th pctile</div>
+      </div>
+    </div>`;
+
+    rankBadges+=`<span class="peer-rank ${isBetter?'peer-rank-good':'peer-rank-bad'}">${label} ${rank}th</span>`;
+  });
+
+  return `<div class="ds"><div class="ds-title">vs Sector Peers · ${esc(s)} · ${ss.n} stocks</div>
+    <div class="peer-grid">${rows}</div>
+    <div class="peer-rank-row">${rankBadges}</div>
+    <div style="font-size:9px;color:var(--dim);margin-top:6px">Gray band = 25th–75th pctile · dashed line = median · dot = this ticker</div>
+  </div>`;
+}
+
 // ── CG score ─────────────────────────────────────────────────────────────────
 function cgScore(score){
   if(!score) return '—';
@@ -603,6 +709,7 @@ function renderTab(tab){
       <div class="ds-row"><span class="ds-lbl">Month-to-Date</span><span class="ds-val ${retCls(t.pctMtd)}">${dash(pct(t.pctMtd))}</span></div>
       <div class="ds-row"><span class="ds-lbl">Year-to-Date</span><span class="ds-val ${retCls(t.pctYtd)}">${dash(pct(t.pctYtd))}</span></div>
     </div>`;
+    html+=peerSection(t);
     html+=`<div class="ds"><div class="ds-title">Ownership Structure</div>${ownershipSection(t)||'<div style="color:var(--dim);font-size:12px">No ownership data</div>'}</div>`;
     html+=`<div class="ds"><div class="ds-title">Listing Info</div>
       <div class="ds-row"><span class="ds-lbl">Listed Date</span><span class="ds-val">${dash(t.listedDate)}</span></div>
@@ -665,7 +772,7 @@ function renderTab(tab){
 }
 
 // ── state & render ───────────────────────────────────────────────────────────
-let ALL=[], sectFilter='ALL', rmFilter='', sortKey='tk', searchQ='';
+let ALL=[], SECTOR_STATS={}, sectFilter='ALL', rmFilter='', sortKey='tk', searchQ='';
 
 function sortTickers(arr){
   const [key,dir]=sortKey.includes('-')?[sortKey.slice(0,sortKey.lastIndexOf('-')),sortKey.slice(sortKey.lastIndexOf('-')+1)]:[sortKey,'a'];
@@ -757,6 +864,7 @@ async function loadData(){
   try{
     const{tickers,asOf,source,built}=await loadData();
     ALL=tickers;
+    SECTOR_STATS=computeSectorStats(tickers);
     document.getElementById('loading').style.display='none';
     document.getElementById('grid').style.display='';
     document.getElementById('pgSub').textContent=`${tickers.length} tickers · ${asOf||'—'} · ${source||''}`;
