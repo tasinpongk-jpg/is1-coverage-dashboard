@@ -377,6 +377,16 @@ function esgBadge(r, large=false){
   return `<span class="badge b-esg b-esg-${cls}">ESG ${esc(r)}</span>`;
 }
 
+// ── period label helper ───────────────────────────────────────────────────────
+function periodLabel(h, short=false){
+  const m = h.months || 12;
+  const partial = m < 12;
+  if(!partial) return short ? String(h.year) : String(h.year);
+  const tag = m===3?'3M':m===6?'6M':m===9?'9M':`${m}M`;
+  return short ? `'${String(h.year).slice(2)} ${tag}` : `${h.year} ${tag}`;
+}
+function isPartial(h){ return (h.months||12) < 12; }
+
 // ── financial bar chart ───────────────────────────────────────────────────────
 function finChart(highlights, metric1, metric2, label1, label2, col1, col2){
   if(!highlights||!highlights.length) return '';
@@ -388,17 +398,23 @@ function finChart(highlights, metric1, metric2, label1, label2, col1, col2){
   const n=highlights.length;
   const totalW=(groupW+yearGap)*n-yearGap;
   const offsetX=(W-totalW)/2;
-  let bars='', xlabels='', ylabels='';
+  let bars='', xlabels='';
   highlights.forEach((h,i)=>{
     const x=offsetX+i*(groupW+yearGap);
     const v1=h[metric1], v2=h[metric2];
-    if(v1!=null){ const bh=Math.max(2,(v1/max1)*(H-18)); bars+=`<rect x="${x}" y="${H-bh-2}" width="${bw}" height="${bh}" rx="2" fill="${col1}" opacity="0.75"/><text x="${x+bw/2}" y="${H-bh-5}" text-anchor="middle" fill="${col1}" font-size="7" font-weight="600">${v1>=1000?(v1/1000).toFixed(0)+'B':v1.toFixed(0)}</text>`; }
-    if(v2!=null){ const bh=Math.max(2,(v2/max2)*(H-18)); bars+=`<rect x="${x+bw+gap}" y="${H-bh-2}" width="${bw}" height="${bh}" rx="2" fill="${col2}" opacity="0.85"/><text x="${x+bw+gap+bw/2}" y="${H-bh-5}" text-anchor="middle" fill="${col2}" font-size="7" font-weight="600">${v2>=1000?(v2/1000).toFixed(1)+'B':v2.toFixed(0)}</text>`; }
-    xlabels+=`<text x="${x+groupW/2}" y="${H+10}" text-anchor="middle" fill="#5a627a" font-size="9">${h.year}</text>`;
+    const partial=isPartial(h);
+    const stripePat=partial?` opacity="0.5" stroke-dasharray="2,2"`:' opacity="0.75"';
+    if(v1!=null){ const bh=Math.max(2,(v1/max1)*(H-18)); bars+=`<rect x="${x}" y="${H-bh-2}" width="${bw}" height="${bh}" rx="2" fill="${col1}"${stripePat}/><text x="${x+bw/2}" y="${H-bh-5}" text-anchor="middle" fill="${col1}" font-size="7" font-weight="600">${v1>=1000?(v1/1000).toFixed(0)+'B':v1.toFixed(0)}</text>`; }
+    if(v2!=null){ const bh=Math.max(2,(v2/max2)*(H-18)); bars+=`<rect x="${x+bw+gap}" y="${H-bh-2}" width="${bw}" height="${bh}" rx="2" fill="${col2}"${partial?' opacity="0.5"':' opacity="0.85"'}/><text x="${x+bw+gap+bw/2}" y="${H-bh-5}" text-anchor="middle" fill="${col2}" font-size="7" font-weight="600">${v2>=1000?(v2/1000).toFixed(1)+'B':v2.toFixed(0)}</text>`; }
+    const lbl=periodLabel(h, true);
+    const lblCol=partial?'#f59e0b':'#5a627a';
+    xlabels+=`<text x="${x+groupW/2}" y="${H+10}" text-anchor="middle" fill="${lblCol}" font-size="9" font-weight="${partial?'700':'400'}">${lbl}</text>`;
+    if(partial) xlabels+=`<text x="${x+groupW/2}" y="${H+18}" text-anchor="middle" fill="#f59e0b" font-size="7">partial</text>`;
   });
-  const legend=`<text x="0" y="${H+22}" fill="${col1}" font-size="9" font-weight="600">■ ${label1}</text><text x="90" y="${H+22}" fill="${col2}" font-size="9" font-weight="600">■ ${label2}</text>`;
+  const hasPartial=highlights.some(isPartial);
+  const legend=`<text x="0" y="${H+(hasPartial?30:22)}" fill="${col1}" font-size="9" font-weight="600">■ ${label1}</text><text x="90" y="${H+(hasPartial?30:22)}" fill="${col2}" font-size="9" font-weight="600">■ ${label2}</text>${hasPartial?`<text x="180" y="${H+30}" fill="#f59e0b" font-size="8">● = partial period</text>`:''}`;
   return `<div class="fin-chart"><div class="fin-chart-title">${label1} vs ${label2} (M฿)</div>
-  <svg viewBox="0 0 ${W} ${H+28}" xmlns="http://www.w3.org/2000/svg">${bars}${xlabels}${legend}</svg></div>`;
+  <svg viewBox="0 0 ${W} ${H+(hasPartial?36:28)}" xmlns="http://www.w3.org/2000/svg">${bars}${xlabels}${legend}</svg></div>`;
 }
 
 // ── ratios table ─────────────────────────────────────────────────────────────
@@ -419,8 +435,15 @@ function ratiosTable(highlights){
     ['PBV',       'pbv',      v=>v==null?'—':f2(v)+'x'],
     ['DY %',      'dy',       v=>v==null?'—':f2(v)+'%'],
   ];
-  const years=highlights.map(h=>h.year);
-  let html=`<div style="overflow-x:auto"><table class="fin-table"><thead><tr><th>Metric</th>${years.map(y=>`<th>${y}</th>`).join('')}</tr></thead><tbody>`;
+  const hasPartial=highlights.some(isPartial);
+  const colHdrs=highlights.map(h=>{
+    const lbl=periodLabel(h);
+    const partial=isPartial(h);
+    return `<th style="${partial?'color:var(--yellow)':''}">` +
+      (partial?`<span title="${h.months}M period (partial year)">${lbl} ⚠</span>`:lbl)+'</th>';
+  });
+  let html=`${hasPartial?`<div style="font-size:10px;color:var(--yellow);margin-bottom:8px;padding:6px 10px;background:#f59e0b10;border-radius:6px;border:1px solid #f59e0b20">⚠ Highlighted columns show partial-year results (3M/6M/9M) — not comparable to full-year figures.</div>`:''}
+  <div style="overflow-x:auto"><table class="fin-table"><thead><tr><th>Metric</th>${colHdrs.join('')}</tr></thead><tbody>`;
   metrics.forEach(([lbl,key,fmt])=>{
     const cells=highlights.map(h=>{
       const v=h[key]; const s=fmt(v);
@@ -593,7 +616,8 @@ function renderTab(tab){
     if(!hl.length){ html='<div style="color:var(--muted);padding:24px 0;text-align:center">No financial history available</div>'; }
     else {
       html+=finChart(hl,'revenue','netProfit','Revenue','Net Profit','#3b82f6','#22c55e');
-      html+=`<div class="ds"><div class="ds-title">Annual Summary (M฿, last ${hl.length} years)</div>${ratiosTable(hl)}</div>`;
+      const periodRange=hl.length?`${periodLabel(hl[0])} – ${periodLabel(hl[hl.length-1])}`:`${hl.length} periods`;
+      html+=`<div class="ds"><div class="ds-title">Summary (M฿) · ${periodRange}</div>${ratiosTable(hl)}</div>`;
     }
   }
 
