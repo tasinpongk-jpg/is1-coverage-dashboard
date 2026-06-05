@@ -97,13 +97,7 @@ def main() -> None:
     p.add_argument(
         "--classify",
         action="store_true",
-        help="After polling, invoke classify_batch.py on the local DB. "
-             "Rules-tier only by default; pass --classify-haiku to enable Haiku fallback.",
-    )
-    p.add_argument(
-        "--classify-haiku",
-        action="store_true",
-        help="With --classify, allow rules-ambiguous rows to fall through to Haiku (API cost).",
+        help="After polling, invoke classify_batch.py on the local DB.",
     )
     args = p.parse_args()
 
@@ -137,10 +131,7 @@ def main() -> None:
 
     if args.classify:
         print("\n=== invoking classify_batch.py ===")
-        cmd = [sys.executable, "classify_batch.py"]
-        if not args.classify_haiku:
-            cmd.append("--rules-only")
-        subprocess.run(cmd, check=False)
+        subprocess.run([sys.executable, "classify_batch.py"], check=False)
 
 
 if __name__ == "__main__":
