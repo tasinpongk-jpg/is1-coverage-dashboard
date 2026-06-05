@@ -65,6 +65,15 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
+      # actions/checkout pins the SHA at queue time, not execution time.
+      # When this job waits in the concurrency queue behind daily.yml (~18 min),
+      # it wakes up on a stale commit. Reset to the true HEAD so our
+      # disclosure-pulse.json is built on top of whatever daily.yml pushed.
+      - name: Sync to latest HEAD
+        run: |
+          git fetch origin main
+          git reset --hard origin/main
+
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
@@ -118,7 +127,18 @@ jobs:
               exit 0
             fi
             echo "Push attempt $attempt rejected — rebasing and retrying..."
-            git pull --rebase origin main || true
+            # Abort any in-progress rebase before starting a fresh one.
+            # Without this, a prior conflict leaves unmerged files and the
+            # next `git pull --rebase` fails immediately with "unresolved
+            # conflict" instead of actually rebasing.
+            git rebase --abort 2>/dev/null || true
+            if ! git pull --rebase origin main; then
+              # Conflict on disclosure-pulse.json: our rebuilt version is
+              # fresher (newer DuckDB data). Accept ours and continue.
+              git checkout --theirs data/disclosure-pulse.json
+              git add data/disclosure-pulse.json
+              GIT_EDITOR=true git rebase --continue
+            fi
             sleep $((attempt * 5))
           done
           echo "Push failed after 3 attempts."

@@ -266,7 +266,8 @@ jobs:
               exit 0
             fi
             echo "Push attempt $attempt rejected — rebasing and retrying..."
-            git pull --rebase origin main || true
+            git rebase --abort 2>/dev/null || true
+            git pull --rebase origin main
             sleep $((attempt * 5))
           done
           echo "Push failed after 3 attempts."
