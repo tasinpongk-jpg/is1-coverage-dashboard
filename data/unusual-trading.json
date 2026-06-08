@@ -1,5 +1,5 @@
 {
-  "asOf": "2026-06-07",
+  "asOf": "2026-06-08",
   "source": "SETSMART intraday API · 61 alerts across 52 tickers",
   "thresholds": {
     "vol_spike": {
@@ -819,7 +819,7 @@
       "sector": "PROP",
       "type": "Intraday move",
       "atype": "intraday",
-      "severity": "high",
+      "severity": "medium",
       "value": 6.25,
       "label": "-6.25% intraday",
       "evidence": {
@@ -828,8 +828,10 @@
         "high": 0.32,
         "low": 0.27
       },
-      "filingsLinked": 0,
-      "filingsTitles": []
+      "filingsLinked": 1,
+      "filingsTitles": [
+        "SEC News : สรุปแบบ 246-2 ประจำวันที่ 05 มิถุนายน 2569"
+      ]
     },
     {
       "tk": "AKS",
@@ -1412,23 +1414,6 @@
       ]
     },
     {
-      "tk": "STELLA",
-      "sector": "PROP",
-      "alertCount": 1,
-      "highestSeverity": "high",
-      "filingsLinked": 0,
-      "alertTypes": [
-        {
-          "atype": "intraday",
-          "type": "Intraday move",
-          "severity": "high"
-        }
-      ],
-      "summary": [
-        "Intraday move: -6.25% intraday"
-      ]
-    },
-    {
       "tk": "STPI",
       "sector": "CONS",
       "alertCount": 1,
@@ -1943,8 +1928,25 @@
       "summary": [
         "Volume spike: 2.2σ vs 20D avg"
       ]
+    },
+    {
+      "tk": "STELLA",
+      "sector": "PROP",
+      "alertCount": 1,
+      "highestSeverity": "medium",
+      "filingsLinked": 1,
+      "alertTypes": [
+        {
+          "atype": "intraday",
+          "type": "Intraday move",
+          "severity": "medium"
+        }
+      ],
+      "summary": [
+        "Intraday move: -6.25% intraday"
+      ]
     }
   ],
-  "_built_at": "2026-06-07T02:31:54.642788+00:00",
+  "_built_at": "2026-06-08T02:31:55.774281+00:00",
   "_coverage_size": 232
 }
