@@ -537,7 +537,7 @@
       "sector": "PROP",
       "type": "Volume spike",
       "atype": "vol_spike",
-      "severity": "medium",
+      "severity": "low",
       "value": 2.394,
       "label": "2.4σ vs 20D avg",
       "evidence": {
@@ -545,8 +545,10 @@
         "vol20dAvg": 10577002.25,
         "vol20dStd": 3527091.127993901
       },
-      "filingsLinked": 0,
-      "filingsTitles": []
+      "filingsLinked": 1,
+      "filingsTitles": [
+        "To report the purchase of shares in subsidiaries (APME4 and APME10)"
+      ]
     },
     {
       "tk": "EVER",
@@ -1150,23 +1152,6 @@
       ]
     },
     {
-      "tk": "AP",
-      "sector": "PROP",
-      "alertCount": 1,
-      "highestSeverity": "medium",
-      "filingsLinked": 0,
-      "alertTypes": [
-        {
-          "atype": "vol_spike",
-          "type": "Volume spike",
-          "severity": "medium"
-        }
-      ],
-      "summary": [
-        "Volume spike: 2.4σ vs 20D avg"
-      ]
-    },
-    {
       "tk": "CBG",
       "sector": "FOOD",
       "alertCount": 1,
@@ -1386,8 +1371,25 @@
       "summary": [
         "Intraday move: +5.38% intraday"
       ]
+    },
+    {
+      "tk": "AP",
+      "sector": "PROP",
+      "alertCount": 1,
+      "highestSeverity": "low",
+      "filingsLinked": 1,
+      "alertTypes": [
+        {
+          "atype": "vol_spike",
+          "type": "Volume spike",
+          "severity": "low"
+        }
+      ],
+      "summary": [
+        "Volume spike: 2.4σ vs 20D avg"
+      ]
     }
   ],
-  "_built_at": "2026-06-09T02:32:08.073583+00:00",
+  "_built_at": "2026-06-09T06:45:23.839972+00:00",
   "_coverage_size": 232
 }
