@@ -30,8 +30,18 @@
 
   .tab-bar { background: var(--card); border-bottom: 1px solid var(--border); padding: 0 20px; }
   .tab-row { display: flex; gap: 4px; padding: 8px 0; align-items: center; flex-wrap: wrap; }
+  .tab-row + .tab-row { border-top: 1px dashed var(--border); }
+  .tab-label { font-size: 11px; color: var(--muted); margin-right: 8px; min-width: 60px; }
   .tab { padding: 5px 14px; border-radius: 6px; cursor: pointer; font-size: 12px; color: var(--muted); border: 1px solid transparent; user-select: none; }
+  .tab:hover { color: var(--text); background: #2a2d3a; }
   .tab.active { background: #6366f122; border-color: #6366f155; color: var(--text); font-weight: 600; }
+  .tab-count { color: var(--muted); margin-left: 4px; font-size: 10px; }
+  .filter-note { color: var(--muted); font-size: 11px; margin-left: 8px; }
+  .search { min-width: 260px; max-width: 420px; flex: 1; background: #11141d; color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 7px 10px; font: inherit; }
+  .search:focus, .select:focus { outline: 1px solid #6366f177; border-color: #6366f177; }
+  .select { background: #11141d; color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 7px 10px; font: inherit; }
+  .reset-btn { background: #11141d; color: var(--muted); border: 1px solid var(--border); border-radius: 6px; padding: 7px 12px; font: inherit; cursor: pointer; }
+  .reset-btn:hover { color: var(--text); border-color: #6366f155; }
 
   .feed { padding: 12px 20px 20px; display: flex; flex-direction: column; gap: 8px; }
   .item { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; border-left: 3px solid var(--muted); }
@@ -45,6 +55,12 @@
   .tag-matched { background: #ef444433; color: var(--crit); }
   .tag-uncov { background: #7c829822; color: var(--muted); }
   .tag-case { background: #6366f122; color: #a5b4fc; font-variant-numeric: tabular-nums; }
+  .tag-type { background: #7c829822; color: var(--muted); }
+  .tag-criminal { background: #ef444433; color: var(--crit); }
+  .tag-civil { background: #f59e0b33; color: var(--mat); }
+  .tag-admin { background: #22c55e22; color: var(--green); }
+  .tag-law { background: #3b82f622; color: #93c5fd; }
+  .tag-new { background: #22c55e22; color: var(--green); }
   .desc { margin-top: 6px; font-size: 12px; color: var(--muted); line-height: 1.4; }
   .empty, .loading { text-align: center; padding: 60px; color: var(--muted); }
 </style>
@@ -78,68 +94,276 @@
 
 <div class="tab-bar">
   <div class="tab-row">
-    <span style="font-size:11px;color:var(--muted);margin-right:8px;min-width:60px">Scope:</span>
-    <div class="tab active" data-scope="ALL" onclick="setScope('ALL')">All</div>
-    <div class="tab" data-scope="COVERAGE" onclick="setScope('COVERAGE')">In coverage</div>
+    <span class="tab-label">Window:</span>
+    <div id="windowTabs" style="display:flex;gap:4px;flex-wrap:wrap"></div>
+    <span class="filter-note" id="windowNote"></span>
+  </div>
+  <div class="tab-row">
+    <span class="tab-label">Scope:</span>
+    <div id="scopeTabs" style="display:flex;gap:4px;flex-wrap:wrap"></div>
+    <span class="tab-label" style="margin-left:20px">Type:</span>
+    <div id="typeTabs" style="display:flex;gap:4px;flex-wrap:wrap"></div>
+  </div>
+  <div class="tab-row">
+    <span class="tab-label">Search:</span>
+    <input class="search" id="searchBox" type="search" placeholder="Ticker, name, law, detail" oninput="setQuery(this.value)">
+    <span class="tab-label" style="margin-left:12px">Sort:</span>
+    <select class="select" id="sortMode" onchange="setSort(this.value)">
+      <option value="latest">Latest first</option>
+      <option value="coverage">Coverage first</option>
+      <option value="oldest">Oldest first</option>
+    </select>
+    <button class="reset-btn" type="button" onclick="resetFilters()">Reset</button>
   </div>
 </div>
 
 <div id="feed" class="feed"><div class="loading">Fetching SEC enforcement actions...</div></div>
 
 <script>
-let ITEMS = [], activeScope = 'ALL';
+let ITEMS = [], activeScope = 'ALL', activeType = 'ALL', activeWindow = 0, activeQuery = '', sortMode = 'latest';
+let latestActionMs = 0;
+
+const WINDOWS = [
+  { key: 0, label: 'All' },
+  { key: 7, label: '7d' },
+  { key: 30, label: '30d' },
+  { key: 90, label: '90d' },
+];
+const SCOPES = [
+  { key: 'ALL', label: 'All' },
+  { key: 'COVERAGE', label: 'In coverage' },
+];
+const TYPE_ORDER = ['CRIMINAL', 'CIVIL', 'ADMIN', 'WARNING', 'OTHER', 'UNKNOWN'];
+const TYPE_LABELS = {
+  ALL: 'All',
+  CRIMINAL: 'Criminal',
+  CIVIL: 'Civil',
+  ADMIN: 'Admin',
+  WARNING: 'Warning',
+  OTHER: 'Other',
+  UNKNOWN: 'Unknown',
+};
+const TYPE_TAG_CLASS = {
+  CRIMINAL: 'tag-criminal',
+  CIVIL: 'tag-civil',
+  ADMIN: 'tag-admin',
+  WARNING: 'tag-type',
+  OTHER: 'tag-type',
+  UNKNOWN: 'tag-type',
+};
 
 function freshnessLabel(builtAt) {
   if (!builtAt) return { txt: '?', warn: true };
   const ageH = (Date.now() - new Date(builtAt).getTime()) / 36e5;
   return { txt: 'updated ' + (ageH < 1 ? Math.round(ageH * 60) + 'm' : Math.round(ageH) + 'h') + ' ago', warn: ageH > 36 };
 }
+function decodeHtml(s) {
+  const el = document.createElement('textarea');
+  el.innerHTML = s || '';
+  return el.value.replace(/\u00a0/g, ' ').replace(/\s+/g, ' ').trim();
+}
+function escapeHtml(s) {
+  return String(s ?? '').replace(/[&<>"']/g, ch => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  })[ch]);
+}
+function truncate(s, n = 420) {
+  const txt = decodeHtml(s);
+  return txt.length > n ? txt.slice(0, n - 1).trimEnd() + '...' : txt;
+}
+function parseActionDate(v) {
+  const s = decodeHtml(v);
+  const m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (!m) return 0;
+  return Date.UTC(+m[3], +m[2] - 1, +m[1]);
+}
+function formatActionDate(v) {
+  const ms = typeof v === 'number' ? v : parseActionDate(v);
+  if (!ms) return decodeHtml(v) || '-';
+  return new Date(ms).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'UTC' });
+}
+function secColumns(it) {
+  if (it._cols) return it._cols;
+  it._cols = decodeHtml(it.description || '').split('|').map(x => decodeHtml(x));
+  return it._cols;
+}
+function typeGroup(type) {
+  const t = decodeHtml(type).toLowerCase();
+  if (t.includes('criminal')) return 'CRIMINAL';
+  if (t.includes('civil')) return 'CIVIL';
+  if (t.includes('administrative') || t.includes('admin')) return 'ADMIN';
+  if (t.includes('warning') || t.includes('reprimand')) return 'WARNING';
+  return t ? 'OTHER' : 'UNKNOWN';
+}
+function cleanTypeLabel(type) {
+  const t = decodeHtml(type);
+  return t.length <= 80 ? t : '';
+}
+function isHeaderRow(it) {
+  return decodeHtml(it.action_date).toLowerCase() === 'enforcement date'
+    || decodeHtml(it.respondent).toLowerCase() === 'name';
+}
+function hydrateItem(it) {
+  const cols = secColumns(it);
+  const enforcementType = cleanTypeLabel(it.enforcement_type || cols[6] || '');
+  const law = decodeHtml(it.law || cols[3] || '');
+  const facts = decodeHtml(it.facts || cols[4] || it.action_type || it.description || '');
+  const details = decodeHtml(it.details || cols[7] || '');
+  it._dateMs = parseActionDate(it.action_date);
+  it._respondent = decodeHtml(it.respondent || '');
+  it._type = enforcementType;
+  it._typeGroup = typeGroup(it._type);
+  it._law = law;
+  it._facts = facts;
+  it._details = details;
+  it._search = [
+    it.action_date, it._respondent, it.matched_ticker, it.case_no,
+    it._type, it._law, it._facts, it._details
+  ].map(x => decodeHtml(x)).join(' ').toLowerCase();
+  return it;
+}
+function inWindow(it, windowKey = activeWindow) {
+  if (windowKey === 0) return true;
+  if (!latestActionMs || !it._dateMs) return false;
+  return latestActionMs - it._dateMs <= windowKey * 86400 * 1000;
+}
+function filterRows(overrides = {}) {
+  const state = {
+    scope: activeScope,
+    type: activeType,
+    window: activeWindow,
+    query: activeQuery,
+    ...overrides,
+  };
+  const q = state.query.trim().toLowerCase();
+  return ITEMS.filter(it => {
+    if (!inWindow(it, state.window)) return false;
+    if (state.scope === 'COVERAGE' && !it.matched_ticker) return false;
+    if (state.type !== 'ALL' && it._typeGroup !== state.type) return false;
+    if (q && !it._search.includes(q)) return false;
+    return true;
+  });
+}
+function sortedRows(rows) {
+  const out = [...rows];
+  const byLatest = (a, b) => (b._dateMs - a._dateMs) || a._respondent.localeCompare(b._respondent);
+  if (sortMode === 'oldest') out.sort((a, b) => (a._dateMs - b._dateMs) || a._respondent.localeCompare(b._respondent));
+  else if (sortMode === 'coverage') out.sort((a, b) => Number(Boolean(b.matched_ticker)) - Number(Boolean(a.matched_ticker)) || byLatest(a, b));
+  else out.sort(byLatest);
+  return out;
+}
+function buildWindowTabs() {
+  document.getElementById('windowTabs').innerHTML = WINDOWS.map(w => {
+    const cnt = filterRows({ window: w.key }).length;
+    return `<div class="tab ${w.key === activeWindow ? 'active' : ''}" onclick="setWindow(${w.key})">${w.label} <span class="tab-count">${cnt}</span></div>`;
+  }).join('');
+  document.getElementById('windowNote').textContent = latestActionMs ? `latest action ${formatActionDate(latestActionMs)}` : '';
+}
+function buildScopeTabs() {
+  document.getElementById('scopeTabs').innerHTML = SCOPES.map(s => {
+    const cnt = filterRows({ scope: s.key }).length;
+    return `<div class="tab ${s.key === activeScope ? 'active' : ''}" onclick="setScope('${s.key}')">${s.label} <span class="tab-count">${cnt}</span></div>`;
+  }).join('');
+}
+function buildTypeTabs() {
+  const present = new Set(ITEMS.map(it => it._typeGroup));
+  const keys = ['ALL', ...TYPE_ORDER.filter(k => present.has(k))];
+  document.getElementById('typeTabs').innerHTML = keys.map(k => {
+    const cnt = filterRows({ type: k }).length;
+    return `<div class="tab ${k === activeType ? 'active' : ''}" onclick="setType('${k}')">${TYPE_LABELS[k]} <span class="tab-count">${cnt}</span></div>`;
+  }).join('');
+}
+function buildControls() {
+  buildWindowTabs();
+  buildScopeTabs();
+  buildTypeTabs();
+  document.getElementById('sortMode').value = sortMode;
+}
 function setScope(s) {
   activeScope = s;
-  document.querySelectorAll('[data-scope]').forEach(el => el.classList.toggle('active', el.dataset.scope === s));
+  buildControls(); updateStats(); render();
+}
+function setType(t) {
+  activeType = t;
+  buildControls(); updateStats(); render();
+}
+function setWindow(w) {
+  activeWindow = +w;
+  buildControls(); updateStats(); render();
+}
+function setQuery(q) {
+  activeQuery = q;
+  buildControls(); updateStats(); render();
+}
+function setSort(v) {
+  sortMode = v;
   render();
 }
+function resetFilters() {
+  activeScope = 'ALL';
+  activeType = 'ALL';
+  activeWindow = 0;
+  activeQuery = '';
+  sortMode = 'latest';
+  document.getElementById('searchBox').value = '';
+  buildControls(); updateStats(); render();
+}
 function filtered() {
-  if (activeScope === 'COVERAGE') return ITEMS.filter(i => i.matched_ticker);
-  return ITEMS;
+  return sortedRows(filterRows());
+}
+function updateStats() {
+  const rows = filterRows();
+  const latestInView = rows.reduce((m, it) => Math.max(m, it._dateMs || 0), 0);
+  const criminal = rows.filter(it => it._typeGroup === 'CRIMINAL').length;
+  const coverage = rows.filter(it => it.matched_ticker).length;
+  document.getElementById('statsBar').innerHTML = `
+    <div class="stat"><div class="stat-val">${rows.length}</div><div class="stat-lbl">Showing</div></div>
+    <div class="stat"><div class="stat-val" style="font-size:16px">${formatActionDate(latestInView)}</div><div class="stat-lbl">Latest in view</div></div>
+    <div class="stat"><div class="stat-val" style="color:var(--crit)">${criminal}</div><div class="stat-lbl">Criminal</div></div>
+    <div class="stat"><div class="stat-val" style="color:var(--green)">${coverage}</div><div class="stat-lbl">Coverage hits</div></div>`;
 }
 function render() {
   const rows = filtered();
   const feed = document.getElementById('feed');
   if (!rows.length) {
-    feed.innerHTML = '<div class="empty">No SEC enforcement actions in scope.</div>';
+    feed.innerHTML = '<div class="empty">No SEC enforcement actions match the filters.</div>';
     return;
   }
-  feed.innerHTML = rows.map(it => `<div class="item ${it.matched_ticker ? 'matched' : ''}">
+  feed.innerHTML = rows.map(it => {
+    const typeCls = TYPE_TAG_CLASS[it._typeGroup] || 'tag-type';
+    return `<div class="item ${it.matched_ticker ? 'matched' : ''}">
     <div class="item-top">
-      <div class="item-date">${it.action_date || '-'}</div>
+      <div class="item-date">${formatActionDate(it.action_date)}</div>
       <div class="item-content">
-        <div class="item-resp">${it.respondent || it.description || '-'}</div>
+        <div class="item-resp">${escapeHtml(it._respondent || it.description || '-')}</div>
         <div class="item-meta">
+          ${it._dateMs === latestActionMs ? '<span class="tag tag-new">latest</span>' : ''}
           ${it.matched_ticker ? `<span class="tag tag-matched">${it.matched_ticker}</span>` : `<span class="tag tag-uncov">out-of-coverage</span>`}
           ${it.case_no ? `<span class="tag tag-case">${it.case_no}</span>` : ''}
-          ${it.action_type ? `<span style="font-size:11px;color:var(--muted)">${it.action_type}</span>` : ''}
+          ${it._type ? `<span class="tag ${typeCls}">${escapeHtml(it._type)}</span>` : ''}
+          ${it._law ? `<span class="tag tag-law">${escapeHtml(it._law)}</span>` : ''}
           ${it.url ? `<a href="${it.url}" target="_blank" rel="noopener" style="font-size:11px;color:var(--accent)">SEC iDisc</a>` : ''}
         </div>
-        ${it.description && it.description !== it.respondent ? `<div class="desc">${it.description}</div>` : ''}
+        ${it._facts ? `<div class="desc">${escapeHtml(truncate(it._facts))}</div>` : ''}
+        ${it._details ? `<div class="desc">${escapeHtml(truncate(it._details, 240))}</div>` : ''}
       </div>
     </div>
-  </div>`).join('');
+  </div>`;
+  }).join('');
 }
 async function init() {
   try {
     const dj = await fetch('./data/sec-enforcement.json').then(r => r.json());
-    ITEMS = dj.items || [];
+    ITEMS = (dj.items || []).filter(it => !isHeaderRow(it)).map(hydrateItem);
+    latestActionMs = ITEMS.reduce((m, it) => Math.max(m, it._dateMs || 0), 0);
     const fresh = freshnessLabel(dj._built_at);
     const badge = document.getElementById('staleBadge');
     badge.textContent = fresh.txt;
     if (fresh.warn) badge.classList.add('warn');
-    document.getElementById('meta').textContent = `${dj.total || 0} actions - ${dj.in_coverage_count || 0} in coverage - as of ${dj.asOf || ''}`;
-    document.getElementById('statsBar').innerHTML = `
-      <div class="stat"><div class="stat-val" style="color:var(--crit)">${dj.in_coverage_count || 0}</div><div class="stat-lbl">Coverage hits</div></div>
-      <div class="stat"><div class="stat-val">${dj.total || 0}</div><div class="stat-lbl">Total actions</div></div>
-      <div class="stat"><div class="stat-val">${ITEMS.filter(i => i.action_type && i.action_type.toLowerCase().includes('criminal')).length}</div><div class="stat-lbl">Criminal</div></div>
-      <div class="stat"><div class="stat-val">${ITEMS.filter(i => i.action_type && i.action_type.toLowerCase().includes('civil')).length}</div><div class="stat-lbl">Civil</div></div>`;
+    const coverageCount = ITEMS.filter(i => i.matched_ticker).length;
+    document.getElementById('meta').textContent = `${ITEMS.length} actions - ${coverageCount} in coverage - latest action ${formatActionDate(latestActionMs)} - as of ${dj.asOf || ''}`;
+    buildControls();
+    updateStats();
     render();
   } catch(e) {
     document.getElementById('feed').innerHTML = `<div class="empty">Error: ${e.message}</div>`;

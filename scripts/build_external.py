@@ -17,6 +17,7 @@ from __future__ import annotations
 import json
 import os
 import sys
+from html import unescape
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
 
@@ -98,24 +99,64 @@ def build_trading_signs(con: duckdb.DuckDBPyConnection, tickers: dict) -> None:
     })
 
 
+def _parse_sec_action_date(value: str | None) -> datetime | None:
+    try:
+        return datetime.strptime((value or "").strip(), "%d/%m/%Y")
+    except ValueError:
+        return None
+
+
+def _sec_columns(description: str | None) -> list[str]:
+    return [
+        unescape(part).replace("\xa0", " ").strip()
+        for part in (description or "").split("|")
+    ]
+
+
+def _sec_scraped_key(value) -> datetime:
+    if isinstance(value, datetime):
+        return value.replace(tzinfo=None)
+    if isinstance(value, str):
+        try:
+            return datetime.fromisoformat(value.replace("Z", "+00:00")).replace(tzinfo=None)
+        except ValueError:
+            return datetime.min
+    return datetime.min
+
+
 def build_sec_enforcement(con: duckdb.DuckDBPyConnection, tickers: dict) -> None:
-    rows = con.execute("""
+    raw_rows = con.execute("""
         SELECT id, case_no, action_date, respondent, action_type, matched_ticker, description, url, scraped_at
         FROM sec_enforcement
-        ORDER BY action_date DESC NULLS LAST, scraped_at DESC
-        LIMIT 200
     """).fetchall()
-    items = [
-        {
+    rows = [
+        r for r in raw_rows
+        if (r[2] or "").strip().lower() != "enforcement date"
+        and (r[3] or "").strip().lower() != "name"
+    ]
+    rows.sort(
+        key=lambda r: (
+            _parse_sec_action_date(r[2]) or datetime.min,
+            _sec_scraped_key(r[8]),
+        ),
+        reverse=True,
+    )
+    rows = rows[:200]
+    items = []
+    for r in rows:
+        cols = _sec_columns(r[6])
+        items.append({
             "id": r[0], "case_no": r[1], "action_date": r[2],
             "respondent": r[3], "action_type": r[4],
+            "law": cols[3] if len(cols) > 3 else None,
+            "facts": cols[4] if len(cols) > 4 else r[4],
+            "enforcement_type": cols[6] if len(cols) > 6 else None,
+            "details": cols[7] if len(cols) > 7 else None,
             "matched_ticker": r[5], "description": r[6], "url": r[7],
             "scraped_at": r[8].isoformat() if r[8] else None,
             "rm": (tickers.get(r[5]) or {}).get("rm") if r[5] else None,
             "sector": (tickers.get(r[5]) or {}).get("sector") if r[5] else None,
-        }
-        for r in rows
-    ]
+        })
     _write(DATA_DIR / "sec-enforcement.json", {
         "asOf": datetime.now(BKK).date().isoformat(),
         "total": len(items),

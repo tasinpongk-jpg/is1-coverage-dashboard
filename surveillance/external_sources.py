@@ -427,16 +427,14 @@ def fetch_sec_enforcement(client: httpx.Client) -> int:
         respondent = clean[2] if len(clean) > 2 else ""
         law = clean[3] if len(clean) > 3 else ""
         action_type = clean[4] if len(clean) > 4 else law
+        if date_val.lower() == "enforcement date" or respondent.lower() == "name":
+            continue
         if not respondent or len(respondent) < 3:
             continue
-        # Try to find a coverage ticker mentioned in the respondent name.
-        matched = None
-        resp_up = respondent.upper()
-        for tk in coverage:
-            # Word-boundary match to avoid e.g. "MK" inside "MARKETING"
-            if re.search(rf"(?<![A-Z0-9]){re.escape(tk)}(?![A-Z0-9])", resp_up):
-                matched = tk
-                break
+        # Try to find a coverage ticker anywhere in the row. Many SEC rows put
+        # the listed-company ticker in the summarized facts, not the name cell.
+        matches = find_tickers(" | ".join(clean))
+        matched = sorted(matches)[0] if matches else None
         rid = _hash("SEC", date_val, respondent[:120], law[:120])
         out_rows.append((
             rid, "", date_val, respondent[:300], action_type[:200], matched,

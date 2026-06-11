@@ -103,6 +103,7 @@ main{flex:1;max-width:1540px;width:100%;margin:0 auto;padding:22px 24px 48px;pos
 .b-esg-b{color:var(--yellow);background:#f59e0b20}
 .b-esg-c{color:var(--red);background:#ef444420}
 .b-cac{color:#a78bfa;background:#a78bfa18}
+.b-note{color:#fbbf24;background:#f59e0b18}
 
 .price-row{display:flex;align-items:baseline;gap:6px;flex-wrap:wrap}
 .price-val{font-size:20px;font-weight:700;font-variant-numeric:tabular-nums;letter-spacing:-.4px}
@@ -283,6 +284,22 @@ main{flex:1;max-width:1540px;width:100%;margin:0 auto;padding:22px 24px 48px;pos
 .disc-row-title a:hover{text-decoration:underline;color:var(--accent)}
 .disc-row-meta{font-size:10px;color:var(--dim);margin-top:2px}
 
+/* drawer notes tab */
+.note-row{padding:9px 0;border-bottom:1px dashed #1e2233}
+.note-row:last-child{border-bottom:none}
+.note-row-top{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:4px}
+.note-title{font-size:12px;font-weight:700;line-height:1.35}
+.note-snippet{font-size:11px;color:var(--muted);line-height:1.55}
+.note-meta{font-size:10px;color:var(--dim);margin-top:4px;word-break:break-word}
+.note-badge{font-size:9px;font-weight:800;padding:2px 6px;border-radius:4px;letter-spacing:.2px}
+.note-badge-call{color:#a5b4fc;background:#6366f122}
+.note-badge-opp{color:#fbbf24;background:#f59e0b18}
+.note-badge-mda{color:#60a5fa;background:#3b82f618}
+.note-badge-fs{color:#34d399;background:#22c55e18}
+.note-badge-review{color:#f87171;background:#ef444418}
+.note-link{color:var(--accent);text-decoration:none;font-size:10px}
+.note-link:hover{text-decoration:underline}
+
 footer{padding:14px 24px;border-top:1px solid var(--border);font-size:11px;color:var(--dim);display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;position:relative;z-index:1}
 footer a{color:var(--muted);text-decoration:none}
 
@@ -345,6 +362,7 @@ footer a{color:var(--muted);text-decoration:none}
   <div class="dtabs" id="dtabs">
     <div class="dtab active" data-tab="overview">Overview</div>
     <div class="dtab" data-tab="financials">Financials</div>
+    <div class="dtab" data-tab="notes">Notes</div>
     <div class="dtab" data-tab="company">Company</div>
     <div class="dtab" data-tab="governance">Governance</div>
     <div class="dtab" data-tab="disclosures">Disclosures</div>
@@ -365,7 +383,8 @@ const f1  = v => v == null ? null : v.toFixed(1);
 const fmb = v => v == null ? null : v >= 1000 ? (v/1000).toFixed(1)+'B' : v.toFixed(0)+'M';
 const pct = v => v == null ? null : (v>0?'+':'')+v.toFixed(2)+'%';
 const dash = v => v ?? '—';
-const esc = s => (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const esc = s => (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+const trimText = (s,n=220) => !s ? '' : (s.length>n?s.slice(0,n-1).trimEnd()+'…':s);
 
 const SCOL = {FOOD:'#3b82f6',AGRI:'#10b981',PROP:'#8b5cf6',CONS:'#f97316',CONMAT:'#ec4899',PFREIT:'#06b6d4','PF&REIT':'#06b6d4'};
 const ns = s => s === 'PF&REIT' ? 'PFREIT' : (s||'');
@@ -611,6 +630,41 @@ function cgScore(score){
   return `<div class="cg-stars">${dots}</div><div style="font-size:11px;color:var(--muted);margin-top:2px">CG Score ${score}/5</div>`;
 }
 
+function noteCount(tk){
+  const v=VAULT_MAP[tk]||{};
+  return (OPP_MAP[tk]?1:0)
+    +(v.calls||[]).length+(v.mda||[]).length+(v.fsNotes||[]).length;
+}
+
+function noteMeta(parts){
+  return parts.filter(Boolean).map(esc).join(' · ');
+}
+
+function noteLinks(n){
+  const links=[];
+  if(n.youtubeId) links.push(`<a class="note-link" href="https://youtu.be/${encodeURIComponent(n.youtubeId)}" target="_blank" rel="noopener">YouTube ↗</a>`);
+  if(n.presentationId) links.push(`<a class="note-link" href="https://api.lcp.setgroup.or.th/file/presentation/${encodeURIComponent(n.presentationId)}" target="_blank" rel="noopener">Slides ↗</a>`);
+  return links.length?`<span style="display:flex;gap:8px;flex-wrap:wrap;margin-top:4px">${links.join('')}</span>`:'';
+}
+
+function noteItem(n, kind, label){
+  const cls={call:'note-badge-call',opp:'note-badge-opp',mda:'note-badge-mda',fs:'note-badge-fs'}[kind]||'note-badge-call';
+  const status=n.needsReview?'<span class="note-badge note-badge-review">REVIEW</span>':(n.verified?'<span class="note-badge note-badge-fs">VERIFIED</span>':'');
+  const meta=noteMeta([n.period,n.eventDate,n.eventType,n.language]);
+  return `<div class="note-row">
+    <div class="note-row-top"><span class="note-badge ${cls}">${label}</span>${status}${meta?`<span style="font-size:10px;color:var(--dim)">${meta}</span>`:''}</div>
+    <div class="note-title">${esc(n.title||label)}</div>
+    ${n.snippet?`<div class="note-snippet">${esc(trimText(n.snippet,360))}</div>`:''}
+    ${noteLinks(n)}
+    ${n.sourcePath?`<div class="note-meta">${esc(n.sourcePath)}</div>`:''}
+  </div>`;
+}
+
+function noteSection(title, htmlRows){
+  if(!htmlRows.length) return '';
+  return `<div class="ds"><div class="ds-title">${title}</div>${htmlRows.join('')}</div>`;
+}
+
 // ── card builder ─────────────────────────────────────────────────────────────
 function buildCard(t, idx){
   const s=ns(t.sector);
@@ -628,6 +682,8 @@ function buildCard(t, idx){
   const cfCls =opcf==null?'mv-null':opcf>0?'mv-good':'mv-bad';
   const esgB=esgBadge(t.esgRating);
   const cacB=t.cacFlag?'<span class="badge b-cac">CAC</span>':'';
+  const noteCnt=noteCount(t.tk);
+  const noteB=noteCnt?`<span class="badge b-note">NOTES ${noteCnt}</span>`:'';
   const isStarred=STARRED.has(t.tk);
   // recent disclosures strip (last 2)
   const discs=(DISC_MAP[t.tk]||[]).slice(0,2);
@@ -648,7 +704,7 @@ function buildCard(t, idx){
           <span class="badge b-rm">${esc(t.rm||'—')}</span>
           ${t.atHi52?'<span class="badge b-hi">52W HI</span>':''}
           ${t.atLo52?'<span class="badge b-lo">52W LO</span>':''}
-          ${esgB}${cacB}
+          ${esgB}${cacB}${noteB}
         </div>
       </div>
       <div class="price-row">
@@ -689,11 +745,12 @@ function buildCard(t, idx){
 // ── drawer ───────────────────────────────────────────────────────────────────
 let CURRENT = null;
 
-function openDrawer(idx){
+function openDrawer(idx, tab='overview'){
   CURRENT = ALL[idx] || ALL.find((_,i)=>i===idx);
   if(!CURRENT) return;
   const t = CURRENT;
   const s = ns(t.sector), col = SCOL[t.sector] || SCOL[s] || '#6366f1';
+  const notesCnt = noteCount(t.tk);
   document.documentElement.style.setProperty('--dsc', col);
 
   // header
@@ -708,6 +765,7 @@ function openDrawer(idx){
         <span class="badge b-rm">${esc(t.rm||'—')}</span>
         ${esgBadge(t.esgRating)}
         ${t.cacFlag?'<span class="badge b-cac">CAC</span>':''}
+        ${notesCnt?`<span class="badge b-note">NOTES ${notesCnt}</span>`:''}
         ${t.atHi52?'<span class="badge b-hi">52W HI</span>':''}
         ${t.atLo52?'<span class="badge b-lo">52W LO</span>':''}
       </div>
@@ -723,8 +781,8 @@ function openDrawer(idx){
     <div class="dp-spark">${spark(t.sparkline,'d'+t.tk,240,34)}</div>`;
 
   // tabs
-  document.querySelectorAll('.dtab').forEach(b=>b.classList.toggle('active',b.dataset.tab==='overview'));
-  renderTab('overview');
+  document.querySelectorAll('.dtab').forEach(b=>b.classList.toggle('active',b.dataset.tab===tab));
+  renderTab(tab);
 
   // footer
   const setUrl=`https://www.set.or.th/en/market/product/stock/quote/${encodeURIComponent(t.tk)}/factsheet`;
@@ -783,6 +841,29 @@ function renderTab(tab){
       const periodRange=hl.length?`${periodLabel(hl[0])} – ${periodLabel(hl[hl.length-1])}`:`${hl.length} periods`;
       html+=`<div class="ds"><div class="ds-title">Summary (M฿) · ${periodRange}</div>${ratiosTable(hl)}</div>`;
     }
+  }
+
+  if(tab==='notes'){
+    const opp=OPP_MAP[t.tk];
+    const vault=VAULT_MAP[t.tk]||{};
+    const oppRows=[];
+    if(opp){
+      oppRows.push(noteItem({
+        title:`Opportunity Day summary${opp.period?` · ${opp.period}`:''}`,
+        period:opp.period||'',
+        eventType:opp.source||'oppday',
+        language:'',
+        snippet:opp.overview||opp.content||'',
+        sourcePath:'data/oppday-minutes.json'
+      },'opp','OPPDAY'));
+    }
+    const callRows=(vault.calls||[]).map(n=>noteItem(n,'call','CALL'));
+    const mdaRows=(vault.mda||[]).map(n=>noteItem(n,'mda','MD&A'));
+    const fsRows=(vault.fsNotes||[]).map(n=>noteItem(n,'fs','FS NOTE'));
+    html+=noteSection('Opp Day / earnings calls',oppRows.concat(callRows));
+    html+=noteSection('MD&A snippets',mdaRows);
+    html+=noteSection('Financial statement notes',fsRows);
+    if(!html) html='<div style="color:var(--muted);padding:24px 0;text-align:center">No vault notes for this ticker yet.</div>';
   }
 
   if(tab==='company'){
@@ -859,8 +940,17 @@ function renderTab(tab){
 }
 
 // ── state & render ───────────────────────────────────────────────────────────
-let ALL=[], SECTOR_STATS={}, DISC_MAP={}, sectFilter='ALL', rmFilter='', sortKey='tk', searchQ='';
+let ALL=[], SECTOR_STATS={}, DISC_MAP={}, OPP_MAP={}, VAULT_MAP={}, sectFilter='ALL', rmFilter='', sortKey='tk', searchQ='';
 let STARRED = new Set(JSON.parse(localStorage.getItem('is1_starred')||'[]'));
+
+function refreshOpenTab(){
+  if(!CURRENT) return;
+  if(!document.getElementById('drawer').classList.contains('show')) return;
+  const active=document.querySelector('.dtab.active')?.dataset.tab||'overview';
+  const idx=ALL.indexOf(CURRENT);
+  if(idx>=0) openDrawer(idx,active);
+  else renderTab(active);
+}
 
 function saveStarred(){ localStorage.setItem('is1_starred', JSON.stringify([...STARRED])); }
 function toggleStar(tk, e){
@@ -907,6 +997,17 @@ function render(){
   document.getElementById('cntLbl').textContent=`${filtered.length} / ${ALL.length} tickers`;
   if(!filtered.length){ grid.innerHTML='<div class="empty">No tickers match the filter.</div>'; return; }
   grid.innerHTML=filtered.map(t=>{const idx=ALL.indexOf(t); return buildCard(t,idx);}).join('');
+}
+
+function openInitialDrawer(){
+  const params=new URLSearchParams(location.search);
+  const tk=(params.get('ticker')||params.get('tk')||'').toUpperCase();
+  if(!tk) return;
+  const idx=ALL.findIndex(t=>t.tk===tk);
+  if(idx<0) return;
+  const tab=params.get('tab')||'overview';
+  const allowed=['overview','financials','notes','company','governance','disclosures'];
+  openDrawer(idx,allowed.includes(tab)?tab:'overview');
 }
 
 // ── hero ─────────────────────────────────────────────────────────────────────
@@ -1025,6 +1126,22 @@ async function loadData(){
         DISC_MAP[tk].sort((a,b)=>(b.ts||'').localeCompare(a.ts||'')).splice(10);
       });
       render();
+      refreshOpenTab();
+    }).catch(()=>{});
+    fetch('data/oppday-minutes.json').then(r=>r.ok?r.json():null).then(d=>{
+      if(!d) return;
+      (d.summaries||[]).forEach(s=>{
+        const tk=(s.ticker||'').toUpperCase();
+        if(tk&&!OPP_MAP[tk]) OPP_MAP[tk]=s;
+      });
+      render();
+      refreshOpenTab();
+    }).catch(()=>{});
+    fetch('data/vault-ticker-notes.json').then(r=>r.ok?r.json():null).then(d=>{
+      if(!d) return;
+      VAULT_MAP=d.tickers||{};
+      render();
+      refreshOpenTab();
     }).catch(()=>{});
     document.getElementById('loading').style.display='none';
     document.getElementById('grid').style.display='';
@@ -1034,6 +1151,7 @@ async function loadData(){
     renderHero(tickers);
     initControls(tickers);
     render();
+    openInitialDrawer();
   }catch(err){
     document.getElementById('loading').innerHTML=`<div style="color:var(--red)">Failed to load: ${err.message}</div>`;
   }
