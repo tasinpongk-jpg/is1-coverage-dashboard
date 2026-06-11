@@ -144,6 +144,14 @@ The ticker drawer's **Report** tab is built locally from dashboard data plus
 Obsidian MD&A / FS-note / call excerpts. It writes full Markdown reports to the
 vault and compact report cards to `data/company-reports.json`.
 
+First check whether the current filing layer is good enough to analyze. This
+writes `data/source-coverage.json`, `data/source-coverage-fetch-queue.csv`, and
+a queue note back to the Obsidian vault:
+
+```powershell
+python scripts\build_source_coverage.py --period 2026Q1
+```
+
 ```powershell
 # deterministic draft mode, no API key needed
 python scripts\build_company_reports.py --all --llm never

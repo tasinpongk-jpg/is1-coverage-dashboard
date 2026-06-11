@@ -26,6 +26,7 @@ OUT = DATA_DIR / "vault-ticker-notes.json"
 TICKERS_FILE = DATA_DIR / "tickers.json"
 
 DEFAULT_VAULT = Path.home() / "OneDrive - The Stock Exchange of Thailand" / "Claude-Vault"
+ALT_VAULT = Path.home() / "Library" / "CloudStorage" / "OneDrive2-TheStockExchangeofThailand" / "Claude-Vault"
 LISTED_SUBPATH = Path("Work-SET") / "Listed Company"
 
 MDA_SUBPATH = Path("1-Raw") / "01-Filings" / "MDA"
@@ -346,8 +347,17 @@ def scan_vault(listed_root: Path, tickers: set[str]) -> dict[str, dict[str, list
     return out
 
 
+def find_vault_root() -> Path:
+    if os.environ.get("VAULT_ROOT"):
+        return Path(os.environ["VAULT_ROOT"]).expanduser()
+    for root in (DEFAULT_VAULT, ALT_VAULT):
+        if (root / LISTED_SUBPATH).is_dir():
+            return root
+    return DEFAULT_VAULT
+
+
 def main() -> int:
-    vault = Path(os.environ.get("VAULT_ROOT", DEFAULT_VAULT))
+    vault = find_vault_root()
     listed_root = vault / LISTED_SUBPATH
     if not listed_root.is_dir():
         print(f"[build_vault_ticker_notes] vault not found; keeping existing JSON: {listed_root}")
