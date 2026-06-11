@@ -928,7 +928,7 @@ _MATERIAL_RULES: list[Rule] = [
         name="bondholders_meeting_resolution",
         pattern=re.compile(
             r"^Notification\s+of\s+the\s+[Rr]esolutions?\s+of\s+the\s+"
-            r"([Bb]ondholders'?|[Bb]ond\s+issue)\s+[Mm]eeting",
+            r"([Bb]ondholders'?|[Bb]ond\s+issue|[Dd]ebenture\s*holders'?)\s+[Mm]eeting",
             re.IGNORECASE,
         ),
         severity="material",
@@ -2198,7 +2198,8 @@ _ROUTINE_RULES: list[Rule] = [
         name="fund_capital_reduction_cadence",
         pattern=re.compile(
             r"^The\s+\d+(st|nd|rd|th)\s+capital\s+reduction\s+of\s+\d{4}\b|"
-            r"^Notification\s+of\s+(the\s+)?\d+(st|nd|rd|th)\s+capital\s+reduc(ing|tion)\s+and\s+book\s+closing\s+date",
+            r"^Notification\s+of\s+(the\s+)?\d+(st|nd|rd|th)\s+capital\s+reduc(ing|tion)\s+and\s+book\s+closing\s+date|"
+            r"^Notification\s+of\s+the\s+Capital\s+Reduction\s+of\b.*\bReal\s+Estate\s+Investment\s+Trust\b",
             re.IGNORECASE,
         ),
         severity="routine",
