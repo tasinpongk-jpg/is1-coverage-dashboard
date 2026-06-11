@@ -312,6 +312,22 @@ main{flex:1;max-width:1540px;width:100%;margin:0 auto;padding:22px 24px 48px;pos
 .note-list li:before{content:"";position:absolute;left:0;top:9px;width:4px;height:4px;border-radius:50%;background:var(--dsc,var(--accent))}
 .note-list-title{font-size:9px;font-weight:800;color:var(--dim);text-transform:uppercase;letter-spacing:.45px;margin-top:7px}
 
+/* agent company report */
+.report-hero{padding:12px 13px;border:1px solid #2b3347;background:#151a26;border-radius:9px;margin-bottom:12px}
+.report-kicker{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:8px}
+.report-tone{font-size:9px;font-weight:900;letter-spacing:.35px;text-transform:uppercase;padding:2px 7px;border-radius:4px}
+.report-tone-watch{color:#fbbf24;background:#f59e0b18}
+.report-tone-positive{color:#34d399;background:#22c55e18}
+.report-tone-neutral{color:#a5b4fc;background:#6366f118}
+.report-model{font-size:9px;color:var(--dim)}
+.report-thesis{font-size:13px;line-height:1.55;font-weight:700}
+.report-summary{font-size:12px;color:var(--muted);line-height:1.65;margin-top:8px}
+.report-list{display:flex;flex-direction:column;gap:6px}
+.report-point{font-size:11px;line-height:1.55;color:var(--muted);padding:7px 9px;border-radius:6px;background:#121722;border:1px solid #22293a}
+.report-source{font-size:10px;line-height:1.45;color:var(--dim);padding:6px 0;border-bottom:1px dashed #1e2233}
+.report-source:last-child{border-bottom:none}
+.report-path{display:block;margin-top:2px;font-family:ui-monospace,Consolas,monospace;word-break:break-word}
+
 footer{padding:14px 24px;border-top:1px solid var(--border);font-size:11px;color:var(--dim);display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;position:relative;z-index:1}
 footer a{color:var(--muted);text-decoration:none}
 
@@ -373,6 +389,7 @@ footer a{color:var(--muted);text-decoration:none}
   <div class="dp" id="dp"></div>
   <div class="dtabs" id="dtabs">
     <div class="dtab active" data-tab="overview">Overview</div>
+    <div class="dtab" data-tab="report">Report</div>
     <div class="dtab" data-tab="financials">Financials</div>
     <div class="dtab" data-tab="oppday">Opp Day</div>
     <div class="dtab" data-tab="mda">MD&A</div>
@@ -646,7 +663,7 @@ function cgScore(score){
 
 function noteCount(tk){
   const v=VAULT_MAP[tk]||{};
-  return (OPP_MAP[tk]?1:0)
+  return (REPORT_MAP[tk]?1:0)+(OPP_MAP[tk]?1:0)
     +(v.calls||[]).length+(v.mda||[]).length+(v.fsNotes||[]).length;
 }
 
@@ -700,6 +717,44 @@ function noteItem(n, kind, label){
 function noteSection(title, htmlRows){
   if(!htmlRows.length) return '';
   return `<div class="ds"><div class="ds-title">${title}</div>${htmlRows.join('')}</div>`;
+}
+
+function reportList(title, items){
+  const rows=(items||[]).filter(Boolean);
+  if(!rows.length) return '';
+  return `<div class="ds"><div class="ds-title">${title}</div><div class="report-list">${rows.map(x=>`<div class="report-point">${esc(trimText(x,260))}</div>`).join('')}</div></div>`;
+}
+
+function reportSourceList(items){
+  const rows=(items||[]).filter(Boolean);
+  if(!rows.length) return '';
+  return `<div class="ds"><div class="ds-title">Source Notes</div>${rows.map(s=>`<div class="report-source">
+    <strong>${esc(s.kind||'Source')}</strong>${s.period?` · ${esc(s.period)}`:''}<br>
+    ${esc(trimText(s.title||'',160))}
+    ${s.sourcePath?`<span class="report-path">${esc(s.sourcePath)}</span>`:''}
+  </div>`).join('')}</div>`;
+}
+
+function reportCard(r){
+  if(!r) return '';
+  const tone=(r.tone||'Neutral').toLowerCase();
+  const src=r.vaultPath?`<div class="note-meta">Vault report: ${esc(r.vaultPath)}</div>`:'';
+  return `<div class="report-hero">
+    <div class="report-kicker">
+      <span class="report-tone report-tone-${tone}">${esc(r.tone||'Neutral')}</span>
+      <span class="report-model">${esc(r.model||'company report')} · ${esc((r.generated||'').slice(0,10))}</span>
+    </div>
+    <div class="report-thesis">${esc(r.thesis||'No thesis generated yet.')}</div>
+    ${r.summary?`<div class="report-summary">${esc(r.summary)}</div>`:''}
+    ${src}
+  </div>
+  ${reportList('Financial read-through',r.financialSnapshot)}
+  ${reportList('MD&A / call synthesis',r.mdaSynthesis)}
+  ${reportList('Financial statement notes',r.fsNotesSynthesis)}
+  ${reportList('Watch items',r.watchItems)}
+  ${reportList('Questions for next contact',r.questions)}
+  ${reportList('Data quality',r.qualityFlags)}
+  ${reportSourceList(r.sourceNotes)}`;
 }
 
 // ── card builder ─────────────────────────────────────────────────────────────
@@ -880,6 +935,12 @@ function renderTab(tab){
     }
   }
 
+  if(tab==='report'){
+    const report=REPORT_MAP[t.tk];
+    html+=reportCard(report);
+    if(!html) html='<div style="color:var(--muted);padding:24px 0;text-align:center">No generated company report for this ticker yet. Run scripts/build_company_reports.py locally, then deploy static assets.</div>';
+  }
+
   if(tab==='oppday'){
     const opp=OPP_MAP[t.tk];
     const vault=VAULT_MAP[t.tk]||{};
@@ -987,7 +1048,7 @@ function renderTab(tab){
 }
 
 // ── state & render ───────────────────────────────────────────────────────────
-let ALL=[], SECTOR_STATS={}, DISC_MAP={}, OPP_MAP={}, VAULT_MAP={}, sectFilter='ALL', rmFilter='', sortKey='tk', searchQ='';
+let ALL=[], SECTOR_STATS={}, DISC_MAP={}, OPP_MAP={}, VAULT_MAP={}, REPORT_MAP={}, sectFilter='ALL', rmFilter='', sortKey='tk', searchQ='';
 let STARRED = new Set(JSON.parse(localStorage.getItem('is1_starred')||'[]'));
 
 function refreshOpenTab(){
@@ -1053,7 +1114,7 @@ function openInitialDrawer(){
   const idx=ALL.findIndex(t=>t.tk===tk);
   if(idx<0) return;
   const tab=params.get('tab')||'overview';
-  const allowed=['overview','financials','oppday','mda','notes','company','governance','disclosures'];
+  const allowed=['overview','report','financials','oppday','mda','notes','company','governance','disclosures'];
   openDrawer(idx,allowed.includes(tab)?tab:'overview');
 }
 
@@ -1187,6 +1248,12 @@ async function loadData(){
     fetch('data/vault-ticker-notes.json').then(r=>r.ok?r.json():null).then(d=>{
       if(!d) return;
       VAULT_MAP=d.tickers||{};
+      render();
+      refreshOpenTab();
+    }).catch(()=>{});
+    fetch('data/company-reports.json').then(r=>r.ok?r.json():null).then(d=>{
+      if(!d) return;
+      REPORT_MAP=d.reports||{};
       render();
       refreshOpenTab();
     }).catch(()=>{});

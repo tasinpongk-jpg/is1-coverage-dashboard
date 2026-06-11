@@ -52,7 +52,9 @@ for deploy steps and the per-cron routing table.
 | `data/tickers.json` | Master ticker → RM + sector map (rebuild via Excel) |
 | `data/*.json` | Daily snapshot files |
 | `data/build-status.json` | Last build timestamp + per-route status |
+| `data/company-reports.json` | Generated per-company analyst reports for the ticker drawer Report tab |
 | `scripts/build_daily.py` | Calls SETSMART proxy in-process for all 232 tickers |
+| `scripts/build_company_reports.py` | Local report agent; saves Markdown to Obsidian and dashboard JSON |
 | `scripts/setsmart_proxy.py` | Vendored FastAPI proxy used by `build_daily.py` |
 | `surveillance/` | Polling, classification, R2 sync, email routing |
 | `.github/workflows/daily.yml` | Consolidated CI: surveillance job + build job (09:50 BKK Mon–Fri) |
@@ -135,6 +137,27 @@ When the team's portfolio changes, regenerate `data/tickers.json`:
 
 Commit and push the regenerated `data/tickers.json`. The next scheduled CI run
 (or a manual `gh workflow run daily.yml`) will pick it up.
+
+## Refreshing company reports
+
+The ticker drawer's **Report** tab is built locally from dashboard data plus
+Obsidian MD&A / FS-note / call excerpts. It writes full Markdown reports to the
+vault and compact report cards to `data/company-reports.json`.
+
+```powershell
+# deterministic draft mode, no API key needed
+python scripts\build_company_reports.py --all --llm never
+
+# richer agent mode, when ANTHROPIC_API_KEY is available
+python scripts\build_company_reports.py --all --llm auto
+```
+
+After reviewing the output, commit `data/company-reports.json` and run the
+fast static deploy:
+
+```powershell
+gh workflow run static-deploy.yml
+```
 
 ## Troubleshooting
 
