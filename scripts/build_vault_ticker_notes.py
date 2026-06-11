@@ -12,6 +12,7 @@ VAULT_ROOT can override the default OneDrive path.
 
 from __future__ import annotations
 
+import argparse
 import datetime as dt
 import json
 import os
@@ -347,6 +348,34 @@ def scan_vault(listed_root: Path, tickers: set[str]) -> dict[str, dict[str, list
     return out
 
 
+def scan_selected(
+    listed_root: Path,
+    wanted: set[str],
+    existing: dict[str, dict[str, list[dict[str, Any]]]],
+) -> dict[str, dict[str, list[dict[str, Any]]]]:
+    out = dict(existing)
+    for ticker in wanted:
+        preserved_calls = (out.get(ticker) or {}).get("calls") or []
+        out[ticker] = {"calls": preserved_calls, "mda": [], "fsNotes": []}
+
+    for bucket, subpath in (("mda", MDA_SUBPATH), ("fsNotes", FS_NOTES_SUBPATH)):
+        base = listed_root / subpath
+        for ticker in wanted:
+            ticker_dir = base / ticker
+            if not ticker_dir.is_dir():
+                continue
+            for path in ticker_dir.glob("*.md"):
+                add_item(out, ticker, bucket, build_file_item(path, listed_root, bucket, ticker))
+
+    for ticker in wanted:
+        for bucket, items in out.get(ticker, {}).items():
+            items.sort(key=item_key, reverse=True)
+            del items[MAX_PER_BUCKET:]
+        if not any(out.get(ticker, {}).values()):
+            out.pop(ticker, None)
+    return out
+
+
 def find_vault_root() -> Path:
     if os.environ.get("VAULT_ROOT"):
         return Path(os.environ["VAULT_ROOT"]).expanduser()
@@ -356,7 +385,14 @@ def find_vault_root() -> Path:
     return DEFAULT_VAULT
 
 
-def main() -> int:
+def parse_args(argv: list[str]) -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--ticker", action="append", default=[], help="Ticker to refresh. Repeatable.")
+    return parser.parse_args(argv)
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = parse_args(argv or sys.argv[1:])
     vault = find_vault_root()
     listed_root = vault / LISTED_SUBPATH
     if not listed_root.is_dir():
@@ -364,7 +400,16 @@ def main() -> int:
         return 0
 
     tickers = load_tickers()
-    notes = scan_vault(listed_root, tickers)
+    wanted = {t.upper() for t in args.ticker if t}
+    if wanted:
+        unknown = sorted(wanted - tickers)
+        if unknown:
+            print(f"[build_vault_ticker_notes] ignoring unknown tickers: {', '.join(unknown)}")
+        wanted &= tickers
+        existing_payload = json.loads(OUT.read_text(encoding="utf-8")) if OUT.exists() else {}
+        notes = scan_selected(listed_root, wanted, existing_payload.get("tickers") or {})
+    else:
+        notes = scan_vault(listed_root, tickers)
     totals = {
         "tickers": len(notes),
         "calls": sum(len(v["calls"]) for v in notes.values()),
