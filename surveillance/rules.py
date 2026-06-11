@@ -60,7 +60,9 @@ _CRITICAL_RULES: list[Rule] = [
             r"of (the )?(news|information|material information|additional information|"
             r"financial information|Information Regarding)|"
             r"on (the )?Change of Operational Performance Exceeding 20|"
-            r"on (the )?(announcement|disclosure)"
+            r"on (the )?(announcement|disclosure)|"
+            r"in the case of|"
+            r"in response to"
             r")",
             re.IGNORECASE,
         ),
@@ -93,9 +95,9 @@ _CRITICAL_RULES: list[Rule] = [
         name="trading_sign_posted",
         pattern=re.compile(
             r"\b(SET\s+(temporarily\s+)?posted|"
-            r"(SP|NP|NC|ST|CB|H|P)\s*sign\s+(posted|added|lifted|remained|imposed|removed)|"
-            r"(SP|NP|NC|ST|CB|H|P)\s+sign\s+(posted|on)|"
-            r"posted\s+the\s+(SP|NP|NC|ST|CB|H|P)\s+sign|"
+            r"(SP|NP|NC|ST|CB|CC|CF|H|P)\s*signs?\s+(posted|added|lifted|remained|imposed|removed)|"
+            r"(SP|NP|NC|ST|CB|CC|CF|H|P)\s+signs?\s+(posted|on)|"
+            r"posted\s+the\s+(SP|NP|NC|ST|CB|CC|CF|H|P)\s+signs?|"
             r"Trading\s+Suspension|"
             r"is\s+the\s+last\s+day\s+of\s+trading|"
             r"SET\s+delists|"
@@ -194,6 +196,8 @@ _CRITICAL_RULES: list[Rule] = [
             r"Notification\s+of\s+Disposal\s+of\s+Assets|"
             r"Cessation\s+of\s+Subsidiary\s+Status|"
             r"Termination\s+of\s+Subsidiary\s+Status|"
+            r"Notification\s+of\s+Sale\s+of\s+Assets\s+of\s+Subsidiary|"
+            r"Sale\s+Transaction\s+of\s+Stake\s+in|"
             r"acquire\s+additional\s+.*\s+properties\s+from)\b",
             re.IGNORECASE,
         ),
@@ -211,7 +215,9 @@ _CRITICAL_RULES: list[Rule] = [
             r"\b(Independent\s+Financial\s+Advisor|IFA)\b.*\b(Disposal|Acquisition|Connected|Related)|"
             r"\b(Acknowledged\s+the\s+Connected\s+Transaction|"
             r"Notification\s+for\s+the\s+Purchase\s+of.*\s+from)\b|"
-            r"\bRelated\s+Party\s+Transaction\s+for\b",
+            r"\bRelated\s+Party\s+Transaction\s+for\b|"
+            r"^Connected\s+Transaction\s*$|"
+            r"\bresolution\s+regarding\s+connected\s+transactions?\b",
             re.IGNORECASE,
         ),
         severity="critical",
@@ -280,6 +286,7 @@ _CRITICAL_RULES: list[Rule] = [
             r"\b(Financial\s+Assistance\s+(to|from|Limit)|"
             r"Extension\s+of\s+Financial\s+Assistance|"
             r"Increase\s+in\s+Financial\s+Assistance|"
+            r"Provision\s+of\s+Financial\s+Assistance|"
             r"Financial\s+Assistance\s+to\s+Connected\s+Person)\b",
             re.IGNORECASE,
         ),
@@ -377,6 +384,55 @@ _CRITICAL_RULES: list[Rule] = [
         summary_th_template="{symbol} คำชี้แจงผลการดำเนินงานเปลี่ยนแปลงเกิน 20%: {hl}",
         suggested_action="Open the disclosure; quantify the YoY/QoQ swing and identify the driver.",
         rationale="SET-mandated clarification when results swing >20% — automatic critical.",
+    ),
+    # Business rehabilitation petition (Central Bankruptcy Court) — insolvency-level event.
+    # Mining pass 2026-06-11 (NWR).
+    Rule(
+        name="business_rehabilitation_petition",
+        pattern=re.compile(
+            r"\bPetition\s+for\s+Business\s+Rehabilitation\b|"
+            r"\bBusiness\s+Rehabilitation\s+with\s+the\s+Central\s+Bankruptcy\s+Court\b",
+            re.IGNORECASE,
+        ),
+        severity="critical",
+        category="other",
+        summary_template="{symbol} business-rehabilitation petition filed: {hl}",
+        summary_th_template="{symbol} ยื่นคำร้องขอฟื้นฟูกิจการต่อศาลล้มละลายกลาง: {hl}",
+        suggested_action="Open the disclosure immediately; check petitioner (company vs creditor), automatic-stay scope, and trading-sign implications; brief desk before market open.",
+        rationale="Business-rehabilitation petition with the Central Bankruptcy Court — insolvency event, automatic critical.",
+    ),
+    # Issuer explanation of an auditor disclaimer of opinion — financial-statement
+    # reliability red flag, same family as clarification_auditor_disclaimer.
+    # Mining pass 2026-06-11 (NRF).
+    Rule(
+        name="auditor_disclaimer_explanation",
+        pattern=re.compile(
+            r"^Explanation\s+of\s+the\s+Auditor'?s\s+Report\s+"
+            r"(Disclaimer\s+of\s+Opinion|Qualified\s+Opinion)",
+            re.IGNORECASE,
+        ),
+        severity="critical",
+        category="auditor_change",
+        summary_template="{symbol} explanation of auditor disclaimer/qualified opinion: {hl}",
+        summary_th_template="{symbol} คำชี้แจงกรณีผู้สอบบัญชีไม่แสดงความเห็น/มีเงื่อนไข: {hl}",
+        suggested_action="Open the disclosure; read the disclaimer text in full; check for restatement risk; brief desk before market open.",
+        rationale="Issuer explanation of an auditor disclaimer/qualified opinion — financial-statement reliability red flag, critical.",
+    ),
+    # BOD-meeting bundle that includes a Capital Increase among stacked actions
+    # (resignations, CFO appointment, warrant issuance, EGM agenda). The capital
+    # increase is the driver. Mining pass 2026-06-11 (XBIO BOD No.8/2026 family).
+    Rule(
+        name="bod_bundle_capital_increase",
+        pattern=re.compile(
+            r"^Notification\s+of\s+the\s+BOD\s+Meeting\s+No\.?\s*\d+/\d+\b.*\bCapital\s+Increase\b",
+            re.IGNORECASE,
+        ),
+        severity="critical",
+        category="capital_change",
+        summary_template="{symbol} BOD bundled resolution incl. capital increase: {hl}",
+        summary_th_template="{symbol} มติคณะกรรมการ (รวมเพิ่มทุน): {hl}",
+        suggested_action="Read the full BOD resolution; size the dilution from the capital increase and warrant issuance; check EGM date and stacked governance changes.",
+        rationale="BOD bundled resolution naming a capital increase — material capital action stacked with governance changes, critical.",
     ),
 ]
 
@@ -767,6 +823,166 @@ _MATERIAL_RULES: list[Rule] = [
         suggested_action="Note the new offset period; no immediate action required.",
         rationale="Accounting extension on capital discount — material but procedural.",
     ),
+    # Issuer's remediation report after CB/CS/CC caution signs were posted — the sign
+    # posting itself was critical; the scheduled remediation/public-presentation report
+    # is the material follow-up. Mining pass 2026-06-11 (SQ, NRF).
+    Rule(
+        name="caution_sign_remediation_report",
+        pattern=re.compile(
+            r"^Report\s+on\s+Information\s+and\s+"
+            r"(Approach\s+to\s+Resolve|Remedial\s+Action\s+Plans?)\b.*\bSigns?\b",
+            re.IGNORECASE,
+        ),
+        severity="material",
+        category="trading_sign",
+        summary_template="{symbol} caution-sign remediation report: {hl}",
+        summary_th_template="{symbol} รายงานแนวทางแก้ไขเครื่องหมาย CB/CS: {hl}",
+        suggested_action="Read the remediation plan; assess credibility of the timeline and flag for the morning meeting.",
+        rationale="Issuer remediation report for posted caution signs — material follow-up to a critical sign event.",
+    ),
+    # Material litigation / arbitration dispute disclosures.
+    # Mining pass 2026-06-11 (NRF, BRR).
+    Rule(
+        name="material_litigation_dispute",
+        pattern=re.compile(
+            r"^Disclosure\s+of\s+Material\s+Litigation\s+or\s+Dispute|"
+            r"^Notification\s+of\s+an\s+Arbitration\s+Dispute",
+            re.IGNORECASE,
+        ),
+        severity="material",
+        category="other",
+        summary_template="{symbol} material litigation / arbitration dispute: {hl}",
+        summary_th_template="{symbol} เปิดเผยข้อพิพาททางกฎหมาย/อนุญาโตตุลาการ: {hl}",
+        suggested_action="Open the disclosure; size the claim vs equity, identify counterparty and provisioning status.",
+        rationale="Material litigation or arbitration dispute disclosure — material per rubric.",
+    ),
+    # Organizational / internal restructuring paired with executive changes.
+    # Mining pass 2026-06-11 (TTCL, SCC).
+    Rule(
+        name="org_restructuring_exec_change",
+        pattern=re.compile(
+            r"^Notification\s+of\s+Organizational\s+Restructuring|"
+            r"^Internal\s+business\s+restructuring\b",
+            re.IGNORECASE,
+        ),
+        severity="material",
+        category="director_mgmt_change",
+        summary_template="{symbol} organizational restructuring / exec changes: {hl}",
+        summary_th_template="{symbol} ปรับโครงสร้างองค์กรและผู้บริหาร: {hl}",
+        suggested_action="Open the disclosure; map the new reporting lines and identify incoming/outgoing executives.",
+        rationale="Organizational restructuring with executive changes — material governance event.",
+    ),
+    # Purchase of shares in (own) subsidiaries / investment in an indirect subsidiary —
+    # small-size M&A family. Mining pass 2026-06-11 (AP, STECON).
+    Rule(
+        name="subsidiary_share_purchase",
+        pattern=re.compile(
+            r"^To\s+report\s+the\s+purchase\s+of\s+shares\s+in\s+subsidiar|"
+            r"^Notification\s+on\s+the\s+investment\s+in\s+an\s+indirect\s+subsidiary",
+            re.IGNORECASE,
+        ),
+        severity="material",
+        category="ma_acquisition_disposal",
+        summary_template="{symbol} subsidiary share purchase / investment: {hl}",
+        summary_th_template="{symbol} ซื้อหุ้น/ลงทุนในบริษัทย่อย: {hl}",
+        suggested_action="Open the disclosure; identify counterparty, size vs total assets and connected-party flags.",
+        rationale="Share purchase / investment in subsidiaries — acquisition not classified as critical (small-size) per rubric.",
+    ),
+    # BOD approval bundling financial statements + dividend + AGM schedule, and the
+    # "Fix the date of AGM and Dividend Payment" phrasing. Same family as
+    # bod_resolution_dividend_agm_schedule. Mining pass 2026-06-11 (EPG, BLAND).
+    Rule(
+        name="fs_dividend_agm_approval",
+        pattern=re.compile(
+            r"^Approval\s+of\s+consolidated\s+financial\s+statements?,?\s+dividend\s+payment|"
+            r"^Fix\s+the\s+date\s+of\s+(the\s+)?Annual\s+General\s+Meeting\b.*\bDividend\s+Payment\b",
+            re.IGNORECASE,
+        ),
+        severity="material",
+        category="dividend",
+        summary_template="{symbol} BOD approval (FS + dividend + AGM schedule): {hl}",
+        summary_th_template="{symbol} อนุมัติงบการเงิน เงินปันผล และกำหนดประชุมผู้ถือหุ้น: {hl}",
+        suggested_action="Read the resolution; note dividend amount and calendar the AGM.",
+        rationale="BOD approval bundling financial statements, dividend and AGM scheduling — material per rubric.",
+    ),
+    # New-director replacement appointment + CFO information change filings.
+    # Mining pass 2026-06-11 (XBIO, SA).
+    Rule(
+        name="director_replacement_cfo_info",
+        pattern=re.compile(
+            r"^Appointment\s+of\s+a\s+New\s+Director\s+in\s+Replacement\s+of\s+the\s+Resigned|"
+            r"^Changed\s+information\s+of\s+CFO\b",
+            re.IGNORECASE,
+        ),
+        severity="material",
+        category="director_mgmt_change",
+        summary_template="{symbol} director replacement / CFO information change: {hl}",
+        summary_th_template="{symbol} แต่งตั้งกรรมการทดแทน/เปลี่ยนแปลงข้อมูล CFO: {hl}",
+        suggested_action="Identify outgoing vs incoming; check independence and committee composition.",
+        rationale="Director replacement appointment or CFO information change — material governance event per rubric.",
+    ),
+    # Bondholders' / bond-issue meeting RESOLUTIONS — credit-relevant outcomes (covenant
+    # waivers, payment extensions, failed quorums on stressed names).
+    # Mining pass 2026-06-11 (SQ, RICHY).
+    Rule(
+        name="bondholders_meeting_resolution",
+        pattern=re.compile(
+            r"^Notification\s+of\s+the\s+[Rr]esolutions?\s+of\s+the\s+"
+            r"([Bb]ondholders'?|[Bb]ond\s+issue)\s+[Mm]eeting",
+            re.IGNORECASE,
+        ),
+        severity="material",
+        category="other",
+        summary_template="{symbol} bondholders' meeting resolutions: {hl}",
+        summary_th_template="{symbol} มติที่ประชุมผู้ถือหุ้นกู้: {hl}",
+        suggested_action="Read the resolutions; check for covenant waivers, payment extensions or failed quorum — credit-stress signals.",
+        rationale="Bondholders' meeting resolution — credit-relevant outcome for the issuer, material.",
+    ),
+    # Fund lessee rental-default progress reports — tenant non-payment is an income
+    # risk for the property fund. Mining pass 2026-06-11 (TLHPF).
+    Rule(
+        name="fund_lessee_default_progress",
+        pattern=re.compile(
+            r"\bfailure\s+to\s+pay\s+rental\s+on\s+time\s+by\s+the\s+Lessee\b",
+            re.IGNORECASE,
+        ),
+        severity="material",
+        category="other",
+        summary_template="{symbol} lessee rental-default progress report: {hl}",
+        summary_th_template="{symbol} รายงานความคืบหน้ากรณีผู้เช่าผิดนัดชำระค่าเช่า: {hl}",
+        suggested_action="Read the progress update; quantify the rental arrears vs fund income and distribution impact.",
+        rationale="Lessee rental default at a property fund — income risk, material per PFREIT rubric.",
+    ),
+    # Fund skipping a periodic distribution — unscheduled cut, material per PFREIT rubric.
+    # Mining pass 2026-06-11 (CTARAF).
+    Rule(
+        name="fund_no_dividend_period",
+        pattern=re.compile(
+            r"^To\s+notify\s+no\s+dividend\s+payment\b",
+            re.IGNORECASE,
+        ),
+        severity="material",
+        category="dividend",
+        summary_template="{symbol} no distribution for the period: {hl}",
+        summary_th_template="{symbol} งดจ่ายผลประโยชน์ตอบแทนสำหรับงวด: {hl}",
+        suggested_action="Open the disclosure; identify the driver (income shortfall, vacancy, arrears) and check NAV trend.",
+        rationale="Fund skipping a periodic distribution — unscheduled cut is material per PFREIT rubric.",
+    ),
+    # Completion of free-float correction — compliance restored after a CF-sign event.
+    # Mining pass 2026-06-11 (BRI).
+    Rule(
+        name="free_float_correction_complete",
+        pattern=re.compile(
+            r"^Notification\s+of\s+Complete\s+Correction\s+of\s+Shareholding\s+Distribution",
+            re.IGNORECASE,
+        ),
+        severity="material",
+        category="regulatory_filing",
+        summary_template="{symbol} free-float correction completed: {hl}",
+        summary_th_template="{symbol} แก้ไขการกระจายการถือหุ้นรายย่อยครบถ้วนแล้ว: {hl}",
+        suggested_action="Note the restored free-float compliance; watch for the CF-sign lift.",
+        rationale="Completed correction of minor-shareholder distribution (free float) — material compliance milestone.",
+    ),
 ]
 
 
@@ -1002,7 +1218,7 @@ _ROUTINE_RULES: list[Rule] = [
     Rule(
         name="warrant_exercise_result",
         pattern=re.compile(
-            r"^Report\s+on\s+the\s+results\s+of\s+the\s+Exercise\s+of\b",
+            r"^Report\s+on\s+the\s+results\s+of\s+the\s+Exercise\b",
             re.IGNORECASE,
         ),
         severity="routine",
@@ -1255,7 +1471,7 @@ _ROUTINE_RULES: list[Rule] = [
     Rule(
         name="nav_per_unit_report",
         pattern=re.compile(
-            r"^Report\s+(on\s+)?NAV(\s+per\s+unit)?\s+as\s+of\b",
+            r"^Report\s+(on\s+)?NAV(\s+per\s+unit)?\s+as\b",
             re.IGNORECASE,
         ),
         severity="routine",
@@ -1553,7 +1769,8 @@ _ROUTINE_RULES: list[Rule] = [
     Rule(
         name="subsidiary_establishment_routine",
         pattern=re.compile(
-            r"^Notification\s+of\s+the\s+establishment\s+of\s+subsidiary\s+company\s*$",
+            r"^Notification\s+of\s+the\s+establishment\s+of\s+(a\s+)?subsidiary\s+company\s*$|"
+            r"^Setting\s+up\s+a\s+new\s+subsidiary\s*$",
             re.IGNORECASE,
         ),
         severity="routine",
@@ -1697,7 +1914,7 @@ _ROUTINE_RULES: list[Rule] = [
     Rule(
         name="numbered_dividend_payment_routine",
         pattern=re.compile(
-            r"^Notification\s+of\s+the\s+\d+(st|nd|rd|th)\s+[Dd]ividend\s+[Pp]ayment|"
+            r"^Notification\s+of\s+(the\s+)?\d+(st|nd|rd|th)\s+[Dd]ividend\s+[Pp]ayment|"
             r"^Notification\s+of\s+Dividend\s+Payment\s+\([Rr]evised\)|"
             r"^Payment\s+of\s+[Ii]nterim\s+[Dd]ividend\s*$",
             re.IGNORECASE,
@@ -1800,7 +2017,7 @@ _ROUTINE_RULES: list[Rule] = [
     Rule(
         name="set_trading_admin_routine",
         pattern=re.compile(
-            r"^SET\s+allows\s+trading\s+on\s+securities\s+of\b|"
+            r"^SET\s+allows\s+trading\s+on\s+(the\s+)?securities\s+of\b|"
             r"^[A-Z]+\s+Securities\s+are\s+not\s+permitted\s+for\s+Short\s+Selling",
             re.IGNORECASE,
         ),
@@ -1862,6 +2079,181 @@ _ROUTINE_RULES: list[Rule] = [
         summary_th_template="{symbol} เผยแพร่ประกาศจ่ายเงินปันผลบนเว็บไซต์บริษัท: {hl}",
         suggested_action="No action required; already-approved dividend re-published on the company site.",
         rationale="Post-resolution website publication of an already-approved dividend — routine.",
+    ),
+    # Bondholders' meeting convening / postponement notices (logistics, not resolutions —
+    # resolutions are material via bondholders_meeting_resolution).
+    # Mining pass 2026-06-11 (APCS).
+    Rule(
+        name="bondholders_meeting_logistics",
+        pattern=re.compile(
+            r"^Notification\s+of\s+the\s+Bondholders'?\s+Meeting\s+for\b",
+            re.IGNORECASE,
+        ),
+        severity="routine",
+        category="other",
+        summary_template="{symbol} bondholders' meeting notice: {hl}",
+        summary_th_template="{symbol} แจ้งกำหนดประชุมผู้ถือหุ้นกู้: {hl}",
+        suggested_action="Calendar the bondholder-meeting date; resolutions will be triaged when filed.",
+        rationale="Bondholders' meeting convening/postponement notice — logistics, routine.",
+    ),
+    # Warrant administrative filings: exercise schedules, final exercise reports,
+    # exercise procedures, terms & conditions documents.
+    # Mining pass 2026-06-11 (J, TRUBB, KUN).
+    Rule(
+        name="warrant_admin_filings",
+        pattern=re.compile(
+            r"^Exercise\s+Schedule\s+for\s+\S+\s+Warrants?\b|"
+            r"^Final\s+Report\s+on\s+the\s+Exercise\s+of\s+Warrants|"
+            r"\bProcedure\s+for\s+the\s+Exercise\s+of\s+Warrants\b|"
+            r"^Terms\s+and\s+Conditions\s+on\s+the\s+Rights\s+and\s+Duties\s+of\s+the\s+Issuer\s+and\s+Holders\s+of\s+Warrants",
+            re.IGNORECASE,
+        ),
+        severity="routine",
+        category="warrant_exercise",
+        summary_template="{symbol} warrant administrative filing: {hl}",
+        summary_th_template="{symbol} เอกสาร/กำหนดการใช้สิทธิวอร์แรนต์: {hl}",
+        suggested_action="No action required; warrant administration logged.",
+        rationale="Warrant exercise schedule / procedure / T&C filing — routine administration.",
+    ),
+    # Conversion of preferred stock (numbered exercise cadence).
+    # Mining pass 2026-06-11 (RABBIT).
+    Rule(
+        name="preferred_stock_conversion",
+        pattern=re.compile(
+            r"^Notification\s+(of\s+)?the\s+conversion\s+of\s+Preferred\s+stock",
+            re.IGNORECASE,
+        ),
+        severity="routine",
+        category="capital_change",
+        summary_template="{symbol} preferred-stock conversion: {hl}",
+        summary_th_template="{symbol} การแปลงหุ้นบุริมสิทธิเป็นหุ้นสามัญ: {hl}",
+        suggested_action="No action required; mechanical conversion event.",
+        rationale="Periodic preferred-to-ordinary share conversion — routine capital mechanics.",
+    ),
+    # SET adds new listed securities (warrants/units start trading) — same family as
+    # new_shares_listing. Mining pass 2026-06-11 (KUN-W4).
+    Rule(
+        name="set_adds_new_securities",
+        pattern=re.compile(
+            r"^SET\s+adds\s+new\s+listed\s+securities",
+            re.IGNORECASE,
+        ),
+        severity="routine",
+        category="capital_change",
+        summary_template="{symbol} new securities listed on SET: {hl}",
+        summary_th_template="{symbol} หลักทรัพย์ใหม่เริ่มซื้อขายในตลาดหลักทรัพย์: {hl}",
+        suggested_action="No action required.",
+        rationale="SET new-securities listing notice (post-issuance) — routine capital_change.",
+    ),
+    # SET index inclusion/exclusion — administrative follow-on to sign events already
+    # triaged as critical. Mining pass 2026-06-11 (TTCL).
+    Rule(
+        name="set_index_inclusion_exclusion",
+        pattern=re.compile(
+            r"^Stock\s+(excluded\s+from|included\s+in)\s+the\s+SET\s+Index\s+calculation",
+            re.IGNORECASE,
+        ),
+        severity="routine",
+        category="trading_sign",
+        summary_template="{symbol} SET index calculation change: {hl}",
+        summary_th_template="{symbol} การเปลี่ยนแปลงการคำนวณดัชนีของหลักทรัพย์: {hl}",
+        suggested_action="No action required; administrative index follow-on to an already-triaged sign event.",
+        rationale="SET index inclusion/exclusion notice — administrative trading follow-on, routine.",
+    ),
+    # Opportunity Day / earnings presentation deck published on the company website.
+    # Mining pass 2026-06-11 (DCC).
+    Rule(
+        name="oppday_presentation_website",
+        pattern=re.compile(
+            r"^Disclosure\s+of\s+the\s+Opportunity\s+Day\b.*\bPresentation\b",
+            re.IGNORECASE,
+        ),
+        severity="routine",
+        category="information_memo",
+        summary_template="{symbol} Opportunity Day presentation published: {hl}",
+        summary_th_template="{symbol} เผยแพร่เอกสาร Opportunity Day บนเว็บไซต์: {hl}",
+        suggested_action="No action required; deck archived.",
+        rationale="Opportunity Day presentation publication — routine IR cadence.",
+    ),
+    # Distribution of repurchased (treasury) shares — periodic reporting form during
+    # the resale window. Mining pass 2026-06-11 (SPALI).
+    Rule(
+        name="repurchased_shares_distribution_report",
+        pattern=re.compile(
+            r"^Reporting\s+Distribution\s+of\s+Repurchased\s+Shares\s+form",
+            re.IGNORECASE,
+        ),
+        severity="routine",
+        category="capital_change",
+        summary_template="{symbol} treasury-share distribution report: {hl}",
+        summary_th_template="{symbol} รายงานการจำหน่ายหุ้นที่ซื้อคืน: {hl}",
+        suggested_action="No action required; periodic treasury-share resale log.",
+        rationale="Periodic distribution-of-repurchased-shares reporting form — routine cadence.",
+    ),
+    # Numbered fund capital reductions — property funds/REITs return capital via
+    # recurring capital reductions (the 36th for CTARAF); this is distribution cadence,
+    # not the critical corporate capital-reduction event.
+    # Mining pass 2026-06-11 (CTARAF, TPRIME).
+    Rule(
+        name="fund_capital_reduction_cadence",
+        pattern=re.compile(
+            r"^The\s+\d+(st|nd|rd|th)\s+capital\s+reduction\s+of\s+\d{4}\b|"
+            r"^Notification\s+of\s+(the\s+)?\d+(st|nd|rd|th)\s+capital\s+reduc(ing|tion)\s+and\s+book\s+closing\s+date",
+            re.IGNORECASE,
+        ),
+        severity="routine",
+        category="capital_change",
+        summary_template="{symbol} fund capital-return (numbered capital reduction): {hl}",
+        summary_th_template="{symbol} ลดทุนเพื่อคืนเงินทุนตามรอบของกองทุน: {hl}",
+        suggested_action="No action required; scheduled capital-return cadence for the fund.",
+        rationale="Numbered/periodic fund capital reduction — standard PF/REIT capital-return mechanism, routine per PFREIT rubric.",
+    ),
+    # Trust unitholders' meeting invitation published on the trust website — convening
+    # notice family. Mining pass 2026-06-11 (WHAIR).
+    Rule(
+        name="trust_unitholders_meeting_invitation",
+        pattern=re.compile(
+            r"^Publication\s+of\s+(the\s+)?Invitation\s+of\s+the\s+Trust\s+Unitholders'?\s+Meeting",
+            re.IGNORECASE,
+        ),
+        severity="routine",
+        category="other",
+        summary_template="{symbol} trust unitholders' meeting invitation: {hl}",
+        summary_th_template="{symbol} เผยแพร่หนังสือเชิญประชุมผู้ถือหน่วยทรัสต์: {hl}",
+        suggested_action="Calendar the meeting date; resolutions will be triaged when filed.",
+        rationale="Trust unitholders' meeting convening notice — routine; only the resolutions are material.",
+    ),
+    # AGM minutes "Announcement of the Minute(s) Annual General Meeting" variant.
+    # Mining pass 2026-06-11 (TEGH).
+    Rule(
+        name="agm_minute_announcement_variant",
+        pattern=re.compile(
+            r"^Announcement\s+of\s+the\s+Minutes?\s+(of\s+the\s+)?(\d{4}\s+)?Annual\s+General\s+Meeting",
+            re.IGNORECASE,
+        ),
+        severity="routine",
+        category="other",
+        summary_template="{symbol} AGM minutes announced: {hl}",
+        summary_th_template="{symbol} เผยแพร่รายงานการประชุมสามัญผู้ถือหุ้น: {hl}",
+        suggested_action="No action required; minutes archived.",
+        rationale="Post-AGM minutes announcement (variant phrasing) — routine.",
+    ),
+    # Capital registration follow-ons: subsidiary capital-increase registration and
+    # the issuer's own paid-up-capital registration with DBD — procedural steps after
+    # already-triaged resolutions. Mining pass 2026-06-11 (CNT, SIRI).
+    Rule(
+        name="capital_registration_followon",
+        pattern=re.compile(
+            r"^Registration\s+of\s+Capital\s+Increase\s+of\s+Subsidiary|"
+            r"^Registration\s+of\s+paid-?up\s+capital\b",
+            re.IGNORECASE,
+        ),
+        severity="routine",
+        category="capital_change",
+        summary_template="{symbol} capital registration (procedural): {hl}",
+        summary_th_template="{symbol} จดทะเบียนทุน (ขั้นตอนตามมติเดิม): {hl}",
+        suggested_action="No action required; registration follows an already-approved capital action.",
+        rationale="Capital registration follow-on (subsidiary or paid-up) — procedural, routine.",
     ),
 ]
 

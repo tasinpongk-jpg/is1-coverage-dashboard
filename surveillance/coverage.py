@@ -1,6 +1,6 @@
 """Coverage list — static, no cross-project import.
 
-The 231-name FOOD/PROP/PFREIT + AGRI/CONS/CONMAT coverage. Vendored from
+The 232-name FOOD/PROP/PFREIT + AGRI/CONS/CONMAT coverage. Vendored from
 set_mcp/server.py so the CI workflow has no dependency on the MCP server.
 Keep this in sync with the canonical list in set_mcp/server.py if that ever
 diverges.
@@ -14,7 +14,7 @@ COVERAGE: dict[str, list[str]] = {
         "TL", "TRUBB", "UPOIC", "UVAN", "VPO",
     ],
     "FOOD": [
-        "AAI", "APURE", "ASIAN", "BR", "BRR", "BTG", "CBG", "CFRESH",
+        "AAI", "APURE", "AQUA", "ASIAN", "BR", "BRR", "BTG", "CBG", "CFRESH",
         "CH", "CHAO", "CHOTI", "CM", "COCOCO", "CPF", "CPI", "F&D", "FM",
         "HTC", "ICHI", "ITC", "JDF", "KBS", "KCG", "KSL", "KTIS", "LST",
         "M", "MADAME", "MALEE", "NRF", "NSL", "OKJ", "OSP", "PB", "PLUS",
