@@ -735,6 +735,23 @@ function reportSourceList(items){
   </div>`).join('')}</div>`;
 }
 
+function reportThemes(six){
+  if(!six) return '';
+  const order=[['preCb','Pre-CB'],['salesQuality','Sales Quality'],['costMargin','Cost & Margin'],['workingCapital','Working Capital'],['cashFunding','Cash & Funding'],['outlook','Outlook']];
+  const rows=order.filter(([k])=>six[k]).map(([k,l])=>`<div class="ds-row" style="align-items:flex-start"><span class="ds-lbl" style="min-width:112px;flex-shrink:0">${l}</span><span class="ds-val" style="text-align:left;font-weight:400;font-size:12px;line-height:1.6">${esc(six[k])}</span></div>`).join('');
+  return rows?`<div class="ds"><div class="ds-title">6-Theme view</div>${rows}</div>`:'';
+}
+
+function reportFlagList(flags){
+  if(!flags||!flags.length) return '';
+  const col={HIGH:'#ef4444',MED:'#f59e0b',LOW:'#94a3b8'};
+  const rows=flags.map(f=>{
+    const sev=(f.severity||'LOW').toUpperCase();
+    return `<div style="margin-bottom:10px;font-size:12px;line-height:1.6"><span style="font-weight:700;color:${col[sev]||col.LOW}">${esc(sev)}</span> — ${esc(f.item||'')}<div style="color:var(--muted)">${esc(f.evidence||'')}${f.sourcePath?` · <span class="report-path">${esc(f.sourcePath)}</span>`:''}</div></div>`;
+  }).join('');
+  return `<div class="ds"><div class="ds-title">Surveillance flags</div>${rows}</div>`;
+}
+
 function reportCard(r){
   if(!r) return '';
   const tone=(r.tone||'Neutral').toLowerCase();
@@ -751,6 +768,9 @@ function reportCard(r){
   ${reportList('Financial read-through',r.financialSnapshot)}
   ${reportList('MD&A / call synthesis',r.mdaSynthesis)}
   ${reportList('Financial statement notes',r.fsNotesSynthesis)}
+  ${reportThemes(r.sixThemes)}
+  ${reportFlagList(r.surveillanceFlags)}
+  ${reportList('RPT / MT watch',r.rptMtWatch)}
   ${reportList('Watch items',r.watchItems)}
   ${reportList('Questions for next contact',r.questions)}
   ${reportList('Data quality',r.qualityFlags)}

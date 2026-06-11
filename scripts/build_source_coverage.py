@@ -553,10 +553,13 @@ def markdown_note(payload: dict[str, Any]) -> str:
     generated = payload["generated"]
     source_roots = payload["sourceRoots"]
     return f"""---
-source_type: ai-generated-source-coverage-queue
+source_type: ai-generated
+generated_by: codex
+report_type: source-coverage-queue
 target_period: {summary["targetPeriod"]}
 generated_at: {generated}
 dashboard_json: data/source-coverage.json
+tags: [source-coverage]
 ---
 
 # IS1 Source Coverage Queue - {target}
