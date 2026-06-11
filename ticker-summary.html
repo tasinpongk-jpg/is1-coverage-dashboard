@@ -167,8 +167,8 @@ main{flex:1;max-width:1540px;width:100%;margin:0 auto;padding:22px 24px 48px;pos
 .dp-spark svg{width:100%;height:100%}
 
 /* drawer tabs */
-.dtabs{display:flex;border-bottom:1px solid var(--border);flex-shrink:0;background:var(--card)}
-.dtab{flex:1;padding:10px 6px;text-align:center;font-size:11px;font-weight:600;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;transition:all .12s;user-select:none}
+.dtabs{display:flex;border-bottom:1px solid var(--border);flex-shrink:0;background:var(--card);overflow-x:auto}
+.dtab{flex:0 0 auto;min-width:66px;padding:10px 8px;text-align:center;font-size:11px;font-weight:600;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;transition:all .12s;user-select:none;white-space:nowrap}
 .dtab:hover{color:var(--text)}
 .dtab.active{color:var(--text);border-bottom-color:var(--dsc,var(--accent))}
 
@@ -290,6 +290,7 @@ main{flex:1;max-width:1540px;width:100%;margin:0 auto;padding:22px 24px 48px;pos
 .note-row-top{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:4px}
 .note-title{font-size:12px;font-weight:700;line-height:1.35}
 .note-snippet{font-size:11px;color:var(--muted);line-height:1.55}
+.note-excerpt{margin-top:6px;color:var(--dim);font-size:10px}
 .note-meta{font-size:10px;color:var(--dim);margin-top:4px;word-break:break-word}
 .note-badge{font-size:9px;font-weight:800;padding:2px 6px;border-radius:4px;letter-spacing:.2px}
 .note-badge-call{color:#a5b4fc;background:#6366f122}
@@ -299,6 +300,17 @@ main{flex:1;max-width:1540px;width:100%;margin:0 auto;padding:22px 24px 48px;pos
 .note-badge-review{color:#f87171;background:#ef444418}
 .note-link{color:var(--accent);text-decoration:none;font-size:10px}
 .note-link:hover{text-decoration:underline}
+.note-takeaway{margin-top:6px;padding:7px 9px;border-radius:6px;background:#171b26;border:1px solid #252b3b;font-size:11px;line-height:1.55;color:var(--text)}
+.note-takeaway span{display:block;font-size:9px;font-weight:800;color:var(--dim);text-transform:uppercase;letter-spacing:.5px;margin-bottom:2px}
+.note-chip-row{display:flex;gap:5px;flex-wrap:wrap;margin-top:6px}
+.note-chip{font-size:9px;color:var(--muted);background:#1a1f2d;border:1px solid #272e41;border-radius:4px;padding:2px 6px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.note-tone-watch{color:#fbbf24;background:#f59e0b18;border-color:#f59e0b30}
+.note-tone-positive{color:#34d399;background:#22c55e18;border-color:#22c55e30}
+.note-tone-neutral{color:#a5b4fc;background:#6366f118;border-color:#6366f130}
+.note-list{margin:6px 0 0;padding:0;list-style:none}
+.note-list li{font-size:10.5px;line-height:1.5;color:var(--muted);padding:2px 0 2px 10px;position:relative}
+.note-list li:before{content:"";position:absolute;left:0;top:9px;width:4px;height:4px;border-radius:50%;background:var(--dsc,var(--accent))}
+.note-list-title{font-size:9px;font-weight:800;color:var(--dim);text-transform:uppercase;letter-spacing:.45px;margin-top:7px}
 
 footer{padding:14px 24px;border-top:1px solid var(--border);font-size:11px;color:var(--dim);display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;position:relative;z-index:1}
 footer a{color:var(--muted);text-decoration:none}
@@ -362,6 +374,8 @@ footer a{color:var(--muted);text-decoration:none}
   <div class="dtabs" id="dtabs">
     <div class="dtab active" data-tab="overview">Overview</div>
     <div class="dtab" data-tab="financials">Financials</div>
+    <div class="dtab" data-tab="oppday">Opp Day</div>
+    <div class="dtab" data-tab="mda">MD&A</div>
     <div class="dtab" data-tab="notes">Notes</div>
     <div class="dtab" data-tab="company">Company</div>
     <div class="dtab" data-tab="governance">Governance</div>
@@ -647,14 +661,37 @@ function noteLinks(n){
   return links.length?`<span style="display:flex;gap:8px;flex-wrap:wrap;margin-top:4px">${links.join('')}</span>`:'';
 }
 
+function noteList(title, items, limit=3){
+  const rows=(items||[]).filter(Boolean).slice(0,limit);
+  if(!rows.length) return '';
+  return `<div class="note-list-title">${title}</div><ul class="note-list">${rows.map(x=>`<li>${esc(trimText(x,170))}</li>`).join('')}</ul>`;
+}
+
+function noteAnalysis(n){
+  const a=n.analysis||{};
+  const chunks=[];
+  const tone=(a.tone||'').toLowerCase();
+  const chips=[];
+  if(a.tone) chips.push(`<span class="note-chip note-tone-${tone}">${esc(a.tone)}</span>`);
+  (a.metrics||[]).slice(0,3).forEach(m=>chips.push(`<span class="note-chip">${esc(trimText(m,95))}</span>`));
+  if(a.takeaway) chunks.push(`<div class="note-takeaway"><span>Takeaway</span>${esc(trimText(a.takeaway,320))}</div>`);
+  if(chips.length) chunks.push(`<div class="note-chip-row">${chips.join('')}</div>`);
+  chunks.push(noteList('Drivers',a.drivers,3));
+  chunks.push(noteList('Risks / flags',[...(a.flags||[]),...(a.risks||[])],4));
+  chunks.push(noteList('Guidance',a.guidance,3));
+  return chunks.filter(Boolean).join('');
+}
+
 function noteItem(n, kind, label){
   const cls={call:'note-badge-call',opp:'note-badge-opp',mda:'note-badge-mda',fs:'note-badge-fs'}[kind]||'note-badge-call';
   const status=n.needsReview?'<span class="note-badge note-badge-review">REVIEW</span>':(n.verified?'<span class="note-badge note-badge-fs">VERIFIED</span>':'');
   const meta=noteMeta([n.period,n.eventDate,n.eventType,n.language]);
+  const analyzed=!!(n.analysis&&Object.keys(n.analysis).length);
   return `<div class="note-row">
     <div class="note-row-top"><span class="note-badge ${cls}">${label}</span>${status}${meta?`<span style="font-size:10px;color:var(--dim)">${meta}</span>`:''}</div>
     <div class="note-title">${esc(n.title||label)}</div>
-    ${n.snippet?`<div class="note-snippet">${esc(trimText(n.snippet,360))}</div>`:''}
+    ${analyzed?noteAnalysis(n):(n.snippet?`<div class="note-snippet">${esc(trimText(n.snippet,360))}</div>`:'')}
+    ${analyzed&&n.snippet?`<div class="note-snippet note-excerpt">Source excerpt: ${esc(trimText(n.snippet,220))}</div>`:''}
     ${noteLinks(n)}
     ${n.sourcePath?`<div class="note-meta">${esc(n.sourcePath)}</div>`:''}
   </div>`;
@@ -843,7 +880,7 @@ function renderTab(tab){
     }
   }
 
-  if(tab==='notes'){
+  if(tab==='oppday'){
     const opp=OPP_MAP[t.tk];
     const vault=VAULT_MAP[t.tk]||{};
     const oppRows=[];
@@ -858,12 +895,22 @@ function renderTab(tab){
       },'opp','OPPDAY'));
     }
     const callRows=(vault.calls||[]).map(n=>noteItem(n,'call','CALL'));
-    const mdaRows=(vault.mda||[]).map(n=>noteItem(n,'mda','MD&A'));
-    const fsRows=(vault.fsNotes||[]).map(n=>noteItem(n,'fs','FS NOTE'));
     html+=noteSection('Opp Day / earnings calls',oppRows.concat(callRows));
-    html+=noteSection('MD&A snippets',mdaRows);
+    if(!html) html='<div style="color:var(--muted);padding:24px 0;text-align:center">No Opp Day or earnings-call notes for this ticker yet.</div>';
+  }
+
+  if(tab==='mda'){
+    const vault=VAULT_MAP[t.tk]||{};
+    const mdaRows=(vault.mda||[]).map(n=>noteItem(n,'mda','MD&A'));
+    html+=noteSection('MD&A analysis',mdaRows);
+    if(!html) html='<div style="color:var(--muted);padding:24px 0;text-align:center">No MD&A notes for this ticker yet.</div>';
+  }
+
+  if(tab==='notes'){
+    const vault=VAULT_MAP[t.tk]||{};
+    const fsRows=(vault.fsNotes||[]).map(n=>noteItem(n,'fs','FS NOTE'));
     html+=noteSection('Financial statement notes',fsRows);
-    if(!html) html='<div style="color:var(--muted);padding:24px 0;text-align:center">No vault notes for this ticker yet.</div>';
+    if(!html) html='<div style="color:var(--muted);padding:24px 0;text-align:center">No financial statement notes for this ticker yet.</div>';
   }
 
   if(tab==='company'){
@@ -1006,7 +1053,7 @@ function openInitialDrawer(){
   const idx=ALL.findIndex(t=>t.tk===tk);
   if(idx<0) return;
   const tab=params.get('tab')||'overview';
-  const allowed=['overview','financials','notes','company','governance','disclosures'];
+  const allowed=['overview','financials','oppday','mda','notes','company','governance','disclosures'];
   openDrawer(idx,allowed.includes(tab)?tab:'overview');
 }
 

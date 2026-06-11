@@ -105,6 +105,127 @@ def clean_snippet(text: str, max_chars: int = SNIPPET_CHARS) -> str:
     return snippet[: max_chars - 1].rstrip() + ("..." if len(snippet) >= max_chars else "")
 
 
+def content_lines(text: str) -> list[str]:
+    lines: list[str] = []
+    for raw in text.splitlines():
+        raw_stripped = raw.strip()
+        if raw_stripped.startswith("|") or re.match(r"^\|?[-:\s|]+\|?$", raw_stripped):
+            continue
+        s = clean_line(raw)
+        if not s or len(s) < 16:
+            continue
+        low = s.lower()
+        if low.startswith(("filing id:", "filed:", "source:", "extracted:", "tags:", "format:")):
+            continue
+        if low.startswith(("note:", "pie chart data", "key geographic narratives")):
+            continue
+        if s.endswith(":") and len(s) < 80:
+            continue
+        if "หน่วย:" in s and not re.search(r"\d", s):
+            continue
+        if re.match(r"^\d+(?:\.\d+)*\.?\s+", s):
+            continue
+        if re.match(r"^note\s+\d+\s*[—-].+$", s, re.I) and len(s) < 80:
+            continue
+        lines.append(s)
+    return lines
+
+
+def compact_unique(items: list[str], limit: int = 3, max_chars: int = 180) -> list[str]:
+    out: list[str] = []
+    seen: set[str] = set()
+    for item in items:
+        s = re.sub(r"\s+", " ", item).strip()
+        if not s:
+            continue
+        key = s.lower()[:90]
+        if key in seen:
+            continue
+        seen.add(key)
+        if len(s) > max_chars:
+            s = s[: max_chars - 1].rstrip() + "..."
+        out.append(s)
+        if len(out) >= limit:
+            break
+    return out
+
+
+def section_points(body: str, heading_pattern: str, limit: int = 3) -> list[str]:
+    return compact_unique(content_lines(section_after(body, heading_pattern)), limit=limit)
+
+
+def keyword_points(body: str, keywords: tuple[str, ...], limit: int = 3) -> list[str]:
+    hits: list[str] = []
+    for line in content_lines(body):
+        low = line.lower()
+        if any(k in low for k in keywords):
+            hits.append(line)
+    return compact_unique(hits, limit=limit)
+
+
+def metric_lines(text: str, limit: int = 4) -> list[str]:
+    metrics: list[str] = []
+    for raw in text.splitlines():
+        s = raw.strip()
+        if not s.startswith("|") or re.match(r"^\|?[-:\s|]+\|?$", s):
+            continue
+        cells = [clean_line(c) for c in s.strip("|").split("|")]
+        cells = [c for c in cells if c]
+        if len(cells) < 2 or not re.search(r"\d", " ".join(cells)):
+            continue
+        if cells[0].lower() in {"item", "metric", "รายการ"}:
+            continue
+        metrics.append(" — ".join(cells[:3]))
+    return compact_unique(metrics, limit=limit, max_chars=150)
+
+
+def tone_from(lines: list[str], flags: list[str]) -> str:
+    text = " ".join(lines).lower()
+    pos = len(re.findall(r"growth|increase|improve|recover|catalyst|เติบโต|เพิ่มขึ้น|ฟื้น|ดีขึ้น|หนุน", text))
+    neg = len(re.findall(r"decline|decrease|drop|risk|pressure|loss|impair|default|ลดลง|กดดัน|ขาดทุน|เสี่ยง", text))
+    if flags or neg > pos + 1:
+        return "Watch"
+    if pos > neg + 1:
+        return "Positive"
+    return "Neutral"
+
+
+def analyze_body(body: str, bucket: str, snippet: str) -> dict[str, Any]:
+    if bucket == "calls":
+        summary_text = section_after(body, r"executive summary") or body
+        drivers = section_points(body, r"revenue drivers|margin commentary|strategic initiatives", 4)
+        risks = keyword_points(body, ("risk", "ความเสี่ยง", "ผันผวน", "สงคราม", "ลดลง", "ชะลอ", "กดดัน", "tariff", "fx"), 4)
+        guidance = section_points(body, r"forward guidance|guidance|outlook|แนวโน้ม|เป้าหมาย", 3)
+        metrics = metric_lines(section_after(body, r"key metrics") or body, 4)
+        flags = keyword_points(body, ("tariff", "fx", "usd", "risk", "pressure", "decline", "ลดลง", "กดดัน"), 3)
+    elif bucket == "fsNotes":
+        summary_text = flagged_snippet(body) or body
+        drivers = keyword_points(body, ("revenue", "customer", "segment", "รายได้", "ลูกค้า"), 3)
+        risks = keyword_points(body, ("going concern", "default", "covenant", "impair", "pledge", "loan", "rpt", "related", "ผิดนัด", "ด้อยค่า"), 4)
+        guidance = []
+        metrics = metric_lines(body, 4)
+        flags = keyword_points(body, ("flag", "critical", "primary flag", "mt/rpt", "rpt", "size test", "going concern", "covenant", "default", "impair", "pledge", "loan"), 4)
+    else:
+        summary_text = section_after(body, r"executive summary") or snippet or body
+        drivers = keyword_points(body, ("revenue", "gross profit", "margin", "volume", "profit", "cash flow", "รายได้", "กำไร", "ปริมาณ"), 4)
+        risks = keyword_points(body, ("risk", "tariff", "fx", "usd", "pressure", "decline", "impair", "ลดลง", "กดดัน", "เสี่ยง"), 3)
+        guidance = section_points(body, r"management|guidance|outlook|แนวโน้ม|เป้าหมาย", 3)
+        metrics = metric_lines(section_after(body, r"executive summary") or body, 4)
+        flags = keyword_points(body, ("primary driver", "margin decline", "operating leverage", "customer concentration", "tariff", "hedge", "rpt"), 3)
+
+    takeaway = clean_snippet(summary_text, 300) or snippet
+    all_lines = [takeaway, *drivers, *risks, *guidance, *flags]
+    return {
+        "takeaway": takeaway,
+        "drivers": drivers,
+        "risks": risks,
+        "guidance": guidance,
+        "metrics": metrics,
+        "flags": flags,
+        "tone": tone_from(all_lines, flags),
+    }
+
+
 def section_after(body: str, heading_pattern: str) -> str:
     lines = body.splitlines()
     start = None
@@ -176,6 +297,7 @@ def build_file_item(path: Path, listed_root: Path, bucket: str, ticker: str) -> 
         snippet = flagged_snippet(body) or clean_snippet(body)
     else:
         snippet = clean_snippet(section_after(body, r"executive summary|revenue analysis|management") or body)
+    analysis = analyze_body(body, bucket, snippet)
     return {
         "title": title,
         "period": str(meta.get("period") or meta.get("period_label") or period_from_name(path)),
@@ -183,6 +305,7 @@ def build_file_item(path: Path, listed_root: Path, bucket: str, ticker: str) -> 
         "eventType": str(meta.get("event_type") or meta.get("kind") or bucket),
         "language": str(meta.get("language") or lang_from_name(path)),
         "snippet": snippet,
+        "analysis": analysis,
         "sourcePath": rel(path, listed_root),
         "mtime": dt.datetime.fromtimestamp(path.stat().st_mtime, tz=dt.timezone.utc).isoformat(),
         "needsReview": bool(meta.get("needs_review", False)),
