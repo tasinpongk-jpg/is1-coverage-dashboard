@@ -2,7 +2,7 @@
 Daily build script: produces 4 JSON snapshots for the team coverage dashboards.
 
 Reads tickers.json (the team portfolio) and calls the existing setsmart_proxy
-route handlers in-process with COVERAGE expanded to all 231 tickers.
+route handlers in-process with COVERAGE expanded to all 232 tickers.
 
 Run by GitHub Actions (.github/workflows/daily.yml Job 2). Output JSONs are
 written under ../data/ and committed to the Cloudflare Pages Git repo.
@@ -63,7 +63,7 @@ async def run_routes(out_dir: Path, only: str | None = None) -> dict:
     """
     import setsmart_proxy as proxy
 
-    # Override COVERAGE with all 231 tickers — affects all routes that close over it.
+    # Override COVERAGE with all 232 tickers — affects all routes that close over it.
     tickers_json = load_tickers()
     proxy.COVERAGE = build_coverage(tickers_json)
 

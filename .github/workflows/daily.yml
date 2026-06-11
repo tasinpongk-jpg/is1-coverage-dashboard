@@ -194,7 +194,7 @@ jobs:
           name: surveillance-duckdb
           path: /tmp
 
-      # Fail fast on SETSMART auth/quota issues BEFORE the 15-min 231-ticker scan.
+      # Fail fast on SETSMART auth/quota issues BEFORE the 15-min 232-ticker scan.
       # Uses the proxy's existing /probe/auth handler, which calls
       # eod-price-by-symbol for PTT (1 day) and surfaces 401/403/429 in seconds.
       - name: SETSMART API probe
@@ -217,7 +217,7 @@ jobs:
               sys.exit(f"SETSMART auth failed: {payload}")
           PY
 
-      - name: Run daily build (~15 min for 231 tickers)
+      - name: Run daily build (~15 min for 232 tickers)
         env:
           SETSMART_API_KEY: ${{ secrets.SETSMART_API_KEY }}
           # Custom SQL that JOINs news_items with classifications so disclosure-pulse

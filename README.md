@@ -1,6 +1,6 @@
 # IS1 Team Coverage Dashboard
 
-Static site with 4 daily-refreshed dashboards covering 231 SET-listed tickers across 6 RMs (Champ, Orn, Kae, Tony, Pim, Gift).
+Static site with 4 daily-refreshed dashboards covering 232 SET-listed tickers across 6 RMs (Champ, Orn, Kae, Tony, Pim, Gift).
 
 Hosted on **Cloudflare Pages** (free tier). No backend — GitHub Actions runs the
 daily build in the cloud, commits JSON snapshots to this repo, Cloudflare
@@ -52,7 +52,7 @@ for deploy steps and the per-cron routing table.
 | `data/tickers.json` | Master ticker → RM + sector map (rebuild via Excel) |
 | `data/*.json` | Daily snapshot files |
 | `data/build-status.json` | Last build timestamp + per-route status |
-| `scripts/build_daily.py` | Calls SETSMART proxy in-process for all 231 tickers |
+| `scripts/build_daily.py` | Calls SETSMART proxy in-process for all 232 tickers |
 | `scripts/setsmart_proxy.py` | Vendored FastAPI proxy used by `build_daily.py` |
 | `surveillance/` | Polling, classification, R2 sync, email routing |
 | `.github/workflows/daily.yml` | Consolidated CI: surveillance job + build job (09:50 BKK Mon–Fri) |
@@ -94,7 +94,7 @@ no-op (data unchanged), so no duplicate snapshot commits.
 
 Manual re-runs (no inputs): `gh workflow run daily.yml`.
 
-The build job takes ~15–20 min (sequential SETSMART scan of 231 tickers).
+The build job takes ~15–20 min (sequential SETSMART scan of 232 tickers).
 Critical alerts are idempotent — re-running is safe and only fires on
 disclosures not yet emailed.
 
@@ -139,6 +139,6 @@ Commit and push the regenerated `data/tickers.json`. The next scheduled CI run
 ## Troubleshooting
 
 - **Dashboards show "updated 36h+ ago"** — daily build failed _and_ both triggers missed (very rare). Check (1) `data/build-status.json`, (2) the GitHub Actions run log at https://github.com/tasinpongk-jpg/is1-coverage-dashboard/actions, and (3) the Cloudflare Worker logs (`wrangler tail` from `cloudflare-cron/` or the dashboard). The healthchecks.io check will also email when a daily dispatch is missed.
-- **Empty `disclosure-pulse`** — usually a DuckDB version mismatch between CI and the local writer (both pinned at 1.5.2). See `SYSTEM.md` "known gotchas". Surveillance now covers all 231 tickers across 6 RMs.
+- **Empty `disclosure-pulse`** — usually a DuckDB version mismatch between CI and the local writer (both pinned at 1.5.2). See `SYSTEM.md` "known gotchas". Surveillance now covers all 232 tickers across 6 RMs.
 - **Cloudflare Pages build fails** — there's no build step (static site). Make sure Build Command is empty.
 - **Surveillance/build job failed in CI** — see Actions tab. Common causes: SETSMART API quota, Anthropic API key rotation, R2 credential drift. Secrets live in repo settings.

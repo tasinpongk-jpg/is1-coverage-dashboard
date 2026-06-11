@@ -6,7 +6,7 @@ failure on one source must not break the others.
 
 Sources:
   - external_news: RSS feeds from RYT9, Kaohoon, Hoonsmart, Prachachat,
-    Bangkok Biznews. Ticker-matched against the 231-name coverage.
+    Bangkok Biznews. Ticker-matched against the 232-name coverage.
   - trading_signs: SET trading-sign HTML page (SP/NP/NC/CC/C/ST/DS/CB).
   - sec_enforcement: SEC iDisc Enforce/Recent table.
   - macro_overlays: ThaiBMA Daily Highlight, REIC news, OAE EN news, BLS

@@ -4,7 +4,7 @@ Build data/bond-summary.json — ThaiBMA outstanding bond data for IS1 coverage.
 Uses ThaiBMA's internal web API (no auth key required — same endpoints their
 public site uses). Fetches long + short term outstanding bonds per ticker.
 
-462 requests (231 tickers × 2) at ~0.3 s throttle ≈ 3–5 minutes.
+464 requests (232 tickers × 2) at ~0.3 s throttle ≈ 3–5 minutes.
 Update monthly or quarterly — add workflow_dispatch to GHA for manual runs.
 
 Usage:

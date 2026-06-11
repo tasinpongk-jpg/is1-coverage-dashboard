@@ -10,7 +10,7 @@ doc tells you exactly what's where and what to recreate.
 
 ## What this system does
 
-A daily intelligence pipeline for 231 SET-listed tickers under the IS1 team's
+A daily intelligence pipeline for 232 SET-listed tickers under the IS1 team's
 coverage (FOOD, PROP, PFREIT, AGRI, CONS, CONMAT sectors):
 
 1. **Polls** new SET disclosures from public news/search API
