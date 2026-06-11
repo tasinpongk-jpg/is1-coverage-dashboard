@@ -1,5 +1,5 @@
 {
-  "generated": "2026-06-11T18:48:30+00:00",
+  "generated": "2026-06-11T19:05:23+00:00",
   "source": "ticker-summary.json + vault filing notes + sec_idisc folder scan",
   "sourceRoots": {
     "listedRoot": "/Users/champtk/Library/CloudStorage/OneDrive2-TheStockExchangeofThailand/Claude-Vault/Work-SET/Listed Company",
@@ -8,21 +8,21 @@
   "summary": {
     "targetPeriod": "2026Q1",
     "tickers": 232,
-    "canAnalyzeNow": 53,
-    "needsBeforeReport": 179,
-    "currentMda": 53,
-    "currentFsNotes": 53,
-    "currentAuditor": 21,
+    "canAnalyzeNow": 61,
+    "needsBeforeReport": 171,
+    "currentMda": 61,
+    "currentFsNotes": 61,
+    "currentAuditor": 29,
     "currentCalls": 10,
-    "currentSecIdiscFolder": 18,
-    "currentSecIdiscMdaPdf": 17,
-    "currentSecIdiscFsPackage": 18,
+    "currentSecIdiscFolder": 26,
+    "currentSecIdiscMdaPdf": 25,
+    "currentSecIdiscFsPackage": 26,
     "actions": {
-      "analyze_ready": 53,
-      "fetch_set_news_current_quarter": 179
+      "analyze_ready": 61,
+      "fetch_set_news_current_quarter": 171
     },
     "missingByRm": {
-      "Champ": 12,
+      "Champ": 4,
       "Gift": 28,
       "Kae": 37,
       "Orn": 44,
@@ -384,40 +384,44 @@
       "segment": "IE",
       "rm": "Champ",
       "targetPeriod": "2026Q1",
-      "canAnalyzeNow": false,
-      "action": "fetch_set_news_current_quarter",
-      "queueRank": 1,
-      "missingCurrent": [
-        "MDA",
-        "FS notes",
-        "auditor"
-      ],
+      "canAnalyzeNow": true,
+      "action": "analyze_ready",
+      "queueRank": 3,
+      "missingCurrent": [],
       "ingestableCurrent": [],
       "currentCoverage": {
-        "mda": false,
-        "fsNotes": false,
-        "auditor": false,
+        "mda": true,
+        "fsNotes": true,
+        "auditor": true,
         "calls": true,
-        "secIdiscFolder": false,
-        "secIdiscMdaPdf": false,
-        "secIdiscFsPackage": false,
-        "secIdiscExtracts": false
+        "secIdiscFolder": true,
+        "secIdiscMdaPdf": true,
+        "secIdiscFsPackage": true,
+        "secIdiscExtracts": true
       },
       "latestPeriods": {
-        "mda": "2025FY",
-        "fsNotes": "2025FY",
-        "auditor": "2025FY",
+        "mda": "2026Q1",
+        "fsNotes": "2026Q1",
+        "auditor": "2026Q1",
         "calls": "2026Q1",
-        "secIdisc": ""
+        "secIdisc": "2026Q1"
       },
       "sourcePaths": {
-        "mda": [],
-        "fsNotes": [],
-        "auditor": [],
+        "mda": [
+          "1-Raw/01-Filings/MDA/AMATAV/MDA_AMATAV_2026Q1_E.md"
+        ],
+        "fsNotes": [
+          "1-Raw/01-Filings/FS-NOTES/AMATAV/NOTES_AMATAV_2026Q1_E.md"
+        ],
+        "auditor": [
+          "1-Raw/01-Filings/AUDITOR/AMATAV/AUDITOR_AMATAV_2026Q1_E.md"
+        ],
         "calls": [
           "2-Analysis/AI-Generated/03-Earning Calls/AMATAV/OPPDAY-AMATAV-2026-05-15-2026Q1.md"
         ],
-        "secIdisc": []
+        "secIdisc": [
+          "AMATAV/quarterly/2026-05-08_Q1-2026"
+        ]
       }
     },
     {
@@ -3145,40 +3149,44 @@
       "segment": "Residential",
       "rm": "Champ",
       "targetPeriod": "2026Q1",
-      "canAnalyzeNow": false,
-      "action": "fetch_set_news_current_quarter",
-      "queueRank": 1,
-      "missingCurrent": [
-        "MDA",
-        "FS notes",
-        "auditor"
-      ],
+      "canAnalyzeNow": true,
+      "action": "analyze_ready",
+      "queueRank": 3,
+      "missingCurrent": [],
       "ingestableCurrent": [],
       "currentCoverage": {
-        "mda": false,
-        "fsNotes": false,
-        "auditor": false,
+        "mda": true,
+        "fsNotes": true,
+        "auditor": true,
         "calls": true,
-        "secIdiscFolder": false,
-        "secIdiscMdaPdf": false,
-        "secIdiscFsPackage": false,
-        "secIdiscExtracts": false
+        "secIdiscFolder": true,
+        "secIdiscMdaPdf": true,
+        "secIdiscFsPackage": true,
+        "secIdiscExtracts": true
       },
       "latestPeriods": {
-        "mda": "2025FY",
-        "fsNotes": "2025FY",
-        "auditor": "2025FY",
+        "mda": "2026Q1",
+        "fsNotes": "2026Q1",
+        "auditor": "2026Q1",
         "calls": "2026Q1",
-        "secIdisc": ""
+        "secIdisc": "2026Q1"
       },
       "sourcePaths": {
-        "mda": [],
-        "fsNotes": [],
-        "auditor": [],
+        "mda": [
+          "1-Raw/01-Filings/MDA/J/MDA_J_2026Q1_E.md"
+        ],
+        "fsNotes": [
+          "1-Raw/01-Filings/FS-NOTES/J/NOTES_J_2026Q1_E.md"
+        ],
+        "auditor": [
+          "1-Raw/01-Filings/AUDITOR/J/AUDITOR_J_2026Q1_E.md"
+        ],
         "calls": [
           "2-Analysis/AI-Generated/03-Earning Calls/J/OPPDAY-J-2026-05-19-2026Q1.md"
         ],
-        "secIdisc": []
+        "secIdisc": [
+          "J/quarterly/2026-05-12_Q1-2026"
+        ]
       }
     },
     {
@@ -3188,38 +3196,42 @@
       "segment": "Residential",
       "rm": "Champ",
       "targetPeriod": "2026Q1",
-      "canAnalyzeNow": false,
-      "action": "fetch_set_news_current_quarter",
-      "queueRank": 1,
-      "missingCurrent": [
-        "MDA",
-        "FS notes",
-        "auditor"
-      ],
+      "canAnalyzeNow": true,
+      "action": "analyze_ready",
+      "queueRank": 3,
+      "missingCurrent": [],
       "ingestableCurrent": [],
       "currentCoverage": {
-        "mda": false,
-        "fsNotes": false,
-        "auditor": false,
+        "mda": true,
+        "fsNotes": true,
+        "auditor": true,
         "calls": false,
-        "secIdiscFolder": false,
-        "secIdiscMdaPdf": false,
-        "secIdiscFsPackage": false,
-        "secIdiscExtracts": false
+        "secIdiscFolder": true,
+        "secIdiscMdaPdf": true,
+        "secIdiscFsPackage": true,
+        "secIdiscExtracts": true
       },
       "latestPeriods": {
-        "mda": "2025FY",
-        "fsNotes": "2025FY",
-        "auditor": "2025FY",
+        "mda": "2026Q1",
+        "fsNotes": "2026Q1",
+        "auditor": "2026Q1",
         "calls": "2024Q1",
-        "secIdisc": ""
+        "secIdisc": "2026Q1"
       },
       "sourcePaths": {
-        "mda": [],
-        "fsNotes": [],
-        "auditor": [],
+        "mda": [
+          "1-Raw/01-Filings/MDA/JCK/MDA_JCK_2026Q1_E.md"
+        ],
+        "fsNotes": [
+          "1-Raw/01-Filings/FS-NOTES/JCK/NOTES_JCK_2026Q1_E.md"
+        ],
+        "auditor": [
+          "1-Raw/01-Filings/AUDITOR/JCK/AUDITOR_JCK_2026Q1_E.md"
+        ],
         "calls": [],
-        "secIdisc": []
+        "secIdisc": [
+          "JCK/quarterly/2026-05-15_Q1-2026"
+        ]
       }
     },
     {
@@ -4354,38 +4366,42 @@
       "segment": "Other PF",
       "rm": "Champ",
       "targetPeriod": "2026Q1",
-      "canAnalyzeNow": false,
-      "action": "fetch_set_news_current_quarter",
-      "queueRank": 1,
-      "missingCurrent": [
-        "MDA",
-        "FS notes",
-        "auditor"
-      ],
+      "canAnalyzeNow": true,
+      "action": "analyze_ready",
+      "queueRank": 3,
+      "missingCurrent": [],
       "ingestableCurrent": [],
       "currentCoverage": {
-        "mda": false,
-        "fsNotes": false,
-        "auditor": false,
+        "mda": true,
+        "fsNotes": true,
+        "auditor": true,
         "calls": false,
-        "secIdiscFolder": false,
-        "secIdiscMdaPdf": false,
-        "secIdiscFsPackage": false,
-        "secIdiscExtracts": false
+        "secIdiscFolder": true,
+        "secIdiscMdaPdf": true,
+        "secIdiscFsPackage": true,
+        "secIdiscExtracts": true
       },
       "latestPeriods": {
-        "mda": "",
-        "fsNotes": "",
-        "auditor": "",
+        "mda": "2026Q1",
+        "fsNotes": "2026Q1",
+        "auditor": "2026Q1",
         "calls": "",
-        "secIdisc": ""
+        "secIdisc": "2026Q1"
       },
       "sourcePaths": {
-        "mda": [],
-        "fsNotes": [],
-        "auditor": [],
+        "mda": [
+          "1-Raw/01-Filings/MDA/MJLF/MDA_MJLF_2026Q1_E.md"
+        ],
+        "fsNotes": [
+          "1-Raw/01-Filings/FS-NOTES/MJLF/NOTES_MJLF_2026Q1_E.md"
+        ],
+        "auditor": [
+          "1-Raw/01-Filings/AUDITOR/MJLF/AUDITOR_MJLF_2026Q1_E.md"
+        ],
         "calls": [],
-        "secIdisc": []
+        "secIdisc": [
+          "MJLF/quarterly/2026-05-08_Q1-2026"
+        ]
       }
     },
     {
@@ -5272,38 +5288,42 @@
       "segment": "IE",
       "rm": "Champ",
       "targetPeriod": "2026Q1",
-      "canAnalyzeNow": false,
-      "action": "fetch_set_news_current_quarter",
-      "queueRank": 1,
-      "missingCurrent": [
-        "MDA",
-        "FS notes",
-        "auditor"
-      ],
+      "canAnalyzeNow": true,
+      "action": "analyze_ready",
+      "queueRank": 3,
+      "missingCurrent": [],
       "ingestableCurrent": [],
       "currentCoverage": {
-        "mda": false,
-        "fsNotes": false,
-        "auditor": false,
+        "mda": true,
+        "fsNotes": true,
+        "auditor": true,
         "calls": false,
-        "secIdiscFolder": false,
-        "secIdiscMdaPdf": false,
-        "secIdiscFsPackage": false,
-        "secIdiscExtracts": false
+        "secIdiscFolder": true,
+        "secIdiscMdaPdf": true,
+        "secIdiscFsPackage": true,
+        "secIdiscExtracts": true
       },
       "latestPeriods": {
-        "mda": "2025FY",
-        "fsNotes": "2025FY",
-        "auditor": "2025FY",
+        "mda": "2026Q1",
+        "fsNotes": "2026Q1",
+        "auditor": "2026Q1",
         "calls": "",
-        "secIdisc": ""
+        "secIdisc": "2026Q1"
       },
       "sourcePaths": {
-        "mda": [],
-        "fsNotes": [],
-        "auditor": [],
+        "mda": [
+          "1-Raw/01-Filings/MDA/PIN/MDA_PIN_2026Q1_E.md"
+        ],
+        "fsNotes": [
+          "1-Raw/01-Filings/FS-NOTES/PIN/NOTES_PIN_2026Q1_E.md"
+        ],
+        "auditor": [
+          "1-Raw/01-Filings/AUDITOR/PIN/AUDITOR_PIN_2026Q1_E.md"
+        ],
         "calls": [],
-        "secIdisc": []
+        "secIdisc": [
+          "PIN/quarterly/2026-05-15_Q1-2026"
+        ]
       }
     },
     {
@@ -5313,38 +5333,42 @@
       "segment": "Retail",
       "rm": "Champ",
       "targetPeriod": "2026Q1",
-      "canAnalyzeNow": false,
-      "action": "fetch_set_news_current_quarter",
-      "queueRank": 1,
-      "missingCurrent": [
-        "MDA",
-        "FS notes",
-        "auditor"
-      ],
+      "canAnalyzeNow": true,
+      "action": "analyze_ready",
+      "queueRank": 3,
+      "missingCurrent": [],
       "ingestableCurrent": [],
       "currentCoverage": {
-        "mda": false,
-        "fsNotes": false,
-        "auditor": false,
+        "mda": true,
+        "fsNotes": true,
+        "auditor": true,
         "calls": false,
-        "secIdiscFolder": false,
-        "secIdiscMdaPdf": false,
-        "secIdiscFsPackage": false,
-        "secIdiscExtracts": false
+        "secIdiscFolder": true,
+        "secIdiscMdaPdf": true,
+        "secIdiscFsPackage": true,
+        "secIdiscExtracts": true
       },
       "latestPeriods": {
-        "mda": "2025FY",
-        "fsNotes": "2025FY",
-        "auditor": "2025FY",
+        "mda": "2026Q1",
+        "fsNotes": "2026Q1",
+        "auditor": "2026Q1",
         "calls": "",
-        "secIdisc": ""
+        "secIdisc": "2026Q1"
       },
       "sourcePaths": {
-        "mda": [],
-        "fsNotes": [],
-        "auditor": [],
+        "mda": [
+          "1-Raw/01-Filings/MDA/PLAT/MDA_PLAT_2026Q1_E.md"
+        ],
+        "fsNotes": [
+          "1-Raw/01-Filings/FS-NOTES/PLAT/NOTES_PLAT_2026Q1_E.md"
+        ],
+        "auditor": [
+          "1-Raw/01-Filings/AUDITOR/PLAT/AUDITOR_PLAT_2026Q1_E.md"
+        ],
         "calls": [],
-        "secIdisc": []
+        "secIdisc": [
+          "PLAT/quarterly/2026-05-13_Q1-2026"
+        ]
       }
     },
     {
@@ -8427,38 +8451,42 @@
       "segment": "Industrial PF",
       "rm": "Champ",
       "targetPeriod": "2026Q1",
-      "canAnalyzeNow": false,
-      "action": "fetch_set_news_current_quarter",
-      "queueRank": 1,
-      "missingCurrent": [
-        "MDA",
-        "FS notes",
-        "auditor"
-      ],
+      "canAnalyzeNow": true,
+      "action": "analyze_ready",
+      "queueRank": 3,
+      "missingCurrent": [],
       "ingestableCurrent": [],
       "currentCoverage": {
-        "mda": false,
-        "fsNotes": false,
-        "auditor": false,
+        "mda": true,
+        "fsNotes": true,
+        "auditor": true,
         "calls": false,
-        "secIdiscFolder": false,
-        "secIdiscMdaPdf": false,
-        "secIdiscFsPackage": false,
-        "secIdiscExtracts": false
+        "secIdiscFolder": true,
+        "secIdiscMdaPdf": true,
+        "secIdiscFsPackage": true,
+        "secIdiscExtracts": true
       },
       "latestPeriods": {
-        "mda": "",
-        "fsNotes": "",
-        "auditor": "",
+        "mda": "2026Q1",
+        "fsNotes": "2026Q1",
+        "auditor": "2026Q1",
         "calls": "",
-        "secIdisc": ""
+        "secIdisc": "2026Q1"
       },
       "sourcePaths": {
-        "mda": [],
-        "fsNotes": [],
-        "auditor": [],
+        "mda": [
+          "1-Raw/01-Filings/MDA/TNPF/MDA_TNPF_2026Q1_E.md"
+        ],
+        "fsNotes": [
+          "1-Raw/01-Filings/FS-NOTES/TNPF/NOTES_TNPF_2026Q1_E.md"
+        ],
+        "auditor": [
+          "1-Raw/01-Filings/AUDITOR/TNPF/AUDITOR_TNPF_2026Q1_E.md"
+        ],
         "calls": [],
-        "secIdisc": []
+        "secIdisc": [
+          "TNPF/quarterly/2026-05-14_Q1-2026"
+        ]
       }
     },
     {
@@ -8796,38 +8824,42 @@
       "segment": "Industrial PF",
       "rm": "Champ",
       "targetPeriod": "2026Q1",
-      "canAnalyzeNow": false,
-      "action": "fetch_set_news_current_quarter",
-      "queueRank": 1,
-      "missingCurrent": [
-        "MDA",
-        "FS notes",
-        "auditor"
-      ],
+      "canAnalyzeNow": true,
+      "action": "analyze_ready",
+      "queueRank": 3,
+      "missingCurrent": [],
       "ingestableCurrent": [],
       "currentCoverage": {
-        "mda": false,
-        "fsNotes": false,
-        "auditor": false,
+        "mda": true,
+        "fsNotes": true,
+        "auditor": true,
         "calls": false,
-        "secIdiscFolder": false,
-        "secIdiscMdaPdf": false,
-        "secIdiscFsPackage": false,
-        "secIdiscExtracts": false
+        "secIdiscFolder": true,
+        "secIdiscMdaPdf": true,
+        "secIdiscFsPackage": true,
+        "secIdiscExtracts": true
       },
       "latestPeriods": {
-        "mda": "",
-        "fsNotes": "",
-        "auditor": "",
+        "mda": "2026Q1",
+        "fsNotes": "2026Q1",
+        "auditor": "2026Q1",
         "calls": "",
-        "secIdisc": ""
+        "secIdisc": "2026Q1"
       },
       "sourcePaths": {
-        "mda": [],
-        "fsNotes": [],
-        "auditor": [],
+        "mda": [
+          "1-Raw/01-Filings/MDA/TTLPF/MDA_TTLPF_2026Q1_E.md"
+        ],
+        "fsNotes": [
+          "1-Raw/01-Filings/FS-NOTES/TTLPF/NOTES_TTLPF_2026Q1_E.md"
+        ],
+        "auditor": [
+          "1-Raw/01-Filings/AUDITOR/TTLPF/AUDITOR_TTLPF_2026Q1_E.md"
+        ],
         "calls": [],
-        "secIdisc": []
+        "secIdisc": [
+          "TTLPF/quarterly/2026-05-11_Q1-2026"
+        ]
       }
     },
     {
