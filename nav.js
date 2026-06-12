@@ -68,6 +68,7 @@ nav.nav{display:flex;align-items:center;gap:2px;position:relative}\
 .gnav-panel{position:absolute;top:calc(100% + 6px);left:0;min-width:185px;display:none;z-index:300;\
  background:var(--card,#14171f);border:1px solid var(--border2,#2a2f3d);border-radius:10px;\
  box-shadow:0 10px 34px #000a;padding:6px;flex-direction:column}\
+.gnav-panel::before{content:'';position:absolute;top:-10px;left:0;right:0;height:10px}\
 .gnav-group.open .gnav-panel{display:flex}\
 .gnav-panel a{font-size:12.5px;color:var(--muted,#8089a0);text-decoration:none;padding:8px 12px;\
  border-radius:7px;display:flex;align-items:center;gap:8px;white-space:nowrap}\
@@ -129,14 +130,21 @@ nav.nav{display:flex;align-items:center;gap:2px;position:relative}\
         btn.setAttribute("aria-expanded", "true");
       }
     });
+    // hover with forgiveness: a short close delay so crossing the gap (or
+    // briefly overshooting) doesn't snap the menu shut mid-click
+    var closeTimer = null;
     wrap.addEventListener("mouseenter", function () {
+      clearTimeout(closeTimer);
       closeAll();
       wrap.classList.add("open");
       btn.setAttribute("aria-expanded", "true");
     });
     wrap.addEventListener("mouseleave", function () {
-      wrap.classList.remove("open");
-      btn.setAttribute("aria-expanded", "false");
+      clearTimeout(closeTimer);
+      closeTimer = setTimeout(function () {
+        wrap.classList.remove("open");
+        btn.setAttribute("aria-expanded", "false");
+      }, 350);
     });
 
     wrap.appendChild(btn);
