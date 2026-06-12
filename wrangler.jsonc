@@ -1,12 +1,20 @@
 {
-  // Cloudflare Workers static-asset deploy for the IS1 coverage dashboard.
-  // No server-side code — just serves the *.html files + data/*.json.
+  // Cloudflare Workers deploy for the IS1 coverage dashboard.
+  // Static assets (*.html + data/*.json) plus one server route:
+  // POST /api/chat — Workers AI chatbot grounded in the daily snapshots
+  // (token-gated via the CHAT_TOKEN worker secret, synced from the
+  // GitHub Actions secret of the same name on every daily deploy).
   // Keeps the existing *.workers.dev URL stable across deploys.
   "$schema": "https://json.schemastore.org/wrangler.json",
   "name": "is1-coverage-dashboard",
+  "main": "worker.js",
   "compatibility_date": "2026-05-08",
   "assets": {
     "directory": "./",
+    "binding": "ASSETS",
     "not_found_handling": "404-page"
+  },
+  "ai": {
+    "binding": "AI"
   }
 }

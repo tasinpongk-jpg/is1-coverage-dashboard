@@ -37,6 +37,23 @@
   .risk li { border-left: 3px solid var(--red); }
   .empty { text-align: center; padding: 60px 20px; color: var(--muted); }
   .foot { font-size: 11px; color: var(--muted); text-align: center; padding-bottom: 24px; }
+
+  .chat { max-width: 1100px; margin: 0 auto 24px; padding: 0 20px; }
+  .chat-card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; display: flex; flex-direction: column; }
+  .chat-hdr { padding: 13px 16px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+  .chat-hdr .t { font-size: 13px; font-weight: 700; letter-spacing: 0.4px; text-transform: uppercase; color: var(--muted); }
+  .chat-hdr button { background: none; border: none; color: var(--muted); font-size: 11px; cursor: pointer; }
+  .chat-hdr button:hover { color: var(--text); }
+  .chat-log { padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; max-height: 420px; overflow-y: auto; }
+  .msg { padding: 9px 12px; border-radius: 8px; font-size: 12.5px; line-height: 1.55; max-width: 85%; white-space: pre-wrap; }
+  .msg.user { align-self: flex-end; background: #6366f126; border: 1px solid #6366f155; }
+  .msg.bot { align-self: flex-start; background: #0f1117; border: 1px solid var(--border); }
+  .msg.err { align-self: center; color: var(--yellow); background: #f59e0b14; border: 1px solid #f59e0b33; }
+  .chat-form { display: flex; gap: 8px; padding: 12px 16px; border-top: 1px solid var(--border); }
+  .chat-form input { flex: 1; background: #0f1117; border: 1px solid var(--border); border-radius: 8px; color: var(--text); padding: 9px 12px; font-size: 13px; font-family: inherit; }
+  .chat-form input:focus { outline: none; border-color: var(--accent); }
+  .chat-form button { background: var(--accent); border: none; border-radius: 8px; color: #fff; padding: 0 18px; font-size: 13px; font-weight: 600; cursor: pointer; }
+  .chat-form button:disabled { opacity: 0.5; cursor: wait; }
 </style>
 </head>
 <body>
@@ -61,6 +78,22 @@
 </header>
 
 <div id="wrap" class="wrap"><div class="empty">Loading...</div></div>
+
+<div class="chat">
+  <div class="chat-card">
+    <div class="chat-hdr">
+      <span class="t">Ask the coverage</span>
+      <button id="chatReset" type="button" title="Clear conversation and forget the access token">reset</button>
+    </div>
+    <div class="chat-log" id="chatLog">
+      <div class="msg bot">Ask me about the IS1 coverage — movers, alerts, a ticker, a sector or an RM's book. I answer from today's dashboard data only.</div>
+    </div>
+    <form class="chat-form" id="chatForm">
+      <input id="chatInput" type="text" placeholder="e.g. What's moving in FOOD today? / สรุปหุ้นของ Champ วันนี้" autocomplete="off" maxlength="2000">
+      <button id="chatSend" type="submit">Send</button>
+    </form>
+  </div>
+</div>
 
 <script>
 function freshnessLabel(builtAt) {
@@ -103,6 +136,75 @@ async function init() {
   }
 }
 init();
+
+// ───────────────────────── chat ─────────────────────────
+const chatLog = document.getElementById('chatLog');
+const chatInput = document.getElementById('chatInput');
+const chatSend = document.getElementById('chatSend');
+const history = [];
+
+function getToken(force) {
+  let t = localStorage.getItem('is1_chat_token');
+  if (!t || force) {
+    t = prompt('Enter the IS1 chat access token (ask Champ):') || '';
+    t = t.trim();
+    if (t) localStorage.setItem('is1_chat_token', t);
+  }
+  return t;
+}
+function addMsg(cls, text) {
+  const el = document.createElement('div');
+  el.className = 'msg ' + cls;
+  el.textContent = text;
+  chatLog.appendChild(el);
+  chatLog.scrollTop = chatLog.scrollHeight;
+  return el;
+}
+async function send(question) {
+  const token = getToken(false);
+  if (!token) { addMsg('err', 'No token entered — chat is token-gated.'); return; }
+  history.push({ role: 'user', content: question });
+  addMsg('user', question);
+  const thinking = addMsg('bot', '…');
+  chatSend.disabled = true;
+  try {
+    const r = await fetch('/api/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+      body: JSON.stringify({ messages: history }),
+    });
+    const d = await r.json().catch(() => ({}));
+    if (r.status === 401) {
+      localStorage.removeItem('is1_chat_token');
+      history.pop();
+      thinking.remove();
+      addMsg('err', 'Wrong token — it has been forgotten; send again to retry.');
+      return;
+    }
+    if (!r.ok || !d.reply) throw new Error(d.error || ('HTTP ' + r.status));
+    thinking.textContent = d.reply;
+    history.push({ role: 'assistant', content: d.reply });
+  } catch (e) {
+    history.pop();
+    thinking.remove();
+    addMsg('err', 'Chat failed: ' + e.message);
+  } finally {
+    chatSend.disabled = false;
+    chatInput.focus();
+  }
+}
+document.getElementById('chatForm').addEventListener('submit', (ev) => {
+  ev.preventDefault();
+  const q = chatInput.value.trim();
+  if (!q || chatSend.disabled) return;
+  chatInput.value = '';
+  send(q);
+});
+document.getElementById('chatReset').addEventListener('click', () => {
+  history.length = 0;
+  localStorage.removeItem('is1_chat_token');
+  chatLog.innerHTML = '<div class="msg bot">Conversation cleared. Token forgotten.</div>';
+});
 </script>
 </body>
 </html>
