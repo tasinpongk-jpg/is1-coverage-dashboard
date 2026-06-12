@@ -136,6 +136,40 @@ footer a{color:var(--muted);text-decoration:none}
     </div>
   </div>
 
+  <!-- ═══ MEET THE AGENTS ═══ -->
+  <style>
+    .agent-strip{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;margin:6px 0 26px}
+    .agent-card{display:flex;gap:12px;align-items:flex-start;background:var(--card);border:1px solid var(--border);
+      border-radius:12px;padding:14px 16px;cursor:pointer;text-align:left;font-family:inherit;transition:border-color .15s,transform .15s}
+    .agent-card:hover{border-color:var(--agc);transform:translateY(-2px)}
+    .agent-avatar{width:38px;height:38px;border-radius:10px;display:flex;align-items:center;justify-content:center;
+      font-size:19px;background:var(--agc-bg);border:1px solid var(--agc-bd)}
+    .agent-name{font-size:13.5px;font-weight:700;color:var(--text)}
+    .agent-role{font-size:11.5px;color:var(--muted);margin-top:2px;line-height:1.45}
+    .agent-eg{font-size:11px;color:var(--agc);margin-top:5px;font-style:italic}
+  </style>
+  <div class="sec-title">Ask the agents</div>
+  <div class="agent-strip">
+    <button type="button" class="agent-card" style="--agc:#f59e0b;--agc-bg:#f59e0b2e;--agc-bd:#f59e0b73" onclick="IS1Dock&&IS1Dock.open('hermes')">
+      <div class="agent-avatar">⚡</div>
+      <div><div class="agent-name">Hermes</div>
+        <div class="agent-role">News messenger — catalysts, disclosures, silent filers, Oppday takeaways</div>
+        <div class="agent-eg">“What news moved my names today?”</div></div>
+    </button>
+    <button type="button" class="agent-card" style="--agc:#3b82f6;--agc-bg:#3b82f62e;--agc-bd:#3b82f673" onclick="IS1Dock&&IS1Dock.open('atlas')">
+      <div class="agent-avatar">🗺</div>
+      <div><div class="agent-name">Atlas</div>
+        <div class="agent-role">Market data — movers, volume spikes, alerts, strict threshold checks</div>
+        <div class="agent-eg">“Top movers beyond ±2% in my coverage”</div></div>
+    </button>
+    <button type="button" class="agent-card" style="--agc:#8b5cf6;--agc-bg:#8b5cf62e;--agc-bd:#8b5cf673" onclick="IS1Dock&&IS1Dock.open('pythia')">
+      <div class="agent-avatar">🔮</div>
+      <div><div class="agent-name">Pythia</div>
+        <div class="agent-role">Macro &amp; sectors — overlays, breadth, daily AI commentary</div>
+        <div class="agent-eg">“Which sector leads and which lags?”</div></div>
+    </button>
+  </div>
+
   <!-- ═══ DASHBOARDS — GROUPED ═══ -->
   <div class="sec-title">Dashboards</div>
 
@@ -715,5 +749,6 @@ init();
   document.getElementById('visitCounter').style.display = 'inline-flex';
 })();
 </script>
+<script src="chat-dock.js" defer></script>
 </body>
 </html>

@@ -40,6 +40,24 @@ redundant backups — `concurrency:group=daily` (shared between the two
 workflows) prevents simultaneous runs. See `cloudflare-cron/README.md`
 for deploy steps and the per-cron routing table.
 
+## Agent chat (✦ Ask the agents)
+
+Every page carries a floating chat dock (`chat-dock.js`) talking to three
+named agents served by `worker.js` via Cloudflare Workers AI — each grounded
+in a different slice of the daily snapshots:
+
+| Agent | Specialty | Grounded in |
+|---|---|---|
+| ⚡ Hermes | News & catalysts, silent filers, Oppday | `external-news`, `disclosure-pulse`, `oppday-minutes` |
+| 🗺 Atlas | Prices, movers, alerts, threshold math | `morning-brief`, `tickers`, `unusual-trading` |
+| 🔮 Pythia | Macro & sector view | `macro-overlays`, sector aggregates, `ai-insights` |
+
+Dock features: per-agent threads (survive navigation), RM picker for
+personalized suggestion chips, ticker chips in replies deep-linking to
+`ticker-summary.html?tk=X`, and select-any-text → "✦ ask". Token-gated by the
+`CHAT_TOKEN` worker secret (`localStorage is1_chat_token` client-side). The
+"Ask the agents" cards on `index.html` open the dock via `IS1Dock.open(name)`.
+
 ## Files
 
 | Path | Purpose |
