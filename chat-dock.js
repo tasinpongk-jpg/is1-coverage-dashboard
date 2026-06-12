@@ -249,7 +249,7 @@ a.is1d-tk:hover{background:#3b82f644}\
     fetch("/api/chat", {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: "Bearer " + token },
-      body: JSON.stringify({ agent: agent, messages: msgs }),
+      body: JSON.stringify({ agent: agent, messages: msgs, rm: rmSel.value }),
     }).then(function (r) {
       if (r.status === 401) {
         localStorage.removeItem("is1_chat_token");

@@ -105,22 +105,33 @@ async function ctxAlerts(env, origin) {
   return lines.join("\n");
 }
 
+async function rmMap(env, origin) {
+  const tickers = await loadJson(env, origin, "tickers");
+  const map = {};
+  for (const t of tickers?.tickers || []) map[t.tk] = t.rm;
+  return map;
+}
+
 async function ctxNews(env, origin) {
-  const news = await loadJson(env, origin, "external-news");
+  const [news, rms] = await Promise.all([
+    loadJson(env, origin, "external-news"), rmMap(env, origin)]);
   const items = news?.items || [];
-  const lines = [`EXTERNAL NEWS (last ${news?.windowDays || "?"} days, ${items.length} items, asOf ${news?.asOf || "?"}):`];
+  const lines = [`EXTERNAL NEWS (last ${news?.windowDays || "?"} days, ${items.length} items, asOf ${news?.asOf || "?"}; rm=owning RM):`];
   for (const n of items.slice(0, 50)) {
-    lines.push(`${(n.ts || "").slice(0, 10)} ${n.tk || n.sector || "-"} [${n.source}] ${n.title}` +
+    const rm = rms[n.tk] ? ` rm=${rms[n.tk]}` : "";
+    lines.push(`${(n.ts || "").slice(0, 10)} ${n.tk || n.sector || "-"}${rm} [${n.source}] ${n.title}` +
       (n.excerpt ? ` — ${n.excerpt.slice(0, 90)}` : ""));
   }
   return lines.join("\n");
 }
 
 async function ctxFilings(env, origin) {
-  const pulse = await loadJson(env, origin, "disclosure-pulse");
-  const lines = [`SET DISCLOSURES (last ${pulse?.windowDays || "?"} days, asOf ${pulse?.asOf || "?"}, newest first):`];
+  const [pulse, rms] = await Promise.all([
+    loadJson(env, origin, "disclosure-pulse"), rmMap(env, origin)]);
+  const lines = [`SET DISCLOSURES (last ${pulse?.windowDays || "?"} days, asOf ${pulse?.asOf || "?"}, newest first; rm=owning RM):`];
   for (const f of (pulse?.filings || []).slice(0, 60)) {
-    lines.push(`${(f.ts || "").slice(0, 10)} ${f.tk} ${f.sector}: ${String(f.title).slice(0, 110)}`);
+    const rm = rms[f.tk] ? ` rm=${rms[f.tk]}` : "";
+    lines.push(`${(f.ts || "").slice(0, 10)} ${f.tk}${rm} ${f.sector}: ${String(f.title).slice(0, 110)}`);
   }
   const silent = (pulse?.status || [])
     .filter((s) => s.overdue)
@@ -128,7 +139,8 @@ async function ctxFilings(env, origin) {
   if (silent.length) {
     lines.push(`\nOVERDUE / SILENT TICKERS (${silent.length}):`);
     for (const s of silent.slice(0, 30)) {
-      lines.push(`${s.tk} ${s.sector}: silent ${s.silentDays}d (last filed ${(s.lastFiledTs || "?").slice(0, 10)})`);
+      const rm = rms[s.tk] ? ` rm=${rms[s.tk]}` : "";
+      lines.push(`${s.tk}${rm} ${s.sector}: silent ${s.silentDays}d (last filed ${(s.lastFiledTs || "?").slice(0, 10)})`);
     }
   }
   return lines.join("\n");
@@ -189,7 +201,12 @@ const SHARED_RULES =
   "RMs: Champ, Kae, Orn, Gift, Pim, Tony.\n" +
   "Answer ONLY from the data below. If something is not in the data " +
   "(intraday prices, tickers outside coverage), say so and name which " +
-  "dashboard page or sibling agent could help. Quote numbers exactly as " +
+  "dashboard page or sibling agent could help. RM ownership is STRICT: " +
+  "every ticker belongs to exactly one RM (the rm tag in the data). When " +
+  "the user asks about 'my names', 'my coverage' or an RM's book, include " +
+  "ONLY tickers whose rm tag matches that RM — silently dropping or adding " +
+  "other RMs' tickers is an error. If nothing matches, say so rather than " +
+  "padding with other RMs' names. Quote numbers exactly as " +
   "given — never round across a threshold (-1.93 is NOT beyond -2). Be " +
   "concise: short answers, tables only when listing several tickers. Reply " +
   "in the user's language (Thai or English). When you mention a covered " +
@@ -242,11 +259,18 @@ async function handleChat(request, env, origin) {
     return json({ error: "messages must end with a user turn" }, 400);
   }
 
+  const rm = typeof body.rm === "string" &&
+    ["Champ", "Kae", "Orn", "Gift", "Pim", "Tony"].includes(body.rm)
+    ? body.rm : null;
+  const rmLine = rm
+    ? `\nThe user is RM ${rm}. "My names/my coverage" means tickers with rm=${rm} ONLY.`
+    : "";
+
   const parts = await Promise.all(agent.contexts.map((fn) => fn(env, origin)));
   const context = parts.filter(Boolean).join("\n\n");
   const result = await env.AI.run(CHAT_MODEL, {
     messages: [
-      { role: "system", content: agent.persona + SHARED_RULES + "\n\nDATA:\n" + context },
+      { role: "system", content: agent.persona + SHARED_RULES + rmLine + "\n\nDATA:\n" + context },
       ...cleaned,
     ],
     max_tokens: 800,
