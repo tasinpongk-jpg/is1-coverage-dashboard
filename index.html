@@ -48,24 +48,57 @@ main{flex:1;max-width:1360px;width:100%;margin:0 auto;padding:36px 32px 56px;pos
 .visit-counter .vc-text{font-size:11px;color:var(--muted)}
 .visit-counter .vc-num{font-size:14px;font-weight:800;font-variant-numeric:tabular-nums;color:var(--accent)}
 
-/* ── DASHBOARD GRID ── */
-.dash-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:14px}
+/* ── TODAY BRIEFING ── */
+.today-bar{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:14px}
+.today-bar .t-label{font-size:11px;font-weight:800;letter-spacing:1.2px;color:var(--accent);text-transform:uppercase}
+.today-bar .t-date{font-size:15px;font-weight:700;letter-spacing:-.2px}
+.today-bar .t-asof{font-size:11px;color:var(--muted)}
+.ai-take{display:block;background:linear-gradient(135deg,#6366f114,var(--card));border:1px solid #6366f145;border-radius:14px;padding:18px 22px;text-decoration:none;color:var(--text);transition:border-color .18s}
+.ai-take:hover{border-color:var(--accent)}
+.ai-take .at-tag{font-size:9px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--accent)}
+.ai-take .at-head{font-size:16px;font-weight:700;letter-spacing:-.2px;line-height:1.4;margin-top:6px}
+.ai-take .at-take{font-size:12px;color:var(--muted);line-height:1.6;margin-top:7px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.ai-take .at-more{font-size:11px;color:var(--accent);margin-top:9px;display:inline-block}
+.chip-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.chip{display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:20px;background:var(--card);border:1px solid var(--border);font-size:12px;font-weight:600;color:var(--text);text-decoration:none;font-variant-numeric:tabular-nums;transition:border-color .15s;cursor:pointer;font-family:inherit}
+.chip:hover{border-color:var(--border2)}
+.chip.up{color:var(--green);border-color:#22c55e30}
+.chip.dn{color:var(--red);border-color:#ef444430}
+.chip .c-sub{font-weight:400;color:var(--muted);font-size:11px}
+.chip.alert{color:var(--yellow);border-color:#f59e0b35}
+.chip.ask{color:#fff;background:linear-gradient(135deg,var(--accent),#8b5cf6);border-color:transparent}
+.chip.ask:hover{filter:brightness(1.12)}
+
+/* ── DASHBOARD GRID — compact tiles ── */
+.dash-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px}
 
 /* ── DASHBOARD CARD ── */
-.dash-card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:0;text-decoration:none;color:var(--text);transition:border-color .18s,transform .18s,box-shadow .18s;display:flex;flex-direction:column;overflow:hidden;position:relative}
-.dash-card:hover{border-color:var(--cc,var(--accent));transform:translateY(-3px);box-shadow:0 14px 48px #00000055}
+.dash-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:0;text-decoration:none;color:var(--text);transition:border-color .18s,transform .18s,box-shadow .18s;display:flex;flex-direction:column;overflow:hidden;position:relative}
+.dash-card:hover{border-color:var(--cc,var(--accent));transform:translateY(-2px);box-shadow:0 10px 32px #00000045}
 .dash-card:hover .card-arrow{opacity:1;transform:translateX(3px)}
-.card-top-bar{height:3px;background:var(--cc,var(--accent))}
-.card-body{padding:20px 22px 16px;display:flex;flex-direction:column;flex:1;gap:12px}
-.card-head{display:flex;justify-content:space-between;align-items:flex-start}
-.card-icon-wrap{width:48px;height:48px;border-radius:12px;display:flex;align-items:center;justify-content:center;background:color-mix(in srgb,var(--cc,var(--accent)) 12%,transparent);flex-shrink:0}
-.card-cat{font-size:9px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--cc,var(--accent));background:color-mix(in srgb,var(--cc,var(--accent)) 12%,transparent);padding:3px 8px;border-radius:20px;white-space:nowrap}
-.card-title{font-size:15px;font-weight:700;letter-spacing:-.2px;line-height:1.2}
-.card-desc{font-size:12px;color:var(--muted);line-height:1.65;flex:1}
-.card-footer{display:flex;align-items:center;justify-content:space-between;padding-top:10px;border-top:1px solid var(--border);margin-top:auto}
-.card-meta{font-size:10px;color:var(--dim);display:flex;gap:8px;flex-wrap:wrap}
+.card-top-bar{height:2px;background:var(--cc,var(--accent))}
+.card-body{padding:12px 14px 10px;display:flex;flex-direction:column;flex:1;gap:8px}
+.card-head{display:flex;justify-content:space-between;align-items:center}
+.card-icon-wrap{width:30px;height:30px;border-radius:8px;display:flex;align-items:center;justify-content:center;background:color-mix(in srgb,var(--cc,var(--accent)) 12%,transparent);flex-shrink:0}
+.card-icon-wrap svg{width:17px;height:17px}
+.card-cat{font-size:8px;font-weight:700;letter-spacing:.7px;text-transform:uppercase;color:var(--cc,var(--accent));background:color-mix(in srgb,var(--cc,var(--accent)) 12%,transparent);padding:2px 7px;border-radius:20px;white-space:nowrap}
+.card-title{font-size:13px;font-weight:700;letter-spacing:-.2px;line-height:1.2}
+.card-sub,.card-desc{display:none}
+.card-tags{display:flex;gap:6px;flex-wrap:wrap;align-items:center;justify-content:flex-start;padding-top:7px;border-top:1px solid var(--border);margin-top:auto}
+.card-tags .gtag{font-size:9.5px;padding:2px 7px;border-radius:10px;background:var(--border);color:var(--dim)}
+.card-footer{display:flex;align-items:center;justify-content:space-between;padding-top:7px;border-top:1px solid var(--border);margin-top:auto}
+.card-meta{font-size:9.5px;color:var(--dim);display:flex;gap:6px;flex-wrap:wrap}
 .card-meta span{background:var(--border);padding:2px 7px;border-radius:10px}
-.card-arrow{font-size:18px;color:var(--cc,var(--accent));opacity:.4;transition:all .18s;line-height:1}
+.card-arrow{font-size:15px;color:var(--cc,var(--accent));opacity:.4;transition:all .18s;line-height:1}
+
+/* ── FOLDED REFERENCE SECTIONS ── */
+details.fold{margin-top:36px}
+details.fold>summary{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;font-weight:700;display:flex;align-items:center;gap:10px;cursor:pointer;list-style:none;-webkit-user-select:none;user-select:none}
+details.fold>summary::-webkit-details-marker{display:none}
+details.fold>summary::before{content:'▸';color:var(--accent);transition:transform .15s;font-size:12px}
+details.fold[open]>summary::before{transform:rotate(90deg)}
+details.fold>summary::after{content:'';flex:1;height:1px;background:var(--border)}
+details.fold>.fold-body{margin-top:16px}
 
 /* ── HERO STATS ── */
 .hero{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:28px}
@@ -124,17 +157,23 @@ footer a{color:var(--muted);text-decoration:none}
 
 <main>
 
-  <!-- INTRO -->
-  <div class="intro">
-    <div class="intro-title">IS1 Coverage Desk</div>
-    <div class="intro-sub">Intelligence dashboards for SET Issuer Department 1 · <span id="introMeta">loading coverage data…</span></div>
-    <div class="visit-counter" id="visitCounter" style="display:none">
-      <span class="vc-icon">👁</span>
-      <span class="vc-text">You've visited</span>
-      <span class="vc-num" id="visitNum">—</span>
-      <span class="vc-text">times · first visit <span id="visitFirst">—</span></span>
-    </div>
+  <!-- ═══ TODAY BRIEFING ═══ -->
+  <div class="today-bar">
+    <span class="t-label">Today</span>
+    <span class="t-date" id="todayDate">—</span>
+    <span class="t-asof" id="todayAsOf"></span>
+    <span class="t-asof" style="margin-left:auto" id="introMeta">loading coverage data…</span>
   </div>
+
+  <a class="ai-take" href="ai-insights.html" id="aiTake" style="display:none">
+    <span class="at-tag">✦ AI morning take</span>
+    <div class="at-head" id="aiHeadline"></div>
+    <div class="at-take" id="aiMarketTake"></div>
+    <span class="at-more">read full commentary →</span>
+  </a>
+
+  <div class="chip-row" id="moverChips"></div>
+  <div class="chip-row" id="actionChips"></div>
 
   <!-- ═══ MEET THE AGENTS ═══ -->
   <style>
@@ -592,8 +631,10 @@ footer a{color:var(--muted);text-decoration:none}
 
   </div>
 
-  <!-- ═══ COVERAGE STATS ═══ -->
-  <div class="sec-title">Coverage Universe</div>
+  <!-- ═══ COVERAGE STATS (folded) ═══ -->
+  <details class="fold" id="foldCoverage">
+  <summary>Coverage Universe &amp; Team</summary>
+  <div class="fold-body">
   <div class="hero">
     <div class="hero-stat" style="--accent:#6366f1">
       <div class="lbl">Tickers</div>
@@ -617,14 +658,18 @@ footer a{color:var(--muted);text-decoration:none}
     </div>
   </div>
 
-  <div class="sec-title">Coverage by RM</div>
+  <div class="group-title" style="--gc:#22c55e"><span>By RM</span></div>
   <div class="rm-grid" id="rmGrid"></div>
 
-  <div class="sec-title">Coverage by Sector</div>
+  <div class="group-title" style="--gc:#f59e0b"><span>By Sector</span></div>
   <div class="sector-strip" id="sectorStrip"></div>
+  </div>
+  </details>
 
-  <!-- ═══ PIPELINE HEALTH ═══ -->
-  <div class="sec-title">Pipeline Health</div>
+  <!-- ═══ PIPELINE HEALTH (folded) ═══ -->
+  <details class="fold" id="foldHealth">
+  <summary>Pipeline Health</summary>
+  <div class="fold-body">
   <div class="diag-grid" id="diagnosticsPanel">
     <div class="diag-card">
       <div class="diag-title">RM Staleness</div>
@@ -642,16 +687,57 @@ footer a{color:var(--muted);text-decoration:none}
       <div id="coverageGap" style="font-size:12px;color:var(--muted)"></div>
     </div>
   </div>
+  </div>
+  </details>
 
 </main>
 
 <footer>
   <span>Data refreshed daily from SETSMART · classifier: Haiku 4.5 · ThaiBMA (bonds)</span>
+  <span class="t-asof" id="visitCounter" style="display:none">visited <span id="visitNum">—</span>× since <span id="visitFirst">—</span></span>
   <span><a href="https://github.com/tasinpongk-jpg/is1-coverage-dashboard" target="_blank" rel="noopener">view source</a></span>
 </footer>
 
 <script>
 const SECTOR_COLOR={AGRI:'#84cc16',FOOD:'#3b82f6',CONS:'#a855f7',CONMAT:'#ec4899',PROP:'#8b5cf6','PF&REIT':'#06b6d4',PFREIT:'#06b6d4'};
+
+// ── TODAY BRIEFING ────────────────────────────────────────────────────────────
+async function initToday(){
+  document.getElementById('todayDate').textContent=new Date().toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+  const safe=u=>fetch(u).then(r=>r.ok?r.json():null).catch(()=>null);
+  const [brief,unusual,ai]=await Promise.all([
+    safe('./data/morning-brief.json'),
+    safe('./data/unusual-trading.json'),
+    safe('./data/ai-insights.json'),
+  ]);
+  if(brief&&brief.asOf)document.getElementById('todayAsOf').textContent=`· prices as of ${brief.asOf}`;
+
+  if(ai&&ai.headline){
+    document.getElementById('aiHeadline').textContent=ai.headline;
+    document.getElementById('aiMarketTake').textContent=ai.market_take||'';
+    document.getElementById('aiTake').style.display='block';
+  }
+
+  if(brief&&Array.isArray(brief.rows)){
+    const rows=brief.rows.filter(r=>typeof r.pct1d==='number').sort((a,b)=>b.pct1d-a.pct1d);
+    const fmt=r=>`${r.pct1d>0?'+':''}${r.pct1d.toFixed(2)}%`;
+    const chip=(r,cls,sym)=>`<a class="chip ${cls}" href="coverage-morning-brief.html" title="last ${r.last}">${sym} ${r.tk} <span>${fmt(r)}</span></a>`;
+    const ups=rows.slice(0,3).filter(r=>r.pct1d>0).map(r=>chip(r,'up','▲'));
+    const dns=rows.slice(-3).reverse().filter(r=>r.pct1d<0).map(r=>chip(r,'dn','▼'));
+    document.getElementById('moverChips').innerHTML=[...ups,...dns].join('');
+  }
+
+  const acts=[];
+  if(unusual&&Array.isArray(unusual.alerts)){
+    const hi=unusual.alerts.filter(a=>a.severity==='high').length;
+    if(hi)acts.push(`<a class="chip alert" href="unusual-trading.html">⚠ ${hi} high-severity alert${hi>1?'s':''} <span class="c-sub">→</span></a>`);
+  }
+  if(ai&&Array.isArray(ai.watchlist)&&ai.watchlist.length)
+    acts.push(`<a class="chip" href="ai-insights.html">👁 ${ai.watchlist.length} on AI watchlist <span class="c-sub">→</span></a>`);
+  acts.push(`<button type="button" class="chip ask" onclick="IS1Dock&&IS1Dock.open('atlas')">✦ Ask Atlas about today</button>`);
+  document.getElementById('actionChips').innerHTML=acts.join('');
+}
+initToday();
 
 async function init(){
   let tj=null, status=null;
