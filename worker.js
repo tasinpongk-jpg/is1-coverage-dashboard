@@ -112,12 +112,23 @@ async function rmMap(env, origin) {
   return map;
 }
 
-async function ctxNews(env, origin) {
+/** Take up to `cap` items, but guarantee the user's RM rows survive the cut:
+ *  all of theirs first (recency order preserved), then everyone else's. */
+function rmFirst(items, cap, rms, userRm, tkOf) {
+  if (!userRm) return items.slice(0, cap);
+  const mine = [], rest = [];
+  for (const it of items) (rms[tkOf(it)] === userRm ? mine : rest).push(it);
+  return mine.concat(rest).slice(0, cap);
+}
+
+async function ctxNews(env, origin, userRm) {
   const [news, rms] = await Promise.all([
     loadJson(env, origin, "external-news"), rmMap(env, origin)]);
   const items = news?.items || [];
-  const lines = [`EXTERNAL NEWS (last ${news?.windowDays || "?"} days, ${items.length} items, asOf ${news?.asOf || "?"}; rm=owning RM):`];
-  for (const n of items.slice(0, 50)) {
+  const picked = rmFirst(items, 50, rms, userRm, (n) => n.tk);
+  const lines = [`EXTERNAL NEWS (last ${news?.windowDays || "?"} days, ${items.length} items, asOf ${news?.asOf || "?"}; rm=owning RM` +
+    (userRm ? `; the user's rm=${userRm} rows are listed first` : "") + "):"];
+  for (const n of picked) {
     const rm = rms[n.tk] ? ` rm=${rms[n.tk]}` : "";
     lines.push(`${(n.ts || "").slice(0, 10)} ${n.tk || n.sector || "-"}${rm} [${n.source}] ${n.title}` +
       (n.excerpt ? ` — ${n.excerpt.slice(0, 90)}` : ""));
@@ -125,11 +136,13 @@ async function ctxNews(env, origin) {
   return lines.join("\n");
 }
 
-async function ctxFilings(env, origin) {
+async function ctxFilings(env, origin, userRm) {
   const [pulse, rms] = await Promise.all([
     loadJson(env, origin, "disclosure-pulse"), rmMap(env, origin)]);
-  const lines = [`SET DISCLOSURES (last ${pulse?.windowDays || "?"} days, asOf ${pulse?.asOf || "?"}, newest first; rm=owning RM):`];
-  for (const f of (pulse?.filings || []).slice(0, 60)) {
+  const picked = rmFirst(pulse?.filings || [], 60, rms, userRm, (f) => f.tk);
+  const lines = [`SET DISCLOSURES (last ${pulse?.windowDays || "?"} days, asOf ${pulse?.asOf || "?"}; rm=owning RM` +
+    (userRm ? `; the user's rm=${userRm} rows are listed first` : "") + "):"];
+  for (const f of picked) {
     const rm = rms[f.tk] ? ` rm=${rms[f.tk]}` : "";
     lines.push(`${(f.ts || "").slice(0, 10)} ${f.tk}${rm} ${f.sector}: ${String(f.title).slice(0, 110)}`);
   }
@@ -138,7 +151,7 @@ async function ctxFilings(env, origin) {
     .sort((a, b) => (b.silentDays || 0) - (a.silentDays || 0));
   if (silent.length) {
     lines.push(`\nOVERDUE / SILENT TICKERS (${silent.length}):`);
-    for (const s of silent.slice(0, 30)) {
+    for (const s of rmFirst(silent, 30, rms, userRm, (x) => x.tk)) {
       const rm = rms[s.tk] ? ` rm=${rms[s.tk]}` : "";
       lines.push(`${s.tk}${rm} ${s.sector}: silent ${s.silentDays}d (last filed ${(s.lastFiledTs || "?").slice(0, 10)})`);
     }
@@ -146,10 +159,14 @@ async function ctxFilings(env, origin) {
   return lines.join("\n");
 }
 
-async function ctxOppday(env, origin) {
+async function ctxOppday(env, origin, userRm) {
   const opp = await loadJson(env, origin, "oppday-minutes");
+  const all = opp?.summaries || [];
+  const picked = userRm
+    ? all.filter((s) => s.rm === userRm).concat(all.filter((s) => s.rm !== userRm)).slice(0, 45)
+    : all.slice(0, 45);
   const lines = [`OPPDAY MINUTES (${opp?.period || "?"}, ${opp?.total || 0} companies, one-line overviews):`];
-  for (const s of (opp?.summaries || []).slice(0, 45)) {
+  for (const s of picked) {
     lines.push(`${s.ticker} ${s.sector} (${s.rm}): ${(s.overview || "").slice(0, 120)}`);
   }
   return lines.join("\n");
@@ -266,7 +283,7 @@ async function handleChat(request, env, origin) {
     ? `\nThe user is RM ${rm}. "My names/my coverage" means tickers with rm=${rm} ONLY.`
     : "";
 
-  const parts = await Promise.all(agent.contexts.map((fn) => fn(env, origin)));
+  const parts = await Promise.all(agent.contexts.map((fn) => fn(env, origin, rm)));
   const context = parts.filter(Boolean).join("\n\n");
   const result = await env.AI.run(CHAT_MODEL, {
     messages: [

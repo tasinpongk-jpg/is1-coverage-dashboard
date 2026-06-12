@@ -1,0 +1,30 @@
+name: Worker tests
+
+# Fast guard for the chat API: stubbed env, no Cloudflare access needed.
+# Runs only when the worker, dock, tests, or snapshot schema change.
+on:
+  push:
+    paths:
+      - "worker.js"
+      - "chat-dock.js"
+      - "tests/**"
+      - ".github/workflows/worker-test.yml"
+  pull_request:
+    paths:
+      - "worker.js"
+      - "chat-dock.js"
+      - "tests/**"
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Syntax check
+        run: node --check worker.js && node --check chat-dock.js
+      - name: Run worker tests
+        run: node --test tests/*.test.mjs
