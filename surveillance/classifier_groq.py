@@ -96,13 +96,17 @@ def classify_one_groq(
                     json.loads(args) if isinstance(args, str) else args)
                 return cls, f"groq/{model}"
             except urllib.error.HTTPError as e:
-                detail = e.read().decode("utf-8", "ignore")[:200]
-                last_err = RuntimeError(f"groq HTTP {e.code} [{model}]: {detail}")
+                detail = e.read().decode("utf-8", "ignore")[:400]
+                last_err = RuntimeError(f"groq HTTP {e.code} [{model}]: {detail[:200]}")
                 if e.code == 429:
-                    if "per day" in detail or "TPD" in detail or "RPD" in detail:
-                        print(f"  [{model}] daily quota hit — trying next model")
-                        break  # won't reset within this run; next model
-                    time.sleep(int(e.headers.get("Retry-After") or 2 ** (attempt + 2)))
+                    wait = int(e.headers.get("Retry-After") or 2 ** (attempt + 2))
+                    # daily quota, or any long cooldown: next model beats
+                    # stalling (Retry-After on TPD limits runs to minutes)
+                    if wait > 30 or "per day" in detail or "TPD" in detail \
+                            or "RPD" in detail:
+                        print(f"  [{model}] quota hit (retry-after {wait}s) — trying next model")
+                        break
+                    time.sleep(wait)
                     continue
                 if e.code == 400 and "tool_use_failed" in detail:
                     continue  # malformed tool call from model; regenerate
