@@ -4,12 +4,18 @@
  * Static assets are served by the assets pipeline (this code only runs for
  * paths that don't match an asset). One API route:
  *
- *   POST /api/chat   { messages: [{role, content}, ...] }
- *     -> { reply: "..." }
+ *   POST /api/chat   { agent: "atlas"|"hermes"|"pythia", messages: [...] }
+ *     -> { reply: "...", agent: "...", model: "..." }
  *
- * Grounded in the daily snapshot JSONs (read back from the deployed assets,
- * so the bot always answers from the same data the dashboard shows). Gated
- * by a shared token: Authorization: Bearer <CHAT_TOKEN worker secret>.
+ * Three named agents, each grounded in a different slice of the daily
+ * snapshot JSONs (read back from the deployed assets, so they always answer
+ * from the same data the dashboard shows):
+ *
+ *   atlas  — market data: prices, movers, alerts, strict threshold math
+ *   hermes — news messenger: external news, disclosures, oppday minutes
+ *   pythia — macro/sector: macro overlays, AI commentary, sector aggregates
+ *
+ * Gated by a shared token: Authorization: Bearer <CHAT_TOKEN worker secret>.
  * Inference: Cloudflare Workers AI (free-tier neuron allocation).
  */
 
@@ -52,28 +58,32 @@ async function loadJson(env, origin, name) {
   return r.ok ? r.json() : null;
 }
 
-/** Compact text context from today's snapshots — small enough for the
- *  model's window, complete enough to answer per-ticker questions. */
-async function buildContext(env, origin) {
-  const [tickers, brief, unusual, insights] = await Promise.all([
+// ---------------------------------------------------------------- contexts
+//
+// Each builder turns one snapshot family into compact text lines. Agents
+// declare which builders they use; everything stays well inside the model's
+// 24k window.
+
+async function ctxCoverage(env, origin) {
+  const tickers = await loadJson(env, origin, "tickers");
+  if (!tickers?.totals) return "";
+  return (
+    `COVERAGE: ${tickers.totals.all} tickers. By RM: ` +
+    Object.entries(tickers.totals.by_rm).map(([k, v]) => `${k} ${v}`).join(", ") +
+    ". By sector: " +
+    Object.entries(tickers.totals.by_sector).map(([k, v]) => `${k} ${v}`).join(", ")
+  );
+}
+
+async function ctxPrices(env, origin) {
+  const [tickers, brief] = await Promise.all([
     loadJson(env, origin, "tickers"),
     loadJson(env, origin, "morning-brief"),
-    loadJson(env, origin, "unusual-trading"),
-    loadJson(env, origin, "ai-insights"),
   ]);
   const cov = {};
   for (const t of tickers?.tickers || []) cov[t.tk] = t;
-
-  const lines = [];
-  lines.push(`AS-OF: ${brief?.asOf || "?"} (prices are previous close)`);
-  if (tickers?.totals) {
-    lines.push(`COVERAGE: ${tickers.totals.all} tickers. By RM: ` +
-      Object.entries(tickers.totals.by_rm).map(([k, v]) => `${k} ${v}`).join(", ") +
-      ". By sector: " +
-      Object.entries(tickers.totals.by_sector).map(([k, v]) => `${k} ${v}`).join(", "));
-  }
-
-  lines.push("\nTICKERS (tk sector rm | last pct1d pct5d pctYtd volRatio):");
+  const lines = [`AS-OF: ${brief?.asOf || "?"} (prices are previous close)`];
+  lines.push("TICKERS (tk sector rm | last pct1d pct5d pctYtd volRatio):");
   for (const r of brief?.rows || []) {
     const c = cov[r.tk] || {};
     const f = (x) => (x == null ? "-" : x);
@@ -81,45 +91,147 @@ async function buildContext(env, origin) {
       `${f(r.pct1d)} ${f(r.pct5d)} ${f(r.pctYtd)} ${f(r.volRatio)}` +
       (r.hi52 ? " 52wHI" : "") + (r.lo52 ? " 52wLO" : ""));
   }
+  return lines.join("\n");
+}
 
+async function ctxAlerts(env, origin) {
+  const unusual = await loadJson(env, origin, "unusual-trading");
   const alerts = (unusual?.alerts || []).filter(
     (a) => a.severity === "high" || a.severity === "medium");
-  lines.push(`\nUNUSUAL-TRADING ALERTS (${alerts.length} high/medium):`);
+  const lines = [`UNUSUAL-TRADING ALERTS (${alerts.length} high/medium, asOf ${unusual?.asOf || "?"}):`];
   for (const a of alerts.slice(0, 60)) {
     lines.push(`${a.tk} ${a.sector}: ${a.type} ${a.label} [${a.severity}]`);
   }
+  return lines.join("\n");
+}
 
-  if (insights) {
-    lines.push(`\nTODAY'S AI COMMENTARY (asOf ${insights.asOf}):`);
-    lines.push(`Headline: ${insights.headline}`);
-    lines.push(`Take: ${insights.market_take}`);
-    for (const s of insights.sector_notes || []) {
-      lines.push(`${s.sector}: ${s.note}`);
-    }
-    for (const w of insights.watchlist || []) {
-      lines.push(`Watch ${w.tk} (${w.rm}): ${w.reason}`);
+async function ctxNews(env, origin) {
+  const news = await loadJson(env, origin, "external-news");
+  const items = news?.items || [];
+  const lines = [`EXTERNAL NEWS (last ${news?.windowDays || "?"} days, ${items.length} items, asOf ${news?.asOf || "?"}):`];
+  for (const n of items.slice(0, 50)) {
+    lines.push(`${(n.ts || "").slice(0, 10)} ${n.tk || n.sector || "-"} [${n.source}] ${n.title}` +
+      (n.excerpt ? ` — ${n.excerpt.slice(0, 90)}` : ""));
+  }
+  return lines.join("\n");
+}
+
+async function ctxFilings(env, origin) {
+  const pulse = await loadJson(env, origin, "disclosure-pulse");
+  const lines = [`SET DISCLOSURES (last ${pulse?.windowDays || "?"} days, asOf ${pulse?.asOf || "?"}, newest first):`];
+  for (const f of (pulse?.filings || []).slice(0, 60)) {
+    lines.push(`${(f.ts || "").slice(0, 10)} ${f.tk} ${f.sector}: ${String(f.title).slice(0, 110)}`);
+  }
+  const silent = (pulse?.status || [])
+    .filter((s) => s.overdue)
+    .sort((a, b) => (b.silentDays || 0) - (a.silentDays || 0));
+  if (silent.length) {
+    lines.push(`\nOVERDUE / SILENT TICKERS (${silent.length}):`);
+    for (const s of silent.slice(0, 30)) {
+      lines.push(`${s.tk} ${s.sector}: silent ${s.silentDays}d (last filed ${(s.lastFiledTs || "?").slice(0, 10)})`);
     }
   }
   return lines.join("\n");
 }
 
-const SYSTEM_PROMPT =
-  "You are the coverage assistant on the IS1 team dashboard. IS1 is a " +
-  "relationship-manager team at a Thai securities firm covering SET-listed " +
-  "tickers in FOOD, PROP, PF&REIT, AGRI, CONS and CONMAT. RMs: Champ, Kae, " +
-  "Orn, Gift, Pim, Tony.\n" +
-  "Answer ONLY from the coverage data below. If something is not in the " +
-  "data (intraday prices, news details, tickers outside coverage), say so " +
-  "and suggest where to look (morning brief, disclosure pulse, SET website). " +
-  "Quote numbers exactly as given — never round across a threshold. Be " +
+async function ctxOppday(env, origin) {
+  const opp = await loadJson(env, origin, "oppday-minutes");
+  const lines = [`OPPDAY MINUTES (${opp?.period || "?"}, ${opp?.total || 0} companies, one-line overviews):`];
+  for (const s of (opp?.summaries || []).slice(0, 45)) {
+    lines.push(`${s.ticker} ${s.sector} (${s.rm}): ${(s.overview || "").slice(0, 120)}`);
+  }
+  return lines.join("\n");
+}
+
+async function ctxMacro(env, origin) {
+  const macro = await loadJson(env, origin, "macro-overlays");
+  const lines = [`MACRO OVERLAYS (${macro?.total || 0} items, asOf ${macro?.asOf || "?"}):`];
+  for (const m of (macro?.items || []).slice(0, 50)) {
+    lines.push(`${(m.ts || "").slice(0, 10)} [${m.source}/${m.category}] ${m.title}` +
+      (m.excerpt ? ` — ${m.excerpt.slice(0, 140)}` : ""));
+  }
+  return lines.join("\n");
+}
+
+async function ctxInsights(env, origin) {
+  const insights = await loadJson(env, origin, "ai-insights");
+  if (!insights) return "";
+  const lines = [`TODAY'S AI COMMENTARY (asOf ${insights.asOf}):`];
+  lines.push(`Headline: ${insights.headline}`);
+  lines.push(`Take: ${insights.market_take}`);
+  for (const s of insights.sector_notes || []) lines.push(`${s.sector}: ${s.note}`);
+  for (const w of insights.watchlist || []) lines.push(`Watch ${w.tk} (${w.rm}): ${w.reason}`);
+  return lines.join("\n");
+}
+
+async function ctxSectorAgg(env, origin) {
+  const brief = await loadJson(env, origin, "morning-brief");
+  const by = {};
+  for (const r of brief?.rows || []) {
+    if (r.pct1d == null || !r.sector) continue;
+    (by[r.sector] ||= []).push(r);
+  }
+  const lines = [`SECTOR AGGREGATES (from morning brief, asOf ${brief?.asOf || "?"}):`];
+  for (const [sec, rows] of Object.entries(by)) {
+    const avg = (k) => (rows.reduce((s, r) => s + (r[k] || 0), 0) / rows.length).toFixed(2);
+    const up = rows.filter((r) => r.pct1d > 0).length;
+    lines.push(`${sec}: ${rows.length} names, avg 1d ${avg("pct1d")}%, avg ytd ${avg("pctYtd")}%, ` +
+      `breadth ${up}/${rows.length} up`);
+  }
+  return lines.join("\n");
+}
+
+// ---------------------------------------------------------------- agents
+
+const SHARED_RULES =
+  "IS1 is a relationship-manager team at a Thai securities firm covering " +
+  "SET-listed tickers in FOOD, PROP, PF&REIT, AGRI, CONS and CONMAT. " +
+  "RMs: Champ, Kae, Orn, Gift, Pim, Tony.\n" +
+  "Answer ONLY from the data below. If something is not in the data " +
+  "(intraday prices, tickers outside coverage), say so and name which " +
+  "dashboard page or sibling agent could help. Quote numbers exactly as " +
+  "given — never round across a threshold (-1.93 is NOT beyond -2). Be " +
   "concise: short answers, tables only when listing several tickers. Reply " +
-  "in the user's language (Thai or English).\n\nCOVERAGE DATA:\n";
+  "in the user's language (Thai or English). When you mention a covered " +
+  "ticker, write its symbol in UPPERCASE so the dashboard can link it.";
+
+const AGENTS = {
+  atlas: {
+    persona:
+      "You are Atlas, the market-data agent on the IS1 coverage dashboard. " +
+      "You answer with numbers: prices, percent moves, movers, volume " +
+      "ratios, unusual-trading alerts, threshold checks. Always state the " +
+      "as-of date since prices are previous close.\n",
+    contexts: [ctxCoverage, ctxPrices, ctxAlerts],
+  },
+  hermes: {
+    persona:
+      "You are Hermes, the news messenger on the IS1 coverage dashboard. " +
+      "You connect names to catalysts: external news, SET disclosures, " +
+      "silent/overdue filers and Oppday takeaways. Report tight bullets — " +
+      "date, source, one-line impact — and flag anything a client might " +
+      "call about.\n",
+    contexts: [ctxCoverage, ctxNews, ctxFilings, ctxOppday],
+  },
+  pythia: {
+    persona:
+      "You are Pythia, the macro and sector strategist on the IS1 coverage " +
+      "dashboard. You read macro overlays (BLS, REIC, ThaiBMA), sector " +
+      "aggregates and the daily AI commentary to answer top-down questions: " +
+      "which sectors lead or lag, what macro prints matter for FOOD/PROP/" +
+      "PF&REIT, what to watch this week.\n",
+    contexts: [ctxCoverage, ctxSectorAgg, ctxMacro, ctxInsights],
+  },
+};
 
 async function handleChat(request, env, origin) {
   if (!authorized(request, env)) {
     return json({ error: "missing or wrong access token" }, 401);
   }
   const body = await request.json().catch(() => ({}));
+  const agentName = AGENTS[body.agent] ? body.agent : "atlas";
+  const agent = AGENTS[agentName];
+
   const history = Array.isArray(body.messages) ? body.messages : [];
   const cleaned = history
     .filter((m) => (m.role === "user" || m.role === "assistant") &&
@@ -130,14 +242,15 @@ async function handleChat(request, env, origin) {
     return json({ error: "messages must end with a user turn" }, 400);
   }
 
-  const context = await buildContext(env, origin);
+  const parts = await Promise.all(agent.contexts.map((fn) => fn(env, origin)));
+  const context = parts.filter(Boolean).join("\n\n");
   const result = await env.AI.run(CHAT_MODEL, {
     messages: [
-      { role: "system", content: SYSTEM_PROMPT + context },
+      { role: "system", content: agent.persona + SHARED_RULES + "\n\nDATA:\n" + context },
       ...cleaned,
     ],
     max_tokens: 800,
     temperature: 0.2,
   });
-  return json({ reply: result.response ?? "", model: CHAT_MODEL });
+  return json({ reply: result.response ?? "", agent: agentName, model: CHAT_MODEL });
 }
