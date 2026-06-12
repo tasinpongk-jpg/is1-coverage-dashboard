@@ -242,6 +242,16 @@ jobs:
         run: python scripts/build_ticker_summary.py
         continue-on-error: true
 
+      # AI morning commentary over the snapshots just built (Groq free tier,
+      # ~5 sec). Script exits 0 on any failure so commentary never blocks the
+      # data deploy; the page falls back to the previous day's file.
+      - name: Build AI insights commentary
+        env:
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          PYTHONIOENCODING: utf-8
+        run: python scripts/build_ai_insights.py
+        continue-on-error: true
+
       - name: Commit and push if data changed
         # Only push from main. Manual dispatches from feature branches still
         # exercise the full build (and surface failures in build-status.json

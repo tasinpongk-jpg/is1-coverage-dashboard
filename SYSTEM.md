@@ -229,7 +229,9 @@ gh run list --repo tasinpongk-jpg/is1-coverage-dashboard --workflow daily.yml --
 ## Debug pointers
 
 - **CI workflow status:** https://github.com/tasinpongk-jpg/is1-coverage-dashboard/actions
-- **Public dashboard:** https://cloudflare-workers-autoconfig-is1-coverage-dashboard.tasinpong-k.workers.dev/
+- **Public dashboard:** https://is1-coverage-dashboard.tasinpong-k.workers.dev/
+  (the old `cloudflare-workers-autoconfig-…` worker is an orphaned first-setup
+  deploy that CI never updates — delete it in the Cloudflare dash when convenient)
 - **R2 console:** https://dash.cloudflare.com → R2 → setsmart-data
 - **Local logs:**
   - Vault refresh: `surveillance/logs/vault_refresh_YYYYMMDD.log`
@@ -238,7 +240,7 @@ gh run list --repo tasinpongk-jpg/is1-coverage-dashboard --workflow daily.yml --
 ## Two known gotchas (recorded for future-you)
 
 1. `duckdb` version pin in CI must match the writer's local version. Both
-   are pinned at 1.5.2; if you upgrade locally, bump CI requirements too,
+   are pinned at 1.4.4; if you upgrade locally, bump CI requirements too,
    or `_open_surveillance_db` silently fails and disclosure-pulse falls
    back to live mode (returns empty).
 
