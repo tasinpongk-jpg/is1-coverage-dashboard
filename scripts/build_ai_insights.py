@@ -29,7 +29,7 @@ MODEL = os.environ.get("AI_INSIGHTS_MODEL", "openai/gpt-oss-120b")
 
 SYSTEM_PROMPT = (
     "You are the morning analyst for IS1, a relationship-manager team at a Thai "
-    "securities firm covering 231 SET tickers (FOOD, PROP, PF&REIT, AGRI, CONS, "
+    "securities firm covering 232 SET tickers (FOOD, PROP, PF&REIT, AGRI, CONS, "
     "CONMAT). RMs: Champ, Kae, Orn, Gift, Pim, Tony. You receive a digest of "
     "today's coverage data: price moves, volume, unusual-trading alerts and "
     "disclosure filings. Write a concise, factual morning commentary an RM can "

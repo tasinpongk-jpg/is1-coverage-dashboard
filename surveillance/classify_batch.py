@@ -210,7 +210,7 @@ def main() -> int:
         primary_hl = row["headline_en"] or row.get("headline_th") or ""
         if classifier_groq.available():
             try:
-                cls = classifier_groq.classify_one_groq(
+                cls, model_tag = classifier_groq.classify_one_groq(
                     symbol=row["symbol"] or "",
                     datetime_iso=row["datetime_iso"],
                     headline_en=row["headline_en"],
@@ -222,7 +222,7 @@ def main() -> int:
                     cls.severity, cls.category,
                     cls.summary_en, cls.summary_th,
                     cls.suggested_action, cls.rationale,
-                    classifier_groq.MODEL_TAG,
+                    model_tag,
                 )
                 counts[cls.severity] += 1
                 groq_hits += 1

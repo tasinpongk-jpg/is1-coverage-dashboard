@@ -95,8 +95,10 @@ jobs:
         working-directory: surveillance
         run: python poll.py --lookback-days ${{ github.event.inputs.lookback_days || '1' }}
 
-      - name: Classify new items (rules-only — misses tagged 'unclassified')
+      - name: Classify new items (rules first, Groq free-tier fall-through)
         working-directory: surveillance
+        env:
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
         run: python classify_batch.py
 
       - name: Upload updated DuckDB back to R2

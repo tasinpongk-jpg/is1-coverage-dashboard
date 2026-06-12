@@ -84,8 +84,10 @@ jobs:
         working-directory: surveillance
         run: python poll.py --lookback-days 2
 
-      - name: Classify (rules-only — misses tagged 'unclassified')
+      - name: Classify (rules first, Groq free-tier fall-through on misses)
         working-directory: surveillance
+        env:
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
         run: python classify_batch.py
 
       # External news / trading signs / SEC enforcement / macro overlays.
@@ -250,6 +252,19 @@ jobs:
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
           PYTHONIOENCODING: utf-8
         run: python scripts/build_ai_insights.py
+        continue-on-error: true
+
+      # Morning brief push — one email, a personalized section per RM, over
+      # the snapshots just built. Exits 0 on any failure (never blocks deploy).
+      - name: Send morning brief push (per-RM sections)
+        env:
+          EMAIL_USERNAME: ${{ secrets.EMAIL_USERNAME }}
+          EMAIL_APP_PASSWORD: ${{ secrets.EMAIL_APP_PASSWORD }}
+          EMAIL_FROM: ${{ secrets.EMAIL_FROM }}
+          EMAIL_TO: ${{ secrets.EMAIL_TO }}
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          PYTHONIOENCODING: utf-8
+        run: python scripts/build_morning_push.py
         continue-on-error: true
 
       - name: Commit and push if data changed
