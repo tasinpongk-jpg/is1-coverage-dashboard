@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Visit Planner — IS1 Team</title>
+<style>
+:root{
+  --bg:#0a0c12;--bg2:#0f1117;--card:#14171f;--card2:#1a1d27;
+  --border:#232733;--border2:#2a2f3d;
+  --text:#e6e8ed;--muted:#8089a0;--dim:#5a627a;
+  --accent:#22c55e;--green:#22c55e;--red:#ef4444;--yellow:#f59e0b;--blue:#3b82f6;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{background:var(--bg);color:var(--text);font-family:'Inter','Segoe UI',system-ui,sans-serif;-webkit-font-smoothing:antialiased;min-height:100vh}
+header{padding:16px 28px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;background:#0a0c12ee;backdrop-filter:blur(14px)}
+h1{font-size:16px;font-weight:700}
+h1 .sub{color:var(--muted);font-weight:400;font-size:12.5px}
+.nav{display:flex;gap:12px;align-items:center}
+.nav a{color:var(--muted);text-decoration:none;font-size:12px;padding:4px 10px;border-radius:6px}
+.nav a:hover{color:var(--text);background:var(--card2)}
+.stale{font-size:11px;padding:3px 10px;border-radius:20px;background:#22c55e18;color:var(--green);border:1px solid #22c55e33}
+main{max-width:1280px;margin:0 auto;padding:24px 28px 60px}
+
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:20px}
+.kpi{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px 18px}
+.kpi .n{font-size:24px;font-weight:800;font-variant-numeric:tabular-nums}
+.kpi .l{font-size:11px;color:var(--muted);margin-top:3px;text-transform:uppercase;letter-spacing:.5px}
+.kpi.warn .n{color:var(--yellow)}
+.kpi.good .n{color:var(--green)}
+
+.filters{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px;align-items:center}
+.filters select,.filters input{background:var(--bg2);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:7px 11px;font:500 12.5px 'Inter',system-ui,sans-serif}
+.filters input{min-width:200px}
+.filters select:focus,.filters input:focus{outline:none;border-color:var(--accent)}
+.hint{margin-left:auto;font-size:11px;color:var(--dim)}
+
+table{width:100%;border-collapse:collapse;background:var(--card);border:1px solid var(--border);border-radius:12px;overflow:hidden}
+thead th{font-size:10.5px;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);text-align:left;padding:11px 14px;border-bottom:1px solid var(--border);background:var(--bg2)}
+tbody td{padding:11px 14px;border-bottom:1px solid var(--border);font-size:12.5px;vertical-align:top}
+tbody tr:hover{background:var(--card2)}
+tbody tr:last-child td{border-bottom:none}
+a.tk{color:var(--blue);font-weight:700;text-decoration:none}
+a.tk:hover{text-decoration:underline}
+.pri{display:inline-block;font-size:10.5px;font-weight:800;padding:2px 9px;border-radius:10px}
+.pri.A{background:#ef444422;color:#f87171;border:1px solid #ef444455}
+.pri.B{background:#f59e0b1c;color:#fbbf24;border:1px solid #f59e0b44}
+.pri.C{background:#5a627a22;color:var(--muted);border:1px solid var(--border2)}
+.thesis{color:var(--muted);line-height:1.5;max-width:480px}
+.thesis.draft{color:var(--dim);font-style:italic}
+.thesis .dtag{font-size:9.5px;font-style:normal;color:var(--yellow);background:#f59e0b14;border:1px solid #f59e0b33;border-radius:8px;padding:1px 6px;margin-left:6px;vertical-align:1px}
+.visit{font-variant-numeric:tabular-nums;white-space:nowrap}
+.visit.never{color:var(--dim)}
+.visit.recent{color:var(--green)}
+.next{color:var(--text);max-width:240px;line-height:1.5}
+.next.none{color:var(--dim)}
+.empty{text-align:center;padding:60px;color:var(--muted)}
+.foot{font-size:11px;color:var(--dim);margin-top:14px;line-height:1.7}
+.foot code{background:var(--card2);border:1px solid var(--border);border-radius:4px;padding:1px 6px}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Visit Planner <span class="sub">— company visits: priorities, theses, last seen, next actions</span></h1>
+  <nav class="nav">
+    <a href="index.html">Index</a>
+    <a href="ticker-summary.html">Tickers</a>
+    <a href="coverage-morning-brief.html">Brief</a>
+    <a href="disclosure-pulse.html">Disclosures</a>
+    <span class="stale" id="staleBadge">…</span>
+  </nav>
+</header>
+
+<main>
+  <div class="kpis" id="kpis"></div>
+
+  <div class="filters">
+    <select id="fRm"><option value="">All RMs</option></select>
+    <select id="fPri"><option value="">All priorities</option>
+      <option>A</option><option>B</option><option>C</option></select>
+    <select id="fSector"><option value="">All sectors</option></select>
+    <select id="fVisited"><option value="">Visited + not</option>
+      <option value="no">Not visited yet</option>
+      <option value="yes">Visited</option></select>
+    <input id="fQ" type="search" placeholder="search ticker or thesis…">
+    <span class="hint" id="count"></span>
+  </div>
+
+  <table>
+    <thead><tr>
+      <th>Ticker</th><th>Sector</th><th>RM</th><th>Pri</th>
+      <th>Thesis</th><th>Last visit</th><th>Next action</th>
+    </tr></thead>
+    <tbody id="rows"><tr><td colspan="7" class="empty">Loading…</td></tr></tbody>
+  </table>
+
+  <div class="foot">
+    Data comes from the Obsidian vault's coverage notes, exported by
+    <code>vault_visits.py export</code>. Before a meeting:
+    <code>python3 prep_visit.py TICKER</code> builds the brief. After:
+    <code>python3 vault_visits.py log TICKER "notes" --next "action"</code>
+    sets last-visit and the note, then re-export to refresh this page.
+    Theses tagged <span class="dtag" style="font-size:9.5px;color:var(--yellow)">draft</span>
+    were auto-written from company reports — edit them in the vault.
+  </div>
+</main>
+
+<script>
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+let DATA = null;
+
+function kpis(t) {
+  document.getElementById('kpis').innerHTML = `
+    <div class="kpi"><div class="n">${t.all}</div><div class="l">coverage names</div></div>
+    <div class="kpi ${t.visited ? 'good' : 'warn'}"><div class="n">${t.visited}</div><div class="l">visited</div></div>
+    <div class="kpi"><div class="n">${t.withNextAction}</div><div class="l">open next actions</div></div>
+    <div class="kpi"><div class="n">${DATA.rows.filter(r => r.priority === 'A').length}</div><div class="l">priority A</div></div>`;
+}
+
+function visitCell(r) {
+  if (!r.lastVisit) return '<span class="visit never">never</span>';
+  const days = Math.round((Date.now() - new Date(r.lastVisit)) / 864e5);
+  const cls = days <= 90 ? 'recent' : '';
+  return `<span class="visit ${cls}">${esc(r.lastVisit)} <span style="color:var(--dim)">(${days}d)</span></span>`;
+}
+
+function render() {
+  const rm = fRm.value, pri = fPri.value, sec = fSector.value,
+        vis = fVisited.value, q = fQ.value.trim().toLowerCase();
+  const rows = DATA.rows.filter(r =>
+    (!rm || r.rm === rm) && (!pri || r.priority === pri) &&
+    (!sec || r.sector === sec) &&
+    (!vis || (vis === 'yes') === !!r.lastVisit) &&
+    (!q || r.tk.toLowerCase().includes(q) || (r.thesis || '').toLowerCase().includes(q)));
+  document.getElementById('count').textContent = `${rows.length} shown`;
+  document.getElementById('rows').innerHTML = rows.length ? rows.map(r => `
+    <tr>
+      <td><a class="tk" href="ticker-summary.html?tk=${esc(r.tk)}">${esc(r.tk)}</a></td>
+      <td>${esc(r.sector)}</td><td>${esc(r.rm)}</td>
+      <td><span class="pri ${esc(r.priority)}">${esc(r.priority)}</span></td>
+      <td><div class="thesis ${r.thesisDraft ? 'draft' : ''}">${esc((r.thesis || '—').replace(/\s*\*\(draft[^)]*\)\*\s*/, ''))}${r.thesisDraft ? '<span class="dtag">draft</span>' : ''}</div></td>
+      <td>${visitCell(r)}</td>
+      <td><div class="next ${r.nextAction ? '' : 'none'}">${esc(r.nextAction || '—')}</div></td>
+    </tr>`).join('') :
+    '<tr><td colspan="7" class="empty">No rows match the filters.</td></tr>';
+}
+
+async function init() {
+  try {
+    DATA = await fetch('data/visits.json').then(r => {
+      if (!r.ok) throw new Error('no visits.json yet — run vault_visits.py export');
+      return r.json();
+    });
+  } catch (e) {
+    document.getElementById('rows').innerHTML =
+      `<tr><td colspan="7" class="empty">${esc(e.message)}</td></tr>`;
+    return;
+  }
+  document.getElementById('staleBadge').textContent = 'exported ' + DATA.generated;
+  kpis(DATA.totals);
+  const fill = (id, vals) => {
+    const el = document.getElementById(id);
+    [...new Set(vals)].sort().forEach(v => el.insertAdjacentHTML('beforeend', `<option>${esc(v)}</option>`));
+  };
+  fill('fRm', DATA.rows.map(r => r.rm));
+  fill('fSector', DATA.rows.map(r => r.sector));
+  const myRm = localStorage.getItem('is1_rm');
+  if (myRm && DATA.rows.some(r => r.rm === myRm)) fRm.value = myRm;
+  ['fRm', 'fPri', 'fSector', 'fVisited'].forEach(id =>
+    document.getElementById(id).addEventListener('change', render));
+  fQ.addEventListener('input', render);
+  render();
+}
+init();
+</script>
+<script src="nav.js" defer></script>
+<script src="chat-dock.js" defer></script>
+</body>
+</html>

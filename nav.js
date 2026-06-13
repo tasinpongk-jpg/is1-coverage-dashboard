@@ -48,6 +48,12 @@
         ["macro-overlays.html", "Macro Overlays"],
       ],
     },
+    {
+      label: "Visits", color: "#22c55e",
+      pages: [
+        ["visits.html", "Visit Planner"],
+      ],
+    },
   ];
 
   var nav = document.querySelector("nav.nav");
