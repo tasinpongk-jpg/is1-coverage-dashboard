@@ -13,7 +13,7 @@
 }
 *{box-sizing:border-box;margin:0;padding:0}
 html,body{background:var(--bg);color:var(--text);font-family:'Inter','Segoe UI',system-ui,sans-serif;-webkit-font-smoothing:antialiased;min-height:100vh}
-header{padding:16px 28px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;background:#0a0c12ee;backdrop-filter:blur(14px)}
+header{padding:16px 28px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;background:#0a0c12ee;-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px)}
 h1{font-size:16px;font-weight:700}
 h1 .sub{color:var(--muted);font-weight:400;font-size:12.5px}
 .nav{display:flex;gap:12px;align-items:center}
@@ -37,6 +37,7 @@ main{max-width:1280px;margin:0 auto;padding:24px 28px 60px}
 
 table{width:100%;border-collapse:collapse;background:var(--card);border:1px solid var(--border);border-radius:12px;overflow:hidden}
 thead th{font-size:10.5px;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);text-align:left;padding:11px 14px;border-bottom:1px solid var(--border);background:var(--bg2)}
+.vh{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
 tbody td{padding:11px 14px;border-bottom:1px solid var(--border);font-size:12.5px;vertical-align:top}
 tbody tr:hover{background:var(--card2)}
 tbody tr:last-child td{border-bottom:none}
@@ -55,6 +56,24 @@ a.tk:hover{text-decoration:underline}
 .next{color:var(--text);max-width:240px;line-height:1.5}
 .next.none{color:var(--dim)}
 .empty{text-align:center;padding:60px;color:var(--muted)}
+
+tbody tr.main{cursor:pointer}
+tbody tr.main td.exp{color:var(--dim);width:18px;text-align:center;font-size:11px;transition:transform .15s}
+tbody tr.main.open td.exp{transform:rotate(90deg);color:var(--accent)}
+.flag-pill{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:700;color:#f87171;background:#ef444418;border:1px solid #ef444444;border-radius:10px;padding:1px 8px}
+.flag-pill.none{color:var(--dim);background:none;border-color:transparent;font-weight:400}
+.seg{font-size:10.5px;color:var(--dim);margin-top:2px}
+tr.panel>td{padding:0;border-bottom:1px solid var(--border);background:var(--bg2)}
+.panel-inner{padding:16px 20px 18px 46px;display:grid;grid-template-columns:1fr 1fr;gap:18px}
+.panel-inner.one{grid-template-columns:1fr}
+.pblock h4{font-size:10.5px;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);margin-bottom:7px}
+.pblock .fin{font-size:12.5px;color:var(--text);line-height:1.6}
+.pblock ul{list-style:none;display:flex;flex-direction:column;gap:6px}
+.pblock li{font-size:12px;line-height:1.5;padding:7px 10px;border-radius:6px;background:var(--card)}
+.pblock li.flag{border-left:3px solid var(--red);color:#fca5a5}
+.pblock li.q{border-left:3px solid var(--blue)}
+.panel-act{grid-column:1/-1;font-size:11px;color:var(--dim);border-top:1px dashed var(--border);padding-top:10px}
+.panel-act code{background:var(--card);border:1px solid var(--border);border-radius:4px;padding:1px 6px;color:var(--muted)}
 .foot{font-size:11px;color:var(--dim);margin-top:14px;line-height:1.7}
 .foot code{background:var(--card2);border:1px solid var(--border);border-radius:4px;padding:1px 6px}
 </style>
@@ -76,23 +95,25 @@ a.tk:hover{text-decoration:underline}
   <div class="kpis" id="kpis"></div>
 
   <div class="filters">
-    <select id="fRm"><option value="">All RMs</option></select>
-    <select id="fPri"><option value="">All priorities</option>
+    <select id="fRm" title="Filter by RM"><option value="">All RMs</option></select>
+    <select id="fPri" title="Filter by priority"><option value="">All priorities</option>
       <option>A</option><option>B</option><option>C</option></select>
-    <select id="fSector"><option value="">All sectors</option></select>
-    <select id="fVisited"><option value="">Visited + not</option>
+    <select id="fSector" title="Filter by sector"><option value="">All sectors</option></select>
+    <select id="fVisited" title="Filter by visit status"><option value="">Visited + not</option>
       <option value="no">Not visited yet</option>
       <option value="yes">Visited</option></select>
+    <select id="fFlag" title="Filter by flags"><option value="">Flagged + not</option>
+      <option value="yes">Flagged only</option></select>
     <input id="fQ" type="search" placeholder="search ticker or thesis…">
     <span class="hint" id="count"></span>
   </div>
 
   <table>
     <thead><tr>
-      <th>Ticker</th><th>Sector</th><th>RM</th><th>Pri</th>
-      <th>Thesis</th><th>Last visit</th><th>Next action</th>
+      <th><span class="vh">exp</span></th><th>Ticker</th><th>Sector</th><th>RM</th><th>Pri</th>
+      <th>Thesis</th><th>Flags</th><th>Last visit</th><th>Next action</th>
     </tr></thead>
-    <tbody id="rows"><tr><td colspan="7" class="empty">Loading…</td></tr></tbody>
+    <tbody id="rows"><tr><td colspan="9" class="empty">Loading…</td></tr></tbody>
   </table>
 
   <div class="foot">
@@ -114,8 +135,24 @@ function kpis(t) {
   document.getElementById('kpis').innerHTML = `
     <div class="kpi"><div class="n">${t.all}</div><div class="l">coverage names</div></div>
     <div class="kpi ${t.visited ? 'good' : 'warn'}"><div class="n">${t.visited}</div><div class="l">visited</div></div>
+    <div class="kpi ${t.flagged ? 'warn' : ''}"><div class="n">${t.flagged ?? 0}</div><div class="l">with flags</div></div>
     <div class="kpi"><div class="n">${t.withNextAction}</div><div class="l">open next actions</div></div>
     <div class="kpi"><div class="n">${DATA.rows.filter(r => r.priority === 'A').length}</div><div class="l">priority A</div></div>`;
+}
+
+function panel(r) {
+  const two = r.questions && r.questions.length;
+  const fin = r.financials ? `<div class="pblock"><h4>Financial snapshot</h4><div class="fin">${esc(r.financials)}</div>${r.segment ? `<div class="seg">Segment: ${esc(r.segment)}</div>` : ''}</div>` : '';
+  const flags = r.flags && r.flags.length
+    ? `<div class="pblock"><h4>Watch flags (${r.flags.length})</h4><ul>${r.flags.map(f => `<li class="flag">${esc(f)}</li>`).join('')}</ul></div>` : '';
+  const qs = r.questions && r.questions.length
+    ? `<div class="pblock"><h4>Prepared questions for management</h4><ul>${r.questions.map(q => `<li class="q">${esc(q)}</li>`).join('')}</ul></div>` : '';
+  const left = fin + flags;
+  return `<div class="panel-inner ${two ? '' : 'one'}">
+    ${left ? `<div>${left}</div>` : ''}
+    ${qs}
+    <div class="panel-act">Before the meeting: <code>python3 prep_visit.py ${esc(r.tk)}</code> builds the full brief · after: <code>python3 vault_visits.py log ${esc(r.tk)} "notes" --next "action"</code></div>
+  </div>`;
 }
 
 function visitCell(r) {
@@ -127,24 +164,39 @@ function visitCell(r) {
 
 function render() {
   const rm = fRm.value, pri = fPri.value, sec = fSector.value,
-        vis = fVisited.value, q = fQ.value.trim().toLowerCase();
+        vis = fVisited.value, fl = fFlag.value, q = fQ.value.trim().toLowerCase();
   const rows = DATA.rows.filter(r =>
     (!rm || r.rm === rm) && (!pri || r.priority === pri) &&
     (!sec || r.sector === sec) &&
     (!vis || (vis === 'yes') === !!r.lastVisit) &&
+    (!fl || !!(r.flags && r.flags.length)) &&
     (!q || r.tk.toLowerCase().includes(q) || (r.thesis || '').toLowerCase().includes(q)));
-  document.getElementById('count').textContent = `${rows.length} shown`;
-  document.getElementById('rows').innerHTML = rows.length ? rows.map(r => `
-    <tr>
-      <td><a class="tk" href="ticker-summary.html?tk=${esc(r.tk)}">${esc(r.tk)}</a></td>
+  document.getElementById('count').textContent = `${rows.length} shown · click a row for prep detail`;
+  document.getElementById('rows').innerHTML = rows.length ? rows.map((r, i) => {
+    const nf = (r.flags || []).length;
+    return `
+    <tr class="main" data-i="${i}">
+      <td class="exp">▶</td>
+      <td><a class="tk" href="ticker-summary.html?tk=${esc(r.tk)}" onclick="event.stopPropagation()">${esc(r.tk)}</a></td>
       <td>${esc(r.sector)}</td><td>${esc(r.rm)}</td>
       <td><span class="pri ${esc(r.priority)}">${esc(r.priority)}</span></td>
       <td><div class="thesis ${r.thesisDraft ? 'draft' : ''}">${esc((r.thesis || '—').replace(/\s*\*\(draft[^)]*\)\*\s*/, ''))}${r.thesisDraft ? '<span class="dtag">draft</span>' : ''}</div></td>
+      <td>${nf ? `<span class="flag-pill">🚩 ${nf}</span>` : '<span class="flag-pill none">—</span>'}</td>
       <td>${visitCell(r)}</td>
       <td><div class="next ${r.nextAction ? '' : 'none'}">${esc(r.nextAction || '—')}</div></td>
-    </tr>`).join('') :
-    '<tr><td colspan="7" class="empty">No rows match the filters.</td></tr>';
+    </tr>
+    <tr class="panel" data-pi="${i}" hidden><td colspan="9">${panel(r)}</td></tr>`;
+  }).join('') :
+    '<tr><td colspan="9" class="empty">No rows match the filters.</td></tr>';
+  // delegate expand
+  document.querySelectorAll('tr.main').forEach(tr => tr.onclick = () => {
+    const p = tr.nextElementSibling;
+    tr.classList.toggle('open');
+    p.hidden = !p.hidden;
+  });
+  RENDERED = rows;
 }
+let RENDERED = [];
 
 async function init() {
   try {
@@ -167,7 +219,7 @@ async function init() {
   fill('fSector', DATA.rows.map(r => r.sector));
   const myRm = localStorage.getItem('is1_rm');
   if (myRm && DATA.rows.some(r => r.rm === myRm)) fRm.value = myRm;
-  ['fRm', 'fPri', 'fSector', 'fVisited'].forEach(id =>
+  ['fRm', 'fPri', 'fSector', 'fVisited', 'fFlag'].forEach(id =>
     document.getElementById(id).addEventListener('change', render));
   fQ.addEventListener('input', render);
   render();
