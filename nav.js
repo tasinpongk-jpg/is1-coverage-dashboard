@@ -45,6 +45,7 @@
       label: "Macro", color: "#06b6d4",
       pages: [
         ["bond-summary.html", "Bond Summary"],
+        ["bond-data-sec.html", "BOND Data from SEC"],
         ["macro-overlays.html", "Macro Overlays"],
       ],
     },
