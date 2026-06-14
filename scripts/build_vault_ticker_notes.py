@@ -33,6 +33,8 @@ LISTED_SUBPATH = Path("Work-SET") / "Listed Company"
 MDA_SUBPATH = Path("1-Raw") / "01-Filings" / "MDA"
 FS_NOTES_SUBPATH = Path("1-Raw") / "01-Filings" / "FS-NOTES"
 CALLS_SUBPATH = Path("2-Analysis") / "AI-Generated" / "03-Earning Calls"
+FILING_SUMMARY_SUBPATH = Path("2-Analysis") / "AI-Generated" / "06-Inbox"
+ONEREPORT_BIZ_SUBPATH = Path("1-Raw") / "01-Filings" / "ONEREPORT-BIZ"
 
 MAX_PER_BUCKET = 5
 SNIPPET_CHARS = 520
@@ -90,6 +92,8 @@ def clean_snippet(text: str, max_chars: int = SNIPPET_CHARS) -> str:
         raw_stripped = raw.strip()
         if raw_stripped.startswith("|") or re.match(r"^\|?[-:\s|]+\|?$", raw_stripped):
             continue
+        if raw_stripped.startswith(("<!--", "#MARKER:")):
+            continue
         s = clean_line(raw)
         if not s:
             continue
@@ -98,7 +102,7 @@ def clean_snippet(text: str, max_chars: int = SNIPPET_CHARS) -> str:
             continue
         if low.startswith(("filing id:", "filed:", "source:", "extracted:", "tags:", "format:")):
             continue
-        if s.startswith("#"):
+        if s.startswith("#") or s.startswith("MARKER:"):
             continue
         lines.append(s)
         if sum(len(x) + 1 for x in lines) >= max_chars:
@@ -207,6 +211,21 @@ def analyze_body(body: str, bucket: str, snippet: str) -> dict[str, Any]:
         guidance = []
         metrics = metric_lines(body, 4)
         flags = keyword_points(body, ("flag", "critical", "primary flag", "mt/rpt", "rpt", "size test", "going concern", "covenant", "default", "impair", "pledge", "loan"), 4)
+    elif bucket == "filingSummary":
+        flag_text = filing_flag_snippet(body)
+        summary_text = flag_text or body
+        drivers = keyword_points(body, ("รายได้", "กำไร", "margin", "revenue", "volume", "ปริมาณ", "growth", "เติบโต"), 3)
+        risks = keyword_points(body, ("HIGH", "MED", "🔴", "🟡", "rpt", "risk", "impair", "กดดัน", "เสี่ยง"), 4)
+        guidance = []
+        metrics = metric_lines(body, 4)
+        flags = [s for s in flag_text.split("  ") if s][:5]
+    elif bucket == "bizProfile":
+        summary_text = body[:2000]
+        drivers = keyword_points(body, ("ผลิตภัณฑ์", "สินค้า", "รายได้", "ลูกค้า", "product", "revenue", "customer", "segment", "business"), 4)
+        risks = keyword_points(body, ("risk", "competition", "เสี่ยง", "การแข่งขัน", "regulatory", "ความเสี่ยง"), 3)
+        guidance = []
+        metrics = []
+        flags = []
     else:
         summary_text = section_after(body, r"executive summary") or snippet or body
         drivers = keyword_points(body, ("revenue", "gross profit", "margin", "volume", "profit", "cash flow", "รายได้", "กำไร", "ปริมาณ"), 4)
@@ -262,6 +281,20 @@ def flagged_snippet(body: str) -> str:
     return clean_snippet("\n".join(hits)) if hits else ""
 
 
+def filing_flag_snippet(body: str, limit: int = 6) -> str:
+    """Extract HIGH/MED/LOW flag bullet lines from filing-summary notes."""
+    hits = []
+    pat = re.compile(r"(HIGH|MED|LOW|🔴|🟡|🟢)", re.I)
+    for line in body.splitlines():
+        if pat.search(line):
+            s = clean_line(line)
+            if len(s) >= 10:
+                hits.append(s)
+        if len(hits) >= limit:
+            break
+    return clean_snippet("\n".join(hits)) if hits else ""
+
+
 def period_from_name(path: Path) -> str:
     m = re.search(r"(20\d{2}(?:Q[1-4]|FY)|\d{4}Q[1-4]|\d{4}FY|YE\d{4})", path.stem, re.I)
     return m.group(1).upper() if m else ""
@@ -284,7 +317,8 @@ def item_key(item: dict[str, Any]) -> str:
 
 
 def add_item(out: dict[str, dict[str, list[dict[str, Any]]]], ticker: str, bucket: str, item: dict[str, Any]) -> None:
-    out.setdefault(ticker, {"calls": [], "mda": [], "fsNotes": []})
+    out.setdefault(ticker, {"calls": [], "mda": [], "fsNotes": [], "filingSummary": [], "bizProfile": []})
+    out[ticker].setdefault(bucket, [])
     out[ticker][bucket].append(item)
 
 
@@ -297,6 +331,10 @@ def build_file_item(path: Path, listed_root: Path, bucket: str, ticker: str) -> 
         snippet = clean_snippet(section_after(body, r"executive summary") or body)
     elif bucket == "fsNotes":
         snippet = flagged_snippet(body) or clean_snippet(body)
+    elif bucket == "filingSummary":
+        snippet = filing_flag_snippet(body) or clean_snippet(body)
+    elif bucket == "bizProfile":
+        snippet = clean_snippet(body)
     else:
         snippet = clean_snippet(section_after(body, r"executive summary|revenue analysis|management") or body)
     analysis = analyze_body(body, bucket, snippet)
@@ -341,6 +379,27 @@ def scan_vault(listed_root: Path, tickers: set[str]) -> dict[str, dict[str, list
             if ticker in tickers:
                 add_item(out, ticker, "calls", build_file_item(path, listed_root, "calls", ticker))
 
+    # Filing summaries: flat inbox dir, ticker extracted from filename prefix
+    fs_sum_base = listed_root / FILING_SUMMARY_SUBPATH
+    if fs_sum_base.is_dir():
+        for path in fs_sum_base.glob("*-filing-summary-*.md"):
+            m = re.match(r"^([A-Z0-9]+)-filing-summary-", path.name, re.I)
+            if not m:
+                continue
+            ticker = m.group(1).upper()
+            if ticker in tickers:
+                add_item(out, ticker, "filingSummary", build_file_item(path, listed_root, "filingSummary", ticker))
+
+    # OneReport biz sections: by ticker subdir
+    biz_base = listed_root / ONEREPORT_BIZ_SUBPATH
+    if biz_base.is_dir():
+        for ticker_dir in biz_base.iterdir():
+            ticker = ticker_dir.name.upper()
+            if ticker not in tickers or not ticker_dir.is_dir():
+                continue
+            for path in ticker_dir.glob("*_BIZ.md"):
+                add_item(out, ticker, "bizProfile", build_file_item(path, listed_root, "bizProfile", ticker))
+
     for ticker, buckets in out.items():
         for bucket, items in buckets.items():
             items.sort(key=item_key, reverse=True)
@@ -356,7 +415,7 @@ def scan_selected(
     out = dict(existing)
     for ticker in wanted:
         preserved_calls = (out.get(ticker) or {}).get("calls") or []
-        out[ticker] = {"calls": preserved_calls, "mda": [], "fsNotes": []}
+        out[ticker] = {"calls": preserved_calls, "mda": [], "fsNotes": [], "filingSummary": [], "bizProfile": []}
 
     for bucket, subpath in (("mda", MDA_SUBPATH), ("fsNotes", FS_NOTES_SUBPATH)):
         base = listed_root / subpath
@@ -366,6 +425,27 @@ def scan_selected(
                 continue
             for path in ticker_dir.glob("*.md"):
                 add_item(out, ticker, bucket, build_file_item(path, listed_root, bucket, ticker))
+
+    # Refresh filing summaries for wanted tickers
+    fs_sum_base = listed_root / FILING_SUMMARY_SUBPATH
+    if fs_sum_base.is_dir():
+        for path in fs_sum_base.glob("*-filing-summary-*.md"):
+            m = re.match(r"^([A-Z0-9]+)-filing-summary-", path.name, re.I)
+            if not m:
+                continue
+            ticker = m.group(1).upper()
+            if ticker in wanted:
+                add_item(out, ticker, "filingSummary", build_file_item(path, listed_root, "filingSummary", ticker))
+
+    # Refresh biz profiles for wanted tickers
+    biz_base = listed_root / ONEREPORT_BIZ_SUBPATH
+    if biz_base.is_dir():
+        for ticker in wanted:
+            ticker_dir = biz_base / ticker
+            if not ticker_dir.is_dir():
+                continue
+            for path in ticker_dir.glob("*_BIZ.md"):
+                add_item(out, ticker, "bizProfile", build_file_item(path, listed_root, "bizProfile", ticker))
 
     for ticker in wanted:
         for bucket, items in out.get(ticker, {}).items():
@@ -412,9 +492,11 @@ def main(argv: list[str] | None = None) -> int:
         notes = scan_vault(listed_root, tickers)
     totals = {
         "tickers": len(notes),
-        "calls": sum(len(v["calls"]) for v in notes.values()),
-        "mda": sum(len(v["mda"]) for v in notes.values()),
-        "fsNotes": sum(len(v["fsNotes"]) for v in notes.values()),
+        "calls": sum(len(v.get("calls", [])) for v in notes.values()),
+        "mda": sum(len(v.get("mda", [])) for v in notes.values()),
+        "fsNotes": sum(len(v.get("fsNotes", [])) for v in notes.values()),
+        "filingSummary": sum(len(v.get("filingSummary", [])) for v in notes.values()),
+        "bizProfile": sum(len(v.get("bizProfile", [])) for v in notes.values()),
     }
     payload = {
         "generated": dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds"),

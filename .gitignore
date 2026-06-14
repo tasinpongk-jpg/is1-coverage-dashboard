@@ -2,6 +2,7 @@
 .env
 *.duckdb
 *.db
+*.bak
 __pycache__/
 *.pyc
 .venv/
@@ -17,6 +18,11 @@ sample news/
 .wrangler/
 .dev.vars
 .dev.vars.*
+
+# In-session synthesis scratch — never commit
+# context/ is regenerable byte-for-byte by dump_contexts.py; out/ is already
+# merged into data/company-reports.json, so the source-of-truth is tracked there.
+data/synthesis/
 
 # Build artifacts that ARE committed (do not ignore):
 # data/*.json — these are the daily snapshots that drive the dashboards

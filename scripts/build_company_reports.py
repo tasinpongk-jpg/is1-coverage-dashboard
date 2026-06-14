@@ -166,7 +166,13 @@ def context_points(notes: list[dict[str, Any]], fields: tuple[str, ...], limit: 
 
 def source_note_rows(notes: dict[str, list[dict[str, Any]]]) -> list[dict[str, str]]:
     rows: list[dict[str, str]] = []
-    for kind, label in (("mda", "MD&A"), ("fsNotes", "FS Note"), ("calls", "Call")):
+    for kind, label in (
+        ("mda", "MD&A"),
+        ("fsNotes", "FS Note"),
+        ("calls", "Call"),
+        ("filingSummary", "Filing Digest"),
+        ("bizProfile", "Biz Profile"),
+    ):
         for note in (notes.get(kind) or [])[:MAX_SOURCE_NOTES]:
             rows.append(
                 {
@@ -176,7 +182,7 @@ def source_note_rows(notes: dict[str, list[dict[str, Any]]]) -> list[dict[str, s
                     "sourcePath": clean_text(note.get("sourcePath"), 180),
                 }
             )
-    return rows[:10]
+    return rows[:16]
 
 
 def recent_disclosures(disclosure_payload: dict[str, Any], ticker: str) -> list[dict[str, Any]]:
@@ -259,6 +265,25 @@ def build_context(
             }
             for n in (notes.get("calls") or [])[:3]
         ],
+        "filingSummary": [
+            {
+                "title": n.get("title"),
+                "period": n.get("period"),
+                "snippet": n.get("snippet"),
+                "flags": (n.get("analysis") or {}).get("flags") or [],
+                "risks": (n.get("analysis") or {}).get("risks") or [],
+                "sourcePath": n.get("sourcePath"),
+            }
+            for n in (notes.get("filingSummary") or [])[:3]
+        ],
+        "bizProfile": [
+            {
+                "title": n.get("title"),
+                "snippet": n.get("snippet"),
+                "sourcePath": n.get("sourcePath"),
+            }
+            for n in (notes.get("bizProfile") or [])[:1]
+        ],
         "oppday": opp,
         "recentDisclosures": [
             {
@@ -294,6 +319,8 @@ def deterministic_report(context: dict[str, Any], generated: str) -> dict[str, A
 
     mda_points = context_points(context.get("mda") or [], ("takeaway", "drivers", "guidance", "risks"), 5)
     fs_flags = context_points(context.get("fsNotes") or [], ("flags", "risks", "takeaway"), 5)
+    filing_flags = context_points(context.get("filingSummary") or [], ("flags", "risks", "snippet"), 5)
+    biz_snippet = context_points(context.get("bizProfile") or [], ("snippet",), 1)
     call_points = context_points(context.get("calls") or [], ("takeaway", "guidance"), 4)
 
     high_disc = [
@@ -316,6 +343,7 @@ def deterministic_report(context: dict[str, Any], generated: str) -> dict[str, A
     watch_items = compact_list(
         [
             *(fs_flags[:3]),
+            *(filing_flags[:3]),
             *(high_disc[:3]),
             *([f"FY net profit declined {abs(np_chg):.1f}% YoY; confirm whether margin pressure is cyclical or structural."] if np_chg is not None and np_chg < -10 else []),
             *([f"Latest period NPM is {latest_npm:.1f}%; monitor gross margin and operating leverage."] if latest_npm is not None and latest_npm < 8 else []),
@@ -360,7 +388,7 @@ def deterministic_report(context: dict[str, Any], generated: str) -> dict[str, A
         "tone": tone,
         "thesis": thesis,
         "summary": clean_text(" ".join(x for x in summary_parts if x), 520),
-        "business": clean_text(context.get("businessType"), 360),
+        "business": clean_text(context.get("businessType") or (biz_snippet[0] if biz_snippet else None), 360),
         "financialSnapshot": financial_snapshot,
         "mdaSynthesis": compact_list([*mda_points, *call_points], 6, 200),
         "fsNotesSynthesis": compact_list(fs_flags, 5, 200),
@@ -375,6 +403,8 @@ def deterministic_report(context: dict[str, Any], generated: str) -> dict[str, A
                 "mda": context.get("mda") or [],
                 "fsNotes": context.get("fsNotes") or [],
                 "calls": context.get("calls") or [],
+                "filingSummary": context.get("filingSummary") or [],
+                "bizProfile": context.get("bizProfile") or [],
             }
         ),
     }
