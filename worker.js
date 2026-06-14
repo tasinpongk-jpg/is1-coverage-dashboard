@@ -23,6 +23,21 @@ const CHAT_MODEL = "@cf/meta/llama-3.3-70b-instruct-fp8-fast";
 const MAX_HISTORY = 12; // user+assistant turns kept from the client
 const MAX_USER_CHARS = 2000;
 
+// Lex — the rules & regulations agent. Unlike the other three, it does NOT use
+// Workers AI: Gemini File Search does the retrieval AND generation over the
+// regulation PDFs indexed by scripts/index_regulations.py, returning page-level
+// citations. The store name is read from data/regulations-index.json (built by
+// that script); only the GEMINI_API_KEY is a worker secret.
+const LEX_MODEL = "gemini-2.5-flash"; // generation model; bump as newer flash ships
+const LEX_SYSTEM =
+  "You are Lex, the rules & regulations agent on the IS1 coverage dashboard. " +
+  "You answer questions about SET/SEC listing rules, disclosure obligations and " +
+  "related Thai securities regulation, using ONLY the regulation documents " +
+  "retrieved for you. If the documents do not cover the question, say so plainly " +
+  "— never guess or cite outside knowledge. Be concise and quote the rule's own " +
+  "wording where it matters. Reply in the user's language (Thai or English). " +
+  "You are not a lawyer; surface what the documents say, not legal advice.";
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
@@ -258,13 +273,58 @@ const AGENTS = {
   },
 };
 
+// Lex routes to Gemini File Search instead of Workers AI. Returns the same
+// { reply, ... } shape; citations are appended to the reply text so the dock
+// renders them with no client change.
+async function handleLex(env, origin, cleaned, rm) {
+  if (!env.GEMINI_API_KEY) {
+    return "Lex is not configured yet (missing GEMINI_API_KEY worker secret).";
+  }
+  const index = await loadJson(env, origin, "regulations-index");
+  const store = index?.store;
+  if (!store) {
+    return "The regulations index is not built yet — run scripts/index_regulations.py.";
+  }
+  const sys = LEX_SYSTEM + (rm ? `\nThe user is RM ${rm}.` : "");
+  const body = {
+    contents: cleaned.map((m) => ({
+      role: m.role === "assistant" ? "model" : "user",
+      parts: [{ text: m.content }],
+    })),
+    systemInstruction: { parts: [{ text: sys }] },
+    tools: [{ file_search: { file_search_store_names: [store] } }],
+  };
+  const r = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/${LEX_MODEL}:generateContent?key=${env.GEMINI_API_KEY}`,
+    { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+  if (!r.ok) {
+    throw new Error(`Gemini ${r.status}: ${(await r.text()).slice(0, 200)}`);
+  }
+  const data = await r.json();
+  const cand = (data.candidates || [])[0] || {};
+  const reply = (cand.content?.parts || []).map((p) => p.text).filter(Boolean).join("");
+  // REST returns camelCase; tolerate snake_case defensively.
+  const meta = cand.groundingMetadata || cand.grounding_metadata || {};
+  const chunks = meta.groundingChunks || meta.grounding_chunks || [];
+  const seen = new Set(), cites = [];
+  for (const c of chunks) {
+    const rc = c.retrievedContext || c.retrieved_context;
+    if (!rc) continue;
+    const page = rc.pageNumber || rc.page_number;
+    const label = (rc.title || "source") + (page ? ` p.${page}` : "");
+    if (!seen.has(label)) { seen.add(label); cites.push(label); }
+  }
+  let out = reply || "No answer found in the regulation documents.";
+  if (cites.length) out += "\n\nSources:\n" + cites.map((c) => "• " + c).join("\n");
+  return out;
+}
+
 async function handleChat(request, env, origin) {
   if (!authorized(request, env)) {
     return json({ error: "missing or wrong access token" }, 401);
   }
   const body = await request.json().catch(() => ({}));
-  const agentName = AGENTS[body.agent] ? body.agent : "atlas";
-  const agent = AGENTS[agentName];
+  const agentName = (body.agent === "lex" || AGENTS[body.agent]) ? body.agent : "atlas";
 
   const history = Array.isArray(body.messages) ? body.messages : [];
   const cleaned = history
@@ -283,6 +343,12 @@ async function handleChat(request, env, origin) {
     ? `\nThe user is RM ${rm}. "My names/my coverage" means tickers with rm=${rm} ONLY.`
     : "";
 
+  if (agentName === "lex") {
+    const reply = await handleLex(env, origin, cleaned, rm);
+    return json({ reply, agent: "lex", model: LEX_MODEL });
+  }
+
+  const agent = AGENTS[agentName];
   const parts = await Promise.all(agent.contexts.map((fn) => fn(env, origin, rm)));
   const context = parts.filter(Boolean).join("\n\n");
   const result = await env.AI.run(CHAT_MODEL, {

@@ -50,8 +50,18 @@
         "สรุปภาพรวมตลาดวันนี้",
       ],
     },
+    lex: {
+      label: "Lex", emoji: "⚖️", color: "#10b981",
+      tag: "Rules & regulations — answers cited to the source PDF & page",
+      data: ["regulations"],
+      chips: [
+        "What must a listed company disclose after a board resolution?",
+        "When is a connected transaction subject to shareholder approval?",
+        "อธิบายเกณฑ์ free float ของ SET",
+      ],
+    },
   };
-  var ORDER = ["hermes", "atlas", "pythia"];
+  var ORDER = ["hermes", "atlas", "pythia", "lex"];
   var RMS = ["Champ", "Kae", "Orn", "Gift", "Pim", "Tony"];
 
   var state = {
