@@ -1,0 +1,101 @@
+name: Bond Summary Refresh (monthly)
+
+# Monthly rebuild of data/bond-summary.json from ThaiBMA's outstanding-bond
+# API (no auth, no DuckDB, no Obsidian vault — so unlike the vault-backed
+# snapshots this one CAN run in CI). 464 requests (232 tickers x 2 terms) at a
+# 0.3s throttle ~ 3-5 minutes. Bond positions change slowly, so monthly is
+# plenty; trigger workflow_dispatch for an ad-hoc refresh.
+#
+# Like disclosure-refresh.yml, this only commits + pushes its one JSON file —
+# the push to main auto-deploys via the Cloudflare git integration, so there is
+# no explicit `wrangler deploy` step here.
+#
+# Reads data/tickers.json (committed). Secrets used: none beyond GITHUB_TOKEN
+# (push) and the EMAIL_* set for failure notification.
+
+on:
+  schedule:
+    - cron: '0 15 1 * *'    # 1st of month, 22:00 BKK (15:00 UTC) — quiet slot
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
+
+concurrency:
+  group: daily              # share the daily group so pushes never race
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      PYTHONUTF8: '1'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      # checkout pins the SHA at queue time; if we waited behind another job in
+      # the `daily` concurrency group, reset to true HEAD before rebuilding.
+      - name: Sync to latest HEAD
+        run: |
+          git fetch origin main
+          git reset --hard origin/main
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Build bond-summary.json from ThaiBMA
+        run: python scripts/build_bond_summary.py
+
+      - name: Commit and push if bond-summary changed
+        # Only push from main. Manual dispatches from feature branches exercise
+        # the build without trying to push.
+        if: github.ref == 'refs/heads/main'
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/bond-summary.json
+          if git diff --staged --quiet; then
+            echo "No bond-summary changes — skipping commit."
+            exit 0
+          fi
+          git commit -m "bond summary refresh $(date -u +%Y-%m-%dT%H:%MZ)"
+          for attempt in 1 2 3; do
+            if git push origin main; then
+              echo "Push succeeded on attempt $attempt."
+              exit 0
+            fi
+            echo "Push attempt $attempt rejected — rebasing and retrying..."
+            git rebase --abort 2>/dev/null || true
+            if ! git pull --rebase origin main; then
+              git checkout --theirs data/bond-summary.json
+              git add data/bond-summary.json
+              GIT_EDITOR=true git rebase --continue
+            fi
+            sleep $((attempt * 5))
+          done
+          echo "Push failed after 3 attempts."
+          exit 1
+
+      - name: Notify on failure (bond refresh)
+        if: failure()
+        env:
+          EMAIL_USERNAME: ${{ secrets.EMAIL_USERNAME }}
+          EMAIL_APP_PASSWORD: ${{ secrets.EMAIL_APP_PASSWORD }}
+          EMAIL_FROM: ${{ secrets.EMAIL_FROM }}
+          EMAIL_TO: ${{ secrets.EMAIL_TO }}
+        run: python scripts/notify_failure.py
+        continue-on-error: true
