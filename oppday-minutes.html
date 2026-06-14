@@ -93,6 +93,17 @@
   .drawer-close:hover { color: var(--text); border-color: var(--text); }
   .drawer-body { flex: 1; overflow-y: auto; padding: 16px; }
 
+  /* Data-quality banner */
+  .dq-banner { border-radius: 8px; padding: 10px 12px; margin-bottom: 14px; font-size: 12px; line-height: 1.55; display: flex; gap: 8px; align-items: flex-start; }
+  .dq-banner .dq-icon { flex-shrink: 0; font-size: 14px; }
+  .dq-banner .dq-label { font-weight: 700; text-transform: uppercase; letter-spacing: .04em; font-size: 10px; }
+  .dq-high { background: #ef44441a; border: 1px solid #ef444455; color: #fca5a5; }
+  .dq-med  { background: #f59e0b1a; border: 1px solid #f59e0b55; color: #fcd34d; }
+  .dq-low  { background: #6366f114; border: 1px solid #6366f140; color: #c7d2fe; }
+  .dq-dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-left: 6px; vertical-align: middle; }
+  .dq-dot-high { background: #ef4444; }
+  .dq-dot-med  { background: #f59e0b; }
+
   /* Markdown rendering */
   .md-content h1 { font-size: 17px; font-weight: 700; margin: 16px 0 8px; color: var(--text); }
   .md-content h2 { font-size: 14px; font-weight: 600; margin: 18px 0 8px; color: #c7d2fe; border-bottom: 1px solid var(--border); padding-bottom: 5px; }
@@ -236,6 +247,24 @@ function sectorClass(s) {
   return m[s] || '';
 }
 
+function dqBanner(dq) {
+  if (!dq || dq.severity === 'none' || !dq.severity) return '';
+  const cfg = {
+    high: {cls:'dq-high', icon:'⛔', label:'Figures unreliable'},
+    med:  {cls:'dq-med',  icon:'⚠️', label:'Reconcile vs filed financials'},
+    low:  {cls:'dq-low',  icon:'ℹ️', label:'Indicative figures'},
+  }[dq.severity];
+  if (!cfg) return '';
+  const note = (dq.note || '').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  return `<div class="dq-banner ${cfg.cls}"><span class="dq-icon">${cfg.icon}</span>`
+    + `<span><span class="dq-label">${cfg.label}</span><br>${note}</span></div>`;
+}
+
+function dqDot(dq) {
+  if (!dq || (dq.severity !== 'high' && dq.severity !== 'med')) return '';
+  return `<span class="dq-dot dq-dot-${dq.severity}" title="Data quality: ${dq.severity}"></span>`;
+}
+
 function render() {
   const q = searchQ.toLowerCase();
   const rows = allData.filter(d => {
@@ -262,7 +291,7 @@ function render() {
     const tr = document.createElement('tr');
     tr.className = 'data-row' + (selectedTicker === d.ticker ? ' selected' : '');
     tr.innerHTML = `
-      <td><span class="ticker-col">${d.ticker}</span></td>
+      <td><span class="ticker-col">${d.ticker}</span>${dqDot(d.dataQuality)}</td>
       <td><span class="badge rm-${d.rm}">${d.rm}</span></td>
       <td><span class="badge ${sectorClass(d.sector)}">${d.sector}</span></td>
       <td class="period-col">${d.period.replace(/ผลประกอบการ\s*/,'').split('(')[0].trim().substring(0,35)}</td>
@@ -283,7 +312,7 @@ function openDrawer(d) {
     ${SOURCE_LABELS[d.source] || ''}
     <span style="color:var(--muted)">${d.period}</span>
   `;
-  document.getElementById('d-content').innerHTML = marked.parse(d.content);
+  document.getElementById('d-content').innerHTML = dqBanner(d.dataQuality) + marked.parse(d.content);
   document.getElementById('drawer').classList.add('open');
   render();
 }
