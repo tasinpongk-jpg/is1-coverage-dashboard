@@ -1,5 +1,5 @@
 {
-  "asOf": "2026-06-14",
+  "asOf": "2026-06-15",
   "source": "SETSMART intraday API · 52 alerts across 42 tickers",
   "thresholds": {
     "vol_spike": {
@@ -100,8 +100,10 @@
         "high": 0.09,
         "low": 0.07
       },
-      "filingsLinked": 0,
-      "filingsTitles": []
+      "filingsLinked": 1,
+      "filingsTitles": [
+        "Right Adjustment of XBIO-W6, XBIO-W7, XBIO-W8"
+      ]
     },
     {
       "tk": "TU",
@@ -497,22 +499,24 @@
       "sector": "FOOD",
       "type": "Price gap",
       "atype": "gap",
-      "severity": "medium",
+      "severity": "low",
       "value": 4.0,
       "label": "-4.00% open gap",
       "evidence": {
         "open": 0.24,
         "prevClose": 0.25
       },
-      "filingsLinked": 0,
-      "filingsTitles": []
+      "filingsLinked": 1,
+      "filingsTitles": [
+        "Notification the exercise of NRF-W2 (No.3)"
+      ]
     },
     {
       "tk": "NRF",
       "sector": "FOOD",
       "type": "Intraday move",
       "atype": "intraday",
-      "severity": "medium",
+      "severity": "low",
       "value": 4.167,
       "label": "-4.17% intraday",
       "evidence": {
@@ -521,8 +525,10 @@
         "high": 0.24,
         "low": 0.23
       },
-      "filingsLinked": 0,
-      "filingsTitles": []
+      "filingsLinked": 1,
+      "filingsTitles": [
+        "Notification the exercise of NRF-W2 (No.3)"
+      ]
     },
     {
       "tk": "PLUS",
@@ -1319,7 +1325,7 @@
       "sector": "FOOD",
       "alertCount": 1,
       "highestSeverity": "high",
-      "filingsLinked": 0,
+      "filingsLinked": 1,
       "alertTypes": [
         {
           "atype": "intraday",
@@ -1329,29 +1335,6 @@
       ],
       "summary": [
         "Intraday move: +12.50% intraday"
-      ]
-    },
-    {
-      "tk": "NRF",
-      "sector": "FOOD",
-      "alertCount": 2,
-      "highestSeverity": "medium",
-      "filingsLinked": 0,
-      "alertTypes": [
-        {
-          "atype": "gap",
-          "type": "Price gap",
-          "severity": "medium"
-        },
-        {
-          "atype": "intraday",
-          "type": "Intraday move",
-          "severity": "medium"
-        }
-      ],
-      "summary": [
-        "Price gap: -4.00% open gap",
-        "Intraday move: -4.17% intraday"
       ]
     },
     {
@@ -1637,8 +1620,31 @@
       "summary": [
         "Volume spike: 3.0σ vs 20D avg"
       ]
+    },
+    {
+      "tk": "NRF",
+      "sector": "FOOD",
+      "alertCount": 2,
+      "highestSeverity": "low",
+      "filingsLinked": 1,
+      "alertTypes": [
+        {
+          "atype": "gap",
+          "type": "Price gap",
+          "severity": "low"
+        },
+        {
+          "atype": "intraday",
+          "type": "Intraday move",
+          "severity": "low"
+        }
+      ],
+      "summary": [
+        "Price gap: -4.00% open gap",
+        "Intraday move: -4.17% intraday"
+      ]
     }
   ],
-  "_built_at": "2026-06-14T02:37:07.867077+00:00",
+  "_built_at": "2026-06-15T02:32:45.787206+00:00",
   "_coverage_size": 232
 }
