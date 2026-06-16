@@ -125,6 +125,26 @@ test("pythia persona ranks from aggregates + separates fact from AI view", async
   assert.ok(/AI COMMENTARY/.test(lastSystem), "expected AI COMMENTARY reference");
 });
 
+test("naming a covered ticker filters Hermes context to that ticker", async () => {
+  // pick a real covered symbol from the data
+  const tickers = JSON.parse(await readFile("./data/tickers.json", "utf-8"));
+  const tk = tickers.tickers[0].tk;
+  await worker.fetch(chatReq({ agent: "hermes", messages: [{ role: "user", content: `any news on ${tk}?` }] }), env);
+  assert.ok(lastSystem.includes(`FILTERED to ${tk}`),
+    "expected news + disclosures context filtered to the named ticker");
+  // a generic question must NOT trigger focus filtering
+  await worker.fetch(chatReq({ agent: "hermes", messages: [{ role: "user", content: "what moved today?" }] }), env);
+  assert.ok(!/FILTERED to/.test(lastSystem), "generic question should not filter");
+});
+
+test("atlas prices are pre-sorted by absolute 1-day move", async () => {
+  await worker.fetch(chatReq({ agent: "atlas", messages: userMsg }), env);
+  const block = lastSystem.split("TICKERS (tk")[1] || "";
+  const moves = [...block.matchAll(/^\S+ \S+ \S+ \| \S+ (-?\d+(?:\.\d+)?)/gm)].map((m) => Math.abs(+m[1]));
+  const sorted = moves.every((v, i) => i === 0 || moves[i - 1] >= v);
+  assert.ok(moves.length > 20 && sorted, "expected price rows sorted by |1d%| desc");
+});
+
 test("ticker symbols are uppercased instruction present (linkability)", async () => {
   await worker.fetch(chatReq({ agent: "atlas", messages: userMsg }), env);
   assert.ok(lastSystem.includes("UPPERCASE"));

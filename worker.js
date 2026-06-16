@@ -81,6 +81,21 @@ async function loadJson(env, origin, name) {
   return r.ok ? r.json() : null;
 }
 
+// Covered ticker symbols the user explicitly named in their latest message.
+// Returns a Set; empty when they asked a broad question (movers, sector, book).
+// Only uppercase tokens that are real covered tickers count, so plain English
+// words never trip it. Lets context builders show ONLY the named names —
+// deterministic filtering the 70B model can't be trusted to do itself.
+async function focusTickers(env, origin, text) {
+  const tickers = await loadJson(env, origin, "tickers");
+  const covered = new Set((tickers?.tickers || []).map((t) => t.tk));
+  const focus = new Set();
+  for (const tok of String(text || "").match(/\b[A-Z][A-Z0-9]{1,7}\b/g) || []) {
+    if (covered.has(tok)) focus.add(tok);
+  }
+  return focus;
+}
+
 // ---------------------------------------------------------------- contexts
 //
 // Each builder turns one snapshot family into compact text lines. Agents
@@ -98,16 +113,25 @@ async function ctxCoverage(env, origin) {
   );
 }
 
-async function ctxPrices(env, origin) {
+async function ctxPrices(env, origin, _userRm, focus) {
   const [tickers, brief] = await Promise.all([
     loadJson(env, origin, "tickers"),
     loadJson(env, origin, "morning-brief"),
   ]);
   const cov = {};
   for (const t of tickers?.tickers || []) cov[t.tk] = t;
-  const lines = [`AS-OF: ${brief?.asOf || "?"} (prices are previous close)`];
+  // Llama can't reliably filter/sort a 230-row list. Pre-sort by absolute
+  // 1-day move (the dominant Atlas query is "movers beyond ±X%"), so the
+  // model reads top-down and stops at the threshold instead of cherry-picking.
+  let rows = (brief?.rows || []).slice().sort(
+    (a, b) => Math.abs(b.pct1d || 0) - Math.abs(a.pct1d || 0));
+  // If the user named specific covered tickers, show ONLY those.
+  if (focus && focus.size) rows = rows.filter((r) => focus.has(r.tk));
+  const lines = [`AS-OF: ${brief?.asOf || "?"} (prices are previous close)` +
+    (focus && focus.size ? `; focused on ${[...focus].join(", ")}` : "") +
+    "\nRows are sorted by |1-day %| descending (biggest movers first)."];
   lines.push("TICKERS (tk sector rm | last pct1d pct5d pctYtd volRatio):");
-  for (const r of brief?.rows || []) {
+  for (const r of rows) {
     const c = cov[r.tk] || {};
     const f = (x) => (x == null ? "-" : x);
     lines.push(`${r.tk} ${c.sector || "?"} ${c.rm || "?"} | ${f(r.last)} ` +
@@ -144,13 +168,17 @@ function rmFirst(items, cap, rms, userRm, tkOf) {
   return mine.concat(rest).slice(0, cap);
 }
 
-async function ctxNews(env, origin, userRm) {
+async function ctxNews(env, origin, userRm, focus) {
   const [news, rms] = await Promise.all([
     loadJson(env, origin, "external-news"), rmMap(env, origin)]);
-  const items = news?.items || [];
-  const picked = rmFirst(items, 50, rms, userRm, (n) => n.tk);
+  let items = news?.items || [];
+  // When the user named specific covered tickers, show ONLY their news, so the
+  // model never pads "news on CPN" with unrelated names.
+  if (focus && focus.size) items = items.filter((n) => focus.has(n.tk));
+  const picked = focus && focus.size ? items : rmFirst(items, 50, rms, userRm, (n) => n.tk);
   const lines = [`EXTERNAL NEWS (last ${news?.windowDays || "?"} days, ${items.length} items, asOf ${news?.asOf || "?"}; rm=owning RM` +
-    (userRm ? `; the user's rm=${userRm} rows are listed first` : "") + "):"];
+    (focus && focus.size ? `; FILTERED to ${[...focus].join(", ")} — if a name has no rows here it has NO external news` : "") +
+    (!(focus && focus.size) && userRm ? `; the user's rm=${userRm} rows are listed first` : "") + "):"];
   for (const n of picked) {
     const rm = rms[n.tk] ? ` rm=${rms[n.tk]}` : "";
     lines.push(`${(n.ts || "").slice(0, 10)} ${n.tk || n.sector || "-"}${rm} [${n.source}] ${n.title}` +
@@ -159,22 +187,26 @@ async function ctxNews(env, origin, userRm) {
   return lines.join("\n");
 }
 
-async function ctxFilings(env, origin, userRm) {
+async function ctxFilings(env, origin, userRm, focus) {
   const [pulse, rms] = await Promise.all([
     loadJson(env, origin, "disclosure-pulse"), rmMap(env, origin)]);
-  const picked = rmFirst(pulse?.filings || [], 60, rms, userRm, (f) => f.tk);
+  let filings = pulse?.filings || [];
+  if (focus && focus.size) filings = filings.filter((f) => focus.has(f.tk));
+  const picked = focus && focus.size ? filings : rmFirst(filings, 60, rms, userRm, (f) => f.tk);
   const lines = [`SET DISCLOSURES (last ${pulse?.windowDays || "?"} days, asOf ${pulse?.asOf || "?"}; rm=owning RM` +
-    (userRm ? `; the user's rm=${userRm} rows are listed first` : "") + "):"];
+    (focus && focus.size ? `; FILTERED to ${[...focus].join(", ")} — if a name has no rows here it has NO recent disclosure` : "") +
+    (!(focus && focus.size) && userRm ? `; the user's rm=${userRm} rows are listed first` : "") + "):"];
   for (const f of picked) {
     const rm = rms[f.tk] ? ` rm=${rms[f.tk]}` : "";
     lines.push(`${(f.ts || "").slice(0, 10)} ${f.tk}${rm} ${f.sector}: ${String(f.title).slice(0, 110)}`);
   }
-  const silent = (pulse?.status || [])
+  let silent = (pulse?.status || [])
     .filter((s) => s.overdue)
     .sort((a, b) => (b.silentDays || 0) - (a.silentDays || 0));
+  if (focus && focus.size) silent = silent.filter((s) => focus.has(s.tk));
   if (silent.length) {
     lines.push(`\nOVERDUE / SILENT TICKERS (${silent.length}):`);
-    for (const s of rmFirst(silent, 30, rms, userRm, (x) => x.tk)) {
+    for (const s of (focus && focus.size ? silent : rmFirst(silent, 30, rms, userRm, (x) => x.tk))) {
       const rm = rms[s.tk] ? ` rm=${rms[s.tk]}` : "";
       lines.push(`${s.tk}${rm} ${s.sector}: silent ${s.silentDays}d (last filed ${(s.lastFiledTs || "?").slice(0, 10)})`);
     }
@@ -260,6 +292,11 @@ const AGENTS = {
       "is >= 2.00 or <= -2.00. -1.93 does NOT qualify; +1.99 does NOT qualify. " +
       "Compare the exact number — never round toward the threshold. If a name " +
       "is close-but-under, say so explicitly rather than including it.\n" +
+      "The TICKERS block is pre-sorted by |1-day %| descending. For a '|move| " +
+      "beyond X%' question, read DOWN from the top and STOP at the first row " +
+      "whose |1d%| < X — every row below it is also under the bar, so never " +
+      "include them. Include a row ONLY if you can point to its exact 1d% " +
+      "clearing the threshold.\n" +
       "WHEN LISTING SEVERAL NAMES, use a compact table sorted by the metric " +
       "asked about (most extreme first), columns: TK | last | 1d% | flag " +
       "(52wHI/52wLO/alert). One name → a single sentence, no table.\n" +
@@ -396,7 +433,10 @@ async function handleChat(request, env, origin) {
   }
 
   const agent = AGENTS[agentName];
-  const parts = await Promise.all(agent.contexts.map((fn) => fn(env, origin, rm)));
+  // Tickers the user named in their last turn → context builders show ONLY
+  // those rows, so the model can't pad "news on CPN" or miscount movers.
+  const focus = await focusTickers(env, origin, cleaned[cleaned.length - 1].content);
+  const parts = await Promise.all(agent.contexts.map((fn) => fn(env, origin, rm, focus)));
   const context = parts.filter(Boolean).join("\n\n");
   const result = await env.AI.run(CHAT_MODEL, {
     messages: [
