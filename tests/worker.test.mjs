@@ -129,3 +129,13 @@ test("ticker symbols are uppercased instruction present (linkability)", async ()
   await worker.fetch(chatReq({ agent: "atlas", messages: userMsg }), env);
   assert.ok(lastSystem.includes("UPPERCASE"));
 });
+
+test("agents are told to use ticker symbols only, never expand to company names", async () => {
+  for (const agent of ["atlas", "hermes", "pythia"]) {
+    await worker.fetch(chatReq({ agent, messages: userMsg }), env);
+    assert.ok(/TICKERS ONLY, NEVER NAMES/.test(lastSystem),
+      `expected the no-company-names rule for ${agent}`);
+    assert.ok(/do not have the name mapping/i.test(lastSystem),
+      `expected the no-guessing rationale for ${agent}`);
+  }
+});

@@ -241,8 +241,13 @@ const SHARED_RULES =
   "Quote numbers exactly as " +
   "given — never round across a threshold (-1.93 is NOT beyond -2). Be " +
   "concise: short answers, tables only when listing several tickers. Reply " +
-  "in the user's language (Thai or English). When you mention a covered " +
-  "ticker, write its symbol in UPPERCASE so the dashboard can link it.";
+  "in the user's language (Thai or English). TICKERS ONLY, NEVER NAMES: the " +
+  "data identifies every holding by its ticker SYMBOL — there is no company-" +
+  "name field. Refer to each holding by that exact symbol in UPPERCASE (e.g. " +
+  "AQUA, CPN) so the dashboard can link it. Do NOT expand a symbol into a " +
+  "company name or guess one — you do not have the name mapping and a guessed " +
+  "name is an error. If you don't know the symbol, say so; never substitute a " +
+  "plausible-sounding name.";
 
 const AGENTS = {
   atlas: {
