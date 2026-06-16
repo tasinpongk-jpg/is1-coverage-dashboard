@@ -42,15 +42,17 @@ for deploy steps and the per-cron routing table.
 
 ## Agent chat (✦ Ask the agents)
 
-Every page carries a floating chat dock (`chat-dock.js`) talking to three
-named agents served by `worker.js` via Cloudflare Workers AI — each grounded
-in a different slice of the daily snapshots:
+Every page carries a floating chat dock (`chat-dock.js`) talking to four
+named agents served by `worker.js` — the first three via Cloudflare Workers AI,
+Lex via Gemini File Search over the regulation PDFs — each grounded in a
+different slice of the daily snapshots:
 
 | Agent | Specialty | Grounded in |
 |---|---|---|
 | ⚡ Hermes | News & catalysts, silent filers, Oppday | `external-news`, `disclosure-pulse`, `oppday-minutes` |
 | 🗺 Atlas | Prices, movers, alerts, threshold math | `morning-brief`, `tickers`, `unusual-trading` |
 | 🔮 Pythia | Macro & sector view | sector aggregates, `ai-insights` |
+| ⚖️ Lex | SET/SEC rules & disclosure obligations | regulation PDFs (page-cited) |
 
 Dock features: per-agent threads (survive navigation), RM picker for
 personalized suggestion chips, ticker chips in replies deep-linking to

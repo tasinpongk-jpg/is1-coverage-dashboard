@@ -236,7 +236,9 @@ const SHARED_RULES =
   "the user asks about 'my names', 'my coverage' or an RM's book, include " +
   "ONLY tickers whose rm tag matches that RM — silently dropping or adding " +
   "other RMs' tickers is an error. If nothing matches, say so rather than " +
-  "padding with other RMs' names. Quote numbers exactly as " +
+  "padding with other RMs' names. (E.g. for RM Gift, a row tagged rm=Kae is " +
+  "EXCLUDED even if it fits the question; only rm=Gift rows count.) " +
+  "Quote numbers exactly as " +
   "given — never round across a threshold (-1.93 is NOT beyond -2). Be " +
   "concise: short answers, tables only when listing several tickers. Reply " +
   "in the user's language (Thai or English). When you mention a covered " +
