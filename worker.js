@@ -113,7 +113,23 @@ async function ctxCoverage(env, origin) {
   );
 }
 
-async function ctxPrices(env, origin, _userRm, focus) {
+// Parse a "movers beyond X%" style threshold out of the user's question so the
+// price context can be filtered deterministically — the 70B model will not
+// reliably stop at a cutoff itself. Returns {x, dir} or null.
+function parseMoverThreshold(text) {
+  const t = String(text || "").toLowerCase();
+  const m = t.match(
+    /(?:beyond|above|over|more than|greater than|at least|exceed(?:ing|s)?|bigger than|>=?|±|\+\/-|\+-)\s*[±+\/\-]*\s*([0-9]+(?:\.[0-9]+)?)\s*(?:%|percent|pct)/);
+  if (!m) return null;
+  const x = parseFloat(m[1]);
+  if (!isFinite(x) || x <= 0) return null;
+  let dir = "abs";
+  if (/\b(up|gain|gainer|rise|rising|rose|advanc|surg|jump|soar)/.test(t)) dir = "up";
+  else if (/\b(down|fall|falling|fell|drop|dropp|declin|loser|losing|lost|sank|slump|plunge)/.test(t)) dir = "down";
+  return { x, dir };
+}
+
+async function ctxPrices(env, origin, _userRm, focus, mover) {
   const [tickers, brief] = await Promise.all([
     loadJson(env, origin, "tickers"),
     loadJson(env, origin, "morning-brief"),
@@ -127,9 +143,20 @@ async function ctxPrices(env, origin, _userRm, focus) {
     (a, b) => Math.abs(b.pct1d || 0) - Math.abs(a.pct1d || 0));
   // If the user named specific covered tickers, show ONLY those.
   if (focus && focus.size) rows = rows.filter((r) => focus.has(r.tk));
+  let note = "Rows are sorted by |1-day %| descending (biggest movers first).";
+  // If the user asked for a threshold, hard-filter to qualifying rows so the
+  // model literally cannot include sub-threshold names.
+  if (mover) {
+    const pass = (v) => mover.dir === "up" ? v >= mover.x
+      : mover.dir === "down" ? v <= -mover.x : Math.abs(v) >= mover.x;
+    rows = rows.filter((r) => pass(r.pct1d || 0));
+    const sign = mover.dir === "up" ? "+" : mover.dir === "down" ? "-" : "±";
+    note = `PRE-FILTERED: every row below ALREADY clears the ${sign}${mover.x}% ` +
+      `1-day bar (${rows.length} names). List them ALL and ONLY these — there are no others.`;
+  }
   const lines = [`AS-OF: ${brief?.asOf || "?"} (prices are previous close)` +
     (focus && focus.size ? `; focused on ${[...focus].join(", ")}` : "") +
-    "\nRows are sorted by |1-day %| descending (biggest movers first)."];
+    "\n" + note];
   lines.push("TICKERS (tk sector rm | last pct1d pct5d pctYtd volRatio):");
   for (const r of rows) {
     const c = cov[r.tk] || {};
@@ -435,8 +462,10 @@ async function handleChat(request, env, origin) {
   const agent = AGENTS[agentName];
   // Tickers the user named in their last turn → context builders show ONLY
   // those rows, so the model can't pad "news on CPN" or miscount movers.
-  const focus = await focusTickers(env, origin, cleaned[cleaned.length - 1].content);
-  const parts = await Promise.all(agent.contexts.map((fn) => fn(env, origin, rm, focus)));
+  const lastText = cleaned[cleaned.length - 1].content;
+  const focus = await focusTickers(env, origin, lastText);
+  const mover = parseMoverThreshold(lastText); // {x,dir} | null — Atlas threshold queries
+  const parts = await Promise.all(agent.contexts.map((fn) => fn(env, origin, rm, focus, mover)));
   const context = parts.filter(Boolean).join("\n\n");
   const result = await env.AI.run(CHAT_MODEL, {
     messages: [

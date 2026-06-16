@@ -137,6 +137,18 @@ test("naming a covered ticker filters Hermes context to that ticker", async () =
   assert.ok(!/FILTERED to/.test(lastSystem), "generic question should not filter");
 });
 
+test("atlas 'beyond ±X%' query hard-filters prices to qualifying rows only", async () => {
+  await worker.fetch(chatReq({ agent: "atlas", messages: [{ role: "user", content: "movers beyond +/-2% today" }] }), env);
+  assert.ok(/PRE-FILTERED/.test(lastSystem), "expected the pre-filter note");
+  const block = lastSystem.split("TICKERS (tk")[1] || "";
+  const moves = [...block.matchAll(/^\S+ \S+ \S+ \| \S+ (-?\d+(?:\.\d+)?)/gm)].map((m) => +m[1]);
+  assert.ok(moves.length > 0, "expected some qualifying rows");
+  assert.ok(moves.every((v) => Math.abs(v) >= 2), `every shown row must clear ±2; got ${moves.filter(v=>Math.abs(v)<2)}`);
+  // a bare "top movers" (no threshold) must NOT pre-filter
+  await worker.fetch(chatReq({ agent: "atlas", messages: [{ role: "user", content: "top movers today" }] }), env);
+  assert.ok(!/PRE-FILTERED/.test(lastSystem), "no threshold should not pre-filter");
+});
+
 test("atlas prices are pre-sorted by absolute 1-day move", async () => {
   await worker.fetch(chatReq({ agent: "atlas", messages: userMsg }), env);
   const block = lastSystem.split("TICKERS (tk")[1] || "";
