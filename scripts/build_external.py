@@ -8,7 +8,6 @@ Outputs (under data/):
   external-news.json     — wire/RSS hits matched to coverage tickers
   trading-signs.json     — current SP/NP/CC/etc. on coverage names
   sec-enforcement.json   — SEC actions, matched + unmatched
-  macro-overlays.json    — ThaiBMA / REIC / OAE / BLS lists
   diagnostics.json       — coverage-gap + unclassified queue + per-RM staleness
 """
 
@@ -165,33 +164,6 @@ def build_sec_enforcement(con: duckdb.DuckDBPyConnection, tickers: dict) -> None
     })
 
 
-def build_macro_overlays(con: duckdb.DuckDBPyConnection) -> None:
-    rows = con.execute("""
-        SELECT id, source, category, datetime_iso, headline, url, body_excerpt, scraped_at
-        FROM macro_items
-        WHERE scraped_at >= ?
-        ORDER BY scraped_at DESC, source
-        LIMIT 500
-    """, [(datetime.now() - timedelta(days=14))]).fetchall()
-    items = [
-        {
-            "id": r[0], "source": r[1], "category": r[2], "ts": r[3],
-            "title": r[4], "url": r[5], "excerpt": r[6],
-            "scraped_at": r[7].isoformat() if r[7] else None,
-        }
-        for r in rows
-    ]
-    by_source: dict[str, int] = {}
-    for it in items:
-        by_source[it["source"]] = by_source.get(it["source"], 0) + 1
-    _write(DATA_DIR / "macro-overlays.json", {
-        "asOf": datetime.now(BKK).date().isoformat(),
-        "total": len(items),
-        "bySource": by_source,
-        "items": items,
-    })
-
-
 def build_diagnostics(con: duckdb.DuckDBPyConnection, tickers: dict) -> None:
     """Coverage-gap + unclassified queue + per-RM staleness.
 
@@ -284,7 +256,6 @@ def main() -> int:
         build_external_news(con, tickers)
         build_trading_signs(con, tickers)
         build_sec_enforcement(con, tickers)
-        build_macro_overlays(con)
         build_diagnostics(con, tickers)
     finally:
         con.close()

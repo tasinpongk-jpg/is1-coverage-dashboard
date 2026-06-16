@@ -9,11 +9,9 @@ Sources:
     Bangkok Biznews. Ticker-matched against the 232-name coverage.
   - trading_signs: SET trading-sign HTML page (SP/NP/NC/CC/C/ST/DS/CB).
   - sec_enforcement: SEC iDisc Enforce/Recent table.
-  - macro_overlays: ThaiBMA Daily Highlight, REIC news, OAE EN news, BLS
-    research browse. Stored without per-ticker matching.
 
 Run:
-  python surveillance/external_sources.py            # all four
+  python surveillance/external_sources.py            # all three
   python surveillance/external_sources.py --only rss # one source family
 """
 
@@ -23,7 +21,6 @@ import argparse
 import hashlib
 import json
 import re
-import ssl
 import sys
 import traceback
 from datetime import datetime, timezone, timedelta
@@ -47,19 +44,6 @@ HEADERS = {
 }
 TIMEOUT = httpx.Timeout(20.0, connect=10.0)
 
-
-def _legacy_ssl_context() -> ssl.SSLContext:
-    """Some Thai broker / govt sites still run on legacy TLS that modern OpenSSL
-    rejects with SSLV3_ALERT_HANDSHAKE_FAILURE. Drop to SECLEVEL=0 and accept
-    TLSv1+ for those endpoints only."""
-    ctx = ssl.create_default_context()
-    try:
-        ctx.set_ciphers("DEFAULT@SECLEVEL=0")
-    except ssl.SSLError:
-        pass
-    ctx.check_hostname = False
-    ctx.verify_mode = ssl.CERT_NONE
-    return ctx
 
 BKK = timezone(timedelta(hours=7))
 
@@ -468,119 +452,6 @@ def fetch_sec_enforcement(client: httpx.Client) -> int:
 
 
 # ---------------------------------------------------------------------------
-# macro_overlays — ThaiBMA / REIC / OAE / BLS
-# ---------------------------------------------------------------------------
-
-MACRO_SOURCES = [
-    {
-        "source": "THAIBMA",
-        "category": "bond",
-        "url": "https://www.thaibma.or.th/EN/Market/Highlight1.aspx",
-        "link_re": r'<a[^>]+href="(/EN/[^"]+)"[^>]*>\s*([^<]{8,200})\s*</a>',
-        "base": "https://www.thaibma.or.th",
-        "legacy_ssl": False,
-    },
-    {
-        "source": "REIC",
-        "category": "property",
-        "url": "https://www.reic.or.th/News/RealEstate",
-        "link_re": r'<a[^>]+href="(/News/[^"]+)"[^>]*>\s*([^<]{8,200})\s*</a>',
-        "base": "https://www.reic.or.th",
-        "legacy_ssl": False,
-    },
-    {
-        "source": "BLS",
-        "category": "broker_report",
-        "url": "https://www2.bualuang.co.th/en/browse_research.php",
-        # The visible report title sits in a <strong> tag, the link itself only
-        # contains the literal text "more detail". Regex captures (title, href)
-        # and the macro loop swaps for BLS so the surface contract stays
-        # (href, label) like every other source.
-        "link_re": r'<strong>([^<]{4,200})</strong>[\s\S]{0,400}?<a[^>]+href="(?:\.\./)?(att_browse\.php\?rep_id=\d+&att_id=\d+)"',
-        "base": "https://www2.bualuang.co.th/",
-        "legacy_ssl": True,
-        "swap_groups": True,
-    },
-    # OAE (oae.go.th) is an Angular SPA — links are JS-rendered, so a static
-    # HTML fetch returns no <a> tags. Dropped until a JSON endpoint surfaces or
-    # we move scraping into a headless browser.
-]
-
-
-def fetch_macro_overlays(client: httpx.Client) -> int:
-    """Fetch each macro page, extract first ~30 outgoing news/article/report
-    links. We don't classify or ticker-match these — the dashboard surfaces
-    them as a per-source list."""
-    today_iso = datetime.now(BKK).isoformat(timespec="seconds")
-    new_total = 0
-    # Lazily build a legacy-SSL client only if needed (BLS).
-    legacy_client: httpx.Client | None = None
-    for s in MACRO_SOURCES:
-        try:
-            if s.get("legacy_ssl"):
-                if legacy_client is None:
-                    legacy_client = httpx.Client(
-                        headers=HEADERS, timeout=TIMEOUT, follow_redirects=True,
-                        verify=_legacy_ssl_context(),
-                    )
-                r = legacy_client.get(s["url"])
-            else:
-                r = client.get(s["url"])
-            r.raise_for_status()
-            html = r.text
-        except Exception as e:  # noqa: BLE001
-            print(f"  [macro/{s['source']}] FAIL {type(e).__name__}: {e}", flush=True)
-            continue
-        links = re.findall(s["link_re"], html, re.I)
-        if s.get("swap_groups"):
-            links = [(href, label) for label, href in links]
-        seen_links = set()
-        rows: list[tuple[Any, ...]] = []
-        for href, label in links[:50]:
-            href = href.strip()
-            label = _strip_html(label).strip()
-            if not label or len(label) < 6:
-                continue
-            if href.startswith("/"):
-                full = s["base"].rstrip("/") + href
-            elif href.startswith("http"):
-                full = href
-            else:
-                full = s["base"].rstrip("/") + "/" + href
-            if full in seen_links:
-                continue
-            seen_links.add(full)
-            rid = _hash(s["source"], full, label[:120])
-            rows.append((
-                rid, s["source"], s["category"], today_iso,
-                label[:400], full, label[:400], json.dumps([s["category"]]),
-            ))
-        if not rows:
-            print(f"  [macro/{s['source']}] page fetched, 0 links extracted", flush=True)
-            continue
-        with conn() as c:
-            ids = [r[0] for r in rows]
-            existing = {row[0] for row in c.execute(
-                "SELECT id FROM macro_items WHERE id = ANY (?)", [ids]
-            ).fetchall()}
-            new = [r for r in rows if r[0] not in existing]
-            if new:
-                c.executemany(
-                    """
-                    INSERT INTO macro_items
-                      (id, source, category, datetime_iso, headline, url, body_excerpt, relevance_tags)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                    """,
-                    new,
-                )
-            new_total += len(new)
-        print(f"  [macro/{s['source']}] {len(rows)} links, {len(new) if rows else 0} new", flush=True)
-    if legacy_client is not None:
-        legacy_client.close()
-    return new_total
-
-
-# ---------------------------------------------------------------------------
 # Entry point
 # ---------------------------------------------------------------------------
 
@@ -588,7 +459,7 @@ def main() -> None:
     p = argparse.ArgumentParser()
     p.add_argument(
         "--only",
-        choices=["rss", "signs", "sec", "macro"],
+        choices=["rss", "signs", "sec"],
         help="Run only one source family.",
     )
     args = p.parse_args()
@@ -602,7 +473,6 @@ def main() -> None:
             "rss":   ("external_news", lambda: fetch_external_news(client)),
             "signs": ("trading_signs", lambda: fetch_trading_signs(client)),
             "sec":   ("sec_enforcement", lambda: fetch_sec_enforcement(client)),
-            "macro": ("macro_overlays", lambda: fetch_macro_overlays(client)),
         }
         keys = [args.only] if args.only else list(plan.keys())
         for k in keys:

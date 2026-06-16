@@ -50,7 +50,7 @@ in a different slice of the daily snapshots:
 |---|---|---|
 | ⚡ Hermes | News & catalysts, silent filers, Oppday | `external-news`, `disclosure-pulse`, `oppday-minutes` |
 | 🗺 Atlas | Prices, movers, alerts, threshold math | `morning-brief`, `tickers`, `unusual-trading` |
-| 🔮 Pythia | Macro & sector view | `macro-overlays`, sector aggregates, `ai-insights` |
+| 🔮 Pythia | Macro & sector view | sector aggregates, `ai-insights` |
 
 Dock features: per-agent threads (survive navigation), RM picker for
 personalized suggestion chips, ticker chips in replies deep-linking to

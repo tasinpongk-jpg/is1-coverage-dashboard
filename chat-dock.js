@@ -42,11 +42,11 @@
     },
     pythia: {
       label: "Pythia", emoji: "🔮", color: "#8b5cf6",
-      tag: "Macro & sectors — overlays, breadth, commentary",
-      data: ["macro-overlays", "morning-brief", "ai-insights"],
+      tag: "Macro & sectors — breadth, commentary",
+      data: ["morning-brief", "ai-insights"],
       chips: [
         "Which sector leads and which lags today?",
-        "What macro prints matter for PROP this week?",
+        "What should I watch in PROP this week?",
         "สรุปภาพรวมตลาดวันนี้",
       ],
     },

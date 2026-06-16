@@ -177,21 +177,6 @@ def conn() -> Iterator[duckdb.DuckDBPyConnection]:
             )
             """
         )
-        c.execute(
-            """
-            CREATE TABLE IF NOT EXISTS macro_items (
-                id              VARCHAR PRIMARY KEY,
-                source          VARCHAR NOT NULL,
-                category        VARCHAR,
-                datetime_iso    VARCHAR,
-                headline        VARCHAR,
-                url             VARCHAR,
-                body_excerpt    VARCHAR,
-                relevance_tags  VARCHAR,
-                scraped_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
-            """
-        )
         yield c
     finally:
         c.close()

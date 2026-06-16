@@ -87,12 +87,26 @@ test("RM-priority slicing: the user's filing rows fill the cap first", async () 
   const CAP = 60; // keep in sync with ctxFilings
 
   await worker.fetch(chatReq({ agent: "hermes", rm: "Champ", messages: userMsg }), env);
-  const section = lastSystem.split("SET DISCLOSURES")[1]?.split("OVERDUE")[0] || "";
+  // Anchor on the data-section header ("SET DISCLOSURES (last N days…"), not the
+  // bare phrase — the Hermes persona now also mentions "SET DISCLOSURES" by name.
+  const section = lastSystem.split("SET DISCLOSURES (last")[1]?.split("OVERDUE")[0] || "";
   // count data rows only ("YYYY-MM-DD TK rm=Champ ..."), not the header note
   const got = (section.match(/^\d{4}-\d{2}-\d{2} \S+ rm=Champ /gm) || []).length;
   // min(cap, all of Champ's rows) must be Champ's — none displaced by others
   assert.equal(got, Math.min(CAP, champRows),
     `expected ${Math.min(CAP, champRows)} Champ filing rows in context, got ${got}`);
+});
+
+test("hermes is told to merge external news + SET disclosures, both blocks present", async () => {
+  await worker.fetch(chatReq({ agent: "hermes", messages: userMsg }), env);
+  // persona instruction to use both sources
+  assert.ok(/ALWAYS covers BOTH sources/.test(lastSystem),
+    "expected the both-sources instruction in Hermes' persona");
+  assert.ok(lastSystem.includes("📰 External news") && lastSystem.includes("📄 SET disclosures"),
+    "expected both labelled-section headers in the persona/few-shot");
+  // and both data blocks actually fed in as context
+  assert.ok(/EXTERNAL NEWS \(last/.test(lastSystem), "expected EXTERNAL NEWS data block");
+  assert.ok(/SET DISCLOSURES \(last/.test(lastSystem), "expected SET DISCLOSURES data block");
 });
 
 test("ticker symbols are uppercased instruction present (linkability)", async () => {

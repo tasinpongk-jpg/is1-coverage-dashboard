@@ -90,10 +90,10 @@ jobs:
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
         run: python classify_batch.py
 
-      # External news / trading signs / SEC enforcement / macro overlays.
+      # External news / trading signs / SEC enforcement.
       # Best-effort: any source that fails logs and continues. Failures in
       # this step never block the SET pipeline above or the build job below.
-      - name: Fetch external sources (RSS, signs, SEC, macro)
+      - name: Fetch external sources (RSS, signs, SEC)
         working-directory: surveillance
         run: python external_sources.py
         continue-on-error: true

@@ -1,10 +1,10 @@
 /**
  * IS1 grouped navigation — shared across all dashboard pages.
  *
- * Replaces each page's flat <nav class="nav"> with four color-coded group
+ * Replaces each page's flat <nav class="nav"> with color-coded group
  * dropdowns matching the index page's sections (Market / News /
- * Surveillance / Macro). The original flat links remain in the HTML as a
- * no-JS fallback; this script swaps them out at load.
+ * Surveillance / Bond Data / Visits). The original flat links remain in the
+ * HTML as a no-JS fallback; this script swaps them out at load.
  *
  * The page's stale badge (and any other non-link elements inside the nav)
  * are MOVED, not recreated, so page scripts holding references keep working.
@@ -42,11 +42,10 @@
       ],
     },
     {
-      label: "Macro", color: "#06b6d4",
+      label: "Bond Data", color: "#06b6d4",
       pages: [
         ["bond-summary.html", "Bond Summary"],
         ["bond-data-sec.html", "BOND Data from SEC"],
-        ["macro-overlays.html", "Macro Overlays"],
       ],
     },
     {
