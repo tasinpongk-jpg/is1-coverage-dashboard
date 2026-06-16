@@ -109,6 +109,22 @@ test("hermes is told to merge external news + SET disclosures, both blocks prese
   assert.ok(/SET DISCLOSURES \(last/.test(lastSystem), "expected SET DISCLOSURES data block");
 });
 
+test("atlas persona enforces strict threshold math + table format", async () => {
+  await worker.fetch(chatReq({ agent: "atlas", messages: userMsg }), env);
+  assert.ok(/THRESHOLD MATH IS STRICT/.test(lastSystem), "expected strict-threshold rule");
+  assert.ok(/never round toward the threshold/.test(lastSystem), "expected no-rounding rule");
+  assert.ok(/EXAMPLE — user:/.test(lastSystem), "expected an Atlas few-shot example");
+});
+
+test("pythia persona ranks from aggregates + separates fact from AI view", async () => {
+  await worker.fetch(chatReq({ agent: "pythia", messages: userMsg }), env);
+  assert.ok(/RANK FROM THE NUMBERS/.test(lastSystem), "expected ranking-from-data rule");
+  assert.ok(/SEPARATE FACT FROM VIEW/.test(lastSystem), "expected fact-vs-commentary rule");
+  // both data blocks Pythia reasons over must be present
+  assert.ok(/SECTOR AGGREGATES/.test(lastSystem), "expected SECTOR AGGREGATES block");
+  assert.ok(/AI COMMENTARY/.test(lastSystem), "expected AI COMMENTARY reference");
+});
+
 test("ticker symbols are uppercased instruction present (linkability)", async () => {
   await worker.fetch(chatReq({ agent: "atlas", messages: userMsg }), env);
   assert.ok(lastSystem.includes("UPPERCASE"));
