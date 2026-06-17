@@ -432,6 +432,9 @@ async function handleLex(env, origin, cleaned, rm) {
 
 // ---------------------------------------------------- on-demand PDF summaries
 //
+// Canonical recipe + gotchas: INTEGRATION.md §2 (shared with the AI Agent CLI's
+// filing_tools.py — keep the two in sync).
+//
 // Hermes can summarize the ACTUAL filed document, not just its headline. SET
 // serves a newsdetails HTML page (the filing.url) that links the real PDF on
 // weblink.set.or.th; the PDF goes straight to Gemini (which reads PDFs natively

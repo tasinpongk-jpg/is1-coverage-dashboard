@@ -54,6 +54,11 @@ different slice of the daily snapshots:
 | 🔮 Pythia | Macro & sector view | sector aggregates, `ai-insights` |
 | ⚖️ Lex | SET/SEC rules & disclosure obligations | regulation PDFs (page-cited) |
 
+This dashboard pairs with a private local CLI (`~/VSCoder/AI Agent`) that reads
+these same snapshots and hands back `data/visits.json`. They are separate repos
+by design; their shared contract (data schema, SET PDF recipe, agent cousins)
+is documented once in [INTEGRATION.md](INTEGRATION.md).
+
 Dock features: per-agent threads (survive navigation), RM picker for
 personalized suggestion chips, ticker chips in replies deep-linking to
 `company-summary.html?tk=X`, and select-any-text → "✦ ask". Token-gated by the
