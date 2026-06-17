@@ -142,11 +142,10 @@ test("plain 'news on X' does NOT trigger the on-demand PDF summary path", async 
   const tk = JSON.parse(await readFile("./data/tickers.json", "utf-8")).tickers[0].tk;
   const r = await worker.fetch(chatReq({ agent: "hermes", messages: [{ role: "user", content: `any news on ${tk}?` }] }), env);
   assert.equal(r.status, 200);
-  // Anchor on text unique to the INJECTED block, not the persona (which names
-  // the block). Success injects "read directly from the filed PDF"; the
-  // soft-fail injects "could not be opened". Neither should appear here.
-  assert.ok(!/read directly from the filed PDF|could not be opened/.test(lastSystem),
-    "PDF summary block should only appear on an explicit summarize request");
+  const d = await r.json();
+  // The summarize path short-circuits to Gemini (model=gemini-*). A plain news
+  // query must take the normal chat-model path instead — proves it didn't fire.
+  assert.ok(/llama/i.test(d.model), `plain news should use the chat model, got ${d.model}`);
 });
 
 test("atlas 'beyond ±X%' query hard-filters prices to qualifying rows only", async () => {

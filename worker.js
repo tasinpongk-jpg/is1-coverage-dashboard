@@ -358,10 +358,7 @@ const AGENTS = {
       "• 2026-06-13 [HOONSMART] ITC joins TU on a mangrove clean-up CSR drive — low impact.\n" +
       "📄 SET disclosures\n" +
       "• None for ITC in the last 90 days.\n" +
-      "(Both headers always appear, even when one side is empty.)\n" +
-      "If a FILED-DOCUMENT SUMMARIES block is present, the user asked you to " +
-      "summarize the actual filing: lead your 📄 section with those bullets " +
-      "(they were read from the real PDF) and cite the filing date + title.\n",
+      "(Both headers always appear, even when one side is empty.)\n",
     contexts: [ctxCoverage, ctxNews, ctxFilings, ctxOppday],
   },
   pythia: {
@@ -518,31 +515,36 @@ async function summarizeFiling(env, filing, lang) {
   return txt;
 }
 
-// Build a context block of filed-document summaries for the focused ticker(s),
-// newest first. Bounded to keep latency sane; runs the Gemini calls in parallel.
-async function docSummaryBlock(env, origin, focus, lang) {
+// Build the full Hermes reply for a "summarize the filing" request directly
+// from Gemini's PDF summaries (newest 1-2 filings for the focused ticker), plus
+// an overdue-status line. Returns null if no PDF could be opened, so the caller
+// can fall back to the chat model. Summaries run in parallel; cached by news id.
+async function buildDocSummaryReply(env, origin, focus, lang) {
   const pulse = await loadJson(env, origin, "disclosure-pulse");
   const cand = (pulse?.filings || [])
     .filter((f) => focus.has(f.tk))
     .sort((a, b) => Date.parse(b.ts || 0) - Date.parse(a.ts || 0))
     .slice(0, 2);
-  if (!cand.length) return "";
+  if (!cand.length) return null;
   const sums = await Promise.all(cand.map(async (f) => {
     const s = await summarizeFiling(env, f, lang);
-    return s ? `• ${f.tk} ${(f.ts || "").slice(0, 10)} — ${f.title}\n${s}` : null;
+    return s ? { f, s } : null;
   }));
   const got = sums.filter(Boolean);
-  if (!got.length) {
-    return "\n\nFILED-DOCUMENT SUMMARIES: the document(s) for the asked-about " +
-      "ticker could not be opened — tell the user you couldn't retrieve the PDF " +
-      "and fall back to the disclosure title.";
+  if (!got.length) return null;
+
+  const tks = [...focus].join(", ");
+  let reply = `📄 ${tks} — summarized from the filed PDF:\n`;
+  for (const { f, s } of got) {
+    reply += `\n${(f.ts || "").slice(0, 10)} — ${f.title}\n${s.trim()}\n`;
   }
-  return "\n\nFILED-DOCUMENT SUMMARIES (read directly from the filed PDF — these " +
-    "ARE the answer the user asked for; do not invent beyond them). PUT YOUR 📄 " +
-    "SET disclosures SECTION FIRST. Under each filing's date + title, REPRODUCE " +
-    "ALL of its bullets IN FULL, keeping every number — do NOT collapse a filing " +
-    "to one generic line. Then keep 📰 external news to AT MOST 2 bullets:\n" +
-    got.join("\n\n");
+  const overdue = (pulse?.status || []).filter((x) => x.overdue && focus.has(x.tk));
+  if (overdue.length) {
+    reply += "\n⏳ " + overdue
+      .map((x) => `${x.tk} silent ${x.silentDays}d (last filed ${(x.lastFiledTs || "?").slice(0, 10)})`)
+      .join("; ");
+  }
+  return reply.trim();
 }
 
 async function handleChat(request, env, origin) {
@@ -584,10 +586,16 @@ async function handleChat(request, env, origin) {
   let context = parts.filter(Boolean).join("\n\n");
 
   // On-demand: when a user asks Hermes to summarize a specific ticker's filing,
-  // read the actual PDF and fold the summary into context (cached by news id).
+  // read the actual PDF, summarize via Gemini, and return that DIRECTLY. The
+  // chat model won't faithfully reproduce an injected summary (it compresses to
+  // a generic line), so we bypass it and serve Gemini's output verbatim.
   if (agentName === "hermes" && focus.size && wantsDocSummary(lastText)) {
     const lang = /[฀-๿]/.test(lastText) ? "th" : "en";
-    context += await docSummaryBlock(env, origin, focus, lang);
+    const direct = await buildDocSummaryReply(env, origin, focus, lang);
+    if (direct) return json({ reply: direct, agent: "hermes", model: LEX_MODEL });
+    // couldn't open any PDF → fall through to the normal model, with a note
+    context += "\n\nNOTE: the user asked to summarize a filing but the PDF could " +
+      "not be opened; say so plainly and fall back to the disclosure title.";
   }
   const result = await env.AI.run(CHAT_MODEL, {
     messages: [
