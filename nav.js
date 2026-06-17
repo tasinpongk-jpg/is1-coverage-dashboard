@@ -22,6 +22,7 @@
         ["company-summary.html", "Company Summary"],
         ["multiples-comparison.html", "Multiples Comparison"],
         ["multiples-band.html", "Multiples Band"],
+        ["https://tradingview-daily-dashboard.tasinpong-k.workers.dev/", "Daily Market Board"], // external (separate worker, opens new tab)
       ],
     },
     {
@@ -77,9 +78,6 @@
     "visits.html":              { ic: '<path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><path d="M12 12a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5Z"/>', desc: "Plan and track company visits" },
   };
 
-  var nav = document.querySelector("nav.nav");
-  if (!nav) return; // index has its own layout
-
   var css = "\
 nav.nav{display:flex;align-items:center;gap:2px;position:relative}\
 .gnav-home{font-size:12.5px;color:var(--muted,#8089a0);text-decoration:none;padding:7px 10px;border-radius:7px}\
@@ -131,7 +129,9 @@ nav.nav{display:flex;align-items:center;gap:2px;position:relative}\
 /* ── UNIFIED TOP BAR (identical to homepage: IS mark + The Terminal + status) ── */\
 .gtopbar{display:flex;align-items:center;justify-content:space-between;gap:18px;padding:18px 32px;\
  border-bottom:1px solid var(--border,#232733);position:sticky;top:0;z-index:200;\
- background:#0a0c12ee;backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px)}\
+ background:#0a0c12ee;backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);\
+ font-family:'Inter','Segoe UI',system-ui,sans-serif}\
+.gtopbar.ext-bar{position:relative;top:auto}\
 .gbrand{display:flex;align-items:center;gap:14px;text-decoration:none;color:inherit;flex-shrink:0}\
 .gbrand-mark{width:34px;height:34px;border-radius:9px;flex-shrink:0;display:flex;align-items:center;justify-content:center;\
  background:linear-gradient(135deg,#6366f1,#8b5cf6);font-weight:800;font-size:14px;letter-spacing:-.5px;color:#fff}\
@@ -152,6 +152,46 @@ nav.nav{display:flex;align-items:center;gap:2px;position:relative}\
   style.textContent = css;
   document.head.appendChild(style);
 
+  // Where this nav.js is served from. Lets the menu link back to the main
+  // dashboard even when this script is loaded on another site (the Market Board).
+  var BASE = "", offsite = false;
+  try {
+    var selfScript = document.currentScript;
+    if (!selfScript) {
+      var ss = document.querySelectorAll("script[src]");
+      for (var i = 0; i < ss.length; i++) if (/nav\.js(\?|$)/.test(ss[i].src)) selfScript = ss[i];
+    }
+    if (selfScript && selfScript.src) {
+      var u = new URL(selfScript.src);
+      BASE = u.origin;
+      offsite = (u.origin !== location.origin);
+    }
+  } catch (e) {}
+  function link(href) { // absolute back to the dashboard when off-site; pass external URLs through
+    return /^https?:\/\//.test(href) ? href : (BASE ? BASE + "/" + href : href);
+  }
+
+  // On the main site each page provides <nav class="nav">. When loaded on
+  // another origin, there is none — build a Terminal top bar and prepend it.
+  var nav = document.querySelector("nav.nav");
+  if (!nav) {
+    if (!offsite) return; // same-origin page without a nav (e.g. index) keeps its own layout
+    var extBar = document.createElement("header");
+    extBar.className = "gtopbar ext-bar";
+    var xbrand = document.createElement("a");
+    xbrand.className = "gbrand";
+    xbrand.href = link("index.html");
+    xbrand.innerHTML =
+      '<div class="gbrand-mark">IS</div>' +
+      '<div class="gbrand-text"><h1>The Terminal<span class="cursor"></span></h1>' +
+      '<div class="sub">IS1 Coverage Desk · SET Issuer Department 1</div></div>';
+    nav = document.createElement("nav");
+    nav.className = "nav";
+    extBar.appendChild(xbrand);
+    extBar.appendChild(nav);
+    document.body.insertBefore(extBar, document.body.firstChild);
+  }
+
   var here = location.pathname.split("/").pop() || "index.html";
   // Live URLs are extensionless (/price-movement), local ones keep .html —
   // compare on the stem so both resolve to the same page.
@@ -165,7 +205,7 @@ nav.nav{display:flex;align-items:center;gap:2px;position:relative}\
   nav.innerHTML = "";
   var home = document.createElement("a");
   home.className = "gnav-home";
-  home.href = "index.html";
+  home.href = link("index.html");
   home.textContent = "The Terminal";
   nav.appendChild(home);
 
@@ -186,7 +226,7 @@ nav.nav{display:flex;align-items:center;gap:2px;position:relative}\
     panel.className = "gnav-panel";
     g.pages.forEach(function (p) {
       var a = document.createElement("a");
-      a.href = p[0];
+      a.href = link(p[0]);
       var external = /^https?:\/\//.test(p[0]);
       if (external) {
         a.target = "_blank";
