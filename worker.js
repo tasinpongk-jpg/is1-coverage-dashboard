@@ -477,7 +477,9 @@ async function summarizeFiling(env, filing, lang) {
   if (!env.GEMINI_API_KEY || !filing?.url) return null;
   const cache = caches.default;
   // v2: v1 entries were truncated by gemini-2.5-flash thinking-token budget.
-  const cacheKey = new Request(`https://is1-doc-summary/v2/${filing._id || encodeURIComponent(filing.url)}`);
+  // Key includes lang so an EN and a TH asker each get their own summary.
+  const cacheKey = new Request(
+    `https://is1-doc-summary/v2/${lang}/${filing._id || encodeURIComponent(filing.url)}`);
   const cached = await cache.match(cacheKey);
   if (cached) return await cached.text();
 
@@ -511,13 +513,18 @@ async function summarizeFiling(env, filing, lang) {
       thinkingConfig: { thinkingBudget: 0 },
     },
   };
-  const gr = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${LEX_MODEL}:generateContent?key=${env.GEMINI_API_KEY}`,
-    { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
-  if (!gr.ok) return null;
-  const data = await gr.json();
-  const txt = ((data.candidates || [])[0]?.content?.parts || [])
-    .map((p) => p.text).filter(Boolean).join("").trim();
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${LEX_MODEL}:generateContent?key=${env.GEMINI_API_KEY}`;
+  const init = { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) };
+  let txt = "";
+  for (let attempt = 0; attempt < 2 && !txt; attempt++) { // one retry absorbs cold transients
+    try {
+      const gr = await fetch(url, init);
+      if (!gr.ok) continue;
+      const data = await gr.json();
+      txt = ((data.candidates || [])[0]?.content?.parts || [])
+        .map((p) => p.text).filter(Boolean).join("").trim();
+    } catch { /* retry */ }
+  }
   if (!txt) return null;
   await cache.put(cacheKey, new Response(txt, { headers: { "Cache-Control": "max-age=2592000" } }));
   return txt;
