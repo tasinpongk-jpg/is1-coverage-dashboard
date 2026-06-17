@@ -476,7 +476,8 @@ async function resolvePdfUrl(newsUrl) {
 async function summarizeFiling(env, filing, lang) {
   if (!env.GEMINI_API_KEY || !filing?.url) return null;
   const cache = caches.default;
-  const cacheKey = new Request(`https://is1-doc-summary/${filing._id || encodeURIComponent(filing.url)}`);
+  // v2: v1 entries were truncated by gemini-2.5-flash thinking-token budget.
+  const cacheKey = new Request(`https://is1-doc-summary/v2/${filing._id || encodeURIComponent(filing.url)}`);
   const cached = await cache.match(cacheKey);
   if (cached) return await cached.text();
 
@@ -501,7 +502,14 @@ async function summarizeFiling(env, filing, lang) {
       { inline_data: { mime_type: "application/pdf", data: bytesToBase64(buf) } },
       { text: prompt },
     ] }],
-    generationConfig: { temperature: 0.2, maxOutputTokens: 400 },
+    // gemini-2.5-flash is a thinking model: thinking tokens count against
+    // maxOutputTokens, so a low cap starves the actual text. Disable thinking
+    // (summarization needs none) and give the output real room.
+    generationConfig: {
+      temperature: 0.2,
+      maxOutputTokens: 1024,
+      thinkingConfig: { thinkingBudget: 0 },
+    },
   };
   const gr = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/${LEX_MODEL}:generateContent?key=${env.GEMINI_API_KEY}`,
