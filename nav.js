@@ -150,6 +150,9 @@ nav.nav{display:flex;align-items:center;gap:2px;position:relative}\
   document.head.appendChild(style);
 
   var here = location.pathname.split("/").pop() || "index.html";
+  // Live URLs are extensionless (/price-movement), local ones keep .html —
+  // compare on the stem so both resolve to the same page.
+  var hereKey = here.replace(/\.html$/, "");
 
   // keep non-link extras (stale badge etc.) to re-append after rebuild
   var extras = Array.prototype.filter.call(nav.children, function (el) {
@@ -163,7 +166,7 @@ nav.nav{display:flex;align-items:center;gap:2px;position:relative}\
   home.textContent = "The Terminal";
   nav.appendChild(home);
 
-  var heroTitle = null, heroColor = null, heroGroup = null;
+  var heroTitle = null, heroColor = null, heroGroup = null, heroFile = null;
   GROUPS.forEach(function (g) {
     var wrap = document.createElement("div");
     wrap.className = "gnav-group";
@@ -182,12 +185,13 @@ nav.nav{display:flex;align-items:center;gap:2px;position:relative}\
       var a = document.createElement("a");
       a.href = p[0];
       a.innerHTML = '<span class="pdot"></span>' + p[1];
-      if (p[0] === here) {
+      if (p[0].replace(/\.html$/, "") === hereKey) {
         a.classList.add("here");
         wrap.classList.add("active");
         heroTitle = p[1];
         heroColor = g.color;
         heroGroup = g.label;
+        heroFile = p[0];
       }
       panel.appendChild(a);
     });
@@ -254,7 +258,7 @@ nav.nav{display:flex;align-items:center;gap:2px;position:relative}\
       // Colored page banner directly below the bar; the live detail line
       // (counts / as-of) rides along next to the description.
       if (!document.querySelector(".phbanner")) {
-        var meta = META[here] || { ic: "", desc: "" };
+        var meta = META[heroFile] || { ic: "", desc: "" };
         var banner = document.createElement("div");
         banner.className = "phbanner";
         banner.style.setProperty("--ph", heroColor);
