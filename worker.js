@@ -491,10 +491,11 @@ async function summarizeFiling(env, filing, lang) {
   if (buf.length < 1000 || buf.length > 15_000_000) return null; // empty / too big
 
   const prompt =
-    "You are summarizing a SET (Stock Exchange of Thailand) disclosure document " +
-    "for a relationship manager. In 3-4 tight bullets state: what was filed, the " +
-    "key numbers / decisions / dates, and why a client might care. Be specific and " +
-    "factual — use only what the document says. Reply in " +
+    "Summarize this SET (Stock Exchange of Thailand) disclosure document for a " +
+    "relationship manager. Output ONLY 3-4 tight bullets — no preamble, no " +
+    "'here is a summary', start directly with the first '•'. Cover: what was " +
+    "filed, the key numbers / decisions / dates, and why a client might care. " +
+    "Be specific and factual — use only what the document says. Write in " +
     (lang === "th" ? "Thai." : "English.");
   const body = {
     contents: [{ role: "user", parts: [
@@ -534,8 +535,10 @@ async function docSummaryBlock(env, origin, focus, lang) {
       "ticker could not be opened — tell the user you couldn't retrieve the PDF " +
       "and fall back to the disclosure title.";
   }
-  return "\n\nFILED-DOCUMENT SUMMARIES (read directly from the filed PDF — use as " +
-    "the factual basis, lead your 📄 section with these, do not invent beyond them):\n" +
+  return "\n\nFILED-DOCUMENT SUMMARIES (read directly from the filed PDF — these " +
+    "are the answer the user asked for; use them as the factual basis, do not " +
+    "invent beyond them). PUT YOUR 📄 SET disclosures SECTION FIRST and lead it " +
+    "with these bullets; keep 📰 external news to AT MOST 2 bullets after it:\n" +
     got.join("\n\n");
 }
 
@@ -588,7 +591,7 @@ async function handleChat(request, env, origin) {
       { role: "system", content: agent.persona + SHARED_RULES + rmLine + "\n\nDATA:\n" + context },
       ...cleaned,
     ],
-    max_tokens: 800,
+    max_tokens: 1100,
     temperature: 0.2,
   });
   return json({ reply: result.response ?? "", agent: agentName, model: CHAT_MODEL });
