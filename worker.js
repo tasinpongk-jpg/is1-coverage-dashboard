@@ -176,6 +176,52 @@ function withinDays(items, days, tsOf) {
   return items.filter((it) => { const p = Date.parse(tsOf(it)); return !isFinite(p) || p >= cutoff; });
 }
 
+// Map a sector mentioned in the query to its data code, so news/filings/prices
+// can be scoped to it deterministically (like a ticker focus, but sector-wide).
+// Order matters: REIT before PROP, CONMAT before CONS.
+function parseSector(text) {
+  const t = String(text || "").toLowerCase();
+  if (/\bpf\s*&?\s*reit\b|\bpfreit\b|\breits?\b|property fund/.test(t)) return "PF&REIT";
+  if (/\bconmat\b|construction material|cement\b/.test(t)) return "CONMAT";
+  if (/\bcons\b|commerce|retailer/.test(t)) return "CONS";
+  if (/\bprop(erty)?\b|real estate|developer|residential/.test(t)) return "PROP";
+  if (/\bagri(business|culture)?\b/.test(t)) return "AGRI";
+  if (/\bfood\b|beverage|\bf&b\b/.test(t)) return "FOOD";
+  return null;
+}
+
+// Structural/query words that must NOT count as topical keywords.
+const STOPWORDS = new Set((
+  "news update updates latest recent recently happening happened give show tell about what which whats " +
+  "any some have has there their this that these those with from into over under more most need want know your " +
+  "coverage names name ticker tickers symbol symbols stock stocks share shares company companies " +
+  "filing filings disclosure disclosures disclosed report reports announce announced announcement announcements " +
+  "today week month year days yesterday morning recent " +
+  "overview situation status story picture going happening update briefing roundup " +
+  "sector sectors market markets thai thailand " +
+  "food prop property reit reits agri agriculture cons commerce conmat construction cement " +
+  "champ kae orn gift pim tony " +
+  "please summarize summary detail details explain anything something").split(/\s+/));
+
+// Topical latin keywords from the query (>=4 chars, not structural). Used to
+// rank news/filings so a relevant item past the recency cap still surfaces.
+function parseTopic(text) {
+  const toks = (String(text || "").toLowerCase().match(/[a-z][a-z]{3,}/g) || [])
+    .filter((w) => !STOPWORDS.has(w));
+  return [...new Set(toks)].slice(0, 6);
+}
+
+// Stable re-rank by keyword hits (recency order preserved within ties / zero-hits).
+function relevanceRank(items, kws, textOf) {
+  if (!kws.length) return items;
+  const score = (it) => {
+    const s = String(textOf(it)).toLowerCase();
+    return kws.reduce((a, k) => a + (s.includes(k) ? 1 : 0), 0);
+  };
+  return items.map((it, i) => ({ it, i, sc: score(it) }))
+    .sort((a, b) => b.sc - a.sc || a.i - b.i).map((x) => x.it);
+}
+
 const METRIC_LABEL = { pct1d: "1-day %", pct5d: "5-day %", pctYtd: "YTD %", volRatio: "vol ratio" };
 
 async function ctxPrices(env, origin, _userRm, focus, q) {
@@ -193,7 +239,9 @@ async function ctxPrices(env, origin, _userRm, focus, q) {
   // model reads top-down; for a parsed screen, hard-filter so it can only narrate.
   let rows = (brief?.rows || []).slice().sort((a, b) => Math.abs(mval(b)) - Math.abs(mval(a)));
   if (focus && focus.size) rows = rows.filter((r) => focus.has(r.tk));
-  let note = `Rows are sorted by |${mlabel}| descending (biggest movers first).`;
+  else if (q?.sector) rows = rows.filter((r) => (cov[r.tk]?.sector || r.sector) === q.sector);
+  let note = `Rows are sorted by |${mlabel}| descending (biggest movers first).` +
+    (q?.sector && !(focus && focus.size) ? ` Scoped to the ${q.sector} sector.` : "");
   if (pq?.mode === "threshold") {
     const pass = (v) => pq.dir === "up" ? v >= pq.x : pq.dir === "down" ? v <= -pq.x : Math.abs(v) >= pq.x;
     rows = rows.filter((r) => pass(mval(r)));
@@ -258,16 +306,27 @@ async function ctxNews(env, origin, userRm, focus, q) {
   const [news, rms] = await Promise.all([
     loadJson(env, origin, "external-news"), rmMap(env, origin)]);
   let items = news?.items || [];
+  const focused = focus && focus.size;
   // When the user named specific covered tickers, show ONLY their news, so the
-  // model never pads "news on CPN" with unrelated names.
-  if (focus && focus.size) items = items.filter((n) => focus.has(n.tk));
+  // model never pads "news on CPN" with unrelated names. Else, scope to a sector
+  // if one was named.
+  if (focused) items = items.filter((n) => focus.has(n.tk));
+  else if (q?.sector) items = items.filter((n) => n.sector === q.sector);
   const recency = q?.recency;
   if (recency) items = withinDays(items, recency.days, (n) => n.ts);
-  const picked = focus && focus.size ? items : rmFirst(items, 50, rms, userRm, (n) => n.tk);
+  // Rank-then-cap on topical keywords so a relevant item beyond the recency cap
+  // still surfaces; otherwise keep RM-priority recency order.
+  const topic = !focused && q?.topic?.length ? q.topic : null;
+  let picked;
+  if (focused) picked = items;
+  else if (topic) picked = relevanceRank(items, topic, (n) => `${n.title} ${n.excerpt || ""}`).slice(0, 50);
+  else picked = rmFirst(items, 50, rms, userRm, (n) => n.tk);
   const lines = [`EXTERNAL NEWS (last ${news?.windowDays || "?"} days, ${items.length} items, asOf ${news?.asOf || "?"}; rm=owning RM` +
     (recency ? `; FILTERED to ${recency.label}` : "") +
-    (focus && focus.size ? `; FILTERED to ${[...focus].join(", ")} — if a name has no rows here it has NO external news` : "") +
-    (!(focus && focus.size) && userRm ? `; the user's rm=${userRm} rows are listed first` : "") + "):"];
+    (focused ? `; FILTERED to ${[...focus].join(", ")} — if a name has no rows here it has NO external news` : "") +
+    (!focused && q?.sector ? `; SCOPED to ${q.sector}` : "") +
+    (topic ? `; ranked by relevance to: ${topic.join(", ")}` : "") +
+    (!focused && !topic && userRm ? `; the user's rm=${userRm} rows are listed first` : "") + "):"];
   for (const n of picked) {
     const rm = rms[n.tk] ? ` rm=${rms[n.tk]}` : "";
     lines.push(`${(n.ts || "").slice(0, 10)} ${n.tk || n.sector || "-"}${rm} [${n.source}] ${n.title}` +
@@ -280,14 +339,22 @@ async function ctxFilings(env, origin, userRm, focus, q) {
   const [pulse, rms] = await Promise.all([
     loadJson(env, origin, "disclosure-pulse"), rmMap(env, origin)]);
   let filings = pulse?.filings || [];
-  if (focus && focus.size) filings = filings.filter((f) => focus.has(f.tk));
+  const focused = focus && focus.size;
+  if (focused) filings = filings.filter((f) => focus.has(f.tk));
+  else if (q?.sector) filings = filings.filter((f) => f.sector === q.sector);
   const recency = q?.recency;
   if (recency) filings = withinDays(filings, recency.days, (f) => f.ts);
-  const picked = focus && focus.size ? filings : rmFirst(filings, 60, rms, userRm, (f) => f.tk);
+  const topic = !focused && q?.topic?.length ? q.topic : null;
+  let picked;
+  if (focused) picked = filings;
+  else if (topic) picked = relevanceRank(filings, topic, (f) => f.title || "").slice(0, 60);
+  else picked = rmFirst(filings, 60, rms, userRm, (f) => f.tk);
   const lines = [`SET DISCLOSURES (last ${pulse?.windowDays || "?"} days, asOf ${pulse?.asOf || "?"}; rm=owning RM` +
     (recency ? `; FILTERED to ${recency.label}` : "") +
-    (focus && focus.size ? `; FILTERED to ${[...focus].join(", ")} — if a name has no rows here it has NO recent disclosure` : "") +
-    (!(focus && focus.size) && userRm ? `; the user's rm=${userRm} rows are listed first` : "") + "):"];
+    (focused ? `; FILTERED to ${[...focus].join(", ")} — if a name has no rows here it has NO recent disclosure` : "") +
+    (!focused && q?.sector ? `; SCOPED to ${q.sector}` : "") +
+    (topic ? `; ranked by relevance to: ${topic.join(", ")}` : "") +
+    (!focused && !topic && userRm ? `; the user's rm=${userRm} rows are listed first` : "") + "):"];
   for (const f of picked) {
     const rm = rms[f.tk] ? ` rm=${rms[f.tk]}` : "";
     lines.push(`${(f.ts || "").slice(0, 10)} ${f.tk}${rm} ${f.sector}: ${String(f.title).slice(0, 110)}`);
@@ -665,8 +732,15 @@ async function handleChat(request, env, origin) {
   const lastText = cleaned[cleaned.length - 1].content;
   const focus = await focusTickers(env, origin, lastText);
   // Deterministic query intents the model can't execute reliably: an Atlas price
-  // screen (threshold/range/top-N over a metric) and a news/filing date window.
-  const q = { priceQuery: parsePriceQuery(lastText), recency: parseRecency(lastText) };
+  // screen (threshold/range/top-N over a metric), a news/filing date window, a
+  // sector scope, and topical keywords for relevance ranking. Ticker focus wins
+  // over sector/topic, so those only apply when no specific ticker was named.
+  const q = {
+    priceQuery: parsePriceQuery(lastText),
+    recency: parseRecency(lastText),
+    sector: focus.size ? null : parseSector(lastText),
+    topic: focus.size ? [] : parseTopic(lastText),
+  };
   const parts = await Promise.all(agent.contexts.map((fn) => fn(env, origin, rm, focus, q)));
   let context = parts.filter(Boolean).join("\n\n");
 

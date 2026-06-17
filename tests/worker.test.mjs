@@ -181,6 +181,24 @@ test("recency word date-filters Hermes news/filings context", async () => {
   assert.ok(/FILTERED to the last 7 days/.test(lastSystem), "expected a 7-day recency filter note");
 });
 
+test("naming a sector scopes Atlas prices to that sector", async () => {
+  await worker.fetch(chatReq({ agent: "atlas", messages: [{ role: "user", content: "show me movers in FOOD" }] }), env);
+  assert.ok(/Scoped to the FOOD sector/.test(lastSystem), "expected FOOD sector scope note");
+  const block = lastSystem.split("TICKERS (tk")[1] || "";
+  const sectors = [...block.matchAll(/^\S+ (\S+) \S+ \| /gm)].map((m) => m[1]);
+  assert.ok(sectors.length > 0 && sectors.every((s) => s === "FOOD"), `all rows must be FOOD; got ${[...new Set(sectors)]}`);
+});
+
+test("naming a sector scopes Hermes news/filings", async () => {
+  await worker.fetch(chatReq({ agent: "hermes", messages: [{ role: "user", content: "any news in PROP?" }] }), env);
+  assert.ok(/SCOPED to PROP/.test(lastSystem), "expected PROP sector scope note");
+});
+
+test("topical keywords switch news/filings to relevance ranking", async () => {
+  await worker.fetch(chatReq({ agent: "hermes", messages: [{ role: "user", content: "any dividend announcements?" }] }), env);
+  assert.ok(/ranked by relevance to: .*dividend/.test(lastSystem), "expected relevance ranking on 'dividend'");
+});
+
 test("atlas prices are pre-sorted by absolute 1-day move", async () => {
   await worker.fetch(chatReq({ agent: "atlas", messages: userMsg }), env);
   const block = lastSystem.split("TICKERS (tk")[1] || "";
