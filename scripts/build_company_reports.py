@@ -1,4 +1,4 @@
-"""Build analyst-style company reports for ticker-summary.html.
+"""Build analyst-style company reports for company-summary.html.
 
 This local agent reads dashboard company data plus compact Obsidian excerpts,
 creates one per-ticker report, saves Markdown back to the Obsidian vault, and

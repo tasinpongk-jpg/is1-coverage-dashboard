@@ -11,7 +11,7 @@
  *  - RM picker ("I'm Champ") in localStorage -> personalized suggestion chips
  *  - status lines while waiting ("reading external-news…") matching the
  *    snapshots each agent is grounded in
- *  - ticker symbols in replies become chips linking to ticker-summary.html
+ *  - ticker symbols in replies become chips linking to company-summary.html
  *  - select any text on a page -> floating "✦ ask" button prefills the dock
  *  - token-gated like the old chat card: localStorage is1_chat_token
  *  - window.IS1Dock.open(agent, prefill) for "Meet the team" cards
@@ -181,7 +181,7 @@ a.is1d-tk:hover{background:#3b82f644}\
     if (state.tickers) {
       h = h.replace(/\b([A-Z][A-Z0-9]{1,7})\b/g, function (m, tk) {
         return state.tickers.has(tk)
-          ? '<a class="is1d-tk" href="ticker-summary.html?tk=' + tk + '">' + tk + "</a>" : m;
+          ? '<a class="is1d-tk" href="company-summary.html?tk=' + tk + '">' + tk + "</a>" : m;
       });
     }
     return h;

@@ -84,8 +84,8 @@ tr.panel>td{padding:0;border-bottom:1px solid var(--border);background:var(--bg2
   <h1>Visit Planner <span class="sub">— company visits: priorities, theses, last seen, next actions</span></h1>
   <nav class="nav">
     <a href="index.html">Index</a>
-    <a href="ticker-summary.html">Tickers</a>
-    <a href="coverage-morning-brief.html">Brief</a>
+    <a href="company-summary.html">Company Summary</a>
+    <a href="price-movement.html">Price Movement</a>
     <a href="disclosure-pulse.html">Disclosures</a>
     <span class="stale" id="staleBadge">…</span>
   </nav>
@@ -177,7 +177,7 @@ function render() {
     return `
     <tr class="main" data-i="${i}">
       <td class="exp">▶</td>
-      <td><a class="tk" href="ticker-summary.html?tk=${esc(r.tk)}" onclick="event.stopPropagation()">${esc(r.tk)}</a></td>
+      <td><a class="tk" href="company-summary.html?tk=${esc(r.tk)}" onclick="event.stopPropagation()">${esc(r.tk)}</a></td>
       <td>${esc(r.sector)}</td><td>${esc(r.rm)}</td>
       <td><span class="pri ${esc(r.priority)}">${esc(r.priority)}</span></td>
       <td><div class="thesis ${r.thesisDraft ? 'draft' : ''}">${esc((r.thesis || '—').replace(/\s*\*\(draft[^)]*\)\*\s*/, ''))}${r.thesisDraft ? '<span class="dtag">draft</span>' : ''}</div></td>

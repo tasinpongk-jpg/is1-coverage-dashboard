@@ -56,7 +56,7 @@ different slice of the daily snapshots:
 
 Dock features: per-agent threads (survive navigation), RM picker for
 personalized suggestion chips, ticker chips in replies deep-linking to
-`ticker-summary.html?tk=X`, and select-any-text → "✦ ask". Token-gated by the
+`company-summary.html?tk=X`, and select-any-text → "✦ ask". Token-gated by the
 `CHAT_TOKEN` worker secret (`localStorage is1_chat_token` client-side). The
 "Ask the agents" cards on `index.html` open the dock via `IS1Dock.open(name)`.
 
@@ -65,9 +65,9 @@ personalized suggestion chips, ticker chips in replies deep-linking to
 | Path | Purpose |
 |---|---|
 | `index.html` | Landing page with links to the 4 dashboards |
-| `coverage-morning-brief.html` | EOD prices + sparklines, RM/sector tabs |
+| `price-movement.html` | EOD prices + sparklines, RM/sector tabs |
 | `disclosure-pulse.html` | Recent SET filings, severity-tagged |
-| `sector-heatmap.html` | PE/PBV/DY/EV-EBITDA/NPM heatmap |
+| `multiples-comparison.html` | PE/PBV/DY/EV-EBITDA/NPM heatmap |
 | `unusual-trading.html` | Volume / price / 52W alerts |
 | `data/tickers.json` | Master ticker → RM + sector map (rebuild via Excel) |
 | `data/*.json` | Daily snapshot files |

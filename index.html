@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>IS1 — Coverage Desk</title>
+<title>IS1 — The Terminal</title>
 <style>
 :root{
   --bg:#0a0c12;--bg2:#0f1117;--card:#14171f;--card2:#1a1d27;
@@ -41,6 +41,14 @@ main{flex:1;max-width:1360px;width:100%;margin:0 auto;padding:36px 32px 56px;pos
 .group-title{font-size:12px;font-weight:700;color:var(--muted);letter-spacing:.6px;text-transform:uppercase;margin:24px 0 10px;display:flex;align-items:center;gap:8px}
 .group-title .gtag{font-size:10px;padding:2px 8px;border-radius:10px;font-weight:600;opacity:.85}
 .group-title::before{content:'';display:block;width:3px;height:14px;border-radius:2px;background:var(--gc,var(--accent));flex-shrink:0}
+/* section-title icon system — one coherent line set, tinted to each section accent */
+.t-ico{width:16px;height:16px;flex-shrink:0;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.sec-title .t-ico{color:var(--accent)}
+.group-title .t-ico{color:var(--gc,var(--accent))}
+/* terminal cursor — the one signature flourish */
+.brand-text h1 .cursor{display:inline-block;width:8px;height:14px;margin-left:4px;border-radius:1px;background:var(--accent);vertical-align:-1px;animation:termblink 1.1s steps(1) infinite}
+@keyframes termblink{50%{opacity:0}}
+@media(prefers-reduced-motion:reduce){.brand-text h1 .cursor{animation:none}}
 
 /* ── VISIT COUNTER ── */
 .visit-counter{display:inline-flex;align-items:center;gap:8px;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:7px 14px;margin-top:14px}
@@ -150,7 +158,7 @@ footer a{color:var(--muted);text-decoration:none}
 <header>
   <div class="brand">
     <div class="brand-mark">IS</div>
-    <div class="brand-text"><h1>Coverage Desk</h1><div class="sub">SET Issuer Department 1</div></div>
+    <div class="brand-text"><h1>The Terminal<span class="cursor"></span></h1><div class="sub">IS1 Coverage Desk · SET Issuer Department 1</div></div>
   </div>
   <nav class="nav"></nav>
   <div class="stale-pill unknown" id="staleBadge">● loading</div>
@@ -188,7 +196,7 @@ footer a{color:var(--muted);text-decoration:none}
     .agent-role{font-size:11.5px;color:var(--muted);margin-top:2px;line-height:1.45}
     .agent-eg{font-size:11px;color:var(--agc);margin-top:5px;font-style:italic}
   </style>
-  <div class="sec-title">Ask the agents</div>
+  <div class="sec-title"><svg class="t-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3Z"/></svg>Ask the agents</div>
   <div class="agent-strip">
     <button type="button" class="agent-card" style="--agc:#f59e0b;--agc-bg:#f59e0b2e;--agc-bd:#f59e0b73" onclick="IS1Dock&&IS1Dock.open('hermes')">
       <div class="agent-avatar">⚡</div>
@@ -217,17 +225,18 @@ footer a{color:var(--muted);text-decoration:none}
   </div>
 
   <!-- ═══ DASHBOARDS — GROUPED ═══ -->
-  <div class="sec-title">Dashboards</div>
+  <div class="sec-title"><svg class="t-ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></svg>Dashboards</div>
 
   <!-- GROUP 1: Prices & Market Data -->
   <div class="group-title" style="--gc:#3b82f6">
+    <svg class="t-ico" viewBox="0 0 24 24" aria-hidden="true"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>
     <span>Prices &amp; Market Data</span>
     <span class="gtag" style="background:#3b82f620;color:#3b82f6">daily refresh</span>
   </div>
   <div class="dash-grid">
 
-    <!-- Morning Brief -->
-    <a class="dash-card" href="coverage-morning-brief.html" style="--cc:#3b82f6">
+    <!-- Price Movement -->
+    <a class="dash-card" href="price-movement.html" style="--cc:#3b82f6">
       <div class="card-top-bar"></div>
       <div class="card-body">
         <div class="card-head">
@@ -246,7 +255,7 @@ footer a{color:var(--muted);text-decoration:none}
           </div>
           <span class="card-cat">Market Data</span>
         </div>
-        <div class="card-title">Coverage Morning Brief</div>
+        <div class="card-title">Coverage Price Movement</div>
         <div class="card-desc">EOD prices, daily / weekly / MTD / YTD returns, volume ratios, and 20-day sparklines. Tabs by RM and sector.</div>
         <div class="card-footer">
           <div class="card-meta"><span>232 tickers</span><span>daily refresh</span></div>
@@ -255,8 +264,8 @@ footer a{color:var(--muted);text-decoration:none}
       </div>
     </a>
 
-    <!-- Ticker Summary -->
-    <a class="dash-card" href="ticker-summary.html" style="--cc:#6366f1">
+    <!-- Company Summary -->
+    <a class="dash-card" href="company-summary.html" style="--cc:#6366f1">
       <div class="card-top-bar"></div>
       <div class="card-body">
         <div class="card-head">
@@ -275,7 +284,7 @@ footer a{color:var(--muted);text-decoration:none}
           </div>
           <span class="card-cat">Market Data</span>
         </div>
-        <div class="card-title">Ticker Summary</div>
+        <div class="card-title">Company Summary</div>
         <div class="card-desc">Per-ticker cards with price, sparklines, 52W range, PE / PBV / DY, and multi-year financials. Click any card for full detail drawer.</div>
         <div class="card-footer">
           <div class="card-meta"><span>all tickers</span><span>sector filter</span></div>
@@ -284,8 +293,8 @@ footer a{color:var(--muted);text-decoration:none}
       </div>
     </a>
 
-    <!-- Sector Heatmap -->
-    <a class="dash-card" href="sector-heatmap.html" style="--cc:#f59e0b">
+    <!-- Multiples Comparison -->
+    <a class="dash-card" href="multiples-comparison.html" style="--cc:#f59e0b">
       <div class="card-top-bar"></div>
       <div class="card-body">
         <div class="card-head">
@@ -308,7 +317,7 @@ footer a{color:var(--muted);text-decoration:none}
           </div>
           <span class="card-cat">Valuation</span>
         </div>
-        <div class="card-title">Sector Heatmap</div>
+        <div class="card-title">Multiples Comparison</div>
         <div class="card-desc">PE / PBV / DY / EV-EBITDA / NPM coloured by sector percentile rank. Spot cheap vs expensive tickers at a glance.</div>
         <div class="card-footer">
           <div class="card-meta"><span>6 sectors</span><span>5 metrics</span></div>
@@ -317,8 +326,8 @@ footer a{color:var(--muted);text-decoration:none}
       </div>
     </a>
 
-    <!-- Sector Comparison -->
-    <a class="dash-card" href="sector-comparison.html" style="--cc:#8b5cf6">
+    <!-- Multiples Band -->
+    <a class="dash-card" href="multiples-band.html" style="--cc:#8b5cf6">
       <div class="card-top-bar"></div>
       <div class="card-body">
         <div class="card-head">
@@ -346,7 +355,7 @@ footer a{color:var(--muted);text-decoration:none}
           </div>
           <span class="card-cat">Valuation</span>
         </div>
-        <div class="card-title">Sector Comparison</div>
+        <div class="card-title">Multiples Band</div>
         <div class="card-desc">Box plots for PE / PBV / DY / NPM across all 6 sectors. See distribution, median, and every individual ticker at once.</div>
         <div class="card-footer">
           <div class="card-meta"><span>4 metrics</span><span>6 sectors</span></div>
@@ -359,6 +368,7 @@ footer a{color:var(--muted);text-decoration:none}
 
   <!-- GROUP 2: News & Disclosures -->
   <div class="group-title" style="--gc:#f59e0b">
+    <svg class="t-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 22h16a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v16a2 2 0 0 1-2 2Zm0 0a2 2 0 0 1-2-2v-9c0-1.1.9-2 2-2h2"/><path d="M18 14h-8"/><path d="M15 18h-5"/><path d="M10 6h8v4h-8z"/></svg>
     <span>News &amp; Disclosures</span>
     <span class="gtag" style="background:#f59e0b20;color:#f59e0b">2× daily refresh</span>
   </div>
@@ -446,10 +456,34 @@ footer a{color:var(--muted);text-decoration:none}
         </div>
       </div>
     </a>
+    <!-- AI Insights -->
+    <a class="dash-card" href="ai-insights.html" style="--cc:#10b981">
+      <div class="card-top-bar"></div>
+      <div class="card-body">
+        <div class="card-head">
+          <div class="card-icon-wrap">
+            <svg width="28" height="28" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <!-- spark / chat bubble -->
+              <path d="M4 6 a3 3 0 0 1 3-3 h14 a3 3 0 0 1 3 3 v10 a3 3 0 0 1-3 3 H12 l-5 4 v-4 H7 a3 3 0 0 1-3-3 Z" fill="#10b981" opacity=".12" stroke="#10b981" stroke-width="1.6"/>
+              <path d="M14 6.5 l1.2 3.0 3.0 1.2 -3.0 1.2 -1.2 3.0 -1.2-3.0 -3.0-1.2 3.0-1.2 Z" fill="#10b981"/>
+              <circle cx="20" cy="13.5" r="1.2" fill="#10b981" opacity=".7"/>
+            </svg>
+          </div>
+          <span class="card-cat">AI Analyst</span>
+        </div>
+        <div class="card-title">AI Insights</div>
+        <div class="card-desc">Model-written morning commentary: headline, sector notes, watchlist and risk flags synthesized from today's brief, alerts and filings.</div>
+        <div class="card-footer">
+          <div class="card-meta"><span>Groq free tier</span><span>daily 09:15</span></div>
+          <div class="card-arrow">→</div>
+        </div>
+      </div>
+    </a>
   </div>
 
   <!-- GROUP 3: Surveillance & Compliance -->
   <div class="group-title" style="--gc:#ef4444">
+    <svg class="t-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1Z"/><circle cx="12" cy="11" r="1.6"/></svg>
     <span>Surveillance &amp; Compliance</span>
     <span class="gtag" style="background:#ef444420;color:#ef4444">real-time</span>
   </div>
@@ -550,6 +584,7 @@ footer a{color:var(--muted);text-decoration:none}
 
   <!-- GROUP 4: Bond Data -->
   <div class="group-title" style="--gc:#06b6d4">
+    <svg class="t-ico" viewBox="0 0 24 24" aria-hidden="true"><line x1="3" y1="22" x2="21" y2="22"/><line x1="6" y1="18" x2="6" y2="11"/><line x1="10" y1="18" x2="10" y2="11"/><line x1="14" y1="18" x2="14" y2="11"/><line x1="18" y1="18" x2="18" y2="11"/><polygon points="12 2 20 7 4 7"/></svg>
     <span>Bond Data</span>
     <span class="gtag" style="background:#06b6d420;color:#06b6d4">monthly / daily</span>
   </div>
@@ -612,30 +647,6 @@ footer a{color:var(--muted);text-decoration:none}
         </div>
       </div>
     </a>
-    <!-- AI Insights -->
-    <a class="dash-card" href="ai-insights.html" style="--cc:#10b981">
-      <div class="card-top-bar"></div>
-      <div class="card-body">
-        <div class="card-head">
-          <div class="card-icon-wrap">
-            <svg width="28" height="28" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <!-- spark / chat bubble -->
-              <path d="M4 6 a3 3 0 0 1 3-3 h14 a3 3 0 0 1 3 3 v10 a3 3 0 0 1-3 3 H12 l-5 4 v-4 H7 a3 3 0 0 1-3-3 Z" fill="#10b981" opacity=".12" stroke="#10b981" stroke-width="1.6"/>
-              <path d="M14 6.5 l1.2 3.0 3.0 1.2 -3.0 1.2 -1.2 3.0 -1.2-3.0 -3.0-1.2 3.0-1.2 Z" fill="#10b981"/>
-              <circle cx="20" cy="13.5" r="1.2" fill="#10b981" opacity=".7"/>
-            </svg>
-          </div>
-          <span class="card-cat">AI Analyst</span>
-        </div>
-        <div class="card-title">AI Insights</div>
-        <div class="card-desc">Model-written morning commentary: headline, sector notes, watchlist and risk flags synthesized from today's brief, alerts and filings.</div>
-        <div class="card-footer">
-          <div class="card-meta"><span>Groq free tier</span><span>daily 09:15</span></div>
-          <div class="card-arrow">→</div>
-        </div>
-      </div>
-    </a>
-
   </div>
 
   <!-- ═══ COVERAGE STATS (folded) ═══ -->
@@ -728,7 +739,7 @@ async function initToday(){
   if(brief&&Array.isArray(brief.rows)){
     const rows=brief.rows.filter(r=>typeof r.pct1d==='number').sort((a,b)=>b.pct1d-a.pct1d);
     const fmt=r=>`${r.pct1d>0?'+':''}${r.pct1d.toFixed(2)}%`;
-    const chip=(r,cls,sym)=>`<a class="chip ${cls}" href="coverage-morning-brief.html" title="last ${r.last}">${sym} ${r.tk} <span>${fmt(r)}</span></a>`;
+    const chip=(r,cls,sym)=>`<a class="chip ${cls}" href="price-movement.html" title="last ${r.last}">${sym} ${r.tk} <span>${fmt(r)}</span></a>`;
     const ups=rows.slice(0,3).filter(r=>r.pct1d>0).map(r=>chip(r,'up','▲'));
     const dns=rows.slice(-3).reverse().filter(r=>r.pct1d<0).map(r=>chip(r,'dn','▼'));
     document.getElementById('moverChips').innerHTML=[...ups,...dns].join('');

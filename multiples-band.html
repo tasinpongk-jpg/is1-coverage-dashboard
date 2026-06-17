@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Sector Comparison — IS1 Coverage Desk</title>
+<title>Multiples Band — IS1 Coverage Desk</title>
 <style>
 :root{
   --bg:#0a0c12;--bg2:#0f1117;--card:#14171f;--card2:#1a1d27;
@@ -74,12 +74,12 @@ footer a{color:var(--muted);text-decoration:none}
   </a>
   <nav class="nav">
     <a href="index.html">Index</a>
-    <a href="coverage-morning-brief.html">Brief</a>
+    <a href="price-movement.html">Price Movement</a>
     <a href="disclosure-pulse.html">Disclosures</a>
     <a href="oppday-minutes.html">Oppday</a>
-    <a href="sector-heatmap.html">Heatmap</a>
-    <a href="ticker-summary.html">Tickers</a>
-    <a href="sector-comparison.html" class="active">Compare</a>
+    <a href="multiples-comparison.html">Multiples Comparison</a>
+    <a href="company-summary.html">Company Summary</a>
+    <a href="multiples-band.html" class="active">Multiples Band</a>
     <a href="bond-summary.html">Bonds</a>
     <a href="unusual-trading.html">Alerts</a>
     <a href="external-news.html">External</a>
@@ -90,13 +90,13 @@ footer a{color:var(--muted);text-decoration:none}
 </header>
 
 <main>
-  <div><div class="pg-title">Sector Comparison</div><div class="pg-sub" id="pgSub">Loading…</div></div>
+  <div><div class="pg-title">Multiples Band</div><div class="pg-sub" id="pgSub">Loading…</div></div>
   <div id="loading"><div class="spinner"></div>Building sector statistics…</div>
   <div id="sections"></div>
 </main>
 
 <footer>
-  <span id="fsrc">IS1 Coverage Desk · Sector Comparison</span>
+  <span id="fsrc">IS1 Coverage Desk · Multiples Band</span>
   <span>Data: <a href="https://www.set.or.th" target="_blank" rel="noopener">SET.or.th</a> · SETSMART</span>
 </footer>
 
@@ -270,7 +270,7 @@ function renderSections(stats, asOf){
     const stats=computeStats(tickers);
     document.getElementById('loading').style.display='none';
     document.getElementById('pgSub').textContent=`${tickers.length} tickers · ${d.asOf||'—'} · ${d.source||''}`;
-    document.getElementById('fsrc').textContent=`IS1 Sector Comparison · ${d.asOf||'—'}`;
+    document.getElementById('fsrc').textContent=`IS1 Multiples Band · ${d.asOf||'—'}`;
     const badge=document.getElementById('staleBadge');
     if(d._built_at){
       const h=(Date.now()-new Date(d._built_at).getTime())/3600000;

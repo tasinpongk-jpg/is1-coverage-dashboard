@@ -18,10 +18,10 @@
     {
       label: "Market", color: "#3b82f6",
       pages: [
-        ["coverage-morning-brief.html", "Morning Brief"],
-        ["ticker-summary.html", "Ticker Summary"],
-        ["sector-heatmap.html", "Sector Heatmap"],
-        ["sector-comparison.html", "Sector Compare"],
+        ["price-movement.html", "Price Movement"],
+        ["company-summary.html", "Company Summary"],
+        ["multiples-comparison.html", "Multiples Comparison"],
+        ["multiples-band.html", "Multiples Band"],
       ],
     },
     {
@@ -99,7 +99,7 @@ nav.nav{display:flex;align-items:center;gap:2px;position:relative}\
   var home = document.createElement("a");
   home.className = "gnav-home";
   home.href = "index.html";
-  home.textContent = "Index";
+  home.textContent = "The Terminal";
   nav.appendChild(home);
 
   GROUPS.forEach(function (g) {
