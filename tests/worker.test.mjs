@@ -67,6 +67,25 @@ test("non-chat paths pass through to assets", async () => {
   assert.equal(r.status, 200);
 });
 
+test("feedback endpoint records a vote (auth + validation)", async () => {
+  const fb = (body, token = "testtoken") => new Request("https://x.test/api/feedback", {
+    method: "POST", headers: token ? { Authorization: `Bearer ${token}` } : {}, body: JSON.stringify(body),
+  });
+  // happy path: logs (no KV bound in test env)
+  let r = await worker.fetch(fb({ agent: "atlas", vote: "down", question: "q", reply: "a" }), env);
+  assert.equal(r.status, 200);
+  assert.equal((await r.json()).stored, "log");
+  // invalid vote -> 400
+  r = await worker.fetch(fb({ agent: "atlas", vote: "meh" }), env);
+  assert.equal(r.status, 400);
+  // bad token -> 401
+  r = await worker.fetch(fb({ vote: "up" }, "wrong"), env);
+  assert.equal(r.status, 401);
+  // GET -> 405
+  r = await worker.fetch(new Request("https://x.test/api/feedback", { method: "GET" }), env);
+  assert.equal(r.status, 405);
+});
+
 test("valid rm pins the user line; invalid rm is ignored", async () => {
   await worker.fetch(chatReq({ agent: "hermes", rm: "Champ", messages: userMsg }), env);
   assert.ok(lastSystem.includes("The user is RM Champ"));

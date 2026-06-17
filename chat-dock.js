@@ -98,6 +98,13 @@
  white-space:pre-wrap;word-break:break-word}\
 .is1d-msg.user{align-self:flex-end;background:#1d4ed833;border:1px solid #1d4ed855;color:var(--text,#e6e8ed)}\
 .is1d-msg.bot{align-self:flex-start;background:var(--card2,#1a1d27);border:1px solid var(--border,#232733);color:var(--text,#e6e8ed)}\
+.is1d-fb{display:flex;gap:4px;margin-top:7px;opacity:.5;transition:opacity .15s}\
+.is1d-msg.bot:hover .is1d-fb{opacity:.9}\
+.is1d-fbb{background:none;border:none;cursor:pointer;font-size:13px;line-height:1;padding:2px 5px;border-radius:6px;filter:grayscale(.5)}\
+.is1d-fbb:hover{background:var(--bg2,#0f1117);filter:none}\
+.is1d-fbb.on{filter:none;background:var(--bg2,#0f1117)}\
+.is1d-fbb:disabled{cursor:default}\
+.is1d-fb .thanks{font-size:10.5px;color:var(--dim,#5a627a);align-self:center;margin-left:2px}\
 .is1d-msg.err{align-self:center;color:#f87171;font-size:12px;background:none}\
 .is1d-msg .agent-name{display:block;font-size:10.5px;font-weight:700;letter-spacing:.4px;\
  text-transform:uppercase;color:var(--ac,#3b82f6);margin-bottom:3px}\
@@ -195,6 +202,30 @@ a.is1d-tk:hover{background:#3b82f644}\
     log.scrollTop = log.scrollHeight;
     return m;
   }
+  // 👍/👎 under a live bot reply -> POST /api/feedback (failing answers become
+  // training data). Only on fresh replies, not restored thread history.
+  function attachFeedback(msgEl, agent, question, reply) {
+    var bar = el("div", { class: "is1d-fb" });
+    var up = el("button", { class: "is1d-fbb", type: "button", title: "helpful" }, "👍");
+    var down = el("button", { class: "is1d-fbb", type: "button", title: "not helpful" }, "👎");
+    function vote(v, btn) {
+      if (bar.dataset.voted) return;
+      bar.dataset.voted = v;
+      btn.classList.add("on");
+      up.disabled = down.disabled = true;
+      bar.appendChild(el("span", { class: "thanks" }, "thanks"));
+      var token = localStorage.getItem("is1_chat_token") || "";
+      fetch("/api/feedback", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: "Bearer " + token },
+        body: JSON.stringify({ agent: agent, vote: v, question: question, reply: reply, rm: rmSel.value }),
+      }).catch(function () { /* feedback is best-effort */ });
+    }
+    up.onclick = function () { vote("up", up); };
+    down.onclick = function () { vote("down", down); };
+    bar.appendChild(up); bar.appendChild(down);
+    msgEl.appendChild(bar);
+  }
   function renderChips() {
     var rm = rmSel.value, box = $(".is1d-chips");
     box.innerHTML = "";
@@ -272,7 +303,8 @@ a.is1d-tk:hover{background:#3b82f644}\
       msgs.push({ role: "assistant", content: d.reply });
       saveThread(agent, msgs);
       status.stop();
-      addMsg("bot", d.reply, agent);
+      var bot = addMsg("bot", d.reply, agent);
+      attachFeedback(bot, agent, text.trim(), d.reply);
     }).catch(function (e) {
       status.stop();
       addMsg("err", e.message);

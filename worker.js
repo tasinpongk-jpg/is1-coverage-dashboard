@@ -59,9 +59,43 @@ export default {
         return json({ error: `chat failed: ${e.message}` }, 500);
       }
     }
+    if (url.pathname === "/api/feedback") {
+      if (request.method !== "POST") return json({ error: "POST only" }, 405);
+      try {
+        return await handleFeedback(request, env);
+      } catch (e) {
+        return json({ error: `feedback failed: ${e.message}` }, 500);
+      }
+    }
     return env.ASSETS.fetch(request);
   },
 };
+
+// Record a 👍/👎 on an agent reply so failing answers become training data.
+// Durable storage uses a KV namespace IF bound as `FEEDBACK`; until then it
+// logs (reviewable via `wrangler tail`). To enable durable, queryable votes:
+//   1) npx wrangler kv namespace create FEEDBACK
+//   2) add to wrangler.jsonc: "kv_namespaces":[{"binding":"FEEDBACK","id":"<id>"}]
+//   3) redeploy. Then: npx wrangler kv key list --binding FEEDBACK
+async function handleFeedback(request, env) {
+  if (!authorized(request, env)) return json({ error: "missing or wrong access token" }, 401);
+  const b = await request.json().catch(() => ({}));
+  const vote = b.vote === "up" || b.vote === "down" ? b.vote : null;
+  if (!vote) return json({ error: "vote must be 'up' or 'down'" }, 400);
+  const s = (v, n) => (typeof v === "string" ? v.slice(0, n) : "");
+  const rec = {
+    ts: new Date().toISOString(),
+    agent: s(b.agent, 20), vote, rm: s(b.rm, 16),
+    question: s(b.question, 500), reply: s(b.reply, 1500),
+  };
+  if (env.FEEDBACK) {
+    const key = `fb:${rec.ts}:${crypto.randomUUID().slice(0, 8)}`;
+    await env.FEEDBACK.put(key, JSON.stringify(rec), { expirationTtl: 60 * 60 * 24 * 180 });
+    return json({ ok: true, stored: "kv" });
+  }
+  console.log("FEEDBACK " + JSON.stringify(rec)); // visible in `wrangler tail`
+  return json({ ok: true, stored: "log" });
+}
 
 function json(obj, status = 200) {
   return new Response(JSON.stringify(obj), {
