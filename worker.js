@@ -495,8 +495,10 @@ async function summarizeFiling(env, filing, lang) {
     "relationship manager. Output ONLY 3-4 tight bullets — no preamble, no " +
     "'here is a summary', start directly with the first '•'. Cover: what was " +
     "filed, the key numbers / decisions / dates, and why a client might care. " +
-    "Be specific and factual — use only what the document says. Write in " +
-    (lang === "th" ? "Thai." : "English.");
+    "EACH bullet MUST carry a concrete figure, date or decision from the " +
+    "document (e.g. revenue/profit value, % change, THB amount, board resolution, " +
+    "ex-date) — no vague 'filed its MD&A' lines. Use only what the document says. " +
+    "Write in " + (lang === "th" ? "Thai." : "English.");
   const body = {
     contents: [{ role: "user", parts: [
       { inline_data: { mime_type: "application/pdf", data: bytesToBase64(buf) } },
@@ -536,9 +538,10 @@ async function docSummaryBlock(env, origin, focus, lang) {
       "and fall back to the disclosure title.";
   }
   return "\n\nFILED-DOCUMENT SUMMARIES (read directly from the filed PDF — these " +
-    "are the answer the user asked for; use them as the factual basis, do not " +
-    "invent beyond them). PUT YOUR 📄 SET disclosures SECTION FIRST and lead it " +
-    "with these bullets; keep 📰 external news to AT MOST 2 bullets after it:\n" +
+    "ARE the answer the user asked for; do not invent beyond them). PUT YOUR 📄 " +
+    "SET disclosures SECTION FIRST. Under each filing's date + title, REPRODUCE " +
+    "ALL of its bullets IN FULL, keeping every number — do NOT collapse a filing " +
+    "to one generic line. Then keep 📰 external news to AT MOST 2 bullets:\n" +
     got.join("\n\n");
 }
 
