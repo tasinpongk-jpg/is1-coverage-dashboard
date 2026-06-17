@@ -228,12 +228,10 @@ nav.nav{display:flex;align-items:center;gap:2px;position:relative}\
       var a = document.createElement("a");
       a.href = link(p[0]);
       var external = /^https?:\/\//.test(p[0]);
-      if (external) {
-        a.target = "_blank";
-        a.rel = "noopener noreferrer"; // safe external-tab opening
-      }
-      a.innerHTML = '<span class="pdot"></span>' + p[1] +
-        (external ? '<span class="ext" aria-label="opens in a new tab">↗</span>' : '');
+      // Every dashboard — including the external workers/Pages sites (Daily
+      // Market Board, Global-Macro Brief) — navigates in the SAME tab so moving
+      // between them feels like one app rather than spawning new windows.
+      a.innerHTML = '<span class="pdot"></span>' + p[1];
       if (!external && p[0].replace(/\.html$/, "") === hereKey) {
         a.classList.add("here");
         wrap.classList.add("active");
