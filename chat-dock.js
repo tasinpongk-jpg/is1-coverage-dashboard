@@ -27,6 +27,7 @@
       chips: [
         "What news moved my names today? I'm {rm}.",
         "Any overdue or silent filers in my coverage? I'm {rm}.",
+        "Summarize CPN's latest SET filing.",
         "อัปเดตข่าวกลุ่ม FOOD วันนี้",
       ],
     },
