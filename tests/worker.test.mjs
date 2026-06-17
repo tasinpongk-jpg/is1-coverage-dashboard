@@ -137,6 +137,15 @@ test("naming a covered ticker filters Hermes context to that ticker", async () =
   assert.ok(!/FILTERED to/.test(lastSystem), "generic question should not filter");
 });
 
+test("plain 'news on X' does NOT trigger the on-demand PDF summary path", async () => {
+  // No summarize/explain intent -> docSummaryBlock must not run (no network fetch).
+  const tk = JSON.parse(await readFile("./data/tickers.json", "utf-8")).tickers[0].tk;
+  const r = await worker.fetch(chatReq({ agent: "hermes", messages: [{ role: "user", content: `any news on ${tk}?` }] }), env);
+  assert.equal(r.status, 200);
+  assert.ok(!/FILED-DOCUMENT SUMMARIES/.test(lastSystem),
+    "PDF summary block should only appear on an explicit summarize request");
+});
+
 test("atlas 'beyond ±X%' query hard-filters prices to qualifying rows only", async () => {
   await worker.fetch(chatReq({ agent: "atlas", messages: [{ role: "user", content: "movers beyond +/-2% today" }] }), env);
   assert.ok(/PRE-FILTERED/.test(lastSystem), "expected the pre-filter note");

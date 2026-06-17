@@ -358,7 +358,10 @@ const AGENTS = {
       "• 2026-06-13 [HOONSMART] ITC joins TU on a mangrove clean-up CSR drive — low impact.\n" +
       "📄 SET disclosures\n" +
       "• None for ITC in the last 90 days.\n" +
-      "(Both headers always appear, even when one side is empty.)\n",
+      "(Both headers always appear, even when one side is empty.)\n" +
+      "If a FILED-DOCUMENT SUMMARIES block is present, the user asked you to " +
+      "summarize the actual filing: lead your 📄 section with those bullets " +
+      "(they were read from the real PDF) and cite the filing date + title.\n",
     contexts: [ctxCoverage, ctxNews, ctxFilings, ctxOppday],
   },
   pythia: {
@@ -430,6 +433,112 @@ async function handleLex(env, origin, cleaned, rm) {
   return out;
 }
 
+// ---------------------------------------------------- on-demand PDF summaries
+//
+// Hermes can summarize the ACTUAL filed document, not just its headline. SET
+// serves a newsdetails HTML page (the filing.url) that links the real PDF on
+// weblink.set.or.th; the PDF goes straight to Gemini (which reads PDFs natively
+// — no JS PDF parser needed). Summaries are cached by SET news id so a document
+// is fetched once. Header-only fetch clears SET's bot wall from a normal IP;
+// if Cloudflare egress is challenged, every step fails soft and Hermes simply
+// reports it couldn't open the document.
+
+const SET_HEADERS = {
+  "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 " +
+    "(KHTML, like Gecko) Chrome/124.0 Safari/537.36",
+  "Referer": "https://www.set.or.th/en/market/news-and-alert/news",
+  "Origin": "https://www.set.or.th",
+};
+
+// "summarize / explain / detail / what does it say" — Thai and English.
+function wantsDocSummary(text) {
+  return /\b(summar(?:y|ise|ize|ising|izing)|explain|detail|details|breakdown|full text|what (?:does|do|did)\b.*\bsay)\b/i
+    .test(String(text || "")) || /สรุป|รายละเอียด|อธิบาย|เนื้อหา/.test(String(text || ""));
+}
+
+function bytesToBase64(bytes) {
+  let out = "";
+  const chunk = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunk) {
+    out += String.fromCharCode.apply(null, bytes.subarray(i, i + chunk));
+  }
+  return btoa(out);
+}
+
+async function resolvePdfUrl(newsUrl) {
+  if (!newsUrl) return null;
+  const r = await fetch(newsUrl, { headers: SET_HEADERS });
+  if (!r.ok) return null;
+  const html = await r.text();
+  const m = html.match(/https?:\/\/weblink\.set\.or\.th\/[^\s"'<>]+\.pdf/i);
+  return m ? m[0] : null;
+}
+
+// Returns a short summary string for one filing, or null if the document can't
+// be retrieved. Cached in the colo Cache API by news id.
+async function summarizeFiling(env, filing, lang) {
+  if (!env.GEMINI_API_KEY || !filing?.url) return null;
+  const cache = caches.default;
+  const cacheKey = new Request(`https://is1-doc-summary/${filing._id || encodeURIComponent(filing.url)}`);
+  const cached = await cache.match(cacheKey);
+  if (cached) return await cached.text();
+
+  const pdfUrl = await resolvePdfUrl(filing.url);
+  if (!pdfUrl) return null;
+  const pr = await fetch(pdfUrl, { headers: SET_HEADERS });
+  if (!pr.ok) return null;
+  const buf = new Uint8Array(await pr.arrayBuffer());
+  if (buf.length < 1000 || buf.length > 15_000_000) return null; // empty / too big
+
+  const prompt =
+    "You are summarizing a SET (Stock Exchange of Thailand) disclosure document " +
+    "for a relationship manager. In 3-4 tight bullets state: what was filed, the " +
+    "key numbers / decisions / dates, and why a client might care. Be specific and " +
+    "factual — use only what the document says. Reply in " +
+    (lang === "th" ? "Thai." : "English.");
+  const body = {
+    contents: [{ role: "user", parts: [
+      { inline_data: { mime_type: "application/pdf", data: bytesToBase64(buf) } },
+      { text: prompt },
+    ] }],
+    generationConfig: { temperature: 0.2, maxOutputTokens: 400 },
+  };
+  const gr = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/${LEX_MODEL}:generateContent?key=${env.GEMINI_API_KEY}`,
+    { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+  if (!gr.ok) return null;
+  const data = await gr.json();
+  const txt = ((data.candidates || [])[0]?.content?.parts || [])
+    .map((p) => p.text).filter(Boolean).join("").trim();
+  if (!txt) return null;
+  await cache.put(cacheKey, new Response(txt, { headers: { "Cache-Control": "max-age=2592000" } }));
+  return txt;
+}
+
+// Build a context block of filed-document summaries for the focused ticker(s),
+// newest first. Bounded to keep latency sane; runs the Gemini calls in parallel.
+async function docSummaryBlock(env, origin, focus, lang) {
+  const pulse = await loadJson(env, origin, "disclosure-pulse");
+  const cand = (pulse?.filings || [])
+    .filter((f) => focus.has(f.tk))
+    .sort((a, b) => Date.parse(b.ts || 0) - Date.parse(a.ts || 0))
+    .slice(0, 2);
+  if (!cand.length) return "";
+  const sums = await Promise.all(cand.map(async (f) => {
+    const s = await summarizeFiling(env, f, lang);
+    return s ? `• ${f.tk} ${(f.ts || "").slice(0, 10)} — ${f.title}\n${s}` : null;
+  }));
+  const got = sums.filter(Boolean);
+  if (!got.length) {
+    return "\n\nFILED-DOCUMENT SUMMARIES: the document(s) for the asked-about " +
+      "ticker could not be opened — tell the user you couldn't retrieve the PDF " +
+      "and fall back to the disclosure title.";
+  }
+  return "\n\nFILED-DOCUMENT SUMMARIES (read directly from the filed PDF — use as " +
+    "the factual basis, lead your 📄 section with these, do not invent beyond them):\n" +
+    got.join("\n\n");
+}
+
 async function handleChat(request, env, origin) {
   if (!authorized(request, env)) {
     return json({ error: "missing or wrong access token" }, 401);
@@ -466,7 +575,14 @@ async function handleChat(request, env, origin) {
   const focus = await focusTickers(env, origin, lastText);
   const mover = parseMoverThreshold(lastText); // {x,dir} | null — Atlas threshold queries
   const parts = await Promise.all(agent.contexts.map((fn) => fn(env, origin, rm, focus, mover)));
-  const context = parts.filter(Boolean).join("\n\n");
+  let context = parts.filter(Boolean).join("\n\n");
+
+  // On-demand: when a user asks Hermes to summarize a specific ticker's filing,
+  // read the actual PDF and fold the summary into context (cached by news id).
+  if (agentName === "hermes" && focus.size && wantsDocSummary(lastText)) {
+    const lang = /[฀-๿]/.test(lastText) ? "th" : "en";
+    context += await docSummaryBlock(env, origin, focus, lang);
+  }
   const result = await env.AI.run(CHAT_MODEL, {
     messages: [
       { role: "system", content: agent.persona + SHARED_RULES + rmLine + "\n\nDATA:\n" + context },
