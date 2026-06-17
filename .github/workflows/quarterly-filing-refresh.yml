@@ -1,0 +1,82 @@
+name: Quarterly Filing Refresh Prompt
+
+# Open a GitHub issue on SET quarterly/annual filing-deadline days. The actual
+# vault fetch/OCR/synthesis work is local because it needs the OneDrive Obsidian
+# vault and interactive in-session synthesis.
+
+on:
+  workflow_dispatch:
+    inputs:
+      filing_period:
+        description: "Filing period marker, e.g. 2026Q2_H1, 2026Q3, 2026FY_DEC, 2027Q1."
+        required: true
+      filing_deadline:
+        description: "Filing deadline date in YYYY-MM-DD."
+        required: true
+
+permissions:
+  issues: write
+  contents: read
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
+
+jobs:
+  open-prompt:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Create filing refresh issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          FILING_PERIOD: ${{ github.event.inputs.filing_period }}
+          FILING_DEADLINE: ${{ github.event.inputs.filing_deadline }}
+        run: |
+          set -euo pipefail
+          title="Quarterly filing refresh: ${FILING_PERIOD} deadline ${FILING_DEADLINE}"
+          existing="$(gh issue list --state open --search "\"${title}\" in:title" --json number --jq '.[0].number // empty')"
+          if [ -n "$existing" ]; then
+            echo "Issue already exists: #${existing}"
+            exit 0
+          fi
+
+          cat > /tmp/filing-refresh-body.md <<BODY
+          Filing deadline refresh prompt for ${FILING_PERIOD} (${FILING_DEADLINE}).
+
+          Run this locally from \`~/VSCoder/is1-coverage-dashboard/\` with the vault mounted at \`~/Library/CloudStorage/OneDrive2-TheStockExchangeofThailand/Claude-Vault/\`.
+
+          Checklist:
+
+          1. Run SET news search for new MD&A and FS filings since the last refresh.
+          2. Fetch filing ZIP/PDF/Office files from SET news detail \`downloadUrl\`.
+          3. Extract text. Use Office parsers for \`.docx/.xlsx\`; recurse nested ZIPs; run markitdown for PDFs; if scanned PDFs produce under 2,000 chars, fall back to \`Work-SET/Listed Company/_Workspace/filing-summary/ocr_pdf.swift\`.
+          4. Split filings into MD&A, FS-NOTES and AUDITOR vault files as applicable.
+          5. Write vault markdown under:
+             - \`Work-SET/Listed Company/1-Raw/01-Filings/MDA/<TK>/\`
+             - \`Work-SET/Listed Company/1-Raw/01-Filings/FS-NOTES/<TK>/\`
+             - \`Work-SET/Listed Company/1-Raw/01-Filings/AUDITOR/<TK>/\`
+          6. Rebuild compact notes:
+             \`\`\`bash
+             python3 scripts/build_vault_ticker_notes.py
+             \`\`\`
+          7. Dump contexts for the affected tickers:
+             \`\`\`bash
+             python3 scripts/dump_contexts.py <TICKERS>
+             \`\`\`
+          8. Re-synthesize affected tickers in-session into \`data/synthesis/out/<TK>.json\`.
+          9. Ingest synthesis:
+             \`\`\`bash
+             python3 scripts/ingest_synthesis.py
+             \`\`\`
+          10. Deploy dashboard:
+              \`\`\`bash
+              npx wrangler deploy
+              \`\`\`
+
+          Close this issue after deploy verification.
+          BODY
+
+          gh issue create --title "$title" --body-file /tmp/filing-refresh-body.md

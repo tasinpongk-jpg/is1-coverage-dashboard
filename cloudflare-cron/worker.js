@@ -28,6 +28,26 @@ const CRON_TO_WORKFLOW = {
   "15 2 * * 1-5": "daily.yml",              // 09:15 BKK — full pipeline
   "0 7 * * 1-5":  "disclosure-refresh.yml", // 14:00 BKK — afternoon catch-up
   "0 11 * * 1-5": "disclosure-refresh.yml", // 18:00 BKK — end-of-day sweep
+  "30 2 16 8 *": {
+    workflow: "quarterly-filing-refresh.yml",
+    inputs: { filing_period: "2026Q2_H1", filing_deadline: "2026-08-16" },
+    activeDate: "2026-08-16",
+  },
+  "30 2 16 11 *": {
+    workflow: "quarterly-filing-refresh.yml",
+    inputs: { filing_period: "2026Q3", filing_deadline: "2026-11-16" },
+    activeDate: "2026-11-16",
+  },
+  "30 2 1 3 *": {
+    workflow: "quarterly-filing-refresh.yml",
+    inputs: { filing_period: "2026FY_DEC", filing_deadline: "2027-03-01" },
+    activeDate: "2027-03-01",
+  },
+  "30 2 16 5 *": {
+    workflow: "quarterly-filing-refresh.yml",
+    inputs: { filing_period: "2027Q1", filing_deadline: "2027-05-16" },
+    activeDate: "2027-05-16",
+  },
 };
 
 // Maps each workflow to its healthcheck URL secret name. Lets daily.yml and
@@ -36,9 +56,10 @@ const CRON_TO_WORKFLOW = {
 const WORKFLOW_HEALTHCHECK = {
   "daily.yml":              "HEALTHCHECK_URL_DAILY",
   "disclosure-refresh.yml": "HEALTHCHECK_URL_DISCLOSURE",
+  "quarterly-filing-refresh.yml": null,
 };
 
-async function dispatchWorkflow(env, workflowFile) {
+async function dispatchWorkflow(env, workflowFile, inputs = undefined) {
   const url = `https://api.github.com/repos/${env.GITHUB_OWNER}/${env.GITHUB_REPO}/actions/workflows/${workflowFile}/dispatches`;
   const response = await fetch(url, {
     method: "POST",
@@ -48,7 +69,7 @@ async function dispatchWorkflow(env, workflowFile) {
       "X-GitHub-Api-Version": "2022-11-28",
       "User-Agent": "is1-coverage-dispatcher",
     },
-    body: JSON.stringify({ ref: env.GITHUB_REF ?? "main" }),
+    body: JSON.stringify({ ref: env.GITHUB_REF ?? "main", ...(inputs ? { inputs } : {}) }),
   });
 
   if (response.status !== 204) {
@@ -68,9 +89,18 @@ async function pingHealthcheck(url, suffix = "") {
 
 export default {
   async scheduled(event, env, ctx) {
-    const workflow = CRON_TO_WORKFLOW[event.cron];
-    if (!workflow) {
+    const target = CRON_TO_WORKFLOW[event.cron];
+    if (!target) {
       throw new Error(`No workflow mapped for cron "${event.cron}". Update CRON_TO_WORKFLOW in worker.js.`);
+    }
+    const workflow = typeof target === "string" ? target : target.workflow;
+    const inputs = typeof target === "string" ? undefined : target.inputs;
+    if (typeof target !== "string" && target.activeDate) {
+      const fireDate = new Date(event.scheduledTime).toISOString().slice(0, 10);
+      if (fireDate !== target.activeDate) {
+        console.log(`Skipping one-shot cron="${event.cron}" on ${fireDate}; active date is ${target.activeDate}.`);
+        return;
+      }
     }
     const healthcheckUrl = env[WORKFLOW_HEALTHCHECK[workflow]];
     let lastError = null;
@@ -80,7 +110,7 @@ export default {
         if (BACKOFF_MS[attempt - 1] > 0) {
           await new Promise((r) => setTimeout(r, BACKOFF_MS[attempt - 1]));
         }
-        await dispatchWorkflow(env, workflow);
+        await dispatchWorkflow(env, workflow, inputs);
         console.log(`Dispatch succeeded on attempt ${attempt}: cron="${event.cron}" → ${workflow}`);
         ctx.waitUntil(pingHealthcheck(healthcheckUrl));
         return;
@@ -108,7 +138,7 @@ export default {
     }
     const url = new URL(request.url);
     const workflow = url.searchParams.get("workflow") ?? "daily.yml";
-    if (!WORKFLOW_HEALTHCHECK[workflow]) {
+    if (!(workflow in WORKFLOW_HEALTHCHECK)) {
       return new Response(`unknown workflow: ${workflow}`, { status: 400 });
     }
     try {

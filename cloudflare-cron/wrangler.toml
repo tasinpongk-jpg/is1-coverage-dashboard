@@ -24,6 +24,10 @@ crons = [
   "15 2 * * 1-5",     # 02:15 UTC / 09:15 BKK → daily.yml (full pipeline)
   "0 7 * * 1-5",      # 07:00 UTC / 14:00 BKK → disclosure-refresh.yml (afternoon)
   "0 11 * * 1-5",     # 11:00 UTC / 18:00 BKK → disclosure-refresh.yml (end-of-day)
+  "30 2 16 8 *",      # 02:30 UTC / 09:30 BKK Aug 16 → Q2/H1 filing-deadline prompt
+  "30 2 16 11 *",     # 02:30 UTC / 09:30 BKK Nov 16 → Q3 filing-deadline prompt
+  "30 2 1 3 *",       # 02:30 UTC / 09:30 BKK Mar 1 → annual Dec-FY filing prompt
+  "30 2 16 5 *",      # 02:30 UTC / 09:30 BKK May 16 → Q1 filing-deadline prompt
 ]
 
 [vars]
