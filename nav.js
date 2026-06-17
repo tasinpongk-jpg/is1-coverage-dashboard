@@ -56,6 +56,26 @@
     },
   ];
 
+  // Per-page line icon + one-line description for the title banner.
+  // Page NAME and COLOR come from GROUPS above (single source of truth, so the
+  // banner title can never drift from the menu label).
+  var META = {
+    "price-movement.html":      { ic: '<path d="M3 17l6-6 4 4 7-7"/><path d="M17 8h4v4"/>',                                                                  desc: "Daily price moves across coverage" },
+    "company-summary.html":     { ic: '<path d="M3 21h18"/><path d="M5 21V4a1 1 0 0 1 1-1h8a1 1 0 0 1 1 1v17"/><path d="M19 21V9a1 1 0 0 0-1-1h-3"/><path d="M9 7h2M9 11h2M9 15h2"/>', desc: "Fundamentals and profile per company" },
+    "multiples-comparison.html":{ ic: '<path d="M3 3v18h18"/><path d="M7 14v3"/><path d="M12 9v8"/><path d="M17 5v12"/>',                                     desc: "Valuation multiples side by side" },
+    "multiples-band.html":      { ic: '<path d="M3 12l4-4 4 3 4-6 6 5"/><path d="M3 18l4-4 4 3 4-6 6 5"/>',                                              desc: "Valuation ranges over time" },
+    "disclosure-pulse.html":    { ic: '<path d="M22 12h-4l-3 9L9 3l-3 9H2"/>',                                                                          desc: "Live SET filings, ranked by importance" },
+    "external-news.html":       { ic: '<path d="M4 4h13a1 1 0 0 1 1 1v13a2 2 0 0 0 2 2H6a2 2 0 0 1-2-2V4Z"/><path d="M8 8h6M8 12h6M8 16h4"/>',          desc: "Wire & RSS headlines matched to coverage" },
+    "oppday-minutes.html":      { ic: '<path d="M2 4h20"/><path d="M3 4v10a1 1 0 0 0 1 1h16a1 1 0 0 0 1-1V4"/><path d="M12 15v5"/><path d="M9 20h6"/>', desc: "Earnings-call notes and takeaways" },
+    "ai-insights.html":         { ic: '<path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3Z"/>', desc: "Model-written commentary on the coverage" },
+    "unusual-trading.html":     { ic: '<path d="M10.3 3.3 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.3a2 2 0 0 0-3.4 0Z"/><path d="M12 9v4"/><path d="M12 17h.01"/>', desc: "Volume and price anomalies flagged" },
+    "trading-signs.html":       { ic: '<path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><path d="M4 22v-7"/>',                       desc: "Current SET trading signs on coverage" },
+    "sec-enforcement.html":     { ic: '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/><path d="M12 8v4"/><path d="M12 16h.01"/>',                desc: "Thai SEC enforcement actions" },
+    "bond-summary.html":        { ic: '<path d="M3 22h18"/><path d="M4 10l8-6 8 6"/><path d="M6 22v-9M10 22v-9M14 22v-9M18 22v-9"/>',                    desc: "Outstanding bonds across coverage" },
+    "bond-data-sec.html":       { ic: '<path d="M12 7c4.4 0 8-1.1 8-2.5S16.4 2 12 2 4 3.1 4 4.5 7.6 7 12 7Z"/><path d="M4 4.5v15C4 20.9 7.6 22 12 22s8-1.1 8-2.5v-15"/><path d="M4 12c0 1.4 3.6 2.5 8 2.5s8-1.1 8-2.5"/>', desc: "Bond filings from the SEC" },
+    "visits.html":              { ic: '<path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><path d="M12 12a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5Z"/>', desc: "Plan and track company visits" },
+  };
+
   var nav = document.querySelector("nav.nav");
   if (!nav) return; // index has its own layout
 
@@ -83,7 +103,27 @@ nav.nav{display:flex;align-items:center;gap:2px;position:relative}\
 .gnav-panel a .pdot{width:5px;height:5px;border-radius:50%;background:var(--gn);opacity:.55;flex-shrink:0}\
 @media(max-width:760px){\
  .gnav-panel{position:fixed;left:10px;right:10px;top:auto;min-width:0}\
- .gnav-btn{padding:7px 7px}.gnav-home{padding:7px 7px}}";
+ .gnav-btn{padding:7px 7px}.gnav-home{padding:7px 7px}}\
+\
+/* ── PAGE TITLE BANNER (full-width colored band, below the top bar) ── */\
+.phbanner{position:relative;overflow:hidden;display:flex;align-items:center;gap:16px;padding:18px 32px;color:#fff;\
+ background:linear-gradient(120deg,var(--ph) 0%,color-mix(in srgb,var(--ph) 42%,#0a0c12) 100%);\
+ border-bottom:1px solid color-mix(in srgb,var(--ph) 45%,#0a0c12);animation:phin .4s ease both}\
+.phbanner::before{content:'';position:absolute;inset:0;pointer-events:none;\
+ background:radial-gradient(circle at 13% 25%,rgba(255,255,255,.20),transparent 45%)}\
+.phbanner::after{content:'';position:absolute;right:-50px;top:-70px;width:260px;height:260px;border-radius:50%;pointer-events:none;\
+ background:radial-gradient(circle,rgba(255,255,255,.13),transparent 70%)}\
+.ph-ico{position:relative;width:46px;height:46px;border-radius:12px;flex-shrink:0;display:flex;align-items:center;justify-content:center;\
+ background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.28)}\
+.ph-ico svg{width:24px;height:24px;fill:none;stroke:#fff;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}\
+.ph-txt{position:relative;min-width:0}\
+.ph-cat{display:inline-flex;align-items:center;gap:6px;font-size:10px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;\
+ color:#fff;background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.24);padding:3px 9px;border-radius:20px}\
+.ph-title{font-size:24px;font-weight:800;letter-spacing:-.4px;margin-top:8px;line-height:1.1;color:#fff;text-shadow:0 1px 12px rgba(0,0,0,.22)}\
+.ph-desc{font-size:12.5px;margin-top:4px;color:rgba(255,255,255,.82)}\
+@keyframes phin{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}\
+@media(prefers-reduced-motion:reduce){.phbanner{animation:none}}\
+@media(max-width:760px){.phbanner{padding:14px 16px;gap:12px}.ph-title{font-size:20px}.ph-ico{width:40px;height:40px}.ph-ico svg{width:21px;height:21px}}";
   var style = document.createElement("style");
   style.textContent = css;
   document.head.appendChild(style);
@@ -102,6 +142,7 @@ nav.nav{display:flex;align-items:center;gap:2px;position:relative}\
   home.textContent = "The Terminal";
   nav.appendChild(home);
 
+  var heroTitle = null, heroColor = null, heroGroup = null;
   GROUPS.forEach(function (g) {
     var wrap = document.createElement("div");
     wrap.className = "gnav-group";
@@ -123,6 +164,9 @@ nav.nav{display:flex;align-items:center;gap:2px;position:relative}\
       if (p[0] === here) {
         a.classList.add("here");
         wrap.classList.add("active");
+        heroTitle = p[1];
+        heroColor = g.color;
+        heroGroup = g.label;
       }
       panel.appendChild(a);
     });
@@ -159,6 +203,25 @@ nav.nav{display:flex;align-items:center;gap:2px;position:relative}\
   });
 
   extras.forEach(function (el) { nav.appendChild(el); });
+
+  // ── Page title banner: a full-width colored band right under the top bar ──
+  if (heroTitle) {
+    var header = nav.closest("header") || document.querySelector("header");
+    if (header && !document.querySelector(".phbanner")) {
+      var meta = META[here] || { ic: "", desc: "" };
+      var banner = document.createElement("div");
+      banner.className = "phbanner";
+      banner.style.setProperty("--ph", heroColor);
+      banner.innerHTML =
+        '<div class="ph-ico"><svg viewBox="0 0 24 24" aria-hidden="true">' + meta.ic + '</svg></div>' +
+        '<div class="ph-txt">' +
+          '<span class="ph-cat">' + heroGroup + '</span>' +
+          '<div class="ph-title">' + heroTitle + '</div>' +
+          (meta.desc ? '<div class="ph-desc">' + meta.desc + '</div>' : '') +
+        '</div>';
+      header.parentNode.insertBefore(banner, header.nextSibling);
+    }
+  }
 
   function closeAll() {
     nav.querySelectorAll(".gnav-group.open").forEach(function (w) {
