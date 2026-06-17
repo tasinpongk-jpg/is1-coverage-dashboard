@@ -16,5 +16,9 @@
   },
   "ai": {
     "binding": "AI"
-  }
+  },
+  // Durable store for agent 👍/👎 feedback (POST /api/feedback in worker.js).
+  "kv_namespaces": [
+    { "binding": "FEEDBACK", "id": "13d03f42d4344003b256c3fceceaf116" }
+  ]
 }
