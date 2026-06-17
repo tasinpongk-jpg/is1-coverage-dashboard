@@ -123,7 +123,28 @@ nav.nav{display:flex;align-items:center;gap:2px;position:relative}\
 .ph-desc{font-size:12.5px;margin-top:4px;color:rgba(255,255,255,.82)}\
 @keyframes phin{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}\
 @media(prefers-reduced-motion:reduce){.phbanner{animation:none}}\
-@media(max-width:760px){.phbanner{padding:14px 16px;gap:12px}.ph-title{font-size:20px}.ph-ico{width:40px;height:40px}.ph-ico svg{width:21px;height:21px}}";
+@media(max-width:760px){.phbanner{padding:14px 16px;gap:12px}.ph-title{font-size:20px}.ph-ico{width:40px;height:40px}.ph-ico svg{width:21px;height:21px}}\
+\
+/* ── UNIFIED TOP BAR (identical to homepage: IS mark + The Terminal + status) ── */\
+.gtopbar{display:flex;align-items:center;justify-content:space-between;gap:18px;padding:18px 32px;\
+ border-bottom:1px solid var(--border,#232733);position:sticky;top:0;z-index:200;\
+ background:#0a0c12ee;backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px)}\
+.gbrand{display:flex;align-items:center;gap:14px;text-decoration:none;color:inherit;flex-shrink:0}\
+.gbrand-mark{width:34px;height:34px;border-radius:9px;flex-shrink:0;display:flex;align-items:center;justify-content:center;\
+ background:linear-gradient(135deg,#6366f1,#8b5cf6);font-weight:800;font-size:14px;letter-spacing:-.5px;color:#fff}\
+.gbrand-text h1{font-size:16px;font-weight:700;letter-spacing:-.2px;color:var(--text,#e6e8ed);display:flex;align-items:center;border:0;margin:0;padding:0}\
+.gbrand-text .sub{font-size:10px;color:var(--muted,#8089a0);margin-top:2px;letter-spacing:.4px;text-transform:uppercase}\
+.gbrand .cursor{display:inline-block;width:8px;height:14px;margin-left:4px;border-radius:1px;background:#6366f1;vertical-align:-1px;animation:termblink 1.1s steps(1) infinite}\
+@keyframes termblink{50%{opacity:0}}\
+@media(prefers-reduced-motion:reduce){.gbrand .cursor{animation:none}}\
+.gtopbar .stale,.gtopbar .stale-pill{font-size:11px;padding:5px 12px;border-radius:20px;white-space:nowrap;flex-shrink:0;\
+ background:#22c55e15;color:#22c55e;border:1px solid #22c55e30}\
+.gtopbar .stale.warn,.gtopbar .stale-pill.warn{background:#f59e0b15;color:#f59e0b;border-color:#f59e0b30}\
+.gtopbar .stale.unknown,.gtopbar .stale-pill.unknown{background:#5a627a15;color:var(--muted,#8089a0);border-color:#5a627a30}\
+.phbanner .ph-desc{display:flex;flex-wrap:wrap;align-items:baseline;gap:6px}\
+.phbanner .meta{display:inline;font-size:12.5px;color:rgba(255,255,255,.72);margin:0}\
+.phbanner .meta::before{content:'\\00b7 ';opacity:.7}\
+@media(max-width:760px){.gtopbar{padding:14px 16px;gap:12px}.gbrand-text h1{font-size:15px}}";
   var style = document.createElement("style");
   style.textContent = css;
   document.head.appendChild(style);
@@ -204,22 +225,49 @@ nav.nav{display:flex;align-items:center;gap:2px;position:relative}\
 
   extras.forEach(function (el) { nav.appendChild(el); });
 
-  // ── Page title banner: a full-width colored band right under the top bar ──
+  // ── Unified top bar + page title banner (subpages only; index keeps its own) ──
   if (heroTitle) {
     var header = nav.closest("header") || document.querySelector("header");
-    if (header && !document.querySelector(".phbanner")) {
-      var meta = META[here] || { ic: "", desc: "" };
-      var banner = document.createElement("div");
-      banner.className = "phbanner";
-      banner.style.setProperty("--ph", heroColor);
-      banner.innerHTML =
-        '<div class="ph-ico"><svg viewBox="0 0 24 24" aria-hidden="true">' + meta.ic + '</svg></div>' +
-        '<div class="ph-txt">' +
-          '<span class="ph-cat">' + heroGroup + '</span>' +
-          '<div class="ph-title">' + heroTitle + '</div>' +
-          (meta.desc ? '<div class="ph-desc">' + meta.desc + '</div>' : '') +
-        '</div>';
-      header.parentNode.insertBefore(banner, header.nextSibling);
+    if (header && !header.classList.contains("gtopbar")) {
+      // Preserve the live status pill and detail line before we rebuild —
+      // page scripts keep updating these same nodes by id.
+      var staleNode = document.getElementById("staleBadge");
+      var metaNode = document.getElementById("meta");
+
+      // Rebuild the bar to match the homepage: IS mark · The Terminal
+      // (blinking) · menu · status. The old page-specific title is dropped —
+      // the colored banner below now carries the page identity.
+      header.classList.add("gtopbar");
+      header.innerHTML = "";
+
+      var brand = document.createElement("a");
+      brand.className = "gbrand";
+      brand.href = "index.html";
+      brand.innerHTML =
+        '<div class="gbrand-mark">IS</div>' +
+        '<div class="gbrand-text"><h1>The Terminal<span class="cursor"></span></h1>' +
+        '<div class="sub">IS1 Coverage Desk · SET Issuer Department 1</div></div>';
+      header.appendChild(brand);
+      header.appendChild(nav);
+      if (staleNode) header.appendChild(staleNode); // status pill, far right
+
+      // Colored page banner directly below the bar; the live detail line
+      // (counts / as-of) rides along next to the description.
+      if (!document.querySelector(".phbanner")) {
+        var meta = META[here] || { ic: "", desc: "" };
+        var banner = document.createElement("div");
+        banner.className = "phbanner";
+        banner.style.setProperty("--ph", heroColor);
+        banner.innerHTML =
+          '<div class="ph-ico"><svg viewBox="0 0 24 24" aria-hidden="true">' + meta.ic + '</svg></div>' +
+          '<div class="ph-txt">' +
+            '<span class="ph-cat">' + heroGroup + '</span>' +
+            '<div class="ph-title">' + heroTitle + '</div>' +
+            '<div class="ph-desc">' + (meta.desc ? '<span class="ph-d">' + meta.desc + '</span>' : '') + '</div>' +
+          '</div>';
+        if (metaNode) banner.querySelector(".ph-desc").appendChild(metaNode);
+        header.parentNode.insertBefore(banner, header.nextSibling);
+      }
     }
   }
 
