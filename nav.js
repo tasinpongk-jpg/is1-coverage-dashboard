@@ -31,6 +31,7 @@
         ["external-news.html", "External News"],
         ["oppday-minutes.html", "Oppday Minutes"],
         ["ai-insights.html", "AI Insights"],
+        ["https://macro-brief-buy.pages.dev", "Global-Macro Brief"], // external (Cloudflare Pages, opens new tab)
       ],
     },
     {
@@ -101,6 +102,8 @@ nav.nav{display:flex;align-items:center;gap:2px;position:relative}\
 .gnav-panel a:hover{color:var(--text,#e6e8ed);background:var(--card2,#1a1d27)}\
 .gnav-panel a.here{color:var(--gn);font-weight:700;background:color-mix(in srgb,var(--gn) 10%,transparent)}\
 .gnav-panel a .pdot{width:5px;height:5px;border-radius:50%;background:var(--gn);opacity:.55;flex-shrink:0}\
+.gnav-panel a .ext{margin-left:auto;padding-left:12px;font-size:11px;opacity:.5}\
+.gnav-panel a:hover .ext{opacity:.8}\
 @media(max-width:760px){\
  .gnav-panel{position:fixed;left:10px;right:10px;top:auto;min-width:0}\
  .gnav-btn{padding:7px 7px}.gnav-home{padding:7px 7px}}\
@@ -184,8 +187,14 @@ nav.nav{display:flex;align-items:center;gap:2px;position:relative}\
     g.pages.forEach(function (p) {
       var a = document.createElement("a");
       a.href = p[0];
-      a.innerHTML = '<span class="pdot"></span>' + p[1];
-      if (p[0].replace(/\.html$/, "") === hereKey) {
+      var external = /^https?:\/\//.test(p[0]);
+      if (external) {
+        a.target = "_blank";
+        a.rel = "noopener noreferrer"; // safe external-tab opening
+      }
+      a.innerHTML = '<span class="pdot"></span>' + p[1] +
+        (external ? '<span class="ext" aria-label="opens in a new tab">↗</span>' : '');
+      if (!external && p[0].replace(/\.html$/, "") === hereKey) {
         a.classList.add("here");
         wrap.classList.add("active");
         heroTitle = p[1];
