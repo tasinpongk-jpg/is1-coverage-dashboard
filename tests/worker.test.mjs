@@ -132,8 +132,8 @@ test("naming a covered ticker filters Hermes context to that ticker", async () =
   await worker.fetch(chatReq({ agent: "hermes", messages: [{ role: "user", content: `any news on ${tk}?` }] }), env);
   assert.ok(lastSystem.includes(`FILTERED to ${tk}`),
     "expected news + disclosures context filtered to the named ticker");
-  // a generic question must NOT trigger focus filtering
-  await worker.fetch(chatReq({ agent: "hermes", messages: [{ role: "user", content: "what moved today?" }] }), env);
+  // a generic question (no ticker, no date word) must NOT trigger filtering
+  await worker.fetch(chatReq({ agent: "hermes", messages: [{ role: "user", content: "give me an overview of the market" }] }), env);
   assert.ok(!/FILTERED to/.test(lastSystem), "generic question should not filter");
 });
 
@@ -158,6 +158,27 @@ test("atlas 'beyond ±X%' query hard-filters prices to qualifying rows only", as
   // a bare "top movers" (no threshold) must NOT pre-filter
   await worker.fetch(chatReq({ agent: "atlas", messages: [{ role: "user", content: "top movers today" }] }), env);
   assert.ok(!/PRE-FILTERED/.test(lastSystem), "no threshold should not pre-filter");
+});
+
+test("atlas range query keeps only rows inside the band", async () => {
+  await worker.fetch(chatReq({ agent: "atlas", messages: [{ role: "user", content: "names between -2% and -1.5% today" }] }), env);
+  assert.ok(/between -2% and -1.5%/.test(lastSystem), "expected the range pre-filter note");
+  const block = lastSystem.split("TICKERS (tk")[1] || "";
+  const moves = [...block.matchAll(/^\S+ \S+ \S+ \| \S+ (-?\d+(?:\.\d+)?)/gm)].map((m) => +m[1]);
+  assert.ok(moves.every((v) => v >= -2 && v <= -1.5), `rows must be in [-2,-1.5]; got ${moves.filter(v => v < -2 || v > -1.5)}`);
+});
+
+test("atlas top-N by metric returns exactly N rows, sorted", async () => {
+  await worker.fetch(chatReq({ agent: "atlas", messages: [{ role: "user", content: "top 5 names by YTD" }] }), env);
+  assert.ok(/top 5|YTD %/.test(lastSystem), "expected top-N + YTD metric note");
+  const block = lastSystem.split("TICKERS (tk")[1] || "";
+  const rows = (block.match(/^\S+ \S+ \S+ \| /gm) || []).length;
+  assert.ok(rows === 5, `expected exactly 5 rows, got ${rows}`);
+});
+
+test("recency word date-filters Hermes news/filings context", async () => {
+  await worker.fetch(chatReq({ agent: "hermes", messages: [{ role: "user", content: "any disclosures this week?" }] }), env);
+  assert.ok(/FILTERED to the last 7 days/.test(lastSystem), "expected a 7-day recency filter note");
 });
 
 test("atlas prices are pre-sorted by absolute 1-day move", async () => {

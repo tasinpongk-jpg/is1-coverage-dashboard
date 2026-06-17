@@ -116,43 +116,102 @@ async function ctxCoverage(env, origin) {
 // Parse a "movers beyond X%" style threshold out of the user's question so the
 // price context can be filtered deterministically — the 70B model will not
 // reliably stop at a cutoff itself. Returns {x, dir} or null.
-function parseMoverThreshold(text) {
+const UP_WORDS = /\b(gain|gainer|gainers|gaining|up|rise|rising|rose|advanc|surg|jump|jumping|soar|outperform|best)\b/;
+const DOWN_WORDS = /\b(los(?:s|er|ers|ing)|down|fall|falling|fell|drop|dropp|declin|sank|slump|plunge|underperform|worst)\b/;
+const WORD_NUM = { one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10 };
+
+// Parse an Atlas price-screen request into a deterministic intent the 70B model
+// can't be trusted to execute itself: a threshold, a range, or a top-N — over a
+// chosen metric. ctxPrices then filters/sorts the rows so the model only narrates.
+function parsePriceQuery(text) {
   const t = String(text || "").toLowerCase();
+  let metric = "pct1d";
+  if (/\b(ytd|year[\s-]?to[\s-]?date|this year)\b/.test(t)) metric = "pctYtd";
+  else if (/\b(5[\s-]?d(?:ay)?|five[\s-]?day|this week|past week|weekly)\b/.test(t)) metric = "pct5d";
+  else if (/\b(volume|vol(?:ume)?[\s-]?ratio|turnover|volratio)\b/.test(t)) metric = "volRatio";
+  const dir = UP_WORDS.test(t) ? "up" : DOWN_WORDS.test(t) ? "down" : "abs";
+
+  // range: "between -2% and -1.5%" / "between 1 to 3 percent"
+  const rng = t.match(/between\s*(-?[0-9]+(?:\.[0-9]+)?)\s*%?\s*(?:and|to|&|-)\s*(-?[0-9]+(?:\.[0-9]+)?)\s*(?:%|percent|pct)/);
+  if (rng) {
+    let lo = parseFloat(rng[1]), hi = parseFloat(rng[2]);
+    if (lo > hi) [lo, hi] = [hi, lo];
+    if (isFinite(lo) && isFinite(hi)) return { mode: "range", metric, lo, hi };
+  }
+  // top-N: "top 5", "biggest 10 movers", "5 biggest gainers", "worst 3" (explicit count only)
+  const topM = t.match(/\b(?:top|biggest|largest|highest|leading|worst|bottom)\s+(\d+|one|two|three|four|five|six|seven|eight|nine|ten)\b/)
+    || t.match(/\b(\d+)\s+(?:biggest|largest|top|leading|worst)\b/);
+  if (topM) {
+    const n = parseInt(topM[1], 10) || WORD_NUM[topM[1]] || 5;
+    const d = /\b(worst|bottom)\b/.test(t) ? "down" : dir; // "worst/bottom" = losers
+    return { mode: "topN", metric, n: Math.min(Math.max(n, 1), 30), dir: d };
+  }
+  // threshold: "beyond ±X%", "up/down more than X%"
   const m = t.match(
     /(?:beyond|above|over|more than|greater than|at least|exceed(?:ing|s)?|bigger than|>=?|±|\+\/-|\+-)\s*[±+\/\-]*\s*([0-9]+(?:\.[0-9]+)?)\s*(?:%|percent|pct)/);
-  if (!m) return null;
-  const x = parseFloat(m[1]);
-  if (!isFinite(x) || x <= 0) return null;
-  let dir = "abs";
-  if (/\b(up|gain|gainer|rise|rising|rose|advanc|surg|jump|soar)/.test(t)) dir = "up";
-  else if (/\b(down|fall|falling|fell|drop|dropp|declin|loser|losing|lost|sank|slump|plunge)/.test(t)) dir = "down";
-  return { x, dir };
+  if (m) {
+    const x = parseFloat(m[1]);
+    if (isFinite(x) && x > 0) return { mode: "threshold", metric, x, dir };
+  }
+  return null;
 }
 
-async function ctxPrices(env, origin, _userRm, focus, mover) {
+// Parse a "today / this week / last N days" window so news & filings can be
+// date-filtered server-side instead of asking the model to compare dates.
+function parseRecency(text) {
+  const t = String(text || "").toLowerCase();
+  if (/\b(today|วันนี้)\b/.test(t)) return { days: 1, label: "today" };
+  if (/\b(yesterday|เมื่อวาน)\b/.test(t)) return { days: 2, label: "the last 2 days" };
+  if (/\b(this week|past week|last 7 days|last week|สัปดาห์นี้|7 วัน)\b/.test(t)) return { days: 7, label: "the last 7 days" };
+  if (/\b(this month|past month|last 30 days|เดือนนี้|30 วัน)\b/.test(t)) return { days: 30, label: "the last 30 days" };
+  const m = t.match(/\b(?:last|past|in the last)\s+(\d{1,3})\s+days?\b/);
+  if (m) { const d = parseInt(m[1], 10); if (d > 0) return { days: d, label: `the last ${d} days` }; }
+  return null;
+}
+
+// Keep items whose ts is within `days` of now (worker has real Date).
+function withinDays(items, days, tsOf) {
+  if (!days) return items;
+  const cutoff = Date.now() - days * 86400000;
+  return items.filter((it) => { const p = Date.parse(tsOf(it)); return !isFinite(p) || p >= cutoff; });
+}
+
+const METRIC_LABEL = { pct1d: "1-day %", pct5d: "5-day %", pctYtd: "YTD %", volRatio: "vol ratio" };
+
+async function ctxPrices(env, origin, _userRm, focus, q) {
+  const pq = q?.priceQuery || null;
   const [tickers, brief] = await Promise.all([
     loadJson(env, origin, "tickers"),
     loadJson(env, origin, "morning-brief"),
   ]);
   const cov = {};
   for (const t of tickers?.tickers || []) cov[t.tk] = t;
-  // Llama can't reliably filter/sort a 230-row list. Pre-sort by absolute
-  // 1-day move (the dominant Atlas query is "movers beyond ±X%"), so the
-  // model reads top-down and stops at the threshold instead of cherry-picking.
-  let rows = (brief?.rows || []).slice().sort(
-    (a, b) => Math.abs(b.pct1d || 0) - Math.abs(a.pct1d || 0));
-  // If the user named specific covered tickers, show ONLY those.
+  const metric = pq?.metric || "pct1d";
+  const mlabel = METRIC_LABEL[metric];
+  const mval = (r) => r[metric] || 0;
+  // Llama can't reliably filter/sort a 230-row list. Pre-sort by |metric| so the
+  // model reads top-down; for a parsed screen, hard-filter so it can only narrate.
+  let rows = (brief?.rows || []).slice().sort((a, b) => Math.abs(mval(b)) - Math.abs(mval(a)));
   if (focus && focus.size) rows = rows.filter((r) => focus.has(r.tk));
-  let note = "Rows are sorted by |1-day %| descending (biggest movers first).";
-  // If the user asked for a threshold, hard-filter to qualifying rows so the
-  // model literally cannot include sub-threshold names.
-  if (mover) {
-    const pass = (v) => mover.dir === "up" ? v >= mover.x
-      : mover.dir === "down" ? v <= -mover.x : Math.abs(v) >= mover.x;
-    rows = rows.filter((r) => pass(r.pct1d || 0));
-    const sign = mover.dir === "up" ? "+" : mover.dir === "down" ? "-" : "±";
-    note = `PRE-FILTERED: every row below ALREADY clears the ${sign}${mover.x}% ` +
-      `1-day bar (${rows.length} names). List them ALL and ONLY these — there are no others.`;
+  let note = `Rows are sorted by |${mlabel}| descending (biggest movers first).`;
+  if (pq?.mode === "threshold") {
+    const pass = (v) => pq.dir === "up" ? v >= pq.x : pq.dir === "down" ? v <= -pq.x : Math.abs(v) >= pq.x;
+    rows = rows.filter((r) => pass(mval(r)));
+    const sign = pq.dir === "up" ? "+" : pq.dir === "down" ? "-" : "±";
+    note = `PRE-FILTERED: every row below ALREADY clears the ${sign}${pq.x}% ${mlabel} ` +
+      `bar (${rows.length} names). List them ALL and ONLY these — there are no others.`;
+  } else if (pq?.mode === "range") {
+    rows = rows.filter((r) => { const v = mval(r); return v >= pq.lo && v <= pq.hi; })
+      .sort((a, b) => mval(a) - mval(b));
+    note = `PRE-FILTERED: every row below has ${mlabel} between ${pq.lo}% and ${pq.hi}% ` +
+      `inclusive (${rows.length} names). List them ALL and ONLY these.`;
+  } else if (pq?.mode === "topN") {
+    if (pq.dir === "up") rows = rows.slice().sort((a, b) => mval(b) - mval(a));
+    else if (pq.dir === "down") rows = rows.slice().sort((a, b) => mval(a) - mval(b));
+    rows = rows.slice(0, pq.n);
+    const which = pq.dir === "up" ? "top gainers" : pq.dir === "down" ? "top losers" : "biggest movers";
+    note = `PRE-FILTERED: these are the ${which} by ${mlabel} (top ${rows.length}), already in order. ` +
+      `List them ALL and ONLY these, in this order.`;
   }
   const lines = [`AS-OF: ${brief?.asOf || "?"} (prices are previous close)` +
     (focus && focus.size ? `; focused on ${[...focus].join(", ")}` : "") +
@@ -195,15 +254,18 @@ function rmFirst(items, cap, rms, userRm, tkOf) {
   return mine.concat(rest).slice(0, cap);
 }
 
-async function ctxNews(env, origin, userRm, focus) {
+async function ctxNews(env, origin, userRm, focus, q) {
   const [news, rms] = await Promise.all([
     loadJson(env, origin, "external-news"), rmMap(env, origin)]);
   let items = news?.items || [];
   // When the user named specific covered tickers, show ONLY their news, so the
   // model never pads "news on CPN" with unrelated names.
   if (focus && focus.size) items = items.filter((n) => focus.has(n.tk));
+  const recency = q?.recency;
+  if (recency) items = withinDays(items, recency.days, (n) => n.ts);
   const picked = focus && focus.size ? items : rmFirst(items, 50, rms, userRm, (n) => n.tk);
   const lines = [`EXTERNAL NEWS (last ${news?.windowDays || "?"} days, ${items.length} items, asOf ${news?.asOf || "?"}; rm=owning RM` +
+    (recency ? `; FILTERED to ${recency.label}` : "") +
     (focus && focus.size ? `; FILTERED to ${[...focus].join(", ")} — if a name has no rows here it has NO external news` : "") +
     (!(focus && focus.size) && userRm ? `; the user's rm=${userRm} rows are listed first` : "") + "):"];
   for (const n of picked) {
@@ -214,13 +276,16 @@ async function ctxNews(env, origin, userRm, focus) {
   return lines.join("\n");
 }
 
-async function ctxFilings(env, origin, userRm, focus) {
+async function ctxFilings(env, origin, userRm, focus, q) {
   const [pulse, rms] = await Promise.all([
     loadJson(env, origin, "disclosure-pulse"), rmMap(env, origin)]);
   let filings = pulse?.filings || [];
   if (focus && focus.size) filings = filings.filter((f) => focus.has(f.tk));
+  const recency = q?.recency;
+  if (recency) filings = withinDays(filings, recency.days, (f) => f.ts);
   const picked = focus && focus.size ? filings : rmFirst(filings, 60, rms, userRm, (f) => f.tk);
   const lines = [`SET DISCLOSURES (last ${pulse?.windowDays || "?"} days, asOf ${pulse?.asOf || "?"}; rm=owning RM` +
+    (recency ? `; FILTERED to ${recency.label}` : "") +
     (focus && focus.size ? `; FILTERED to ${[...focus].join(", ")} — if a name has no rows here it has NO recent disclosure` : "") +
     (!(focus && focus.size) && userRm ? `; the user's rm=${userRm} rows are listed first` : "") + "):"];
   for (const f of picked) {
@@ -599,8 +664,10 @@ async function handleChat(request, env, origin) {
   // those rows, so the model can't pad "news on CPN" or miscount movers.
   const lastText = cleaned[cleaned.length - 1].content;
   const focus = await focusTickers(env, origin, lastText);
-  const mover = parseMoverThreshold(lastText); // {x,dir} | null — Atlas threshold queries
-  const parts = await Promise.all(agent.contexts.map((fn) => fn(env, origin, rm, focus, mover)));
+  // Deterministic query intents the model can't execute reliably: an Atlas price
+  // screen (threshold/range/top-N over a metric) and a news/filing date window.
+  const q = { priceQuery: parsePriceQuery(lastText), recency: parseRecency(lastText) };
+  const parts = await Promise.all(agent.contexts.map((fn) => fn(env, origin, rm, focus, q)));
   let context = parts.filter(Boolean).join("\n\n");
 
   // On-demand: when a user asks Hermes to summarize a specific ticker's filing,
