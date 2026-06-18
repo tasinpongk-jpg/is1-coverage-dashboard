@@ -60,9 +60,10 @@ export default {
       }
     }
     if (url.pathname === "/api/feedback") {
-      if (request.method !== "POST") return json({ error: "POST only" }, 405);
       try {
-        return await handleFeedback(request, env);
+        if (request.method === "POST") return await handleFeedback(request, env);
+        if (request.method === "GET") return await handleFeedbackExport(request, env);
+        return json({ error: "GET or POST only" }, 405);
       } catch (e) {
         return json({ error: `feedback failed: ${e.message}` }, 500);
       }
@@ -95,6 +96,23 @@ async function handleFeedback(request, env) {
   }
   console.log("FEEDBACK " + JSON.stringify(rec)); // visible in `wrangler tail`
   return json({ ok: true, stored: "log" });
+}
+
+// Export collected votes (token-gated) so scripts/mine_feedback.mjs can pull the
+// 👎s and turn them into eval cases / few-shots. The worker reads its own KV.
+async function handleFeedbackExport(request, env) {
+  if (!authorized(request, env)) return json({ error: "missing or wrong access token" }, 401);
+  if (!env.FEEDBACK) return json({ votes: [], note: "no KV bound; votes are console-logged only" });
+  const out = [];
+  let cursor;
+  do {
+    const page = await env.FEEDBACK.list({ prefix: "fb:", limit: 1000, cursor });
+    const vals = await Promise.all(page.keys.map((k) => env.FEEDBACK.get(k.name)));
+    for (const v of vals) { try { if (v) out.push(JSON.parse(v)); } catch { /* skip */ } }
+    cursor = page.list_complete ? null : page.cursor;
+  } while (cursor && out.length < 5000);
+  out.sort((a, b) => String(b.ts).localeCompare(String(a.ts)));
+  return json({ count: out.length, votes: out });
 }
 
 function json(obj, status = 200) {

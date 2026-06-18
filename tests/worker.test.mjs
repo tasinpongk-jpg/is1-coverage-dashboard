@@ -81,8 +81,15 @@ test("feedback endpoint records a vote (auth + validation)", async () => {
   // bad token -> 401
   r = await worker.fetch(fb({ vote: "up" }, "wrong"), env);
   assert.equal(r.status, 401);
-  // GET -> 405
+  // GET export with token -> 200 (no KV bound in test -> empty + note)
+  r = await worker.fetch(new Request("https://x.test/api/feedback", { method: "GET", headers: { Authorization: "Bearer testtoken" } }), env);
+  assert.equal(r.status, 200);
+  assert.deepEqual((await r.json()).votes, []);
+  // GET export without token -> 401
   r = await worker.fetch(new Request("https://x.test/api/feedback", { method: "GET" }), env);
+  assert.equal(r.status, 401);
+  // PUT -> 405
+  r = await worker.fetch(new Request("https://x.test/api/feedback", { method: "PUT" }), env);
   assert.equal(r.status, 405);
 });
 
