@@ -231,6 +231,25 @@ test("ticker symbols are uppercased instruction present (linkability)", async ()
   assert.ok(lastSystem.includes("UPPERCASE"));
 });
 
+test("output verification flags an ungrounded ticker the model invents", async () => {
+  // Make the stub model emit a covered ticker that is NOT in its context.
+  const tickers = JSON.parse(await readFile("./data/tickers.json", "utf-8")).tickers;
+  // a covered ticker very unlikely to be in a single-ticker focused context
+  const other = tickers[tickers.length - 1].tk;
+  const saved = env.AI.run;
+  env.AI.run = async (_m, opts) => { lastSystem = opts.messages[0].content; return { response: `You might also look at ${other}.` }; };
+  try {
+    // focus on tickers[0] so the context is a different name; reply names `other`
+    const r = await worker.fetch(chatReq({ agent: "atlas", messages: [{ role: "user", content: `price of ${tickers[0].tk}?` }] }), env);
+    const d = await r.json();
+    // `other` only counts as ungrounded if it wasn't in the (focused) context
+    if (!lastSystem.includes(` ${other} `)) {
+      assert.ok(d.reply.includes("⚠ Unverified") && d.reply.includes(other),
+        "expected an Unverified flag for the ungrounded ticker");
+    }
+  } finally { env.AI.run = saved; }
+});
+
 test("agents are told to use ticker symbols only, never expand to company names", async () => {
   for (const agent of ["atlas", "hermes", "pythia"]) {
     await worker.fetch(chatReq({ agent, messages: userMsg }), env);

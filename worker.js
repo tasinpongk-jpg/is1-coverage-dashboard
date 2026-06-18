@@ -115,19 +115,33 @@ async function loadJson(env, origin, name) {
   return r.ok ? r.json() : null;
 }
 
-// Covered ticker symbols the user explicitly named in their latest message.
-// Returns a Set; empty when they asked a broad question (movers, sector, book).
-// Only uppercase tokens that are real covered tickers count, so plain English
-// words never trip it. Lets context builders show ONLY the named names —
-// deterministic filtering the 70B model can't be trusted to do itself.
-async function focusTickers(env, origin, text) {
+async function loadCovered(env, origin) {
   const tickers = await loadJson(env, origin, "tickers");
-  const covered = new Set((tickers?.tickers || []).map((t) => t.tk));
-  const focus = new Set();
+  return new Set((tickers?.tickers || []).map((t) => t.tk));
+}
+
+// Covered ticker symbols appearing in a piece of text (uppercase tokens that are
+// real tickers, so plain English words never match).
+function coveredIn(text, covered) {
+  const out = new Set();
   for (const tok of String(text || "").match(/\b[A-Z][A-Z0-9]{1,7}\b/g) || []) {
-    if (covered.has(tok)) focus.add(tok);
+    if (covered.has(tok)) out.add(tok);
   }
-  return focus;
+  return out;
+}
+
+// Tickers the user explicitly named in their latest message — empty for a broad
+// question (movers, sector, book). Drives deterministic context filtering.
+async function focusTickers(env, origin, text) {
+  return coveredIn(text, await loadCovered(env, origin));
+}
+
+// Grounding check: any covered ticker the reply names that was NOT in the data
+// the model was given is ungrounded (a pretraining leak or cross-contamination)
+// — the model should only speak about names it was shown. Returns that list.
+function ungroundedTickers(reply, context, covered) {
+  const ctx = coveredIn(context, covered);
+  return [...coveredIn(reply, covered)].filter((t) => !ctx.has(t));
 }
 
 // ---------------------------------------------------------------- contexts
@@ -764,7 +778,8 @@ async function handleChat(request, env, origin) {
   // Tickers the user named in their last turn → context builders show ONLY
   // those rows, so the model can't pad "news on CPN" or miscount movers.
   const lastText = cleaned[cleaned.length - 1].content;
-  const focus = await focusTickers(env, origin, lastText);
+  const covered = await loadCovered(env, origin);
+  const focus = coveredIn(lastText, covered);
   // Deterministic query intents the model can't execute reliably: an Atlas price
   // screen (threshold/range/top-N over a metric), a news/filing date window, a
   // sector scope, and topical keywords for relevance ranking. Ticker focus wins
@@ -798,5 +813,14 @@ async function handleChat(request, env, origin) {
     max_tokens: 1100,
     temperature: 0.2,
   });
-  return json({ reply: result.response ?? "", agent: agentName, model: CHAT_MODEL });
+  let reply = result.response ?? "";
+  // Output verification: flag any covered ticker the model named that wasn't in
+  // its data — catches hallucinated / pretraining-leaked names before the user
+  // (and the dock's ticker-chip linkifier) treats them as real.
+  const ungrounded = ungroundedTickers(reply, context, covered);
+  if (ungrounded.length) {
+    reply += `\n\n⚠ Unverified: ${ungrounded.join(", ")} — not in the data I was ` +
+      `given for this question. Treat with caution / re-ask naming the ticker.`;
+  }
+  return json({ reply, agent: agentName, model: CHAT_MODEL });
 }
