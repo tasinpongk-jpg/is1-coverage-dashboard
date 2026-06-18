@@ -91,7 +91,7 @@ async function handleFeedback(request, env) {
   if (env.FEEDBACK) {
     const key = `fb:${rec.ts}:${crypto.randomUUID().slice(0, 8)}`;
     await env.FEEDBACK.put(key, JSON.stringify(rec), { expirationTtl: 60 * 60 * 24 * 180 });
-    return json({ ok: true, stored: "kv", key });
+    return json({ ok: true, stored: "kv" });
   }
   console.log("FEEDBACK " + JSON.stringify(rec)); // visible in `wrangler tail`
   return json({ ok: true, stored: "log" });
