@@ -50,6 +50,50 @@ async function ask(agent, content) {
   return d.reply || "";
 }
 
+// ---- LLM judge (optional, --judge) ---------------------------------------
+// Grades each reply 0-100 with an independent model (Groq, a different family
+// than the Workers AI Llama under test) so quality regressions are measurable,
+// not just the boolean property checks. Reads GROQ_API_KEY like the chat token.
+function loadGroqKey() {
+  if (process.env.GROQ_API_KEY) return process.env.GROQ_API_KEY.trim();
+  for (const p of [join(HERE, "..", "..", "AI Agent", ".env"), join(HERE, "..", ".env")]) {
+    try { const m = readFileSync(p, "utf8").match(/^GROQ_API_KEY\s*=\s*(.+)$/m); if (m) return m[1].trim(); }
+    catch { /* next */ }
+  }
+  return null;
+}
+const GROQ_KEY = loadGroqKey();
+const JUDGE_MODEL = process.env.GROQ_JUDGE_MODEL || "llama-3.3-70b-versatile";
+const ROLE = {
+  atlas: "market-data agent: prices, % moves, movers, threshold checks (previous-close data)",
+  pythia: "macro/sector strategist: sector aggregates + the daily AI commentary",
+  hermes: "news messenger: external news + SET disclosures, silent filers, filing summaries",
+  lex: "rules & regulations agent answering only from SET/SEC regulation documents",
+};
+async function judge(agent, question, reply) {
+  if (!GROQ_KEY) return null;
+  const sys = "You grade an AI assistant answering for a Thai equity relationship-manager desk. " +
+    "Score the answer 0-100 on: directness & usefulness, specificity (concrete tickers/figures, " +
+    "not vague), internal consistency (no contradictions or obvious fabrication), and staying in role. " +
+    "Reply ONLY with JSON: {\"score\": <int 0-100>, \"verdict\": \"pass|weak|fail\", \"issues\": \"<=12 words\"}.";
+  const user = `Agent role: ${ROLE[agent] || agent}\nUser question: ${question}\nAssistant answer:\n${reply}`;
+  try {
+    const r = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: "Bearer " + GROQ_KEY },
+      body: JSON.stringify({
+        model: JUDGE_MODEL, temperature: 0, max_tokens: 120,
+        response_format: { type: "json_object" },
+        messages: [{ role: "system", content: sys }, { role: "user", content: user }],
+      }),
+    });
+    const d = await r.json();
+    const txt = d.choices?.[0]?.message?.content || "{}";
+    const j = JSON.parse(txt);
+    return { score: Math.max(0, Math.min(100, +j.score || 0)), verdict: j.verdict || "?", issues: j.issues || "" };
+  } catch (e) { return { score: null, verdict: "error", issues: e.message.slice(0, 40) }; }
+}
+
 // ---- reusable property checks (return {ok, detail}) -----------------------
 const has = (s) => (r) => ({ ok: r.includes(s), detail: `contains "${s}"` });
 const hasRe = (re, label) => (r) => ({ ok: re.test(r), detail: label || re.source });
@@ -91,11 +135,16 @@ const CASES = [
 ];
 
 // ---------------------------------------------------------------------------
-const only = (() => { const i = process.argv.indexOf("--agent"); return i > -1 ? process.argv[i + 1] : null; })();
+const arg = (f) => { const i = process.argv.indexOf(f); return i > -1 ? process.argv[i + 1] : null; };
+const only = arg("--agent");
+const doJudge = process.argv.includes("--judge");
+const gate = arg("--gate") != null ? +arg("--gate") : null; // min mean judge score to pass
 const cases = only ? CASES.filter((c) => c.agent === only) : CASES;
 
 let pass = 0, fail = 0;
-console.log(`\nAgent eval — ${URL} (rm=${RM})\n`);
+const scores = [];
+console.log(`\nAgent eval — ${URL} (rm=${RM})${doJudge ? ` · judge=${JUDGE_MODEL}` : ""}\n`);
+if (doJudge && !GROQ_KEY) console.log("(--judge requested but no GROQ_API_KEY found — skipping scores)\n");
 for (const c of cases) {
   let reply = "";
   try { reply = await ask(c.agent, c.q); }
@@ -106,7 +155,20 @@ for (const c of cases) {
     if (ok) { pass++; console.log(`  ✓ ${name}`); }
     else { fail++; console.log(`  ✗ ${name} — ${detail}`); }
   }
+  if (doJudge && GROQ_KEY) {
+    const j = await judge(c.agent, c.q, reply);
+    if (j && j.score != null) { scores.push(j.score); console.log(`  ⟂ judge ${j.score}/100 [${j.verdict}]${j.issues ? " — " + j.issues : ""}`); }
+    else console.log(`  ⟂ judge: ${j?.issues || "unavailable"}`);
+  }
   await new Promise((r) => setTimeout(r, 1200)); // be gentle on free-tier quota
 }
-console.log(`\n${pass} passed, ${fail} failed (${cases.length} cases)\n`);
-process.exit(fail);
+const mean = scores.length ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : null;
+console.log(`\n${pass} passed, ${fail} failed (${cases.length} cases)` +
+  (mean != null ? ` · mean judge ${mean}/100` : "") + "\n");
+// Exit non-zero on any property failure, or (if a gate is set) a sub-threshold mean.
+let exit = fail;
+if (gate != null && mean != null && mean < gate) {
+  console.log(`GATE FAIL: mean judge ${mean} < ${gate}\n`);
+  exit = exit || 1;
+}
+process.exit(exit);
