@@ -272,6 +272,46 @@ function relevanceRank(items, kws, textOf) {
 
 const METRIC_LABEL = { pct1d: "1-day %", pct5d: "5-day %", pctYtd: "YTD %", volRatio: "vol ratio" };
 
+// The snapshot is previous-close; for an explicit live/intraday price ask, fetch
+// a real-time quote so Atlas can answer instead of refusing. Returns the symbol
+// to quote (uppercase, may be outside coverage) or null. Gated on intent so an
+// ordinary price question never triggers an outbound fetch.
+const NOT_TICKERS = new Set("SET RM AI US EPS ROE PE PBV DY YTD FY THB CEO CFO IPO MD ESG NAV REIT SEC USD EUR GDP CPI".split(" "));
+function parseLiveQuote(text) {
+  const t = String(text || "");
+  const wantsLive = /\b(live|intraday|real[\s-]?time|right now|currently|current)\b/i.test(t) &&
+    /\b(price|quote|trading|worth|at)\b/i.test(t);
+  if (!wantsLive) return null;
+  for (const tok of t.match(/\b[A-Z][A-Z0-9]{1,7}\b/g) || []) if (!NOT_TICKERS.has(tok)) return tok;
+  return null;
+}
+
+async function fetchLiveQuote(symbol) {
+  try {
+    const r = await fetch(
+      `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}.BK?interval=1d&range=1d`,
+      { headers: { "User-Agent": "Mozilla/5.0" } });
+    if (!r.ok) return null;
+    const m = (await r.json())?.chart?.result?.[0]?.meta;
+    if (!m || m.regularMarketPrice == null) return null;
+    const last = m.regularMarketPrice, prev = m.previousClose ?? m.chartPreviousClose ?? null;
+    return {
+      symbol, last, prev,
+      pct: prev ? ((last - prev) / prev) * 100 : null,
+      currency: m.currency || "THB",
+      state: m.marketState || "?",
+      time: m.regularMarketTime ? new Date(m.regularMarketTime * 1000).toISOString() : "?",
+    };
+  } catch { return null; }
+}
+
+function liveQuoteBlock(q) {
+  const f = (x, d = 2) => (x == null ? "?" : Number(x).toFixed(d));
+  return `LIVE QUOTE (real-time via Yahoo Finance — NOT the previous-close snapshot) for ${q.symbol}:\n` +
+    `last ${f(q.last)} ${q.currency}, prev close ${f(q.prev)}, change ${q.pct == null ? "?" : (q.pct >= 0 ? "+" : "") + f(q.pct)}%, ` +
+    `market ${q.state}, quote time ${q.time}. Answer the live-price question from THIS, and say it is live + the quote time / market state.`;
+}
+
 async function ctxPrices(env, origin, _userRm, focus, q) {
   const pq = q?.priceQuery || null;
   const [tickers, brief] = await Promise.all([
@@ -493,8 +533,11 @@ const AGENTS = {
     persona:
       "You are Atlas, the market-data agent on the IS1 coverage dashboard. " +
       "You answer with numbers: prices, percent moves, movers, volume " +
-      "ratios, unusual-trading alerts, threshold checks. Always open with the " +
-      "as-of date since prices are previous close.\n" +
+      "ratios, unusual-trading alerts, threshold checks. The TICKERS block is a " +
+      "previous-close snapshot — open with its as-of date. EXCEPTION: if a LIVE " +
+      "QUOTE block is present, the user asked for the current/intraday price — " +
+      "answer from that real-time quote, state it is live with the quote time and " +
+      "market state, and don't claim it's previous close.\n" +
       "THRESHOLD MATH IS STRICT: a row qualifies for '±2%' ONLY when its value " +
       "is >= 2.00 or <= -2.00. -1.93 does NOT qualify; +1.99 does NOT qualify. " +
       "Compare the exact number — never round toward the threshold. If a name " +
@@ -792,6 +835,13 @@ async function handleChat(request, env, origin) {
   };
   const parts = await Promise.all(agent.contexts.map((fn) => fn(env, origin, rm, focus, q)));
   let context = parts.filter(Boolean).join("\n\n");
+
+  // Atlas only: an explicit live/intraday price ask fetches a real-time quote so
+  // it can answer rather than refuse. Fails soft to the previous-close snapshot.
+  if (agentName === "atlas") {
+    const sym = parseLiveQuote(lastText);
+    if (sym) { const lq = await fetchLiveQuote(sym); if (lq) context = liveQuoteBlock(lq) + "\n\n" + context; }
+  }
 
   // On-demand: when a user asks Hermes to summarize a specific ticker's filing,
   // read the actual PDF, summarize via Gemini, and return that DIRECTLY. The
