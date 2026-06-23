@@ -8,6 +8,7 @@ Outputs (under data/):
   external-news.json     — wire/RSS hits matched to coverage tickers
   trading-signs.json     — current SP/NP/CC/etc. on coverage names
   sec-enforcement.json   — SEC actions, matched + unmatched
+  sec-form59.json        — SEC Form 59 management/related-person trades
   diagnostics.json       — coverage-gap + unclassified queue + per-RM staleness
 """
 
@@ -164,6 +165,118 @@ def build_sec_enforcement(con: duckdb.DuckDBPyConnection, tickers: dict) -> None
     })
 
 
+def build_sec_form59(con: duckdb.DuckDBPyConnection, tickers: dict) -> None:
+    cutoff = (datetime.now(BKK) - timedelta(days=90)).date().isoformat()
+    try:
+        rows = con.execute(
+            """
+            SELECT id, symbol, company_name, reporter, relationship, security_type,
+                   transaction_date, filing_date, amount, price, side, side_label,
+                   remark, is_revoked, detail_url, source_url, source_lang, scraped_at
+            FROM sec_form59
+            WHERE COALESCE(filing_date, transaction_date, '') >= ?
+            ORDER BY COALESCE(filing_date, transaction_date, '') DESC,
+                     transaction_date DESC NULLS LAST,
+                     symbol,
+                     reporter
+            LIMIT 1000
+            """,
+            [cutoff],
+        ).fetchall()
+    except duckdb.Error:
+        rows = []
+
+    items = []
+    by_ticker: dict[str, dict] = {}
+    by_side = {"buy": 0, "sell": 0, "transfer": 0, "other": 0}
+    net_value = 0.0
+
+    for r in rows:
+        tk = r[1]
+        amount = r[8]
+        price = r[9]
+        side = (r[10] or "other").lower()
+        notional = None
+        if amount is not None and price is not None:
+            notional = round(float(amount) * float(price), 2)
+            if side == "buy":
+                net_value += notional
+            elif side == "sell":
+                net_value -= notional
+        side_key = side if side in by_side else "other"
+        by_side[side_key] += 1
+        ticker_meta = tickers.get(tk) or {}
+        item = {
+            "id": r[0],
+            "tk": tk,
+            "sector": ticker_meta.get("sector"),
+            "rm": ticker_meta.get("rm"),
+            "company": r[2],
+            "reporter": r[3],
+            "relationship": r[4],
+            "security_type": r[5],
+            "transaction_date": r[6],
+            "filing_date": r[7],
+            "amount": amount,
+            "price": price,
+            "notional": notional,
+            "side": side,
+            "side_label": r[11],
+            "remark": r[12],
+            "is_revoked": bool(r[13]),
+            "url": r[14],
+            "source_url": r[15],
+            "source_lang": r[16],
+            "scraped_at": r[17].isoformat() if r[17] else None,
+        }
+        items.append(item)
+
+        agg = by_ticker.setdefault(tk, {
+            "tk": tk,
+            "sector": ticker_meta.get("sector"),
+            "rm": ticker_meta.get("rm"),
+            "buy_count": 0,
+            "sell_count": 0,
+            "transfer_count": 0,
+            "buy_value": 0.0,
+            "sell_value": 0.0,
+            "net_value": 0.0,
+            "latest_filing_date": None,
+        })
+        if side == "buy":
+            agg["buy_count"] += 1
+            if notional is not None:
+                agg["buy_value"] += notional
+                agg["net_value"] += notional
+        elif side == "sell":
+            agg["sell_count"] += 1
+            if notional is not None:
+                agg["sell_value"] += notional
+                agg["net_value"] -= notional
+        elif side == "transfer":
+            agg["transfer_count"] += 1
+        fdate = r[7] or r[6]
+        if fdate and (not agg["latest_filing_date"] or fdate > agg["latest_filing_date"]):
+            agg["latest_filing_date"] = fdate
+
+    aggregates = []
+    for agg in by_ticker.values():
+        for k in ("buy_value", "sell_value", "net_value"):
+            agg[k] = round(agg[k], 2)
+        aggregates.append(agg)
+    aggregates.sort(key=lambda a: (abs(a["net_value"]), a["buy_count"] + a["sell_count"]), reverse=True)
+
+    _write(DATA_DIR / "sec-form59.json", {
+        "asOf": datetime.now(BKK).date().isoformat(),
+        "windowDays": 90,
+        "total": len(items),
+        "bySide": by_side,
+        "netNotional": round(net_value, 2),
+        "tickers": aggregates,
+        "items": items,
+    })
+
+
 def build_diagnostics(con: duckdb.DuckDBPyConnection, tickers: dict) -> None:
     """Coverage-gap + unclassified queue + per-RM staleness.
 
@@ -256,6 +369,7 @@ def main() -> int:
         build_external_news(con, tickers)
         build_trading_signs(con, tickers)
         build_sec_enforcement(con, tickers)
+        build_sec_form59(con, tickers)
         build_diagnostics(con, tickers)
     finally:
         con.close()

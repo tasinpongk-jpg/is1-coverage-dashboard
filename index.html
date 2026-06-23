@@ -580,6 +580,31 @@ footer a{color:var(--muted);text-decoration:none}
         </div>
       </div>
     </a>
+    <!-- SEC Form 59 -->
+    <a class="dash-card" href="sec-form59.html" style="--cc:#22c55e">
+      <div class="card-top-bar"></div>
+      <div class="card-body">
+        <div class="card-head">
+          <div class="card-icon-wrap">
+            <svg width="28" height="28" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <line x1="5" y1="24" x2="24" y2="24" stroke="#22c55e" stroke-width="1.5" opacity=".5"/>
+              <path d="M7 18l4-4 4 3 6-9" stroke="#22c55e" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M19 8h4v4" stroke="#22c55e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              <rect x="4" y="4" width="20" height="20" rx="3" stroke="#22c55e" stroke-width="1.4" opacity=".35"/>
+              <circle cx="9" cy="18" r="2" fill="#22c55e" opacity=".8"/>
+              <circle cx="15" cy="17" r="2" fill="#ef4444" opacity=".8"/>
+            </svg>
+          </div>
+          <span class="card-cat">Ownership</span>
+        </div>
+        <div class="card-title">SEC Form 59</div>
+        <div class="card-desc">Management and related-person buy / sell reports from SEC iDisc Form 59. Filter by RM, sector, side, reporter and value.</div>
+        <div class="card-footer">
+          <div class="card-meta"><span id="form59Meta">Form 59</span><span>coverage-matched</span></div>
+          <div class="card-arrow">→</div>
+        </div>
+      </div>
+    </a>
   </div>
 
   <!-- GROUP 4: Bond Data -->
@@ -812,15 +837,17 @@ async function init(){
 
   // Live tile metadata (best-effort)
   const safe=p=>p.then(r=>r.json()).catch(()=>null);
-  const [extNews,signs,sec,diag]=await Promise.all([
+  const [extNews,signs,sec,form59,diag]=await Promise.all([
     safe(fetch('./data/external-news.json')),
     safe(fetch('./data/trading-signs.json')),
     safe(fetch('./data/sec-enforcement.json')),
+    safe(fetch('./data/sec-form59.json')),
     safe(fetch('./data/diagnostics.json')),
   ]);
   if(extNews){const items=extNews.items||[];const last7d=items.filter(it=>it.ts&&(Date.now()-new Date(it.ts).getTime())<7*86400*1000);document.getElementById('extNewsMeta').textContent=`${last7d.length} hits / 7d`;}
   if(signs){const t=signs.total||0;document.getElementById('signsMeta').textContent=t?`${t} active`:'none';}
   if(sec){const c=sec.in_coverage_count||0;document.getElementById('secMeta').textContent=`${c} in coverage / ${sec.total||0}`;}
+  if(form59){const s=form59.bySide||{};document.getElementById('form59Meta').textContent=`${s.buy||0} buys / ${s.sell||0} sells`;}
 
 
   // Diagnostics

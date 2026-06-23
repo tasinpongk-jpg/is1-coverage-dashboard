@@ -41,6 +41,7 @@
         ["unusual-trading.html", "Unusual Trading"],
         ["trading-signs.html", "Trading Signs"],
         ["sec-enforcement.html", "SEC Enforcement"],
+        ["sec-form59.html", "SEC Form 59"],
       ],
     },
     {
@@ -73,6 +74,7 @@
     "unusual-trading.html":     { ic: '<path d="M10.3 3.3 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.3a2 2 0 0 0-3.4 0Z"/><path d="M12 9v4"/><path d="M12 17h.01"/>', desc: "Volume and price anomalies flagged" },
     "trading-signs.html":       { ic: '<path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><path d="M4 22v-7"/>',                       desc: "Current SET trading signs on coverage" },
     "sec-enforcement.html":     { ic: '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/><path d="M12 8v4"/><path d="M12 16h.01"/>',                desc: "Thai SEC enforcement actions" },
+    "sec-form59.html":          { ic: '<path d="M3 3v18h18"/><path d="M7 15l3-3 3 2 4-6"/><path d="M17 8h3v3"/>',                                      desc: "Management and related-person trades" },
     "bond-summary.html":        { ic: '<path d="M3 22h18"/><path d="M4 10l8-6 8 6"/><path d="M6 22v-9M10 22v-9M14 22v-9M18 22v-9"/>',                    desc: "Outstanding bonds across coverage" },
     "bond-data-sec.html":       { ic: '<path d="M12 7c4.4 0 8-1.1 8-2.5S16.4 2 12 2 4 3.1 4 4.5 7.6 7 12 7Z"/><path d="M4 4.5v15C4 20.9 7.6 22 12 22s8-1.1 8-2.5v-15"/><path d="M4 12c0 1.4 3.6 2.5 8 2.5s8-1.1 8-2.5"/>', desc: "Bond filings from the SEC" },
     "visits.html":              { ic: '<path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><path d="M12 12a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5Z"/>', desc: "Plan and track company visits" },

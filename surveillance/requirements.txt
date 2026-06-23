@@ -1,9 +1,13 @@
 # Surveillance job deps — kept minimal.
 # Email uses stdlib smtplib; SET API uses httpx; classifier uses anthropic + pydantic.
 # r2_sync.py uses boto3 (S3-compatible client for Cloudflare R2).
+# playwright drives headless Chromium for the SEC Form 59 scrape — the SEC iDisc
+# site is behind an F5 bot-defense WAF that plain httpx can't pass. CI installs
+# the browser binary separately via `python -m playwright install chromium`.
 anthropic==0.40.0
 boto3==1.35.46
 duckdb==1.5.2
 httpx==0.27.2
+playwright==1.60.0
 pydantic==2.9.2
 python-dotenv==1.0.1

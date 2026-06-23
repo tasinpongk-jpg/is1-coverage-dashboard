@@ -177,6 +177,31 @@ def conn() -> Iterator[duckdb.DuckDBPyConnection]:
             )
             """
         )
+        c.execute(
+            """
+            CREATE TABLE IF NOT EXISTS sec_form59 (
+                id                VARCHAR PRIMARY KEY,
+                symbol            VARCHAR NOT NULL,
+                company_name      VARCHAR,
+                reporter          VARCHAR,
+                relationship      VARCHAR,
+                security_type     VARCHAR,
+                transaction_date  VARCHAR,
+                filing_date       VARCHAR,
+                amount            DOUBLE,
+                price             DOUBLE,
+                side              VARCHAR,
+                side_label        VARCHAR,
+                remark            VARCHAR,
+                is_revoked        BOOLEAN,
+                detail_url        VARCHAR,
+                source_url        VARCHAR,
+                source_lang       VARCHAR,
+                raw_json          VARCHAR,
+                scraped_at        TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+            """
+        )
         yield c
     finally:
         c.close()

@@ -9,9 +9,10 @@ Sources:
     Bangkok Biznews. Ticker-matched against the 232-name coverage.
   - trading_signs: SET trading-sign HTML page (SP/NP/NC/CC/C/ST/DS/CB).
   - sec_enforcement: SEC iDisc Enforce/Recent table.
+  - sec_form59: SEC iDisc Form 59 management/related-person trades.
 
 Run:
-  python surveillance/external_sources.py            # all three
+  python surveillance/external_sources.py            # all source families
   python surveillance/external_sources.py --only rss # one source family
 """
 
@@ -24,7 +25,9 @@ import re
 import sys
 import traceback
 from datetime import datetime, timezone, timedelta
-from typing import Any, Iterable
+from html.parser import HTMLParser
+from typing import Any
+from urllib.parse import urljoin
 from xml.etree import ElementTree as ET
 
 import httpx
@@ -352,41 +355,14 @@ SEC_ENFORCE_PAGE = "https://market.sec.or.th/public/idisc/en/Enforce/Recent"
 SEC_ENFORCE_API = "https://market.sec.or.th/public/idisc/api/Enforce/GetEnforces"
 
 
-def fetch_sec_enforcement(client: httpx.Client) -> int:
-    try:
-        page = client.get(SEC_ENFORCE_PAGE).text
-        rtk_m = re.search(r'data-rtk="([^"]*)"', page)
-        lang_m = re.search(r'data-lang="([^"]*)"', page)
-        if not (rtk_m and rtk_m.group(1)):
-            print("  [sec_enforcement] rtk not found on page — bailing", flush=True)
-            return 0
-        body = {
-            "rtk": rtk_m.group(1),
-            "Lang": (lang_m.group(1) if lang_m else "en"),
-            "QueryType": "RECENT",
-            "OffenderFlag": "", "OffenderTxt": "",
-            "VioTypeTxt": "ALL",
-            "DateFlag": "", "StartDateTxt": "", "EndDateTxt": "",
-            "FreeSearchFlag": "", "FreeSearchTxt": "",
-        }
-        r = client.post(
-            SEC_ENFORCE_API,
-            headers={
-                **HEADERS,
-                "Content-Type": "application/json; charset=utf-8",
-                "Accept": "application/json,text/plain,*/*",
-                "Referer": SEC_ENFORCE_PAGE,
-                "Origin": "https://market.sec.or.th",
-            },
-            json=body,
-        )
-        r.raise_for_status()
-        # API returns a JSON string whose value is the rendered HTML table fragment.
-        html = r.json() if r.headers.get("content-type", "").startswith("application/json") else r.text
-        if not isinstance(html, str):
-            html = json.dumps(html)
-    except Exception as e:  # noqa: BLE001
-        print(f"  [sec_enforcement] FAIL {type(e).__name__}: {e}", flush=True)
+def fetch_sec_enforcement(client: httpx.Client) -> int:  # noqa: ARG001 (WAF needs a real browser, not httpx)
+    # SEC iDisc is behind an F5 bot-defense WAF, so the old flow (GET the page to
+    # scrape data-rtk, then POST GetEnforces) now just gets a JS challenge and
+    # finds no rtk. Render the page with headless Chromium instead and parse the
+    # table the page's own JS draws — same columns, same parser as before.
+    html = _fetch_idisc_html_via_browser(SEC_ENFORCE_PAGE)
+    if not html:
+        print("  [sec_enforcement] no HTML rendered from SEC Enforce page", flush=True)
         return 0
 
     # Extract the data table from the response HTML
@@ -452,6 +428,330 @@ def fetch_sec_enforcement(client: httpx.Client) -> int:
 
 
 # ---------------------------------------------------------------------------
+# sec_form59 — SEC iDisc Form 59 daily management trades
+# ---------------------------------------------------------------------------
+#
+# The daily SET disclosure "SEC News : Form 59 summary" is only a pointer. The
+# structured rows live on SEC iDisc's Form 59 page. The default page renders the
+# latest daily snapshot server-side, so a daily scrape is enough for monitoring
+# coverage names without calling every company page.
+
+SEC_R59_PAGES = [
+    ("en", "https://market.sec.or.th/public/idisc/en/r59"),
+    ("th", "https://market.sec.or.th/public/idisc/th/r59"),
+]
+SEC_R59_ORIGIN = "https://market.sec.or.th"
+
+
+class _HtmlTableParser(HTMLParser):
+    """Tiny table extractor for SEC server-rendered pages."""
+
+    def __init__(self) -> None:
+        super().__init__(convert_charrefs=True)
+        self.rows: list[list[dict[str, Any]]] = []
+        self._in_tr = False
+        self._in_cell = False
+        self._cell_parts: list[str] = []
+        self._cell_links: list[str] = []
+        self._row: list[dict[str, Any]] = []
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        tag_l = tag.lower()
+        if tag_l == "tr":
+            self._in_tr = True
+            self._row = []
+        elif self._in_tr and tag_l in {"td", "th"}:
+            self._in_cell = True
+            self._cell_parts = []
+            self._cell_links = []
+        elif self._in_cell and tag_l == "a":
+            href = dict(attrs).get("href")
+            if href:
+                self._cell_links.append(href)
+        elif self._in_cell and tag_l in {"br", "p", "div"}:
+            self._cell_parts.append(" ")
+
+    def handle_data(self, data: str) -> None:
+        if self._in_cell:
+            self._cell_parts.append(data)
+
+    def handle_endtag(self, tag: str) -> None:
+        tag_l = tag.lower()
+        if tag_l in {"td", "th"} and self._in_cell:
+            text = re.sub(r"\s+", " ", "".join(self._cell_parts)).strip()
+            self._row.append({"text": text, "links": self._cell_links[:]})
+            self._in_cell = False
+        elif tag_l == "tr" and self._in_tr:
+            if self._row:
+                self.rows.append(self._row)
+            self._in_tr = False
+
+
+def _parse_number(value: str | None) -> float | None:
+    if not value:
+        return None
+    # Preserve the last numeric token so "Revoked by Reporter 0.72" still yields
+    # the disclosed average price while the revoked flag captures the caveat.
+    nums = re.findall(r"-?\d+(?:,\d{3})*(?:\.\d+)?|-?\d+(?:\.\d+)?", value)
+    if not nums:
+        return None
+    try:
+        return float(nums[-1].replace(",", ""))
+    except ValueError:
+        return None
+
+
+def _parse_form59_date(value: str | None) -> str | None:
+    m = re.search(r"(\d{1,2})/(\d{1,2})/(\d{4})", value or "")
+    if not m:
+        return None
+    day, month, year = int(m.group(1)), int(m.group(2)), int(m.group(3))
+    if year > 2400:
+        year -= 543
+    return f"{year:04d}-{month:02d}-{day:02d}"
+
+
+_EN_MONTHS = {
+    "jan": 1, "january": 1, "feb": 2, "february": 2, "mar": 3, "march": 3,
+    "apr": 4, "april": 4, "may": 5, "jun": 6, "june": 6, "jul": 7, "july": 7,
+    "aug": 8, "august": 8, "sep": 9, "sept": 9, "september": 9, "oct": 10,
+    "october": 10, "nov": 11, "november": 11, "dec": 12, "december": 12,
+}
+_TH_MONTHS = {
+    "ม.ค.": 1, "มกราคม": 1, "ก.พ.": 2, "กุมภาพันธ์": 2, "มี.ค.": 3,
+    "มีนาคม": 3, "เม.ย.": 4, "เมษายน": 4, "พ.ค.": 5, "พฤษภาคม": 5,
+    "มิ.ย.": 6, "มิถุนายน": 6, "ก.ค.": 7, "กรกฎาคม": 7, "ส.ค.": 8,
+    "สิงหาคม": 8, "ก.ย.": 9, "กันยายน": 9, "ต.ค.": 10, "ตุลาคม": 10,
+    "พ.ย.": 11, "พฤศจิกายน": 11, "ธ.ค.": 12, "ธันวาคม": 12,
+}
+
+
+def _parse_snapshot_date(text: str, lang: str) -> str | None:
+    flat = re.sub(r"\s+", " ", text)
+    if lang == "en":
+        m = re.search(
+            r"(?:Information|Last updated)\s+on\s+(\d{1,2})\s+([A-Za-z]+)\s+(\d{4})",
+            flat,
+            re.I,
+        )
+        if not m:
+            return None
+        month = _EN_MONTHS.get(m.group(2).lower())
+        year = int(m.group(3))
+    else:
+        m = re.search(
+            r"(?:ข้อมูลประจำวันที่|Last updated on)\s+(\d{1,2})\s+([^\s]+)\s+(\d{4})",
+            flat,
+            re.I,
+        )
+        if not m:
+            return None
+        month = _TH_MONTHS.get(m.group(2))
+        year = int(m.group(3))
+        if year > 2400:
+            year -= 543
+    if not month:
+        return None
+    return f"{year:04d}-{month:02d}-{int(m.group(1)):02d}"
+
+
+def _company_symbol(value: str) -> tuple[str | None, str]:
+    text = re.sub(r"\s+", " ", value or "").strip()
+    matches = re.findall(r"\(([A-Z][A-Z0-9&.\-]{0,12})\)", text)
+    if not matches:
+        return None, text
+    symbol = matches[-1].upper().replace(".", "")
+    company = re.sub(r"\s*\(" + re.escape(matches[-1]) + r"\)\s*$", "", text).strip()
+    return symbol, company
+
+
+def _normalize_form59_side(value: str) -> tuple[str, str]:
+    raw = re.sub(r"\s+", " ", value or "").strip()
+    low = raw.lower()
+    if "purchase" in low or "acquisition" in low or "ซื้อ" in raw:
+        return "buy", raw or "Purchase"
+    if "sale" in low or "disposition" in low or "ขาย" in raw:
+        return "sell", raw or "Sale"
+    if "transfer" in low or "โอน" in raw:
+        return "transfer", raw or "Transfer"
+    return (low or "other"), raw
+
+
+def _extract_form59_rows(html: str, *, lang: str, source_url: str) -> list[dict[str, Any]]:
+    parser = _HtmlTableParser()
+    parser.feed(html)
+    page_text = _strip_html(html)
+    filing_date = _parse_snapshot_date(page_text, lang)
+    rows: list[dict[str, Any]] = []
+    for cells in parser.rows:
+        texts = [c["text"] for c in cells]
+        if len(texts) < 8:
+            continue
+        if any("name of company" in t.lower() for t in texts[:2]):
+            continue
+        symbol, company = _company_symbol(texts[0])
+        if not symbol or symbol not in TICKER_SET:
+            continue
+        row_text = " ".join(texts)
+        links = [
+            urljoin(SEC_R59_ORIGIN, href)
+            for c in cells
+            for href in c.get("links", [])
+            if href
+        ]
+        amount = _parse_number(texts[5] if len(texts) > 5 else "")
+        price = _parse_number(texts[6] if len(texts) > 6 else "")
+        side, side_label = _normalize_form59_side(texts[7] if len(texts) > 7 else "")
+        remark = " | ".join(t for t in texts[8:] if t) if len(texts) > 8 else ""
+        revoked = bool(re.search(r"\b(revoked|cancel|ยกเลิก)\b", row_text, re.I))
+        transaction_date = _parse_form59_date(texts[4] if len(texts) > 4 else "")
+        rid = _hash(
+            "R59", symbol, filing_date or "", transaction_date or "",
+            texts[1] if len(texts) > 1 else "", texts[2] if len(texts) > 2 else "",
+            texts[3] if len(texts) > 3 else "", texts[5] if len(texts) > 5 else "",
+            texts[6] if len(texts) > 6 else "", texts[7] if len(texts) > 7 else "",
+            links[0] if links else "",
+        )
+        rows.append({
+            "id": rid,
+            "symbol": symbol,
+            "company_name": company[:300],
+            "reporter": (texts[1] if len(texts) > 1 else "")[:300],
+            "relationship": (texts[2] if len(texts) > 2 else "")[:300],
+            "security_type": (texts[3] if len(texts) > 3 else "")[:200],
+            "transaction_date": transaction_date,
+            "filing_date": filing_date,
+            "amount": amount,
+            "price": price,
+            "side": side[:40],
+            "side_label": side_label[:80],
+            "remark": remark[:500],
+            "is_revoked": revoked,
+            "detail_url": links[0] if links else "",
+            "source_url": source_url,
+            "source_lang": lang,
+            "raw": texts,
+        })
+    return rows
+
+
+def _fetch_idisc_html_via_browser(url: str) -> str:
+    """Render a SEC iDisc page (Form 59, Enforce/Recent, …) with headless Chromium.
+
+    The SEC iDisc site sits behind an F5 bot-defense WAF that serves a
+    JavaScript challenge to plain HTTP clients: httpx/requests get either a
+    244-byte "Request Rejected" shell or a ~47 KB obfuscated challenge script,
+    never the data table. Only a real browser that executes the challenge JS,
+    reloads, and then runs the page's AJAX fetch ends up with the rendered
+    table. So we drive a headless browser, wait for the table to populate, and
+    return the full page HTML for the caller's row parser.
+
+    Best-effort: returns "" if Playwright/Chromium isn't available or the
+    render fails, so the rest of the external-source run is unaffected.
+    """
+    try:
+        from playwright.sync_api import sync_playwright
+    except ImportError:
+        print("  [idisc] playwright not installed — cannot pass SEC WAF", flush=True)
+        return ""
+    try:
+        with sync_playwright() as p:
+            browser = p.chromium.launch(
+                headless=True,
+                args=["--no-sandbox", "--disable-blink-features=AutomationControlled"],
+            )
+            context = browser.new_context(
+                user_agent=UA,
+                locale="en-US",
+                viewport={"width": 1366, "height": 900},
+            )
+            # Hide the automation flag F5 Shape probes for.
+            context.add_init_script(
+                "Object.defineProperty(navigator, 'webdriver', {get: () => undefined});"
+            )
+            page = context.new_page()
+            page.goto(url, wait_until="domcontentloaded", timeout=60000)
+            # The WAF challenge reloads the page, then the page's own AJAX fills
+            # the table. Wait for the table element, then for at least one data
+            # row beyond the header. On a zero-filing day only the header exists
+            # — tolerate that timeout and parse whatever rendered.
+            page.wait_for_selector("table", timeout=45000)
+            try:
+                page.wait_for_function(
+                    "() => document.querySelectorAll('table tr').length > 1",
+                    timeout=15000,
+                )
+            except Exception:  # noqa: BLE001
+                pass
+            html = page.content()
+            browser.close()
+            return html
+    except Exception as e:  # noqa: BLE001
+        print(f"  [idisc] browser render failed {type(e).__name__}: {e}", flush=True)
+        return ""
+
+
+def fetch_sec_form59(client: httpx.Client) -> int:  # noqa: ARG001 (WAF needs a real browser, not httpx)
+    parsed: list[dict[str, Any]] = []
+    source_used = ""
+    for lang, url in SEC_R59_PAGES:
+        html = _fetch_idisc_html_via_browser(url)
+        if not html:
+            continue
+        try:
+            parsed = _extract_form59_rows(html, lang=lang, source_url=url)
+            source_used = url
+        except Exception as e:  # noqa: BLE001
+            print(f"  [sec_form59/{lang}] parse FAIL {type(e).__name__}: {e}", flush=True)
+            parsed = []
+        # EN and TH carry the same rows. Once a page renders, stop — even if it
+        # had zero coverage matches today (retrying TH would just re-render the
+        # same data and launch a second browser for nothing).
+        break
+
+    if not parsed:
+        print("  [sec_form59] no rows parsed from SEC Form 59 page", flush=True)
+        return 0
+
+    with conn() as c:
+        ids = [r["id"] for r in parsed]
+        existing = {
+            row[0]
+            for row in c.execute("SELECT id FROM sec_form59 WHERE id = ANY (?)", [ids]).fetchall()
+        }
+        new = [r for r in parsed if r["id"] not in existing]
+        if new:
+            c.executemany(
+                """
+                INSERT INTO sec_form59
+                  (id, symbol, company_name, reporter, relationship, security_type,
+                   transaction_date, filing_date, amount, price, side, side_label,
+                   remark, is_revoked, detail_url, source_url, source_lang, raw_json)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                [
+                    (
+                        r["id"], r["symbol"], r["company_name"], r["reporter"],
+                        r["relationship"], r["security_type"], r["transaction_date"],
+                        r["filing_date"], r["amount"], r["price"], r["side"],
+                        r["side_label"], r["remark"], r["is_revoked"], r["detail_url"],
+                        r["source_url"], r["source_lang"],
+                        json.dumps(r.get("raw", []), ensure_ascii=False),
+                    )
+                    for r in new
+                ],
+            )
+    buys = sum(1 for r in parsed if r["side"] == "buy")
+    sells = sum(1 for r in parsed if r["side"] == "sell")
+    print(
+        f"  [sec_form59] {len(parsed)} coverage rows ({buys} buy, {sells} sell), "
+        f"{len(new)} new via {source_used}",
+        flush=True,
+    )
+    return len(new)
+
+
+# ---------------------------------------------------------------------------
 # Entry point
 # ---------------------------------------------------------------------------
 
@@ -459,7 +759,7 @@ def main() -> None:
     p = argparse.ArgumentParser()
     p.add_argument(
         "--only",
-        choices=["rss", "signs", "sec"],
+        choices=["rss", "signs", "sec", "r59"],
         help="Run only one source family.",
     )
     args = p.parse_args()
@@ -473,6 +773,7 @@ def main() -> None:
             "rss":   ("external_news", lambda: fetch_external_news(client)),
             "signs": ("trading_signs", lambda: fetch_trading_signs(client)),
             "sec":   ("sec_enforcement", lambda: fetch_sec_enforcement(client)),
+            "r59":   ("sec_form59", lambda: fetch_sec_form59(client)),
         }
         keys = [args.only] if args.only else list(plan.keys())
         for k in keys:

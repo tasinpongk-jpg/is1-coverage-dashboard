@@ -1,6 +1,6 @@
 # IS1 Team Coverage Dashboard
 
-Static site with 4 daily-refreshed dashboards covering 232 SET-listed tickers across 6 RMs (Champ, Orn, Kae, Tony, Pim, Gift).
+Static site with daily-refreshed dashboards covering 232 SET-listed tickers across 6 RMs (Champ, Orn, Kae, Tony, Pim, Gift).
 
 Hosted on **Cloudflare Pages** (free tier). No backend — GitHub Actions runs the
 daily build in the cloud, commits JSON snapshots to this repo, Cloudflare
@@ -30,7 +30,7 @@ auto-deploys on push. See `SYSTEM.md` for the full system reference.
                                                 ▼
                                         Cloudflare Pages
                                         ─ auto-deploys on push
-                                        ─ serves 4 HTML + JSON
+                                        ─ serves static HTML + JSON
                                         ─ free CDN, never sleeps
 ```
 
@@ -49,7 +49,7 @@ different slice of the daily snapshots:
 
 | Agent | Specialty | Grounded in |
 |---|---|---|
-| ⚡ Hermes | News & catalysts, silent filers, Oppday | `external-news`, `disclosure-pulse`, `oppday-minutes` |
+| ⚡ Hermes | News & catalysts, Form 59 trades, silent filers, Oppday | `external-news`, `disclosure-pulse`, `sec-form59`, `oppday-minutes` |
 | 🗺 Atlas | Prices, movers, alerts, threshold math | `morning-brief`, `tickers`, `unusual-trading` |
 | 🔮 Pythia | Macro & sector view | sector aggregates, `ai-insights` |
 | ⚖️ Lex | SET/SEC rules & disclosure obligations | regulation PDFs (page-cited) |
@@ -72,10 +72,11 @@ personalized suggestion chips, ticker chips in replies deep-linking to
 | `index.html` | Landing page with links to the 4 dashboards |
 | `price-movement.html` | EOD prices + sparklines, RM/sector tabs |
 | `disclosure-pulse.html` | Recent SET filings, severity-tagged |
+| `sec-form59.html` | SEC Form 59 management/related-person buy/sell reports |
 | `multiples-comparison.html` | PE/PBV/DY/EV-EBITDA/NPM heatmap |
 | `unusual-trading.html` | Volume / price / 52W alerts |
 | `data/tickers.json` | Master ticker → RM + sector map (rebuild via Excel) |
-| `data/*.json` | Daily snapshot files |
+| `data/*.json` | Daily snapshot files, including SEC Form 59 rows in `sec-form59.json` |
 | `data/build-status.json` | Last build timestamp + per-route status |
 | `data/company-reports.json` | Generated per-company analyst reports for the ticker drawer Report tab |
 | `scripts/build_daily.py` | Calls SETSMART proxy in-process for all 232 tickers |
@@ -85,6 +86,14 @@ personalized suggestion chips, ticker chips in replies deep-linking to
 | `.github/workflows/daily.yml` | Consolidated CI: surveillance job + build job (09:50 BKK Mon–Fri) |
 | `.github/workflows/disclosure-refresh.yml` | Intra-day disclosure-pulse refresh only (14:00 + 18:00 BKK Mon–Fri, no emails) |
 | `cloudflare-cron/` | Worker that triggers `daily.yml` via workflow_dispatch (replaces flaky GHA cron) |
+
+> **SEC Form 59 scrape needs a real browser.** The SEC iDisc site
+> (`market.sec.or.th`) is behind an F5 bot-defense WAF — plain `httpx` gets a
+> JS challenge page, never the data table. `surveillance/external_sources.py`
+> therefore renders the Form 59 page with headless Chromium via Playwright.
+> The daily workflow installs it with `python -m playwright install chromium`;
+> if the browser is missing the scrape logs a warning and skips (best-effort),
+> never breaking the rest of the pipeline.
 
 ## First-time deployment (one-time setup)
 

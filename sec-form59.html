@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>SEC Form 59 - IS1 Team</title>
+<style>
+  :root {
+    --bg: #0f1117; --card: #1a1d27; --border: #2a2d3a; --text: #e2e8f0;
+    --muted: #7c8298; --accent: #6366f1; --green: #22c55e; --red: #ef4444;
+    --yellow: #f59e0b; --cyan: #06b6d4; --food: #3b82f6; --prop: #8b5cf6;
+    --pfreit: #06b6d4;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', system-ui, sans-serif; font-size: 13px; }
+  header { display: flex; align-items: center; justify-content: space-between; padding: 14px 20px; border-bottom: 1px solid var(--border); background: var(--card); }
+  header h1 { font-size: 16px; font-weight: 600; }
+  .meta { font-size: 11px; color: var(--muted); margin-top: 3px; }
+  .nav { display: flex; gap: 14px; align-items: center; }
+  .nav a { color: var(--muted); text-decoration: none; font-size: 12px; padding: 4px 10px; border-radius: 6px; }
+  .nav a:hover { color: var(--text); background: var(--border); }
+  .nav a.active { color: var(--text); background: #6366f122; border: 1px solid #6366f155; }
+  .stale { font-size: 11px; padding: 3px 10px; border-radius: 20px; background: #22c55e22; color: var(--green); border: 1px solid #22c55e33; }
+  .stale.warn { background: #f59e0b22; color: var(--yellow); border-color: #f59e0b33; }
+
+  .stats { display: flex; gap: 0; border-bottom: 1px solid var(--border); }
+  .stat { flex: 1; text-align: center; padding: 12px; border-right: 1px solid var(--border); min-width: 0; }
+  .stat:last-child { border-right: none; }
+  .stat-val { font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .stat-lbl { font-size: 10px; color: var(--muted); margin-top: 2px; }
+
+  .tab-bar { background: var(--card); border-bottom: 1px solid var(--border); padding: 0 20px; }
+  .tab-row { display: flex; gap: 4px; padding: 8px 0; align-items: center; flex-wrap: wrap; }
+  .tab-row + .tab-row { border-top: 1px dashed var(--border); }
+  .tab-label { font-size: 11px; color: var(--muted); margin-right: 8px; min-width: 60px; }
+  .tab { padding: 5px 14px; border-radius: 6px; cursor: pointer; font-size: 12px; color: var(--muted); border: 1px solid transparent; user-select: none; }
+  .tab:hover { color: var(--text); background: #2a2d3a; }
+  .tab.active { background: #6366f122; border-color: #6366f155; color: var(--text); font-weight: 600; }
+  .tab-count { color: var(--muted); margin-left: 4px; font-size: 10px; }
+  .search { min-width: 260px; max-width: 440px; flex: 1; background: #11141d; color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 7px 10px; font: inherit; }
+  .select { background: #11141d; color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 7px 10px; font: inherit; }
+  .search:focus, .select:focus { outline: 1px solid #6366f177; border-color: #6366f177; }
+  .reset-btn { background: #11141d; color: var(--muted); border: 1px solid var(--border); border-radius: 6px; padding: 7px 12px; font: inherit; cursor: pointer; }
+  .reset-btn:hover { color: var(--text); border-color: #6366f155; }
+
+  .feed { padding: 12px 20px 20px; display: flex; flex-direction: column; gap: 8px; }
+  .item { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; border-left: 3px solid var(--muted); }
+  .item.buy { border-left-color: var(--green); }
+  .item.sell { border-left-color: var(--red); }
+  .item.transfer { border-left-color: var(--cyan); }
+  .item-top { display: flex; align-items: flex-start; gap: 12px; }
+  .item-date { min-width: 96px; color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; padding-top: 2px; }
+  .item-main { flex: 1; min-width: 0; }
+  .item-title { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; line-height: 1.35; }
+  .ticker { font-weight: 800; font-size: 15px; }
+  .reporter { font-weight: 600; }
+  .muted { color: var(--muted); }
+  .item-meta { display: flex; gap: 7px; margin-top: 6px; flex-wrap: wrap; align-items: center; }
+  .tag { font-size: 10px; padding: 2px 7px; border-radius: 4px; font-weight: 600; }
+  .tag-buy { background: #22c55e22; color: var(--green); }
+  .tag-sell { background: #ef444433; color: var(--red); }
+  .tag-transfer { background: #06b6d422; color: var(--cyan); }
+  .tag-other { background: #7c829822; color: var(--muted); }
+  .tag-rm { background: #6366f122; color: #a5b4fc; }
+  .tag-revoked { background: #f59e0b22; color: var(--yellow); }
+  .sector-badge { font-size: 10px; padding: 2px 7px; border-radius: 4px; font-weight: 600; }
+  .s-FOOD, .s-AGRI { background: #3b82f622; color: var(--food); }
+  .s-PROP, .s-CONS, .s-CONMAT { background: #8b5cf622; color: var(--prop); }
+  .s-PFREIT, .s-PF\&REIT { background: #06b6d422; color: var(--pfreit); }
+  .facts { margin-top: 7px; display: flex; gap: 14px; flex-wrap: wrap; color: var(--muted); font-size: 12px; line-height: 1.45; }
+  .facts strong { color: var(--text); font-weight: 600; }
+  .link { color: var(--accent); text-decoration: none; font-size: 11px; }
+  .link:hover { text-decoration: underline; }
+  .empty, .loading { text-align: center; padding: 60px; color: var(--muted); }
+  @media (max-width: 760px) {
+    .stats { flex-wrap: wrap; }
+    .stat { flex-basis: 50%; }
+    .item-top { flex-direction: column; gap: 6px; }
+    .item-date { min-width: 0; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>SEC Form 59 <span style="color:var(--muted);font-weight:400;font-size:13px">- management and related-person trades</span></h1>
+    <div class="meta" id="meta">Loading...</div>
+  </div>
+  <nav class="nav">
+    <a href="index.html">Index</a>
+    <a href="price-movement.html">Price Movement</a>
+    <a href="disclosure-pulse.html">Disclosures</a>
+    <a href="oppday-minutes.html">Oppday</a>
+    <a href="multiples-comparison.html">Multiples Comparison</a>
+    <a href="company-summary.html">Company Summary</a>
+    <a href="multiples-band.html">Multiples Band</a>
+    <a href="bond-summary.html">Bonds</a>
+    <a href="unusual-trading.html">Alerts</a>
+    <a href="external-news.html">External</a>
+    <a href="trading-signs.html">Signs</a>
+    <a href="sec-enforcement.html">SEC</a>
+    <a href="sec-form59.html" class="active">Form 59</a>
+    <span class="stale" id="staleBadge">..</span>
+  </nav>
+</header>
+
+<div class="stats" id="statsBar"></div>
+
+<div class="tab-bar">
+  <div class="tab-row">
+    <span class="tab-label">Window:</span>
+    <div id="windowTabs" style="display:flex;gap:4px;flex-wrap:wrap"></div>
+    <span class="tab-label" style="margin-left:20px">Side:</span>
+    <div id="sideTabs" style="display:flex;gap:4px;flex-wrap:wrap"></div>
+  </div>
+  <div class="tab-row">
+    <span class="tab-label">RM:</span>
+    <div id="rmTabs" style="display:flex;gap:4px;flex-wrap:wrap"></div>
+    <span class="tab-label" style="margin-left:20px">Sector:</span>
+    <div id="sectorTabs" style="display:flex;gap:4px;flex-wrap:wrap"></div>
+  </div>
+  <div class="tab-row">
+    <span class="tab-label">Search:</span>
+    <input class="search" id="searchBox" type="search" placeholder="Ticker, reporter, relationship, security" oninput="setQuery(this.value)">
+    <span class="tab-label" style="margin-left:12px">Sort:</span>
+    <select class="select" id="sortMode" onchange="setSort(this.value)">
+      <option value="latest">Latest first</option>
+      <option value="value">Largest value</option>
+      <option value="ticker">Ticker</option>
+    </select>
+    <button class="reset-btn" type="button" onclick="resetFilters()">Reset</button>
+  </div>
+</div>
+
+<div id="feed" class="feed"><div class="loading">Fetching Form 59 rows...</div></div>
+
+<script>
+let ITEMS = [], activeWindow = 30, activeSide = 'ALL', activeRm = 'ALL', activeSector = 'ALL', activeQuery = '', sortMode = 'latest';
+const WINDOWS = [
+  { key: 1, label: '1d' }, { key: 7, label: '7d' }, { key: 30, label: '30d' },
+  { key: 90, label: '90d' }, { key: 0, label: 'All' },
+];
+const SIDES = [
+  { key: 'ALL', label: 'All' }, { key: 'buy', label: 'Buy' },
+  { key: 'sell', label: 'Sell' }, { key: 'transfer', label: 'Transfer' },
+];
+
+function freshnessLabel(builtAt) {
+  if (!builtAt) return { txt: '?', warn: true };
+  const ageH = (Date.now() - new Date(builtAt).getTime()) / 36e5;
+  return { txt: 'updated ' + (ageH < 1 ? Math.round(ageH * 60) + 'm' : Math.round(ageH) + 'h') + ' ago', warn: ageH > 36 };
+}
+function escapeHtml(s) {
+  return String(s ?? '').replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[ch]);
+}
+function rowDateMs(it) {
+  const s = it.filing_date || it.transaction_date;
+  const t = s ? Date.parse(s + 'T00:00:00Z') : 0;
+  return Number.isNaN(t) ? 0 : t;
+}
+function formatDate(s) {
+  if (!s) return '-';
+  const t = Date.parse(s + 'T00:00:00Z');
+  if (Number.isNaN(t)) return s;
+  return new Date(t).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'UTC' });
+}
+function formatNum(v, digits = 0) {
+  if (v === null || v === undefined || Number.isNaN(+v)) return '-';
+  return Number(v).toLocaleString('en-US', { maximumFractionDigits: digits, minimumFractionDigits: digits });
+}
+function formatMoney(v) {
+  if (v === null || v === undefined || Number.isNaN(+v)) return '-';
+  const n = Number(v);
+  if (Math.abs(n) >= 1000000) return (n / 1000000).toLocaleString('en-US', { maximumFractionDigits: 2 }) + 'm';
+  return n.toLocaleString('en-US', { maximumFractionDigits: 0 });
+}
+function sideLabel(side) {
+  if (side === 'buy') return 'Buy';
+  if (side === 'sell') return 'Sell';
+  if (side === 'transfer') return 'Transfer';
+  return side || 'Other';
+}
+function hydrate(it) {
+  it._dateMs = rowDateMs(it);
+  it._search = [it.tk, it.company, it.reporter, it.relationship, it.security_type, it.side_label, it.remark]
+    .map(x => String(x || '').toLowerCase()).join(' ');
+  return it;
+}
+function inWindow(it, windowKey = activeWindow) {
+  if (windowKey === 0) return true;
+  if (!it._dateMs) return false;
+  return Date.now() - it._dateMs <= windowKey * 86400 * 1000;
+}
+function filterRows(overrides = {}) {
+  const state = {
+    window: activeWindow, side: activeSide, rm: activeRm,
+    sector: activeSector, query: activeQuery, ...overrides,
+  };
+  const q = state.query.trim().toLowerCase();
+  return ITEMS.filter(it => {
+    if (!inWindow(it, state.window)) return false;
+    if (state.side !== 'ALL' && it.side !== state.side) return false;
+    if (state.rm !== 'ALL' && it.rm !== state.rm) return false;
+    if (state.sector !== 'ALL' && it.sector !== state.sector) return false;
+    if (q && !it._search.includes(q)) return false;
+    return true;
+  });
+}
+function sortedRows(rows) {
+  const out = [...rows];
+  if (sortMode === 'value') out.sort((a, b) => Math.abs(b.notional || 0) - Math.abs(a.notional || 0) || b._dateMs - a._dateMs);
+  else if (sortMode === 'ticker') out.sort((a, b) => String(a.tk).localeCompare(String(b.tk)) || b._dateMs - a._dateMs);
+  else out.sort((a, b) => b._dateMs - a._dateMs || String(a.tk).localeCompare(String(b.tk)));
+  return out;
+}
+function countBy(rows, field) {
+  const out = {};
+  rows.forEach(it => { const k = it[field] || '?'; out[k] = (out[k] || 0) + 1; });
+  return out;
+}
+function buildWindowTabs() {
+  document.getElementById('windowTabs').innerHTML = WINDOWS.map(w => {
+    const cnt = filterRows({ window: w.key }).length;
+    return `<div class="tab ${w.key === activeWindow ? 'active' : ''}" onclick="setWindow(${w.key})">${w.label} <span class="tab-count">${cnt}</span></div>`;
+  }).join('');
+}
+function buildSideTabs() {
+  document.getElementById('sideTabs').innerHTML = SIDES.map(s => {
+    const cnt = filterRows({ side: s.key }).length;
+    return `<div class="tab ${s.key === activeSide ? 'active' : ''}" onclick="setSide('${s.key}')">${s.label} <span class="tab-count">${cnt}</span></div>`;
+  }).join('');
+}
+function buildRmTabs() {
+  const counts = countBy(filterRows({ rm: 'ALL' }), 'rm');
+  const rms = Object.keys(counts).sort((a, b) => counts[b] - counts[a]);
+  document.getElementById('rmTabs').innerHTML =
+    `<div class="tab ${activeRm === 'ALL' ? 'active' : ''}" onclick="setRm('ALL')">All <span class="tab-count">${filterRows({ rm: 'ALL' }).length}</span></div>` +
+    rms.map(r => `<div class="tab ${activeRm === r ? 'active' : ''}" onclick="setRm('${r}')">${r} <span class="tab-count">${counts[r]}</span></div>`).join('');
+}
+function buildSectorTabs() {
+  const order = ['AGRI','FOOD','CONS','CONMAT','PROP','PFREIT','PF&REIT'];
+  const counts = countBy(filterRows({ sector: 'ALL' }), 'sector');
+  const sectors = Object.keys(counts).sort((a, b) => order.indexOf(a) - order.indexOf(b));
+  document.getElementById('sectorTabs').innerHTML =
+    `<div class="tab ${activeSector === 'ALL' ? 'active' : ''}" onclick="setSector('ALL')">All <span class="tab-count">${filterRows({ sector: 'ALL' }).length}</span></div>` +
+    sectors.map(s => `<div class="tab ${activeSector === s ? 'active' : ''}" onclick="setSector('${s}')">${s} <span class="tab-count">${counts[s]}</span></div>`).join('');
+}
+function buildControls() {
+  buildWindowTabs(); buildSideTabs(); buildRmTabs(); buildSectorTabs();
+  document.getElementById('sortMode').value = sortMode;
+}
+function setWindow(v) { activeWindow = +v; buildControls(); updateStats(); render(); }
+function setSide(v) { activeSide = v; buildControls(); updateStats(); render(); }
+function setRm(v) { activeRm = v; buildControls(); updateStats(); render(); }
+function setSector(v) { activeSector = v; buildControls(); updateStats(); render(); }
+function setQuery(v) { activeQuery = v; buildControls(); updateStats(); render(); }
+function setSort(v) { sortMode = v; render(); }
+function resetFilters() {
+  activeWindow = 30; activeSide = 'ALL'; activeRm = 'ALL'; activeSector = 'ALL'; activeQuery = ''; sortMode = 'latest';
+  document.getElementById('searchBox').value = '';
+  buildControls(); updateStats(); render();
+}
+function updateStats() {
+  const rows = filterRows();
+  const buys = rows.filter(r => r.side === 'buy');
+  const sells = rows.filter(r => r.side === 'sell');
+  const net = rows.reduce((s, r) => s + (r.side === 'buy' ? (r.notional || 0) : r.side === 'sell' ? -(r.notional || 0) : 0), 0);
+  document.getElementById('statsBar').innerHTML = `
+    <div class="stat"><div class="stat-val">${rows.length}</div><div class="stat-lbl">Showing</div></div>
+    <div class="stat"><div class="stat-val" style="color:var(--green)">${buys.length}</div><div class="stat-lbl">Buy rows</div></div>
+    <div class="stat"><div class="stat-val" style="color:var(--red)">${sells.length}</div><div class="stat-lbl">Sell rows</div></div>
+    <div class="stat"><div class="stat-val" style="font-size:17px;color:${net >= 0 ? 'var(--green)' : 'var(--red)'}">${formatMoney(net)}</div><div class="stat-lbl">Net value baht</div></div>`;
+}
+function render() {
+  const rows = sortedRows(filterRows());
+  const feed = document.getElementById('feed');
+  if (!rows.length) {
+    feed.innerHTML = '<div class="empty">No Form 59 rows match the filters.</div>';
+    return;
+  }
+  feed.innerHTML = rows.map(it => {
+    const sideCls = ['buy','sell','transfer'].includes(it.side) ? it.side : 'other';
+    return `<div class="item ${sideCls}">
+      <div class="item-top">
+        <div class="item-date">${formatDate(it.filing_date || it.transaction_date)}</div>
+        <div class="item-main">
+          <div class="item-title">
+            <span class="ticker">${escapeHtml(it.tk)}</span>
+            <span class="reporter">${escapeHtml(it.reporter || '-')}</span>
+            <span class="muted">${escapeHtml(it.relationship || '')}</span>
+          </div>
+          <div class="item-meta">
+            <span class="tag tag-${sideCls}">${sideLabel(it.side)}</span>
+            ${it.is_revoked ? '<span class="tag tag-revoked">revoked</span>' : ''}
+            ${it.rm ? `<span class="tag tag-rm">${escapeHtml(it.rm)}</span>` : ''}
+            ${it.sector ? `<span class="sector-badge s-${it.sector}">${escapeHtml(it.sector)}</span>` : ''}
+            ${it.security_type ? `<span class="tag tag-other">${escapeHtml(it.security_type)}</span>` : ''}
+            ${it.url ? `<a class="link" href="${escapeHtml(it.url)}" target="_blank" rel="noopener">SEC detail</a>` : ''}
+          </div>
+          <div class="facts">
+            <span>Trade date <strong>${formatDate(it.transaction_date)}</strong></span>
+            <span>Amount <strong>${formatNum(it.amount, 0)}</strong></span>
+            <span>Avg price <strong>${formatNum(it.price, 2)}</strong></span>
+            <span>Value <strong>${formatMoney(it.notional)}</strong></span>
+            ${it.remark ? `<span>${escapeHtml(it.remark)}</span>` : ''}
+          </div>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+async function init() {
+  try {
+    const dj = await fetch('./data/sec-form59.json').then(r => r.json());
+    ITEMS = (dj.items || []).map(hydrate);
+    const fresh = freshnessLabel(dj._built_at);
+    const badge = document.getElementById('staleBadge');
+    badge.textContent = fresh.txt;
+    if (fresh.warn) badge.classList.add('warn');
+    document.getElementById('meta').textContent = `${ITEMS.length} rows - ${(dj.bySide || {}).buy || 0} buys / ${(dj.bySide || {}).sell || 0} sells - ${dj.windowDays || 90}d window - as of ${dj.asOf || ''}`;
+    buildControls(); updateStats(); render();
+  } catch(e) {
+    document.getElementById('feed').innerHTML = `<div class="empty">Error: ${e.message}</div>`;
+  }
+}
+init();
+</script>
+<script src="nav.js" defer></script>
+<script src="chat-dock.js" defer></script>
+</body>
+</html>

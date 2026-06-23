@@ -479,6 +479,30 @@ async function ctxFilings(env, origin, userRm, focus, q) {
   return lines.join("\n");
 }
 
+async function ctxForm59(env, origin, userRm, focus) {
+  const [form59, rms] = await Promise.all([
+    loadJson(env, origin, "sec-form59"), rmMap(env, origin)]);
+  let items = form59?.items || [];
+  if (focus && focus.size) items = items.filter((it) => focus.has(it.tk));
+  const picked = focus && focus.size ? items : rmFirst(items, 60, rms, userRm, (it) => it.tk);
+  const lines = [`SEC FORM 59 MANAGEMENT/RELATED-PERSON TRADES (last ${form59?.windowDays || "?"} days, ${items.length} rows, asOf ${form59?.asOf || "?"}; rm=owning RM` +
+    (focus && focus.size ? `; FILTERED to ${[...focus].join(", ")} — if a name has no rows here it has NO Form 59 rows` : "") +
+    (!(focus && focus.size) && userRm ? `; the user's rm=${userRm} rows are listed first` : "") +
+    "):"];
+  for (const it of picked) {
+    const rm = rms[it.tk] ? ` rm=${rms[it.tk]}` : "";
+    const side = (it.side || "?").toUpperCase();
+    const amt = it.amount == null ? "-" : it.amount;
+    const px = it.price == null ? "-" : it.price;
+    const val = it.notional == null ? "-" : it.notional;
+    lines.push(`${it.filing_date || it.transaction_date || "?"} ${it.tk}${rm} ${side} ` +
+      `${amt} @ ${px} value=${val} reporter="${String(it.reporter || "").slice(0, 60)}" ` +
+      `relationship="${String(it.relationship || "").slice(0, 70)}"` +
+      (it.is_revoked ? " REVOKED" : ""));
+  }
+  return lines.join("\n");
+}
+
 async function ctxOppday(env, origin, userRm) {
   const opp = await loadJson(env, origin, "oppday-minutes");
   const all = opp?.summaries || [];
@@ -581,7 +605,8 @@ const AGENTS = {
     persona:
       "You are Hermes, the news messenger on the IS1 coverage dashboard. " +
       "You connect names to catalysts: external news, SET disclosures, " +
-      "silent/overdue filers and Oppday takeaways.\n" +
+      "Form 59 management/related-person trades, silent/overdue filers and " +
+      "Oppday takeaways.\n" +
       "WHAT 'NEWS' MEANS: a request for 'news' (ข่าว) on a name, sector, or " +
       "RM book ALWAYS covers BOTH sources — the EXTERNAL NEWS block (press/web) " +
       "AND the SET DISCLOSURES block (official filings). Never answer from only " +
@@ -600,7 +625,7 @@ const AGENTS = {
       "📄 SET disclosures\n" +
       "• None for ITC in the last 90 days.\n" +
       "(Both headers always appear, even when one side is empty.)\n",
-    contexts: [ctxCoverage, ctxNews, ctxFilings, ctxOppday],
+    contexts: [ctxCoverage, ctxNews, ctxFilings, ctxForm59, ctxOppday],
   },
   pythia: {
     persona:
