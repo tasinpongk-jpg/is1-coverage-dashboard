@@ -14,9 +14,9 @@ from typing import Any, Literal
 from anthropic import Anthropic
 from pydantic import BaseModel, Field
 
-MODEL_EN = "claude-haiku-4-5-20251001"   # cost-optimized 2026-05-06
-MODEL_TH = "claude-haiku-4-5-20251001"   # TH-only path
-MODEL = MODEL_EN                          # legacy alias — keep callers working
+MODEL_EN = os.environ.get("MINIMAX_MODEL", "MiniMax-M3")  # cost-optimized
+MODEL_TH = MODEL_EN                                          # TH-only path
+MODEL = MODEL_EN                                             # legacy alias — keep callers working
 MAX_TOKENS = 600
 
 Severity = Literal["critical", "material", "routine", "unclassified"]
@@ -256,12 +256,13 @@ TOOL_DEF = {
 
 
 def _client() -> Anthropic:
-    key = os.environ.get("ANTHROPIC_API_KEY")
+    key = os.environ.get("MINIMAX_API_KEY") or os.environ.get("ANTHROPIC_API_KEY")
     if not key:
         raise RuntimeError(
-            "ANTHROPIC_API_KEY missing — set it in env or set_mcp/.env."
+            "MINIMAX_API_KEY (or ANTHROPIC_API_KEY fallback) missing — set it in env."
         )
-    return Anthropic(api_key=key)
+    base_url = os.environ.get("MINIMAX_BASE_URL", "https://api.minimax.io/anthropic")
+    return Anthropic(api_key=key, base_url=base_url)
 
 
 def classify_one(

@@ -190,7 +190,7 @@ python scripts\build_source_coverage.py --period 2026Q1
 # deterministic draft mode, no API key needed
 python scripts\build_company_reports.py --all --llm never
 
-# richer agent mode, when ANTHROPIC_API_KEY is available
+# richer agent mode, when MINIMAX_API_KEY (or ANTHROPIC_API_KEY fallback) is available
 python scripts\build_company_reports.py --all --llm auto
 ```
 
@@ -206,4 +206,4 @@ gh workflow run static-deploy.yml
 - **Dashboards show "updated 36h+ ago"** — daily build failed _and_ both triggers missed (very rare). Check (1) `data/build-status.json`, (2) the GitHub Actions run log at https://github.com/tasinpongk-jpg/is1-coverage-dashboard/actions, and (3) the Cloudflare Worker logs (`wrangler tail` from `cloudflare-cron/` or the dashboard). The healthchecks.io check will also email when a daily dispatch is missed.
 - **Empty `disclosure-pulse`** — usually a DuckDB version mismatch between CI and the local writer (both pinned at 1.5.2). See `SYSTEM.md` "known gotchas". Surveillance now covers all 232 tickers across 6 RMs.
 - **Cloudflare Pages build fails** — there's no build step (static site). Make sure Build Command is empty.
-- **Surveillance/build job failed in CI** — see Actions tab. Common causes: SETSMART API quota, Anthropic API key rotation, R2 credential drift. Secrets live in repo settings.
+- **Surveillance/build job failed in CI** — see Actions tab. Common causes: SETSMART API quota, MiniMax API key rotation, R2 credential drift. Secrets live in repo settings.
