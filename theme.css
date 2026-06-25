@@ -1,0 +1,63 @@
+/* ===========================================================================
+   ISSUER INTELLIGENT TERMINAL — shared "phosphor" theme (single source of truth)
+   Link this AFTER a page's own <style> so these tokens win and the page adopts
+   the same black/amber terminal look as the original dashboard pages
+   (index, ticker-summary, rm-portfolio, risk-radar, trading-signs, …).
+   It only remaps the colour tokens + base font; page layout/structure is untouched.
+   =========================================================================== */
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700;800&family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap');
+
+:root{
+  /* phosphor palette — overrides the navy/Inter tokens the new pages defined */
+  --bg:#000;
+  --card:#0a0a0a;
+  --panel2:#050505;
+  --body:#f4efe0;
+  --ink:#f4efe0;
+  --text2:#cdbf90;
+  --mut:#9a8f63;
+  --dim:#6f6440;
+  --line:rgba(255,176,0,.16);
+  --line-soft:rgba(255,176,0,.06);
+  --gold:#ffa028;
+  --accent:#ffa028;
+  --red:#ff433d;
+  --green:#00d46a;
+  --yellow:#f0c040;
+  --blue:#3b82f6;
+  --violet:#a855f7;
+  --gov:#a855f7;
+}
+
+body{
+  background:var(--bg);
+  color:var(--body);
+  font-family:'JetBrains Mono','IBM Plex Sans Thai',ui-monospace,Menlo,monospace;
+  -webkit-font-smoothing:antialiased;
+}
+/* Thai text reads better in IBM Plex Sans Thai than in the mono face */
+.thai,.sub,.note,.info-strip,.statlabel,.bullets li{font-family:'IBM Plex Sans Thai','JetBrains Mono',sans-serif;}
+
+::-webkit-scrollbar{width:8px;height:8px}
+::-webkit-scrollbar-track{background:#070707}
+::-webkit-scrollbar-thumb{background:rgba(255,176,0,.22)}
+
+/* bilingual toggle — pages provide .lx-en / .lx-th spans and a body.lang-en / .lang-th class */
+body.lang-en .lx-th{display:none}
+body.lang-th .lx-en{display:none}
+.langtoggle{background:var(--card);border:1px solid var(--line);color:var(--body);border-radius:8px;
+  padding:6px 12px;font:700 11px 'JetBrains Mono',monospace;cursor:pointer;letter-spacing:.04em}
+.langtoggle b{color:var(--gold)}
+
+/* "How this result is computed" methodology panel (shared across governance pages) */
+details.howto{margin:14px 0;border:1px solid var(--line);border-radius:10px;background:var(--card)}
+details.howto>summary{cursor:pointer;padding:11px 16px;font:700 13px 'JetBrains Mono',monospace;color:var(--gold);list-style:none}
+details.howto>summary::-webkit-details-marker{display:none}
+details.howto>summary:before{content:"▸ ";color:var(--gold)}
+details.howto[open]>summary:before{content:"▾ "}
+details.howto .howbody{padding:2px 18px 16px;font:400 12.5px/1.65 'IBM Plex Sans Thai','JetBrains Mono',sans-serif;color:var(--body)}
+details.howto .howbody b{color:var(--gold)}
+details.howto .howbody code{background:rgba(255,176,0,.1);padding:1px 5px;border-radius:4px;font-size:11.5px}
+details.howto .howbody ol,details.howto .howbody ul{margin:6px 0 6px 20px}
+details.howto .howbody li{margin:4px 0}
+details.howto .howbody .step{color:var(--gold);font-weight:700}
