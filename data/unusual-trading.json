@@ -206,7 +206,7 @@
       "sector": "AGRI",
       "type": "Intraday move",
       "atype": "intraday",
-      "severity": "medium",
+      "severity": "low",
       "value": 4.545,
       "label": "-4.55% intraday",
       "evidence": {
@@ -215,8 +215,10 @@
         "high": 0.22,
         "low": 0.21
       },
-      "filingsLinked": 0,
-      "filingsTitles": []
+      "filingsLinked": 1,
+      "filingsTitles": [
+        "Notification the exercise of PPPM-W6"
+      ]
     },
     {
       "tk": "TL",
@@ -720,8 +722,9 @@
         "vol20dAvg": 182288.25,
         "vol20dStd": 160437.91725831988
       },
-      "filingsLinked": 1,
+      "filingsLinked": 2,
       "filingsTitles": [
+        "SEC News : สรุปแบบ 59 ประจำวันที่ 29 มิถุนายน 2569",
         "SEC News : สรุปแบบ 59 ประจำวันที่ 29 มิถุนายน 2569"
       ]
     },
@@ -1492,23 +1495,6 @@
       ]
     },
     {
-      "tk": "PPPM",
-      "sector": "AGRI",
-      "alertCount": 1,
-      "highestSeverity": "medium",
-      "filingsLinked": 0,
-      "alertTypes": [
-        {
-          "atype": "intraday",
-          "type": "Intraday move",
-          "severity": "medium"
-        }
-      ],
-      "summary": [
-        "Intraday move: -4.55% intraday"
-      ]
-    },
-    {
       "tk": "PSH",
       "sector": "PROP",
       "alertCount": 1,
@@ -1634,23 +1620,6 @@
       ]
     },
     {
-      "tk": "ASW",
-      "sector": "PROP",
-      "alertCount": 1,
-      "highestSeverity": "low",
-      "filingsLinked": 1,
-      "alertTypes": [
-        {
-          "atype": "vol_spike",
-          "type": "Volume spike",
-          "severity": "low"
-        }
-      ],
-      "summary": [
-        "Volume spike: 2.5σ vs 20D avg"
-      ]
-    },
-    {
       "tk": "LPN",
       "sector": "PROP",
       "alertCount": 1,
@@ -1683,8 +1652,42 @@
       "summary": [
         "Intraday move: +4.17% intraday"
       ]
+    },
+    {
+      "tk": "PPPM",
+      "sector": "AGRI",
+      "alertCount": 1,
+      "highestSeverity": "low",
+      "filingsLinked": 1,
+      "alertTypes": [
+        {
+          "atype": "intraday",
+          "type": "Intraday move",
+          "severity": "low"
+        }
+      ],
+      "summary": [
+        "Intraday move: -4.55% intraday"
+      ]
+    },
+    {
+      "tk": "ASW",
+      "sector": "PROP",
+      "alertCount": 1,
+      "highestSeverity": "low",
+      "filingsLinked": 2,
+      "alertTypes": [
+        {
+          "atype": "vol_spike",
+          "type": "Volume spike",
+          "severity": "low"
+        }
+      ],
+      "summary": [
+        "Volume spike: 2.5σ vs 20D avg"
+      ]
     }
   ],
-  "_built_at": "2026-06-30T02:35:26.511127+00:00",
+  "_built_at": "2026-06-30T06:53:45.616512+00:00",
   "_coverage_size": 232
 }
