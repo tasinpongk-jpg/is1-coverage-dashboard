@@ -1,5 +1,5 @@
 {
-  "asOf": "2026-07-05",
+  "asOf": "2026-07-06",
   "source": "SETSMART intraday API · 55 alerts across 41 tickers",
   "thresholds": {
     "vol_spike": {
@@ -182,8 +182,10 @@
         "vol20dAvg": 70750.8125,
         "vol20dStd": 55961.11880822227
       },
-      "filingsLinked": 0,
-      "filingsTitles": []
+      "filingsLinked": 1,
+      "filingsTitles": [
+        "Reporting Share Repurchase Form for Financial Management Purposes (Revised)"
+      ]
     },
     {
       "tk": "SQ",
@@ -741,15 +743,17 @@
       "sector": "PROP",
       "type": "Price gap",
       "atype": "gap",
-      "severity": "medium",
+      "severity": "low",
       "value": 3.333,
       "label": "+3.33% open gap",
       "evidence": {
         "open": 0.31,
         "prevClose": 0.3
       },
-      "filingsLinked": 0,
-      "filingsTitles": []
+      "filingsLinked": 1,
+      "filingsTitles": [
+        "Notification of the Postponement and Rescheduled Debenture Holders' Meeting of Major Development Public Company Limited "
+      ]
     },
     {
       "tk": "ORI",
@@ -1252,23 +1256,6 @@
       ]
     },
     {
-      "tk": "BJCHI",
-      "sector": "CONS",
-      "alertCount": 1,
-      "highestSeverity": "high",
-      "filingsLinked": 0,
-      "alertTypes": [
-        {
-          "atype": "vol_spike",
-          "type": "Volume spike",
-          "severity": "high"
-        }
-      ],
-      "summary": [
-        "Volume spike: 5.6σ vs 20D avg"
-      ]
-    },
-    {
       "tk": "BROCK",
       "sector": "PROP",
       "alertCount": 1,
@@ -1507,6 +1494,23 @@
       ]
     },
     {
+      "tk": "BJCHI",
+      "sector": "CONS",
+      "alertCount": 1,
+      "highestSeverity": "high",
+      "filingsLinked": 1,
+      "alertTypes": [
+        {
+          "atype": "vol_spike",
+          "type": "Volume spike",
+          "severity": "high"
+        }
+      ],
+      "summary": [
+        "Volume spike: 5.6σ vs 20D avg"
+      ]
+    },
+    {
       "tk": "AMATAR",
       "sector": "PFREIT",
       "alertCount": 1,
@@ -1538,23 +1542,6 @@
       ],
       "summary": [
         "Volume spike: 2.8σ vs 20D avg"
-      ]
-    },
-    {
-      "tk": "MJD",
-      "sector": "PROP",
-      "alertCount": 1,
-      "highestSeverity": "medium",
-      "filingsLinked": 0,
-      "alertTypes": [
-        {
-          "atype": "gap",
-          "type": "Price gap",
-          "severity": "medium"
-        }
-      ],
-      "summary": [
-        "Price gap: +3.33% open gap"
       ]
     },
     {
@@ -1692,8 +1679,25 @@
       "summary": [
         "Volume spike: 2.0σ vs 20D avg"
       ]
+    },
+    {
+      "tk": "MJD",
+      "sector": "PROP",
+      "alertCount": 1,
+      "highestSeverity": "low",
+      "filingsLinked": 1,
+      "alertTypes": [
+        {
+          "atype": "gap",
+          "type": "Price gap",
+          "severity": "low"
+        }
+      ],
+      "summary": [
+        "Price gap: +3.33% open gap"
+      ]
     }
   ],
-  "_built_at": "2026-07-05T02:35:48.166227+00:00",
+  "_built_at": "2026-07-06T02:35:41.770056+00:00",
   "_coverage_size": 232
 }
