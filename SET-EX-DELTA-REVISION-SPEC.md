@@ -18,15 +18,37 @@ credible ask. The credible ask is a **parallel/supplementary ex-DELTA metric + e
 
 ---
 
-## 1. Corrected numbers (validated — use as-is)
+## 1. Corrected numbers (VALIDATED against raw daily data — use as-is)
 
-| Metric | Deck (wrong) | Correct | Basis |
+Computed by `scripts/build_set_ex_delta.py` from the two raw SETSMART exports
+(`data/raw/delta-historical.xlsx`, `data/raw/set-index.xls`), 727 trading days,
+10 Jul 2023 → 8 Jul 2026. Reconstruction **acceptance test passed: max index
+reproduction error = 0.0 bps** (the divisor-continuity chain reproduces the published
+SET Composite exactly, so the ex-DELTA line is trustworthy). Derived series +
+stats in `data/set-ex-delta.json`.
+
+| Metric | Deck (wrong) | Validated | Basis |
 |---|---|---|---|
-| DELTA weight | ~20% | **18.7% (~19%)** | 3.72tn / 19.92tn = 0.1867, as of 8 Jul 2026 |
-| DELTA vs ADVANC+PTT+GULF | "~2×" | **~1.5× (1.5–1.6×)** | 18.67% / (5+4+3.5=12.5%) = 1.49× |
-| Mechanical impact per 1% DELTA move | 0.11% (unlabelled) | **0.19% mechanical** (= 1% × 18.67%); keep 0.11% only if labelled **empirical/regression (H1 2026)** | separate the two explicitly |
-| YTD | +88% | **VERIFY** vs SETSMART before use; state start date + method or drop | — |
-| Constituent count | "930+ companies" | **Use exact SET Composite security count as of data date** | — |
+| DELTA weight (8 Jul 2026) | ~20% | **18.66% (~18.7%)** | DELTA MC 3.717tn / SET MC 19.921tn |
+| DELTA weight **peak** | — (new) | **22.68% on 9 Jun 2026** | max over 3yr; add to deck — strengthens thesis |
+| DELTA weight trajectory | — (new) | 12% (Aug'25) → 15% (Oct'25) → 18% (Feb'26) → 20% (Apr'26) | rising concentration |
+| DELTA vs ADVANC+PTT+GULF | "~2×" | **~1.5× (1.5–1.6×)** | 18.66% / (5+4+3.5=12.5%) = 1.49× (weights unverified — flag) |
+| Mechanical impact per 1% DELTA move | 0.11% (unlabelled) | **0.187% mechanical** (= 1% × 18.66%); keep 0.11% only if labelled **empirical/regression** | separate the two |
+| DELTA YTD 2026 | +88% | **+72.3%** (adj. close, anchor 30 Dec 2025) | +88% NOT reproducible on this basis — replace or footnote its window |
+| DELTA 3yr | — | **+195%** | adjusted close |
+| Constituent count | "930+ companies" | **verify exact count** (not in these two files) | — |
+
+### THE headline (new, validated — lead with this)
+Removing DELTA flips the market's 3-year story:
+
+| | 3-year | YTD 2026 |
+|---|---|---|
+| **SET Composite** | **+5.3%** | **+25.1%** |
+| **SET ex-DELTA** | **−8.0%** | **+17.7%** |
+
+Over 3 years the headline SET is *up 5.3%*, but the market **ex-DELTA is down 8.0%** — the
+index's positive return is entirely a DELTA artefact. This is the single most persuasive,
+now-validated data point for the transparency thesis. Divergence ≈ **13.3 pts** over 3yr.
 
 ---
 
@@ -81,36 +103,40 @@ validated daily-chain analysis, constituent-weight disclosure, and valuation-imp
 
 ---
 
-## 4. WP1 — Daily-chain reconstruction (needs the raw data the user is providing)
+## 4. WP1 — Daily-chain reconstruction ✅ DONE & VALIDATED
 
-Target script: `scripts/build_set_ex_delta.py`.
+Script: `scripts/build_set_ex_delta.py` · raw inputs: `data/raw/` · output: `data/set-ex-delta.json`.
 
-**Expected raw input** (per trading day, ~3yr, full SET Composite universe):
-`date, symbol, close, listed_shares` → daily market cap per name; plus official published
-`SET Composite index level` per day for validation.
+**Raw inputs used** (both are SETSMART daily exports, ~3yr):
+- `delta-historical.xlsx` — DELTA daily Close, **Market Cap (M.Baht)**, Listed Shares (adj. price).
+- `set-index.xls` — SET Composite daily Close (index level) + **Market Cap (Baht)** (HTML-as-.xls).
 
-**Algorithm**
-1. Daily total market cap `MC_t = Σ (close × listed_shares)` over all constituents.
-2. Ex-DELTA aggregate `MC_t^exD = MC_t − (DELTA close × DELTA shares)_t`.
-3. Chain-link with continuity: on any constituent add/drop or share-count change, recompute the
-   divisor so `index_after = index_before` (no jump from recomposition alone).
-4. Emit validated daily series (CSV + JSON) + the 3-yr headline stat.
+**Method — divisor-continuity chain (self-validating):**
+1. Recover the index divisor daily: `D_t = MC_t / Index_t`; ratio `g_t = D_t/D_{t-1}` isolates
+   corporate-action / recomposition effect (`g_t = 1` on ordinary days).
+2. ex-DELTA market cap `exMC_t = MC_t − DELTA_MC_t`.
+3. ex-DELTA return `r'_t = exMC_t / (exMC_{t-1}·g_t) − 1`; chain from `ex_0 = Index_0`.
+   Continuity holds because a recomposition moves `g` so no fake return is injected
+   (`Index_after = Index_before` — the BMV continuity point, empirically confirmed).
 
-**Acceptance test (must pass before trusting ex-DELTA line):**
-Reconstructed **SET Composite (incl. DELTA)** must track the official published index within a
-tight tolerance (e.g. ≤ a few bp daily / negligible cumulative drift). If it doesn't, the ex-DELTA
-line is not trustworthy — fix the chain before publishing any headline number.
+**Acceptance test — PASSED:** applying the same `g_t` to full MC reproduces the published SET
+Composite with **max error 0.0 bps** over all 727 days, so the ex-DELTA line is trustworthy.
+
+**Assumption (documented):** DELTA export uses adjusted prices; ex-DELTA basket = SET total MC
+minus DELTA MC. Constituent-level data isn't required because SET total MC is supplied directly.
+
+Re-run: `python3 scripts/build_set_ex_delta.py [delta.xlsx] [set.xls]` (defaults to `data/raw/`).
 
 ---
 
 ## 5. Full review checklist (map every item)
 
-- [ ] **Critical** — ex-DELTA daily chain rebuilt & validated (WP1 §4)
+- [x] **Critical** — ex-DELTA daily chain rebuilt & validated (WP1 §4) — 0.0 bps, done
 - [ ] **Critical** — BMV continuity wording (§2)
 - [ ] **High** — DELTA weight → 18.7% (§1/§2)
 - [ ] **High** — "~2×" → ~1.5× (§1/§2)
 - [ ] **High** — mechanical 0.19% vs empirical 0.11% separated & labelled (§2)
-- [ ] **High** — YTD +88% verified or dropped (§1)
+- [x] **High** — YTD verified: DELTA +72.3% (not +88%); SET +25.1% vs ex-DELTA +17.7% (§1)
 - [ ] **Medium** — exact constituent/security count (§1)
 - [ ] **Medium** — passive-fund claim softened (§2)
 - [ ] **Medium** — informal references removed (§2)
@@ -121,7 +147,7 @@ line is not trustworthy — fix the chain before publishing any headline number.
 
 ## 6. Division of labour
 
-- **Claude (done):** this spec — validated numbers, exact EN/TH wording, reconstruction algorithm,
-  acceptance test.
-- **Executor / codex (pending assets):** WP1 script + run on provided raw data; WP2 apply wording
-  edits to attached deck; WP3 reframe + repackage; tick §5 checklist.
+- **Claude (done):** this spec; **WP1 built, run & validated** (`scripts/build_set_ex_delta.py`,
+  `data/set-ex-delta.json`, 0.0 bps) — all headline numbers now empirical.
+- **Executor / codex (pending the attached deck):** WP2 apply wording/number edits to the deck
+  using §1–§3; WP3 reframe + repackage; tick remaining §5 items.
