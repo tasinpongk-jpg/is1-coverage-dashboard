@@ -18,17 +18,19 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
 .brand{position:fixed;top:20px;left:24px;display:flex;align-items:center;gap:10px;text-decoration:none;color:var(--muted);font-size:13px;z-index:2}
 .brand-mark{width:24px;height:24px;border-radius:6px;background:linear-gradient(135deg,var(--accent),#8b5cf6);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:10px;color:#fff}
 </style>
+<script src="i18n.js"></script>
+<script src="nav.js" defer></script>
 </head>
 <body>
 <a class="brand" href="index.html">
   <div class="brand-mark">IS</div>
-  Coverage Desk
+  <span data-i18n="notFound.brand">Coverage Desk</span>
 </a>
 <div class="box">
   <div class="code">404</div>
-  <div class="msg">Page not found</div>
-  <div class="sub">The page you're looking for doesn't exist or has been moved.</div>
-  <a class="btn" href="index.html">← Back to Coverage Desk</a>
+  <div class="msg" data-i18n="notFound.title">Page not found</div>
+  <div class="sub" data-i18n="notFound.sub">The page you're looking for doesn't exist or has been moved.</div>
+  <a class="btn" href="index.html" data-i18n="notFound.back">← Back to Coverage Desk</a>
 </div>
 </body>
 </html>

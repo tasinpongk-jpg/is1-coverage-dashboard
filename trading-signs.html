@@ -52,61 +52,58 @@
   .legend code { background: var(--card); padding: 2px 6px; border-radius: 3px; color: var(--text); margin: 0 4px; }
 </style>
   <link rel="stylesheet" href="theme.css">
+  <script src="i18n.js"></script>
 
 </head>
 <body>
 
 <header>
   <div>
-    <h1>Trading Signs <span style="color:var(--muted);font-weight:400;font-size:13px">— Current SP / CB / CS / CF / CC / NP / NC / ST / DS on coverage</span></h1>
-    <div class="meta" id="meta">Loading...</div>
+    <h1><span data-i18n="page.tradingSigns">Trading Signs</span> <span style="color:var(--muted);font-weight:400;font-size:13px">— Current SP / CB / CS / CF / CC / NP / NC / ST / DS on coverage</span></h1>
+    <div class="meta" id="meta" data-i18n="common.loadingDots">Loading...</div>
   </div>
   <nav class="nav">
-    <a href="index.html">Index</a>
-    <a href="price-movement.html">Price Movement</a>
-    <a href="disclosure-pulse.html">Disclosures</a>
-    <a href="oppday-minutes.html">Oppday</a>
-    <a href="multiples-comparison.html">Multiples Comparison</a>
-    <a href="company-summary.html">Company Summary</a>
-    <a href="multiples-band.html">Multiples Band</a>
-    <a href="bond-summary.html">Bonds</a>
-    <a href="unusual-trading.html">Alerts</a>
-    <a href="external-news.html">External</a>
-    <a href="trading-signs.html" class="active">Signs</a>
-    <a href="sec-enforcement.html">SEC</a>
+    <a href="index.html" data-i18n="nav.index">Index</a>
+    <a href="price-movement.html" data-i18n="page.priceMovement">Price Movement</a>
+    <a href="disclosure-pulse.html" data-i18n="nav.disclosures">Disclosures</a>
+    <a href="oppday-minutes.html" data-i18n="nav.oppday">Oppday</a>
+    <a href="multiples-comparison.html" data-i18n="page.multiplesComparison">Multiples Comparison</a>
+    <a href="company-summary.html" data-i18n="page.companySummary">Company Summary</a>
+    <a href="multiples-band.html" data-i18n="page.multiplesBand">Multiples Band</a>
+    <a href="bond-summary.html" data-i18n="nav.bonds">Bonds</a>
+    <a href="unusual-trading.html" data-i18n="nav.alerts">Alerts</a>
+    <a href="external-news.html" data-i18n="nav.external">External</a>
+    <a href="trading-signs.html" class="active" data-i18n="nav.signs">Signs</a>
+    <a href="sec-enforcement.html" data-i18n="nav.sec">SEC</a>
     <span class="stale" id="staleBadge">..</span>
   </nav>
 </header>
 
 <div class="summary" id="summary"></div>
-<div class="grid" id="grid"><div class="empty">Loading...</div></div>
+<div class="grid" id="grid"><div class="empty" data-i18n="common.loadingDots">Loading...</div></div>
 
 <div class="legend">
-  <strong>Signs:</strong>
-  <code>SP</code> Suspension ·
-  <code>CB</code> Caution - Business ·
-  <code>CS</code> Caution - Financial Statement ·
-  <code>CF</code> Caution - Free Float ·
-  <code>CC</code> Caution - Non-Compliance ·
-  <code>C</code> Causes
-  <code>NP</code> Notice Pending ·
-  <code>NC</code> Non-Compliance ·
-  <code>ST</code> Stabilization ·
-  <code>DS</code> Designated Securities
+  <strong data-i18n="trading.legendPrefix">Signs:</strong>
+  <span data-i18n="trading.legend">SP Suspension · CB Caution - Business · CS Caution - Financial Statement · CF Caution - Free Float · CC Caution - Non-Compliance · C Causes · NP Notice Pending · NC Non-Compliance · ST Stabilization · DS Designated Securities</span>
 </div>
 
 <script>
 let TICKERS = {}, ITEMS = [];
+let DATA_META = null;
+
+function tt(key) { return window.I18N ? I18N.t(key) : key; }
+function tx(key, vars) { return tt(key).replace(/\{(\w+)\}/g, (_, k) => vars && vars[k] != null ? vars[k] : ''); }
 
 function freshnessLabel(builtAt) {
   if (!builtAt) return { txt: '?', warn: true };
   const ageH = (Date.now() - new Date(builtAt).getTime()) / 36e5;
-  return { txt: 'updated ' + (ageH < 1 ? Math.round(ageH * 60) + 'm' : Math.round(ageH) + 'h') + ' ago', warn: ageH > 36 };
+  const x = ageH < 1 ? Math.round(ageH * 60) + 'm' : Math.round(ageH) + 'h';
+  return { txt: tx('common.updatedAgo', { x }), warn: ageH > 36 };
 }
 
 function render() {
   const grid = document.getElementById('grid');
-  if (!ITEMS.length) { grid.innerHTML = '<div class="empty">No trading signs active on coverage tickers. (Or the scrape failed - check the build log.)</div>'; return; }
+  if (!ITEMS.length) { grid.innerHTML = `<div class="empty">${tt('trading.noActive')}</div>`; return; }
   // Group by ticker
   const byTk = {};
   ITEMS.forEach(it => {
@@ -122,7 +119,7 @@ function render() {
   });
   grid.innerHTML = `
     <table>
-      <thead><tr><th>Ticker</th><th>Sector</th><th>RM</th><th>Signs</th><th>Effective</th><th>Reason</th></tr></thead>
+      <thead><tr><th>${tt('common.ticker')}</th><th>${tt('common.sector')}</th><th>RM</th><th>${tt('nav.signs')}</th><th>${tt('trading.effective')}</th><th>${tt('trading.reason')}</th></tr></thead>
       <tbody>
         ${rows.map(r => `
           <tr>
@@ -143,7 +140,7 @@ function buildSummary(bySign) {
   const keys = Object.keys(bySign).sort((a,b) => (order.indexOf(a) + (order.indexOf(a) < 0 ? 99 : 0)) - (order.indexOf(b) + (order.indexOf(b) < 0 ? 99 : 0)));
   document.getElementById('summary').innerHTML = keys.length
     ? keys.map(k => `<div class="sign-stat ${k}"><div class="v">${bySign[k]}</div><div class="l">${k}</div></div>`).join('')
-    : '<div style="color:var(--muted)">No active signs on coverage names</div>';
+    : `<div style="color:var(--muted)">${tt('trading.noActiveNames')}</div>`;
 }
 
 async function init() {
@@ -154,18 +151,33 @@ async function init() {
     ]);
     tj.tickers.forEach(t => { TICKERS[t.tk] = t; });
     ITEMS = dj.items || [];
+    DATA_META = dj;
     const fresh = freshnessLabel(dj._built_at);
     const badge = document.getElementById('staleBadge');
     badge.textContent = fresh.txt;
     if (fresh.warn) badge.classList.add('warn');
-    document.getElementById('meta').textContent = `${dj.total || 0} sign rows on ${new Set(ITEMS.map(i=>i.tk)).size} ticker(s) - as of ${dj.asOf || ''}`;
+    updateMeta();
     buildSummary(dj.bySign || {});
     render();
   } catch(e) {
-    document.getElementById('grid').innerHTML = `<div class="empty">Error: ${e.message}</div>`;
+    document.getElementById('grid').innerHTML = `<div class="empty">${tx('common.errorWithMsg', { msg: e.message })}</div>`;
   }
 }
 init();
+function updateMeta() {
+  if (!DATA_META) return;
+  document.getElementById('meta').textContent = tx('trading.meta', {
+    rows: DATA_META.total || 0,
+    tickers: new Set(ITEMS.map(i=>i.tk)).size,
+    asOf: DATA_META.asOf || ''
+  });
+}
+window.addEventListener('i18n:change', () => {
+  if (window.I18N) I18N.apply();
+  updateMeta();
+  if (DATA_META) buildSummary(DATA_META.bySign || {});
+  render();
+});
 </script>
 <script src="nav.js" defer></script>
 <script src="chat-dock.js" defer></script>

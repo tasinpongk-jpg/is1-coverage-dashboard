@@ -65,39 +65,40 @@
   .loading { text-align: center; padding: 60px; color: var(--muted); }
 </style>
   <link rel="stylesheet" href="theme.css">
+  <script src="i18n.js"></script>
 
 </head>
 <body>
 
 <header>
   <div>
-    <h1>Multiples Comparison <span style="color:var(--muted);font-weight:400;font-size:13px">— IS1 Team</span></h1>
-    <div class="meta" id="meta">Loading…</div>
+    <h1><span data-i18n="page.multiplesComparison">Multiples Comparison</span> <span style="color:var(--muted);font-weight:400;font-size:13px">— IS1 Team</span></h1>
+    <div class="meta" id="meta" data-i18n="common.loading">Loading…</div>
   </div>
   <nav class="nav">
-    <a href="index.html">Index</a>
-    <a href="price-movement.html">Price Movement</a>
-    <a href="disclosure-pulse.html">Disclosures</a>
-    <a href="oppday-minutes.html">Oppday</a>
-    <a href="multiples-comparison.html" class="active">Multiples Comparison</a>
-    <a href="company-summary.html">Company Summary</a>
-    <a href="multiples-band.html">Multiples Band</a>
-    <a href="bond-summary.html">Bonds</a>
-    <a href="unusual-trading.html">Alerts</a>
-    <a href="external-news.html">External</a>
-    <a href="trading-signs.html">Signs</a>
-    <a href="sec-enforcement.html">SEC</a>
+    <a href="index.html" data-i18n="nav.index">Index</a>
+    <a href="price-movement.html" data-i18n="page.priceMovement">Price Movement</a>
+    <a href="disclosure-pulse.html" data-i18n="nav.disclosures">Disclosures</a>
+    <a href="oppday-minutes.html" data-i18n="nav.oppday">Oppday</a>
+    <a href="multiples-comparison.html" class="active" data-i18n="page.multiplesComparison">Multiples Comparison</a>
+    <a href="company-summary.html" data-i18n="page.companySummary">Company Summary</a>
+    <a href="multiples-band.html" data-i18n="page.multiplesBand">Multiples Band</a>
+    <a href="bond-summary.html" data-i18n="nav.bonds">Bonds</a>
+    <a href="unusual-trading.html" data-i18n="nav.alerts">Alerts</a>
+    <a href="external-news.html" data-i18n="nav.external">External</a>
+    <a href="trading-signs.html" data-i18n="nav.signs">Signs</a>
+    <a href="sec-enforcement.html" data-i18n="nav.sec">SEC</a>
     <span class="stale" id="staleBadge">●</span>
   </nav>
 </header>
 
 <div class="tab-bar">
   <div class="tab-row">
-    <span class="tab-label">RM:</span>
+    <span class="tab-label"><span data-i18n="common.rm">RM</span>:</span>
     <div id="rmTabs" style="display:flex;gap:4px;flex-wrap:wrap"></div>
   </div>
   <div class="tab-row">
-    <span class="tab-label">Sector:</span>
+    <span class="tab-label"><span data-i18n="common.sector">Sector</span>:</span>
     <div id="sectorTabs" style="display:flex;gap:4px;flex-wrap:wrap"></div>
   </div>
 </div>
@@ -105,7 +106,7 @@
 <div class="agg-row" id="aggRow"></div>
 
 <div class="legend">
-  <span>Heat scale:</span>
+  <span data-i18n="multiples.heatScale">Heat scale:</span>
   <div class="legend-bar">
     <div class="legend-swatch" style="background:#ef4444aa"></div>
     <div class="legend-swatch" style="background:#f59e0b66"></div>
@@ -113,12 +114,12 @@
     <div class="legend-swatch" style="background:#16803055"></div>
     <div class="legend-swatch" style="background:#22c55e88"></div>
   </div>
-  <span>Worst → Best (sector percentile)</span>
-  <span style="margin-left:auto;font-size:10px">Click column header to sort</span>
+  <span data-i18n="multiples.worstBest">Worst → Best (sector percentile)</span>
+  <span style="margin-left:auto;font-size:10px" data-i18n="multiples.clickSort">Click column header to sort</span>
 </div>
 
 <div class="table-wrap">
-  <div class="loading" id="loading">Fetching heatmap data…</div>
+  <div class="loading" id="loading" data-i18n="common.fetchingHeatmap">Fetching heatmap data…</div>
   <table id="tbl" style="display:none">
     <thead id="thead"></thead>
     <tbody id="tbody"></tbody>
@@ -129,11 +130,26 @@
 let TICKERS = {}, ROWS = [], METRICS = [], AGG = [];
 let activeRm = 'ALL', activeSector = 'ALL';
 let sortKey = null, sortDir = 1;
+let DATA_META = null;
+
+const TT_FALLBACK = {
+  "common.all": "All",
+  "common.dotUpdatedAgo": "● updated {x} ago",
+  "common.ticker": "Ticker",
+  "common.sector": "Sector",
+  "common.segment": "Segment",
+  "common.errorWithMsg": "Error: {msg}",
+  "multiples.meta": "{n} tickers · as of {asOf} · {source}",
+};
+function tt(key) { return window.I18N ? I18N.t(key) : (TT_FALLBACK[key] || key); }
+function tx(key, vars) { return tt(key).replace(/\{(\w+)\}/g, (_, k) => vars && vars[k] != null ? vars[k] : ''); }
+function allLabel() { return tt('common.all'); }
 
 function freshnessLabel(builtAt) {
   if (!builtAt) return { txt: '?', warn: true };
   const ageH = (Date.now() - new Date(builtAt).getTime()) / 36e5;
-  return { txt: `● updated ${ageH < 1 ? Math.round(ageH * 60) + 'm' : Math.round(ageH) + 'h'} ago`, warn: ageH > 36 };
+  const x = ageH < 1 ? Math.round(ageH * 60) + 'm' : Math.round(ageH) + 'h';
+  return { txt: tx('common.dotUpdatedAgo', { x }), warn: ageH > 36 };
 }
 
 function heatColor(pct, direction) {
@@ -147,12 +163,12 @@ function buildTabs() {
   ROWS.forEach(r => { const rm = (TICKERS[r.tk] || {}).rm || '?'; rmCounts[rm] = (rmCounts[rm] || 0) + 1; });
   const rms = Object.keys(rmCounts).filter(r => r !== 'ALL').sort((a, b) => rmCounts[b] - rmCounts[a]);
   document.getElementById('rmTabs').innerHTML = `
-    <div class="tab active" data-rm="ALL" onclick="setRm('ALL')">All <span class="tab-count">${rmCounts.ALL}</span></div>
+    <div class="tab ${activeRm === 'ALL' ? 'active' : ''}" data-rm="ALL" onclick="setRm('ALL')">${allLabel()} <span class="tab-count">${rmCounts.ALL}</span></div>
     ${rms.map(r => `<div class="tab" data-rm="${r}" onclick="setRm('${r}')">${r} <span class="tab-count">${rmCounts[r]}</span></div>`).join('')}`;
 
   const secCounts = {}; ROWS.forEach(r => secCounts[r.sector] = (secCounts[r.sector] || 0) + 1);
   document.getElementById('sectorTabs').innerHTML = `
-    <div class="tab active" data-sector="ALL" onclick="setSector('ALL')">All</div>
+    <div class="tab ${activeSector === 'ALL' ? 'active' : ''}" data-sector="ALL" onclick="setSector('ALL')">${allLabel()}</div>
     ${Object.keys(secCounts).sort().map(s => `<div class="tab" data-sector="${s}" onclick="setSector('${s}')">${s} <span class="tab-count">${secCounts[s]}</span></div>`).join('')}`;
 }
 
@@ -164,10 +180,10 @@ function setSort(key) { if (sortKey === key) sortDir = -sortDir; else { sortKey 
 function render() {
   const thead = document.getElementById('thead');
   thead.innerHTML = `<tr>
-    <th onclick="setSort('tk')">Ticker</th>
+    <th onclick="setSort('tk')">${tt('common.ticker')}</th>
     <th onclick="setSort('rm')">RM</th>
-    <th onclick="setSort('sector')">Sector</th>
-    <th onclick="setSort('segment')">Segment</th>
+    <th onclick="setSort('sector')">${tt('common.sector')}</th>
+    <th onclick="setSort('segment')">${tt('common.segment')}</th>
     ${METRICS.map(m => `<th class="${sortKey === m.key ? (sortDir === 1 ? 'sort-asc' : 'sort-desc') : ''}" onclick="setSort('${m.key}')">${m.label}</th>`).join('')}
   </tr>`;
 
@@ -213,13 +229,14 @@ async function init() {
     METRICS = dj.metrics || [];
     ROWS = dj.rows || [];
     AGG = dj.sectorAgg || [];
+    DATA_META = dj;
 
     const fresh = freshnessLabel(dj._built_at);
     const badge = document.getElementById('staleBadge');
     badge.textContent = fresh.txt;
     if (fresh.warn) badge.classList.add('warn');
 
-    document.getElementById('meta').textContent = `${ROWS.length} tickers · as of ${dj.asOf || ''} · ${dj.source || ''}`;
+    updateMeta();
 
     document.getElementById('aggRow').innerHTML = AGG.map(a => `
       <div class="agg-card">
@@ -237,10 +254,26 @@ async function init() {
     document.getElementById('tbl').style.display = '';
     render();
   } catch(e) {
-    document.getElementById('loading').textContent = `Error: ${e.message}`;
+    document.getElementById('loading').textContent = tx('common.errorWithMsg', { msg: e.message });
   }
 }
 init();
+function updateMeta() {
+  if (!DATA_META) return;
+  document.getElementById('meta').textContent = tx('multiples.meta', {
+    n: ROWS.length,
+    asOf: DATA_META.asOf || '',
+    source: DATA_META.source || ''
+  });
+}
+window.addEventListener('i18n:change', () => {
+  if (window.I18N) I18N.apply();
+  updateMeta();
+  if (ROWS.length) {
+    buildTabs();
+    render();
+  }
+});
 </script>
 <script src="nav.js" defer></script>
 <script src="chat-dock.js" defer></script>

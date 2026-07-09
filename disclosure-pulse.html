@@ -66,28 +66,29 @@
   .empty, .loading { text-align: center; padding: 60px; color: var(--muted); }
 </style>
   <link rel="stylesheet" href="theme.css">
+  <script src="i18n.js"></script>
 
 </head>
 <body>
 
 <header>
   <div>
-    <h1>Disclosure Pulse <span style="color:var(--muted);font-weight:400;font-size:13px">— IS1 Team</span></h1>
-    <div class="meta" id="meta">Loading…</div>
+    <h1><span data-i18n="page.disclosurePulse">Disclosure Pulse</span> <span style="color:var(--muted);font-weight:400;font-size:13px">— IS1 Team</span></h1>
+    <div class="meta" id="meta" data-i18n="common.loading">Loading…</div>
   </div>
   <nav class="nav">
-    <a href="index.html">Index</a>
-    <a href="price-movement.html">Price Movement</a>
-    <a href="disclosure-pulse.html" class="active">Disclosures</a>
-    <a href="oppday-minutes.html">Oppday</a>
-    <a href="multiples-comparison.html">Multiples Comparison</a>
-    <a href="company-summary.html">Company Summary</a>
-    <a href="multiples-band.html">Multiples Band</a>
-    <a href="bond-summary.html">Bonds</a>
-    <a href="unusual-trading.html">Alerts</a>
-    <a href="external-news.html">External</a>
-    <a href="trading-signs.html">Signs</a>
-    <a href="sec-enforcement.html">SEC</a>
+    <a href="index.html" data-i18n="nav.index">Index</a>
+    <a href="price-movement.html" data-i18n="page.priceMovement">Price Movement</a>
+    <a href="disclosure-pulse.html" class="active" data-i18n="nav.disclosures">Disclosures</a>
+    <a href="oppday-minutes.html" data-i18n="nav.oppday">Oppday</a>
+    <a href="multiples-comparison.html" data-i18n="page.multiplesComparison">Multiples Comparison</a>
+    <a href="company-summary.html" data-i18n="page.companySummary">Company Summary</a>
+    <a href="multiples-band.html" data-i18n="page.multiplesBand">Multiples Band</a>
+    <a href="bond-summary.html" data-i18n="nav.bonds">Bonds</a>
+    <a href="unusual-trading.html" data-i18n="nav.alerts">Alerts</a>
+    <a href="external-news.html" data-i18n="nav.external">External</a>
+    <a href="trading-signs.html" data-i18n="nav.signs">Signs</a>
+    <a href="sec-enforcement.html" data-i18n="nav.sec">SEC</a>
     <span class="stale" id="staleBadge">●</span>
   </nav>
 </header>
@@ -96,28 +97,49 @@
 
 <div class="tab-bar">
   <div class="tab-row">
-    <span class="tab-label">Window:</span>
+    <span class="tab-label"><span data-i18n="common.window">Window</span>:</span>
     <div id="windowTabs" style="display:flex;gap:4px;flex-wrap:wrap"></div>
   </div>
   <div class="tab-row">
-    <span class="tab-label">RM:</span>
+    <span class="tab-label"><span data-i18n="common.rm">RM</span>:</span>
     <div id="rmTabs" style="display:flex;gap:4px;flex-wrap:wrap"></div>
   </div>
   <div class="tab-row">
-    <span class="tab-label">Severity:</span>
+    <span class="tab-label"><span data-i18n="common.severity">Severity</span>:</span>
     <div id="sevTabs" style="display:flex;gap:4px;flex-wrap:wrap"></div>
-    <span class="tab-label" style="margin-left:20px">Sector:</span>
+    <span class="tab-label" style="margin-left:20px"><span data-i18n="common.sector">Sector</span>:</span>
     <div id="sectorTabs" style="display:flex;gap:4px;flex-wrap:wrap"></div>
   </div>
 </div>
 
-<div id="feed" class="feed"><div class="loading">Fetching disclosures…</div></div>
+<div id="feed" class="feed"><div class="loading" data-i18n="common.fetchingDisclosures">Fetching disclosures…</div></div>
 
 <script>
 let TICKERS = {}, FILINGS = [];
 let activeRm = 'ALL', activeSev = 'ALL', activeSector = 'ALL';
 let activeWindow = 1;   // days; 0 = ALL
 let activeTicker = new URLSearchParams(location.search).get('ticker') || null;
+let DATA_META = null;
+
+const TT_FALLBACK = {
+  "common.all": "All",
+  "common.dotUpdatedAgo": "● updated {x} ago",
+  "common.critical": "Critical",
+  "common.material": "Material",
+  "common.low": "Low",
+  "disclosure.filteredTicker": "Filtered by ticker:",
+  "common.routine": "Routine",
+  "disclosure.totalWindow": "Total · {window}",
+  "common.noDisclosures": "No disclosures matching filters.",
+  "common.errorWithMsg": "Error: {msg}",
+  "disclosure.meta": "{n} filings classified · {days}d data window · as of {asOf} · {source}",
+};
+function tt(key) { return window.I18N ? I18N.t(key) : (TT_FALLBACK[key] || key); }
+function esc(s) { return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function tx(key, vars) {
+  return tt(key).replace(/\{(\w+)\}/g, (_, k) => vars && vars[k] != null ? vars[k] : '');
+}
+function allLabel() { return tt('common.all'); }
 
 const WINDOWS = [
   { key: 1,  label: '1d' },
@@ -131,7 +153,8 @@ const WINDOWS = [
 function freshnessLabel(builtAt) {
   if (!builtAt) return { txt: '?', warn: true };
   const ageH = (Date.now() - new Date(builtAt).getTime()) / 36e5;
-  return { txt: `● updated ${ageH < 1 ? Math.round(ageH * 60) + 'm' : Math.round(ageH) + 'h'} ago`, warn: ageH > 36 };
+  const x = ageH < 1 ? Math.round(ageH * 60) + 'm' : Math.round(ageH) + 'h';
+  return { txt: tx('common.dotUpdatedAgo', { x }), warn: ageH > 36 };
 }
 
 function formatTs(ts) {
@@ -155,17 +178,17 @@ function buildRmTabs() {
   inWin.forEach(f => { const r = (TICKERS[f.tk] || {}).rm || '?'; rmCounts[r] = (rmCounts[r] || 0) + 1; });
   const rms = Object.keys(rmCounts).sort((a, b) => rmCounts[b] - rmCounts[a]);
   document.getElementById('rmTabs').innerHTML = `
-    <div class="tab ${activeRm === 'ALL' ? 'active' : ''}" data-rm="ALL" onclick="setRm('ALL')">All <span class="tab-count">${inWin.length}</span></div>
+    <div class="tab ${activeRm === 'ALL' ? 'active' : ''}" data-rm="ALL" onclick="setRm('ALL')">${allLabel()} <span class="tab-count">${inWin.length}</span></div>
     ${rms.map(r => `<div class="tab ${activeRm === r ? 'active' : ''}" data-rm="${r}" onclick="setRm('${r}')">${r} <span class="tab-count">${rmCounts[r]}</span></div>`).join('')}`;
 }
 
 function buildSevTabs() {
   // Severity — map UI labels to actual data values (proxy emits high/medium/low)
   const sevTabs = [
-    { key: 'ALL',    label: 'All',      color: '' },
-    { key: 'high',   label: 'Critical', color: 'color:var(--crit)' },
-    { key: 'medium', label: 'Material', color: 'color:var(--mat)' },
-    { key: 'low',    label: 'Low',      color: 'color:var(--low)' },
+    { key: 'ALL',    label: allLabel(), color: '' },
+    { key: 'high',   label: tt('common.critical'), color: 'color:var(--crit)' },
+    { key: 'medium', label: tt('common.material'), color: 'color:var(--mat)' },
+    { key: 'low',    label: tt('common.low'),      color: 'color:var(--low)' },
   ];
   document.getElementById('sevTabs').innerHTML = sevTabs.map(t => {
     const cls = t.key === activeSev ? 'tab active' : 'tab';
@@ -185,7 +208,7 @@ function buildSectorTabs() {
   document.getElementById('sectorTabs').innerHTML = sectors.map(s => {
     const cls = s === activeSector ? 'tab active' : 'tab';
     const cnt = s === 'ALL' ? inScope.length : (secCounts[s] || 0);
-    return `<div class="${cls}" data-sector="${s}" onclick="setSector('${s}')">${s === 'ALL' ? 'All' : s} <span class="tab-count">${cnt}</span></div>`;
+    return `<div class="${cls}" data-sector="${s}" onclick="setSector('${s}')">${s === 'ALL' ? allLabel() : s} <span class="tab-count">${cnt}</span></div>`;
   }).join('');
 }
 
@@ -231,7 +254,7 @@ function renderTickerBanner() {
     el.style.cssText = 'margin:10px 20px;padding:8px 14px;background:#6366f118;border:1px solid #6366f133;border-radius:8px;font-size:12px;display:flex;align-items:center;justify-content:space-between;';
     document.getElementById('feed').before(el);
   }
-  el.innerHTML = `<span>Filtered by ticker: <strong style="color:#a5b4fc">${activeTicker}</strong></span><button onclick="clearTickerFilter()" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:14px;padding:0 4px">×</button>`;
+  el.innerHTML = `<span>${esc(tt('disclosure.filteredTicker'))} <strong style="color:#a5b4fc">${esc(activeTicker)}</strong></span><button onclick="clearTickerFilter()" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:14px;padding:0 4px">×</button>`;
 }
 
 function clearTickerFilter() {
@@ -242,7 +265,9 @@ function clearTickerFilter() {
 }
 
 // Display label for a severity value
-const SEV_LABEL = { high: 'Critical', medium: 'Material', low: 'Low', critical: 'Critical', material: 'Material', routine: 'Routine' };
+function sevLabel(sev) {
+  return ({ high: tt('common.critical'), medium: tt('common.material'), low: tt('common.low'), critical: tt('common.critical'), material: tt('common.material'), routine: tt('common.routine') })[sev] || sev;
+}
 
 function updateStats() {
   // Stats reflect window + RM (severity / sector are filtered IN the feed, not the stats)
@@ -253,20 +278,20 @@ function updateStats() {
   rows.forEach(f => { const k = (f.severity || 'low').toLowerCase(); if (counts[k] !== undefined) counts[k]++; });
   const winLabel = (WINDOWS.find(w => w.key === activeWindow) || {}).label || '?';
   document.getElementById('statsBar').innerHTML = `
-    <div class="stat" style="color:var(--crit)"><div class="stat-val">${counts.high}</div><div class="stat-lbl">Critical</div></div>
-    <div class="stat" style="color:var(--mat)"><div class="stat-val">${counts.medium}</div><div class="stat-lbl">Material</div></div>
-    <div class="stat" style="color:var(--low)"><div class="stat-val">${counts.low}</div><div class="stat-lbl">Low</div></div>
-    <div class="stat"><div class="stat-val">${rows.length}</div><div class="stat-lbl">Total · ${winLabel}</div></div>`;
+    <div class="stat" style="color:var(--crit)"><div class="stat-val">${counts.high}</div><div class="stat-lbl">${tt('common.critical')}</div></div>
+    <div class="stat" style="color:var(--mat)"><div class="stat-val">${counts.medium}</div><div class="stat-lbl">${tt('common.material')}</div></div>
+    <div class="stat" style="color:var(--low)"><div class="stat-val">${counts.low}</div><div class="stat-lbl">${tt('common.low')}</div></div>
+    <div class="stat"><div class="stat-val">${rows.length}</div><div class="stat-lbl">${tx('disclosure.totalWindow', { window: winLabel })}</div></div>`;
 }
 
 function render() {
   renderTickerBanner();
   const rows = filtered();
   const feed = document.getElementById('feed');
-  if (!rows.length) { feed.innerHTML = '<div class="empty">No disclosures matching filters.</div>'; return; }
+  if (!rows.length) { feed.innerHTML = `<div class="empty">${tt('common.noDisclosures')}</div>`; return; }
   feed.innerHTML = rows.map(f => {
     const sev = (f.severity || 'low').toLowerCase();
-    const sevLabel = SEV_LABEL[sev] || sev;
+    const label = sevLabel(sev);
     const t = TICKERS[f.tk] || {};
     const summ = f._summary || f.summary || '';
     return `<div class="filing ${sev}">
@@ -275,7 +300,7 @@ function render() {
         <div class="filing-content">
           <div class="filing-title">${f.url ? `<a href="${f.url}" target="_blank" rel="noopener">${f.title || f.headline || '—'}</a>` : (f.title || f.headline || '—')}</div>
           <div class="filing-meta">
-            <span class="sev-badge sev-${sev}">${sevLabel}</span>
+            <span class="sev-badge sev-${sev}">${label}</span>
             ${t.rm ? `<span class="rm-badge">${t.rm}</span>` : ''}
             <span class="sector-badge s-${f.sector}">${f.sector}</span>
             ${f.type ? `<span style="font-size:10px;color:var(--muted)">${f.type}</span>` : ''}
@@ -296,17 +321,35 @@ async function init() {
     ]);
     tj.tickers.forEach(t => { TICKERS[t.tk] = t; });
     FILINGS = dj.filings || [];
+    DATA_META = dj;
     const fresh = freshnessLabel(dj._built_at);
     const badge = document.getElementById('staleBadge');
     badge.textContent = fresh.txt;
     if (fresh.warn) badge.classList.add('warn');
-    document.getElementById('meta').textContent = `${FILINGS.length} filings classified · ${dj.windowDays || 90}d data window · as of ${dj.asOf || ''} · ${dj.source || ''}`;
+    updateMeta();
     buildTabs(); updateStats(); render();
   } catch(e) {
-    document.getElementById('feed').innerHTML = `<div class="empty">Error: ${e.message}</div>`;
+    document.getElementById('feed').innerHTML = `<div class="empty">${tx('common.errorWithMsg', { msg: e.message })}</div>`;
   }
 }
 init();
+
+function updateMeta() {
+  if (!DATA_META) return;
+  document.getElementById('meta').textContent = tx('disclosure.meta', {
+    n: FILINGS.length,
+    days: DATA_META.windowDays || 90,
+    asOf: DATA_META.asOf || '',
+    source: DATA_META.source || ''
+  });
+}
+window.addEventListener('i18n:change', () => {
+  if (window.I18N) I18N.apply();
+  updateMeta();
+  buildTabs();
+  updateStats();
+  render();
+});
 </script>
 <script src="nav.js" defer></script>
 <script src="chat-dock.js" defer></script>

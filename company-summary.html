@@ -340,6 +340,7 @@ footer a{color:var(--muted);text-decoration:none}
 }
 </style>
   <link rel="stylesheet" href="theme.css">
+  <script src="i18n.js"></script>
 
 </head>
 <body>
@@ -347,39 +348,39 @@ footer a{color:var(--muted);text-decoration:none}
 <header>
   <a class="brand" href="index.html">
     <div class="brand-mark">IS</div>
-    <div><div class="brand-name">Coverage Desk</div><div class="brand-sub">SET Issuer Dept 1</div></div>
+    <div><div class="brand-name" data-i18n="brand.coverageDesk">Coverage Desk</div><div class="brand-sub" data-i18n="brand.setIssuerDept1">SET Issuer Dept 1</div></div>
   </a>
   <nav class="nav">
-    <a href="index.html">Index</a>
-    <a href="price-movement.html">Price Movement</a>
-    <a href="disclosure-pulse.html">Disclosures</a>
-    <a href="oppday-minutes.html">Oppday</a>
-    <a href="multiples-comparison.html">Multiples Comparison</a>
-    <a href="company-summary.html" class="active">Company Summary</a>
-    <a href="bond-summary.html">Bonds</a>
-    <a href="unusual-trading.html">Alerts</a>
-    <a href="external-news.html">External</a>
-    <a href="trading-signs.html">Signs</a>
-    <a href="sec-enforcement.html">SEC</a>
-    <span class="stale unknown" id="staleBadge">● loading</span>
+    <a href="index.html" data-i18n="nav.index">Index</a>
+    <a href="price-movement.html" data-i18n="page.priceMovement">Price Movement</a>
+    <a href="disclosure-pulse.html" data-i18n="nav.disclosures">Disclosures</a>
+    <a href="oppday-minutes.html" data-i18n="nav.oppday">Oppday</a>
+    <a href="multiples-comparison.html" data-i18n="page.multiplesComparison">Multiples Comparison</a>
+    <a href="company-summary.html" class="active" data-i18n="page.companySummary">Company Summary</a>
+    <a href="bond-summary.html" data-i18n="nav.bonds">Bonds</a>
+    <a href="unusual-trading.html" data-i18n="nav.alerts">Alerts</a>
+    <a href="external-news.html" data-i18n="nav.external">External</a>
+    <a href="trading-signs.html" data-i18n="nav.signs">Signs</a>
+    <a href="sec-enforcement.html" data-i18n="nav.sec">SEC</a>
+    <span class="stale unknown" id="staleBadge" data-i18n="common.loading">● loading</span>
   </nav>
 </header>
 
 <main>
-  <div><div class="pg-title">Company Summary</div><div class="pg-sub" id="pgSub">Loading…</div></div>
+  <div><div class="pg-title" data-i18n="page.companySummary">Company Summary</div><div class="pg-sub" id="pgSub" data-i18n="common.loading">Loading…</div></div>
   <div class="hero" id="hero"></div>
   <div class="controls" style="flex-direction:column;align-items:stretch;gap:8px">
     <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-      <div class="srchwrap"><input id="srch" type="text" placeholder="Search ticker / segment…" autocomplete="off" spellcheck="false"></div>
-      <div class="ctrl-row"><span class="ctrl-lbl">Sector</span><div class="filter-row" id="sectFilter"></div></div>
+      <div class="srchwrap"><input id="srch" type="text" placeholder="Search ticker / segment…" data-i18n-placeholder="common.searchTickerSegment" autocomplete="off" spellcheck="false"></div>
+      <div class="ctrl-row"><span class="ctrl-lbl" data-i18n="common.sector">Sector</span><div class="filter-row" id="sectFilter"></div></div>
       <span class="count-lbl" id="cntLbl">—</span>
     </div>
     <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center">
       <div class="ctrl-row"><span class="ctrl-lbl">RM</span><div class="filter-row" id="rmFilter"></div></div>
-      <div class="ctrl-row"><span class="ctrl-lbl">Sort</span><div class="filter-row" id="sortFilter"></div></div>
+      <div class="ctrl-row"><span class="ctrl-lbl" data-i18n="common.sort">Sort</span><div class="filter-row" id="sortFilter"></div></div>
     </div>
   </div>
-  <div id="loading"><div class="spinner"></div>Fetching ticker data…</div>
+  <div id="loading"><div class="spinner"></div><span data-i18n="common.fetchingTickerData">Fetching ticker data…</span></div>
   <div class="grid" id="grid" style="display:none"></div>
 </main>
 
@@ -389,15 +390,15 @@ footer a{color:var(--muted);text-decoration:none}
   <div class="dh" id="dh"></div>
   <div class="dp" id="dp"></div>
   <div class="dtabs" id="dtabs">
-    <div class="dtab active" data-tab="overview">Overview</div>
-    <div class="dtab" data-tab="report">Report</div>
-    <div class="dtab" data-tab="financials">Financials</div>
-    <div class="dtab" data-tab="oppday">Opp Day</div>
-    <div class="dtab" data-tab="mda">MD&A</div>
-    <div class="dtab" data-tab="notes">Notes</div>
-    <div class="dtab" data-tab="company">Company</div>
-    <div class="dtab" data-tab="governance">Governance</div>
-    <div class="dtab" data-tab="disclosures">Disclosures</div>
+    <div class="dtab active" data-tab="overview" data-i18n="common.overview">Overview</div>
+    <div class="dtab" data-tab="report" data-i18n="common.report">Report</div>
+    <div class="dtab" data-tab="financials" data-i18n="common.financials">Financials</div>
+    <div class="dtab" data-tab="oppday" data-i18n="common.oppDay">Opp Day</div>
+    <div class="dtab" data-tab="mda" data-i18n="common.mda">MD&A</div>
+    <div class="dtab" data-tab="notes" data-i18n="common.notes">Notes</div>
+    <div class="dtab" data-tab="company" data-i18n="common.company">Company</div>
+    <div class="dtab" data-tab="governance" data-i18n="common.governance">Governance</div>
+    <div class="dtab" data-tab="disclosures" data-i18n="common.disclosures">Disclosures</div>
   </div>
   <div id="dcontent"></div>
   <div class="dfooter" id="dfooter"></div>
@@ -405,11 +406,146 @@ footer a{color:var(--muted);text-decoration:none}
 
 <footer>
   <span id="fsrc">IS1 Coverage Desk · SET Issuer Department 1</span>
-  <span>Data: <a href="https://www.set.or.th" target="_blank" rel="noopener">SET.or.th</a> · SETSMART</span>
+  <span><span data-i18n="common.data">Data</span>: <a href="https://www.set.or.th" target="_blank" rel="noopener">SET.or.th</a> · SETSMART</span>
 </footer>
 
 <script>
 // ── helpers ──────────────────────────────────────────────────────────────────
+const TT_FALLBACK = {
+  "company.range52w": "52-week range",
+  "company.partialPeriod": "partial",
+  "company.partialLegend": "● = partial period",
+  "company.finChartTitle": "{a} vs {b} (M฿)",
+  "company.metricRevenue": "Revenue",
+  "company.metricNetProfit": "Net Profit",
+  "company.partialPeriodTitle": "{n}M period (partial year)",
+  "company.partialWarning": "Highlighted columns show partial-year results (3M/6M/9M) — not comparable to full-year figures.",
+  "common.metric": "Metric",
+  "company.freeFloat": "Free Float",
+  "company.foreignHeld": "Foreign Held",
+  "company.limitPct": "Limit {n}%",
+  "company.foreignRoom": "Foreign room remaining:",
+  "company.cheaper": "{n}% cheaper",
+  "company.atMedian": "at median",
+  "company.pricier": "{n}% pricier",
+  "company.higher": "{n}% higher",
+  "company.lower": "{n}% lower",
+  "company.peerMedianShort": "med {value}",
+  "company.pctile": "{n}th pctile",
+  "company.peerRankShort": "{label} {rank}th",
+  "company.vsSectorPeers": "vs Sector Peers · {sector} · {n} stocks",
+  "company.peerLegend": "Gray band = 25th–75th pctile · dashed line = median · dot = this ticker",
+  "company.cgScore": "CG Score",
+  "company.slides": "Slides",
+  "company.takeaway": "Takeaway",
+  "company.drivers": "Drivers",
+  "company.risksFlags": "Risks / flags",
+  "company.guidance": "Guidance",
+  "company.review": "REVIEW",
+  "company.verified": "VERIFIED",
+  "company.sourceExcerpt": "Source excerpt:",
+  "company.sourceNotes": "Source Notes",
+  "common.source": "Source",
+  "company.vaultReport": "Vault report:",
+  "company.neutral": "Neutral",
+  "company.companyReport": "company report",
+  "company.noThesis": "No thesis generated yet.",
+  "company.financialReadthrough": "Financial read-through",
+  "company.callSynthesis": "MD&A / call synthesis",
+  "common.financialStatementNotes": "Financial statement notes",
+  "company.watchItems": "Watch items",
+  "company.questionsContact": "Questions for next contact",
+  "company.dataQuality": "Data quality",
+  "company.notesCount": "NOTES {n}",
+  "company.unstar": "Unstar",
+  "company.star": "Star",
+  "company.badgeHigh52": "52W HI",
+  "company.badgeLow52": "52W LO",
+  "company.volumeTimes": "Vol×{x}",
+  "company.mktCap": "Mkt Cap",
+  "company.capValue": "Cap {value}",
+  "common.details": "Details ↗",
+  "company.setFactsheet": "SET Factsheet ↗",
+  "company.companySite": "Company Site ↗",
+  "common.disclosures": "Disclosures",
+  "company.alerts": "Alerts ↗",
+  "company.priceRange": "Price & Range",
+  "company.currentPrice": "Current Price",
+  "company.high52": "52W High",
+  "company.low52": "52W Low",
+  "company.ipoPrice": "IPO Price",
+  "company.parValue": "Par Value",
+  "company.volumeRatio": "Volume Ratio (20D avg)",
+  "company.returns": "Returns",
+  "company.day1": "1 Day",
+  "company.day5": "5 Day",
+  "company.monthToDate": "Month-to-Date",
+  "company.yearToDate": "Year-to-Date",
+  "company.ownershipStructure": "Ownership Structure",
+  "company.noOwnership": "No ownership data",
+  "company.listingInfo": "Listing Info",
+  "company.listedDate": "Listed Date",
+  "company.listedShares": "Listed Shares",
+  "company.sharesB": "{n}B shares",
+  "company.fiscalYearEnd": "Fiscal Year End",
+  "company.isinLocalParen": "ISIN (Local)",
+  "company.financialHistoryEmpty": "No financial history available",
+  "company.summaryM": "Summary (M฿)",
+  "company.noReport": "No generated company report for this ticker yet. Run scripts/build_company_reports.py locally, then deploy static assets.",
+  "company.oppdaySummary": "Opportunity Day summary",
+  "company.oppdayCalls": "Opp Day / earnings calls",
+  "company.noOppday": "No Opp Day or earnings-call notes for this ticker yet.",
+  "company.mdaAnalysis": "MD&A analysis",
+  "company.noMda": "No MD&A notes for this ticker yet.",
+  "company.noFsNotes": "No financial statement notes for this ticker yet.",
+  "company.business": "Business",
+  "company.website": "Website",
+  "company.address": "Address",
+  "company.telephone": "Telephone",
+  "company.established": "Established",
+  "company.dividendPolicy": "Dividend Policy",
+  "company.shareInfo": "Share Info",
+  "company.isinLocal": "ISIN Local",
+  "company.sharesBShort": "{n}B",
+  "company.ratings": "Ratings",
+  "company.esgRating": "ESG Rating",
+  "company.cacMember": "CAC Member",
+  "company.yes": "Yes",
+  "company.no": "No",
+  "company.auditOpinion": "Audit Opinion",
+  "company.auditors": "Auditors",
+  "company.certifiedAuditor": "Certified Auditor",
+  "company.keyManagement": "Key Management",
+  "company.noDisclosures90": "No disclosures in the 90-day window for this ticker.",
+  "company.filingsLast90": "{n} filing{s} · last 90 days",
+  "company.critShort": "CRIT",
+  "company.matShort": "MAT",
+  "company.lowShort": "LOW",
+  "common.minutesAgoShort": "{n}m ago",
+  "common.hoursAgoShort": "{n}h ago",
+  "common.daysAgoShort": "{n}d ago",
+  "company.count": "{shown} / {total} tickers",
+  "common.noTickersMatch": "No tickers match the filter.",
+  "common.tickers": "tickers",
+  "index.sectors": "Sectors",
+  "company.heroAdvancing": "Advancing",
+  "company.heroDeclining": "Declining",
+  "index.rms": "RMs",
+  "company.hero52Hi": "52W Hi",
+  "company.hero52Lo": "52W Lo",
+  "company.starred": "★ Starred",
+  "common.all": "All",
+  "common.unknown": "unknown",
+  "page.companySummary": "Company Summary",
+  "brand.coverageDesk": "Coverage Desk",
+  "company.meta": "{n} tickers · {asOf} · {source}",
+  "company.footerSource": "IS1 Coverage Desk · {asOf} · {source}",
+  "common.failedToLoadMsg": "Failed to load: {msg}",
+};
+function tt(key) { return window.I18N ? I18N.t(key) : (TT_FALLBACK[key] || key); }
+function tx(key, vars) {
+  return tt(key).replace(/\{(\w+)\}/g, (_, k) => vars && vars[k] != null ? vars[k] : '');
+}
 const f2  = v => v == null ? null : v.toFixed(2);
 const f1  = v => v == null ? null : v.toFixed(1);
 const fmb = v => v == null ? null : v >= 1000 ? (v/1000).toFixed(1)+'B' : v.toFixed(0)+'M';
@@ -452,7 +588,7 @@ function spark(data, id, W=260, H=44, pad=3){
 function rangeBar(lo, hi, last){
   if(lo==null||hi==null||last==null) return '';
   const pct=Math.max(0,Math.min(100,((last-lo)/(hi-lo||1))*100)).toFixed(1);
-  return `<div class="range-labels"><span>${lo.toFixed(2)}</span><span style="font-size:9px;color:var(--dim)">52-week range</span><span>${hi.toFixed(2)}</span></div>
+  return `<div class="range-labels"><span>${lo.toFixed(2)}</span><span style="font-size:9px;color:var(--dim)">${tt('company.range52w')}</span><span>${hi.toFixed(2)}</span></div>
   <div class="range-bar-wrap"><div class="range-grad"></div>
   <div class="range-dot" style="left:${pct}%"><div class="range-curtag">${last.toFixed(2)}</div></div></div>`;
 }
@@ -508,11 +644,11 @@ function finChart(highlights, metric1, metric2, label1, label2, col1, col2){
     const lbl=periodLabel(h, true);
     const lblCol=partial?'#f59e0b':'#5a627a';
     xlabels+=`<text x="${x+groupW/2}" y="${H+10}" text-anchor="middle" fill="${lblCol}" font-size="9" font-weight="${partial?'700':'400'}">${lbl}</text>`;
-    if(partial) xlabels+=`<text x="${x+groupW/2}" y="${H+18}" text-anchor="middle" fill="#f59e0b" font-size="7">partial</text>`;
+    if(partial) xlabels+=`<text x="${x+groupW/2}" y="${H+18}" text-anchor="middle" fill="#f59e0b" font-size="7">${tt('company.partialPeriod')}</text>`;
   });
   const hasPartial=highlights.some(isPartial);
-  const legend=`<text x="0" y="${H+(hasPartial?30:22)}" fill="${col1}" font-size="9" font-weight="600">■ ${label1}</text><text x="90" y="${H+(hasPartial?30:22)}" fill="${col2}" font-size="9" font-weight="600">■ ${label2}</text>${hasPartial?`<text x="180" y="${H+30}" fill="#f59e0b" font-size="8">● = partial period</text>`:''}`;
-  return `<div class="fin-chart"><div class="fin-chart-title">${label1} vs ${label2} (M฿)</div>
+  const legend=`<text x="0" y="${H+(hasPartial?30:22)}" fill="${col1}" font-size="9" font-weight="600">■ ${label1}</text><text x="90" y="${H+(hasPartial?30:22)}" fill="${col2}" font-size="9" font-weight="600">■ ${label2}</text>${hasPartial?`<text x="180" y="${H+30}" fill="#f59e0b" font-size="8">${tt('company.partialLegend')}</text>`:''}`;
+  return `<div class="fin-chart"><div class="fin-chart-title">${tx('company.finChartTitle', { a: label1, b: label2 })}</div>
   <svg viewBox="0 0 ${W} ${H+(hasPartial?36:28)}" xmlns="http://www.w3.org/2000/svg">${bars}${xlabels}${legend}</svg></div>`;
 }
 
@@ -520,8 +656,8 @@ function finChart(highlights, metric1, metric2, label1, label2, col1, col2){
 function ratiosTable(highlights){
   if(!highlights||!highlights.length) return '';
   const metrics=[
-    ['Revenue',   'revenue',  v=>v==null?'—':fmb(v)+'฿'],
-    ['Net Profit','netProfit',v=>v==null?'—':fmb(v)+'฿'],
+    [tt('company.metricRevenue'),   'revenue',  v=>v==null?'—':fmb(v)+'฿'],
+    [tt('company.metricNetProfit'),'netProfit',v=>v==null?'—':fmb(v)+'฿'],
     ['EPS',       'eps',      v=>v==null?'—':f2(v)+'฿'],
     ['ROE %',     'roe',      v=>v==null?'—':f1(v)+'%'],
     ['ROA %',     'roa',      v=>v==null?'—':f1(v)+'%'],
@@ -539,10 +675,10 @@ function ratiosTable(highlights){
     const lbl=periodLabel(h);
     const partial=isPartial(h);
     return `<th style="${partial?'color:var(--yellow)':''}">` +
-      (partial?`<span title="${h.months}M period (partial year)">${lbl} ⚠</span>`:lbl)+'</th>';
+      (partial?`<span title="${tx('company.partialPeriodTitle', { n: h.months })}">${lbl} ⚠</span>`:lbl)+'</th>';
   });
-  let html=`${hasPartial?`<div style="font-size:10px;color:var(--yellow);margin-bottom:8px;padding:6px 10px;background:#f59e0b10;border-radius:6px;border:1px solid #f59e0b20">⚠ Highlighted columns show partial-year results (3M/6M/9M) — not comparable to full-year figures.</div>`:''}
-  <div style="overflow-x:auto"><table class="fin-table"><thead><tr><th>Metric</th>${colHdrs.join('')}</tr></thead><tbody>`;
+  let html=`${hasPartial?`<div style="font-size:10px;color:var(--yellow);margin-bottom:8px;padding:6px 10px;background:#f59e0b10;border-radius:6px;border:1px solid #f59e0b20">⚠ ${tt('company.partialWarning')}</div>`:''}
+  <div style="overflow-x:auto"><table class="fin-table"><thead><tr><th>${tt('common.metric')}</th>${colHdrs.join('')}</tr></thead><tbody>`;
   metrics.forEach(([lbl,key,fmt])=>{
     const cells=highlights.map(h=>{
       const v=h[key]; const s=fmt(v);
@@ -560,9 +696,9 @@ function ratiosTable(highlights){
 function ownershipSection(t){
   const ff=t.freeFloat, fl=t.foreignLimit, fr=t.foreignRoom, used=fl&&fr?fl-fr:null;
   let html='';
-  if(ff!=null) html+=`<div class="own-bar-wrap"><div class="own-bar-label"><span class="name">Free Float</span><span class="val" style="color:var(--green)">${ff.toFixed(2)}%</span></div><div class="own-bar-bg"><div class="own-bar-fill" style="width:${Math.min(ff,100)}%;background:var(--green)"></div></div></div>`;
-  if(used!=null&&fl!=null) html+=`<div class="own-bar-wrap"><div class="own-bar-label"><span class="name">Foreign Held <span style="color:var(--dim);font-weight:400">/ Limit ${fl.toFixed(0)}%</span></span><span class="val" style="color:var(--blue)">${used.toFixed(2)}%</span></div><div class="own-bar-bg" style="position:relative"><div class="own-bar-fill" style="width:${Math.min(used/fl*100,100)}%;background:var(--blue)"></div><div class="own-bar-limit" style="left:${Math.min(100,100)}%"></div></div></div>`;
-  if(fr!=null) html+=`<div style="font-size:10px;color:var(--dim);margin-top:2px">Foreign room remaining: <strong style="color:var(--text)">${fr.toFixed(2)}%</strong></div>`;
+  if(ff!=null) html+=`<div class="own-bar-wrap"><div class="own-bar-label"><span class="name">${tt('company.freeFloat')}</span><span class="val" style="color:var(--green)">${ff.toFixed(2)}%</span></div><div class="own-bar-bg"><div class="own-bar-fill" style="width:${Math.min(ff,100)}%;background:var(--green)"></div></div></div>`;
+  if(used!=null&&fl!=null) html+=`<div class="own-bar-wrap"><div class="own-bar-label"><span class="name">${tt('company.foreignHeld')} <span style="color:var(--dim);font-weight:400">/ ${tx('company.limitPct', { n: fl.toFixed(0) })}</span></span><span class="val" style="color:var(--blue)">${used.toFixed(2)}%</span></div><div class="own-bar-bg" style="position:relative"><div class="own-bar-fill" style="width:${Math.min(used/fl*100,100)}%;background:var(--blue)"></div><div class="own-bar-limit" style="left:${Math.min(100,100)}%"></div></div></div>`;
+  if(fr!=null) html+=`<div style="font-size:10px;color:var(--dim);margin-top:2px">${tt('company.foreignRoom')} <strong style="color:var(--text)">${fr.toFixed(2)}%</strong></div>`;
   return html;
 }
 
@@ -615,8 +751,8 @@ function peerSection(t){
 
     const absDelta=Math.abs((val/median-1)*100).toFixed(0);
     const deltaLbl=lowerBetter
-      ?(val<median?`${absDelta}% cheaper`:val===median?'at median':`${absDelta}% pricier`)
-      :(val>median?`${absDelta}% higher`:val===median?'at median':`${absDelta}% lower`);
+      ?(val<median?tx('company.cheaper', { n: absDelta }):val===median?tt('company.atMedian'):tx('company.pricier', { n: absDelta }))
+      :(val>median?tx('company.higher', { n: absDelta }):val===median?tt('company.atMedian'):tx('company.lower', { n: absDelta }));
 
     // bullet bar SVG
     const W=200, BH=8, H=20;
@@ -637,21 +773,21 @@ function peerSection(t){
       <div class="peer-val" style="color:${dotCol}">${fmt(val)}${unit}</div>
       <div class="peer-bar-wrap">
         ${bar}
-        <div class="peer-bar-legend"><span>${fmt(st.min)}${unit}</span><span>med ${fmt(median)}${unit}</span><span>${fmt(st.max)}${unit}</span></div>
+        <div class="peer-bar-legend"><span>${fmt(st.min)}${unit}</span><span>${tx('company.peerMedianShort', { value: fmt(median) + unit })}</span><span>${fmt(st.max)}${unit}</span></div>
       </div>
       <div class="peer-meta">
         <div class="peer-delta ${isBetter?'peer-better':'peer-worse'}">${deltaLbl}</div>
-        <div class="peer-med">${rank}th pctile</div>
+        <div class="peer-med">${tx('company.pctile', { n: rank })}</div>
       </div>
     </div>`;
 
-    rankBadges+=`<span class="peer-rank ${isBetter?'peer-rank-good':'peer-rank-bad'}">${label} ${rank}th</span>`;
+    rankBadges+=`<span class="peer-rank ${isBetter?'peer-rank-good':'peer-rank-bad'}">${tx('company.peerRankShort', { label, rank })}</span>`;
   });
 
-  return `<div class="ds"><div class="ds-title">vs Sector Peers · ${esc(s)} · ${ss.n} stocks</div>
+  return `<div class="ds"><div class="ds-title">${tx('company.vsSectorPeers', { sector: esc(s), n: ss.n })}</div>
     <div class="peer-grid">${rows}</div>
     <div class="peer-rank-row">${rankBadges}</div>
-    <div style="font-size:9px;color:var(--dim);margin-top:6px">Gray band = 25th–75th pctile · dashed line = median · dot = this ticker</div>
+    <div style="font-size:9px;color:var(--dim);margin-top:6px">${tt('company.peerLegend')}</div>
   </div>`;
 }
 
@@ -659,7 +795,7 @@ function peerSection(t){
 function cgScore(score){
   if(!score) return '—';
   const dots=Array.from({length:5},(_,i)=>`<div class="cg-star${i<score?' filled':''}"></div>`).join('');
-  return `<div class="cg-stars">${dots}</div><div style="font-size:11px;color:var(--muted);margin-top:2px">CG Score ${score}/5</div>`;
+  return `<div class="cg-stars">${dots}</div><div style="font-size:11px;color:var(--muted);margin-top:2px">${tt('company.cgScore')} ${score}/5</div>`;
 }
 
 function noteCount(tk){
@@ -675,7 +811,7 @@ function noteMeta(parts){
 function noteLinks(n){
   const links=[];
   if(n.youtubeId) links.push(`<a class="note-link" href="https://youtu.be/${encodeURIComponent(n.youtubeId)}" target="_blank" rel="noopener">YouTube ↗</a>`);
-  if(n.presentationId) links.push(`<a class="note-link" href="https://api.lcp.setgroup.or.th/file/presentation/${encodeURIComponent(n.presentationId)}" target="_blank" rel="noopener">Slides ↗</a>`);
+  if(n.presentationId) links.push(`<a class="note-link" href="https://api.lcp.setgroup.or.th/file/presentation/${encodeURIComponent(n.presentationId)}" target="_blank" rel="noopener">${tt('company.slides')} ↗</a>`);
   return links.length?`<span style="display:flex;gap:8px;flex-wrap:wrap;margin-top:4px">${links.join('')}</span>`:'';
 }
 
@@ -692,24 +828,24 @@ function noteAnalysis(n){
   const chips=[];
   if(a.tone) chips.push(`<span class="note-chip note-tone-${tone}">${esc(a.tone)}</span>`);
   (a.metrics||[]).slice(0,3).forEach(m=>chips.push(`<span class="note-chip">${esc(trimText(m,95))}</span>`));
-  if(a.takeaway) chunks.push(`<div class="note-takeaway"><span>Takeaway</span>${esc(trimText(a.takeaway,320))}</div>`);
+  if(a.takeaway) chunks.push(`<div class="note-takeaway"><span>${tt('company.takeaway')}</span>${esc(trimText(a.takeaway,320))}</div>`);
   if(chips.length) chunks.push(`<div class="note-chip-row">${chips.join('')}</div>`);
-  chunks.push(noteList('Drivers',a.drivers,3));
-  chunks.push(noteList('Risks / flags',[...(a.flags||[]),...(a.risks||[])],4));
-  chunks.push(noteList('Guidance',a.guidance,3));
+  chunks.push(noteList(tt('company.drivers'),a.drivers,3));
+  chunks.push(noteList(tt('company.risksFlags'),[...(a.flags||[]),...(a.risks||[])],4));
+  chunks.push(noteList(tt('company.guidance'),a.guidance,3));
   return chunks.filter(Boolean).join('');
 }
 
 function noteItem(n, kind, label){
   const cls={call:'note-badge-call',opp:'note-badge-opp',mda:'note-badge-mda',fs:'note-badge-fs'}[kind]||'note-badge-call';
-  const status=n.needsReview?'<span class="note-badge note-badge-review">REVIEW</span>':(n.verified?'<span class="note-badge note-badge-fs">VERIFIED</span>':'');
+  const status=n.needsReview?`<span class="note-badge note-badge-review">${tt('company.review')}</span>`:(n.verified?`<span class="note-badge note-badge-fs">${tt('company.verified')}</span>`:'');
   const meta=noteMeta([n.period,n.eventDate,n.eventType,n.language]);
   const analyzed=!!(n.analysis&&Object.keys(n.analysis).length);
   return `<div class="note-row">
     <div class="note-row-top"><span class="note-badge ${cls}">${label}</span>${status}${meta?`<span style="font-size:10px;color:var(--dim)">${meta}</span>`:''}</div>
     <div class="note-title">${esc(n.title||label)}</div>
     ${analyzed?noteAnalysis(n):(n.snippet?`<div class="note-snippet">${esc(trimText(n.snippet,360))}</div>`:'')}
-    ${analyzed&&n.snippet?`<div class="note-snippet note-excerpt">Source excerpt: ${esc(trimText(n.snippet,220))}</div>`:''}
+    ${analyzed&&n.snippet?`<div class="note-snippet note-excerpt">${tt('company.sourceExcerpt')} ${esc(trimText(n.snippet,220))}</div>`:''}
     ${noteLinks(n)}
     ${n.sourcePath?`<div class="note-meta">${esc(n.sourcePath)}</div>`:''}
   </div>`;
@@ -729,8 +865,8 @@ function reportList(title, items){
 function reportSourceList(items){
   const rows=(items||[]).filter(Boolean);
   if(!rows.length) return '';
-  return `<div class="ds"><div class="ds-title">Source Notes</div>${rows.map(s=>`<div class="report-source">
-    <strong>${esc(s.kind||'Source')}</strong>${s.period?` · ${esc(s.period)}`:''}<br>
+  return `<div class="ds"><div class="ds-title">${tt('company.sourceNotes')}</div>${rows.map(s=>`<div class="report-source">
+    <strong>${esc(s.kind||tt('common.source'))}</strong>${s.period?` · ${esc(s.period)}`:''}<br>
     ${esc(trimText(s.title||'',160))}
     ${s.sourcePath?`<span class="report-path">${esc(s.sourcePath)}</span>`:''}
   </div>`).join('')}</div>`;
@@ -739,22 +875,22 @@ function reportSourceList(items){
 function reportCard(r){
   if(!r) return '';
   const tone=(r.tone||'Neutral').toLowerCase();
-  const src=r.vaultPath?`<div class="note-meta">Vault report: ${esc(r.vaultPath)}</div>`:'';
+  const src=r.vaultPath?`<div class="note-meta">${tt('company.vaultReport')} ${esc(r.vaultPath)}</div>`:'';
   return `<div class="report-hero">
     <div class="report-kicker">
-      <span class="report-tone report-tone-${tone}">${esc(r.tone||'Neutral')}</span>
-      <span class="report-model">${esc(r.model||'company report')} · ${esc((r.generated||'').slice(0,10))}</span>
+      <span class="report-tone report-tone-${tone}">${esc(r.tone||tt('company.neutral'))}</span>
+      <span class="report-model">${esc(r.model||tt('company.companyReport'))} · ${esc((r.generated||'').slice(0,10))}</span>
     </div>
-    <div class="report-thesis">${esc(r.thesis||'No thesis generated yet.')}</div>
+    <div class="report-thesis">${esc(r.thesis||tt('company.noThesis'))}</div>
     ${r.summary?`<div class="report-summary">${esc(r.summary)}</div>`:''}
     ${src}
   </div>
-  ${reportList('Financial read-through',r.financialSnapshot)}
-  ${reportList('MD&A / call synthesis',r.mdaSynthesis)}
-  ${reportList('Financial statement notes',r.fsNotesSynthesis)}
-  ${reportList('Watch items',r.watchItems)}
-  ${reportList('Questions for next contact',r.questions)}
-  ${reportList('Data quality',r.qualityFlags)}
+  ${reportList(tt('company.financialReadthrough'),r.financialSnapshot)}
+  ${reportList(tt('company.callSynthesis'),r.mdaSynthesis)}
+  ${reportList(tt('common.financialStatementNotes'),r.fsNotesSynthesis)}
+  ${reportList(tt('company.watchItems'),r.watchItems)}
+  ${reportList(tt('company.questionsContact'),r.questions)}
+  ${reportList(tt('company.dataQuality'),r.qualityFlags)}
   ${reportSourceList(r.sourceNotes)}`;
 }
 
@@ -776,17 +912,17 @@ function buildCard(t, idx){
   const esgB=esgBadge(t.esgRating);
   const cacB=t.cacFlag?'<span class="badge b-cac">CAC</span>':'';
   const noteCnt=noteCount(t.tk);
-  const noteB=noteCnt?`<span class="badge b-note">NOTES ${noteCnt}</span>`:'';
+  const noteB=noteCnt?`<span class="badge b-note">${tx('company.notesCount', { n: noteCnt })}</span>`:'';
   const isStarred=STARRED.has(t.tk);
   // recent disclosures strip (last 2)
   const discs=(DISC_MAP[t.tk]||[]).slice(0,2);
   const discHtml=discs.length?`<div class="disc-strip">${discs.map(f=>{
     const sev=(f.severity||'low').toLowerCase();
     const title=f.title||f.headline||'';
-    return `<div class="disc-item"><span class="${discClass(sev)}">${sev==='high'||sev==='critical'?'CRIT':sev==='medium'||sev==='material'?'MAT':'LOW'}</span><span class="disc-title">${esc(title)}</span><span style="flex-shrink:0;color:var(--dim);font-size:9px">${formatDiscTs(f.ts)}</span></div>`;
+    return `<div class="disc-item"><span class="${discClass(sev)}">${shortSeverity(sev)}</span><span class="disc-title">${esc(title)}</span><span style="flex-shrink:0;color:var(--dim);font-size:9px">${formatDiscTs(f.ts)}</span></div>`;
   }).join('')}</div>`:'';
   return `<div class="card" data-sector="${esc(t.sector)}" data-tk="${esc(t.tk)}" data-idx="${idx}" onclick="openDrawer(${idx})">
-    <button class="star-btn${isStarred?' starred':''}" onclick="toggleStar('${esc(t.tk)}',event)" title="${isStarred?'Unstar':'Star'}">${isStarred?'★':'☆'}</button>
+    <button class="star-btn${isStarred?' starred':''}" onclick="toggleStar('${esc(t.tk)}',event)" title="${isStarred?tt('company.unstar'):tt('company.star')}">${isStarred?'★':'☆'}</button>
     <div class="card-stripe"></div>
     <div class="card-body">
       <div class="card-top">
@@ -795,8 +931,8 @@ function buildCard(t, idx){
           <span class="badge b-sect">${esc(s)}</span>
           ${seg?`<span class="badge b-seg">${esc(seg)}</span>`:''}
           <span class="badge b-rm">${esc(t.rm||'—')}</span>
-          ${t.atHi52?'<span class="badge b-hi">52W HI</span>':''}
-          ${t.atLo52?'<span class="badge b-lo">52W LO</span>':''}
+          ${t.atHi52?`<span class="badge b-hi">${tt('company.badgeHigh52')}</span>`:''}
+          ${t.atLo52?`<span class="badge b-lo">${tt('company.badgeLow52')}</span>`:''}
           ${esgB}${cacB}${noteB}
         </div>
       </div>
@@ -804,7 +940,7 @@ function buildCard(t, idx){
         <span class="price-val">${t.last!=null?t.last.toFixed(2):'—'}</span>
         <span class="price-unit">THB</span>
         <span class="price-chg ${chgCls(ca)}">${arrow} ${dash(pct(ca))}</span>
-        ${t.volRatio!=null?`<span class="vol-ratio">Vol×${t.volRatio.toFixed(1)}</span>`:''}
+        ${t.volRatio!=null?`<span class="vol-ratio">${tx('company.volumeTimes', { x: t.volRatio.toFixed(1) })}</span>`:''}
       </div>
       <div class="spark-wrap">${spark(t.sparkline,'c'+t.tk)}</div>
       <div class="range-section">${rangeBar(t.lo52,t.hi52,t.last)}</div>
@@ -812,7 +948,7 @@ function buildCard(t, idx){
         <div class="metric"><div class="metric-lbl">PE</div><div class="metric-val ${peCls(t.pe)}">${t.pe!=null?f1(t.pe):'—'}</div></div>
         <div class="metric"><div class="metric-lbl">PBV</div><div class="metric-val ${pbvCls(t.pbv)}">${t.pbv!=null?f2(t.pbv):'—'}</div></div>
         <div class="metric"><div class="metric-lbl">DY %</div><div class="metric-val ${dyCls(t.dy)}">${t.dy!=null?f2(t.dy):'—'}</div></div>
-        <div class="metric"><div class="metric-lbl">Mkt Cap</div><div class="metric-val mv-null" style="font-size:10px">${t.mktcap!=null?fmb(t.mktcap/1e6):'—'}</div></div>
+        <div class="metric"><div class="metric-lbl">${tt('company.mktCap')}</div><div class="metric-val mv-null" style="font-size:10px">${t.mktcap!=null?fmb(t.mktcap/1e6):'—'}</div></div>
       </div>
       <div class="metrics">
         <div class="metric"><div class="metric-lbl">NPM %</div><div class="metric-val ${npmCls}">${npm!=null?f1(npm)+'%':'—'}</div></div>
@@ -828,8 +964,8 @@ function buildCard(t, idx){
       </div>
       ${discHtml}
       <div class="card-foot">
-        <span class="mktcap-lbl">${mktStr?'Cap '+mktStr+'฿':''}</span>
-        <button class="open-btn">Details ↗</button>
+        <span class="mktcap-lbl">${mktStr?tx('company.capValue', { value: mktStr }):''}</span>
+        <button class="open-btn">${tt('common.details')}</button>
       </div>
     </div>
   </div>`;
@@ -858,9 +994,9 @@ function openDrawer(idx, tab='overview'){
         <span class="badge b-rm">${esc(t.rm||'—')}</span>
         ${esgBadge(t.esgRating)}
         ${t.cacFlag?'<span class="badge b-cac">CAC</span>':''}
-        ${notesCnt?`<span class="badge b-note">NOTES ${notesCnt}</span>`:''}
-        ${t.atHi52?'<span class="badge b-hi">52W HI</span>':''}
-        ${t.atLo52?'<span class="badge b-lo">52W LO</span>':''}
+        ${notesCnt?`<span class="badge b-note">${tx('company.notesCount', { n: notesCnt })}</span>`:''}
+        ${t.atHi52?`<span class="badge b-hi">${tt('company.badgeHigh52')}</span>`:''}
+        ${t.atLo52?`<span class="badge b-lo">${tt('company.badgeLow52')}</span>`:''}
       </div>
     </div>
     <button class="dh-close" onclick="closeDrawer()">×</button>`;
@@ -880,10 +1016,10 @@ function openDrawer(idx, tab='overview'){
   // footer
   const setUrl=`https://www.set.or.th/en/market/product/stock/quote/${encodeURIComponent(t.tk)}/factsheet`;
   document.getElementById('dfooter').innerHTML = `
-    <a class="dfoot-link" href="${setUrl}" target="_blank" rel="noopener">SET Factsheet ↗</a>
-    ${t.website?`<a class="dfoot-link" href="${esc(t.website.startsWith('http')?t.website:'http://'+t.website)}" target="_blank" rel="noopener">Company Site ↗</a>`:''}
-    <a class="dfoot-link" href="disclosure-pulse.html?ticker=${encodeURIComponent(t.tk)}" target="_blank">Disclosures ↗</a>
-    <a class="dfoot-link" href="unusual-trading.html?ticker=${encodeURIComponent(t.tk)}" target="_blank">Alerts ↗</a>`;
+    <a class="dfoot-link" href="${setUrl}" target="_blank" rel="noopener">${tt('company.setFactsheet')}</a>
+    ${t.website?`<a class="dfoot-link" href="${esc(t.website.startsWith('http')?t.website:'http://'+t.website)}" target="_blank" rel="noopener">${tt('company.companySite')}</a>`:''}
+    <a class="dfoot-link" href="disclosure-pulse.html?ticker=${encodeURIComponent(t.tk)}" target="_blank">${tt('common.disclosures')} ↗</a>
+    <a class="dfoot-link" href="unusual-trading.html?ticker=${encodeURIComponent(t.tk)}" target="_blank">${tt('company.alerts')}</a>`;
 
   document.getElementById('overlay').classList.add('show');
   document.getElementById('drawer').classList.add('show');
@@ -902,44 +1038,44 @@ function renderTab(tab){
   let html='';
 
   if(tab==='overview'){
-    html+=`<div class="ds"><div class="ds-title">Price & Range</div>
+    html+=`<div class="ds"><div class="ds-title">${tt('company.priceRange')}</div>
       ${rangeBar(t.lo52,t.hi52,t.last)?`<div style="margin-bottom:12px">${rangeBar(t.lo52,t.hi52,t.last)}</div>`:''}
-      <div class="ds-row"><span class="ds-lbl">Current Price</span><span class="ds-val">${t.last!=null?t.last.toFixed(2)+' THB':'—'}</span></div>
-      <div class="ds-row"><span class="ds-lbl">52W High</span><span class="ds-val" style="color:var(--green)">${t.hi52!=null?t.hi52.toFixed(2)+' THB':'—'}</span></div>
-      <div class="ds-row"><span class="ds-lbl">52W Low</span><span class="ds-val" style="color:var(--red)">${t.lo52!=null?t.lo52.toFixed(2)+' THB':'—'}</span></div>
-      <div class="ds-row"><span class="ds-lbl">IPO Price</span><span class="ds-val">${t.ipo!=null?t.ipo.toFixed(2)+' THB':' —'}</span></div>
-      <div class="ds-row"><span class="ds-lbl">Par Value</span><span class="ds-val">${t.par!=null?t.par.toFixed(2)+' THB':'—'}</span></div>
-      <div class="ds-row"><span class="ds-lbl">Volume Ratio (20D avg)</span><span class="ds-val">${t.volRatio!=null?t.volRatio.toFixed(2)+'×':'—'}</span></div>
+      <div class="ds-row"><span class="ds-lbl">${tt('company.currentPrice')}</span><span class="ds-val">${t.last!=null?t.last.toFixed(2)+' THB':'—'}</span></div>
+      <div class="ds-row"><span class="ds-lbl">${tt('company.high52')}</span><span class="ds-val" style="color:var(--green)">${t.hi52!=null?t.hi52.toFixed(2)+' THB':'—'}</span></div>
+      <div class="ds-row"><span class="ds-lbl">${tt('company.low52')}</span><span class="ds-val" style="color:var(--red)">${t.lo52!=null?t.lo52.toFixed(2)+' THB':'—'}</span></div>
+      <div class="ds-row"><span class="ds-lbl">${tt('company.ipoPrice')}</span><span class="ds-val">${t.ipo!=null?t.ipo.toFixed(2)+' THB':' —'}</span></div>
+      <div class="ds-row"><span class="ds-lbl">${tt('company.parValue')}</span><span class="ds-val">${t.par!=null?t.par.toFixed(2)+' THB':'—'}</span></div>
+      <div class="ds-row"><span class="ds-lbl">${tt('company.volumeRatio')}</span><span class="ds-val">${t.volRatio!=null?t.volRatio.toFixed(2)+'×':'—'}</span></div>
     </div>`;
-    html+=`<div class="ds"><div class="ds-title">Returns</div>
-      <div class="ds-row"><span class="ds-lbl">1 Day</span><span class="ds-val ${retCls(t.pct1d)}">${dash(pct(t.pct1d))}</span></div>
-      <div class="ds-row"><span class="ds-lbl">5 Day</span><span class="ds-val ${retCls(t.pct5d)}">${dash(pct(t.pct5d))}</span></div>
-      <div class="ds-row"><span class="ds-lbl">Month-to-Date</span><span class="ds-val ${retCls(t.pctMtd)}">${dash(pct(t.pctMtd))}</span></div>
-      <div class="ds-row"><span class="ds-lbl">Year-to-Date</span><span class="ds-val ${retCls(t.pctYtd)}">${dash(pct(t.pctYtd))}</span></div>
+    html+=`<div class="ds"><div class="ds-title">${tt('company.returns')}</div>
+      <div class="ds-row"><span class="ds-lbl">${tt('company.day1')}</span><span class="ds-val ${retCls(t.pct1d)}">${dash(pct(t.pct1d))}</span></div>
+      <div class="ds-row"><span class="ds-lbl">${tt('company.day5')}</span><span class="ds-val ${retCls(t.pct5d)}">${dash(pct(t.pct5d))}</span></div>
+      <div class="ds-row"><span class="ds-lbl">${tt('company.monthToDate')}</span><span class="ds-val ${retCls(t.pctMtd)}">${dash(pct(t.pctMtd))}</span></div>
+      <div class="ds-row"><span class="ds-lbl">${tt('company.yearToDate')}</span><span class="ds-val ${retCls(t.pctYtd)}">${dash(pct(t.pctYtd))}</span></div>
     </div>`;
     html+=peerSection(t);
-    html+=`<div class="ds"><div class="ds-title">Ownership Structure</div>${ownershipSection(t)||'<div style="color:var(--dim);font-size:12px">No ownership data</div>'}</div>`;
-    html+=`<div class="ds"><div class="ds-title">Listing Info</div>
-      <div class="ds-row"><span class="ds-lbl">Listed Date</span><span class="ds-val">${dash(t.listedDate)}</span></div>
-      <div class="ds-row"><span class="ds-lbl">Listed Shares</span><span class="ds-val">${t.listedShare!=null?(t.listedShare/1e9).toFixed(3)+'B shares':'—'}</span></div>
-      <div class="ds-row"><span class="ds-lbl">Fiscal Year End</span><span class="ds-val">${dash(t.fiscalYearEnd)}</span></div>
-      <div class="ds-row"><span class="ds-lbl">ISIN (Local)</span><span class="ds-val" style="font-family:monospace;font-size:11px">${dash(t.isinLocal)}</span></div>
+    html+=`<div class="ds"><div class="ds-title">${tt('company.ownershipStructure')}</div>${ownershipSection(t)||`<div style="color:var(--dim);font-size:12px">${tt('company.noOwnership')}</div>`}</div>`;
+    html+=`<div class="ds"><div class="ds-title">${tt('company.listingInfo')}</div>
+      <div class="ds-row"><span class="ds-lbl">${tt('company.listedDate')}</span><span class="ds-val">${dash(t.listedDate)}</span></div>
+      <div class="ds-row"><span class="ds-lbl">${tt('company.listedShares')}</span><span class="ds-val">${t.listedShare!=null?tx('company.sharesB', { n: (t.listedShare/1e9).toFixed(3) }):'—'}</span></div>
+      <div class="ds-row"><span class="ds-lbl">${tt('company.fiscalYearEnd')}</span><span class="ds-val">${dash(t.fiscalYearEnd)}</span></div>
+      <div class="ds-row"><span class="ds-lbl">${tt('company.isinLocalParen')}</span><span class="ds-val" style="font-family:monospace;font-size:11px">${dash(t.isinLocal)}</span></div>
     </div>`;
   }
 
   if(tab==='financials'){
-    if(!hl.length){ html='<div style="color:var(--muted);padding:24px 0;text-align:center">No financial history available</div>'; }
+    if(!hl.length){ html=`<div style="color:var(--muted);padding:24px 0;text-align:center">${tt('company.financialHistoryEmpty')}</div>`; }
     else {
-      html+=finChart(hl,'revenue','netProfit','Revenue','Net Profit','#3b82f6','#22c55e');
+      html+=finChart(hl,'revenue','netProfit',tt('company.metricRevenue'),tt('company.metricNetProfit'),'#3b82f6','#22c55e');
       const periodRange=hl.length?`${periodLabel(hl[0])} – ${periodLabel(hl[hl.length-1])}`:`${hl.length} periods`;
-      html+=`<div class="ds"><div class="ds-title">Summary (M฿) · ${periodRange}</div>${ratiosTable(hl)}</div>`;
+      html+=`<div class="ds"><div class="ds-title">${tt('company.summaryM')} · ${periodRange}</div>${ratiosTable(hl)}</div>`;
     }
   }
 
   if(tab==='report'){
     const report=REPORT_MAP[t.tk];
     html+=reportCard(report);
-    if(!html) html='<div style="color:var(--muted);padding:24px 0;text-align:center">No generated company report for this ticker yet. Run scripts/build_company_reports.py locally, then deploy static assets.</div>';
+    if(!html) html=`<div style="color:var(--muted);padding:24px 0;text-align:center">${tt('company.noReport')}</div>`;
   }
 
   if(tab==='oppday'){
@@ -948,7 +1084,7 @@ function renderTab(tab){
     const oppRows=[];
     if(opp){
       oppRows.push(noteItem({
-        title:`Opportunity Day summary${opp.period?` · ${opp.period}`:''}`,
+        title:`${tt('company.oppdaySummary')}${opp.period?` · ${opp.period}`:''}`,
         period:opp.period||'',
         eventType:opp.source||'oppday',
         language:'',
@@ -957,59 +1093,59 @@ function renderTab(tab){
       },'opp','OPPDAY'));
     }
     const callRows=(vault.calls||[]).map(n=>noteItem(n,'call','CALL'));
-    html+=noteSection('Opp Day / earnings calls',oppRows.concat(callRows));
-    if(!html) html='<div style="color:var(--muted);padding:24px 0;text-align:center">No Opp Day or earnings-call notes for this ticker yet.</div>';
+    html+=noteSection(tt('company.oppdayCalls'),oppRows.concat(callRows));
+    if(!html) html=`<div style="color:var(--muted);padding:24px 0;text-align:center">${tt('company.noOppday')}</div>`;
   }
 
   if(tab==='mda'){
     const vault=VAULT_MAP[t.tk]||{};
     const mdaRows=(vault.mda||[]).map(n=>noteItem(n,'mda','MD&A'));
-    html+=noteSection('MD&A analysis',mdaRows);
-    if(!html) html='<div style="color:var(--muted);padding:24px 0;text-align:center">No MD&A notes for this ticker yet.</div>';
+    html+=noteSection(tt('company.mdaAnalysis'),mdaRows);
+    if(!html) html=`<div style="color:var(--muted);padding:24px 0;text-align:center">${tt('company.noMda')}</div>`;
   }
 
   if(tab==='notes'){
     const vault=VAULT_MAP[t.tk]||{};
     const fsRows=(vault.fsNotes||[]).map(n=>noteItem(n,'fs','FS NOTE'));
-    html+=noteSection('Financial statement notes',fsRows);
-    if(!html) html='<div style="color:var(--muted);padding:24px 0;text-align:center">No financial statement notes for this ticker yet.</div>';
+    html+=noteSection(tt('common.financialStatementNotes'),fsRows);
+    if(!html) html=`<div style="color:var(--muted);padding:24px 0;text-align:center">${tt('company.noFsNotes')}</div>`;
   }
 
   if(tab==='company'){
-    html+=`<div class="ds"><div class="ds-title">Business</div>
+    html+=`<div class="ds"><div class="ds-title">${tt('company.business')}</div>
       ${t.businessType?`<div style="font-size:12px;line-height:1.65;color:var(--muted);margin-bottom:10px">${esc(t.businessType)}</div>`:''}
-      <div class="ds-row"><span class="ds-lbl">Website</span><span class="ds-val">${t.website?`<a href="${esc(t.website.startsWith('http')?t.website:'http://'+t.website)}" target="_blank" rel="noopener">${esc(t.website)}</a>`:'—'}</span></div>
-      <div class="ds-row"><span class="ds-lbl">Address</span><span class="ds-val" style="font-size:11px">${dash(t.address?esc(t.address):null)}</span></div>
-      <div class="ds-row"><span class="ds-lbl">Telephone</span><span class="ds-val">${dash(t.tel?esc(t.tel):null)}</span></div>
-      <div class="ds-row"><span class="ds-lbl">Established</span><span class="ds-val">${dash(t.established)}</span></div>
-      <div class="ds-row"><span class="ds-lbl">Fiscal Year End</span><span class="ds-val">${dash(t.fiscalYearEnd)}</span></div>
+      <div class="ds-row"><span class="ds-lbl">${tt('company.website')}</span><span class="ds-val">${t.website?`<a href="${esc(t.website.startsWith('http')?t.website:'http://'+t.website)}" target="_blank" rel="noopener">${esc(t.website)}</a>`:'—'}</span></div>
+      <div class="ds-row"><span class="ds-lbl">${tt('company.address')}</span><span class="ds-val" style="font-size:11px">${dash(t.address?esc(t.address):null)}</span></div>
+      <div class="ds-row"><span class="ds-lbl">${tt('company.telephone')}</span><span class="ds-val">${dash(t.tel?esc(t.tel):null)}</span></div>
+      <div class="ds-row"><span class="ds-lbl">${tt('company.established')}</span><span class="ds-val">${dash(t.established)}</span></div>
+      <div class="ds-row"><span class="ds-lbl">${tt('company.fiscalYearEnd')}</span><span class="ds-val">${dash(t.fiscalYearEnd)}</span></div>
     </div>`;
-    if(t.dividendPolicy) html+=`<div class="ds"><div class="ds-title">Dividend Policy</div><div style="font-size:12px;line-height:1.65;color:var(--muted)">${esc(t.dividendPolicy)}</div></div>`;
-    html+=`<div class="ds"><div class="ds-title">Share Info</div>
-      <div class="ds-row"><span class="ds-lbl">IPO Price</span><span class="ds-val">${t.ipo!=null?t.ipo.toFixed(2)+' THB':'—'}</span></div>
-      <div class="ds-row"><span class="ds-lbl">Par Value</span><span class="ds-val">${t.par!=null?t.par.toFixed(2)+' THB':'—'}</span></div>
-      <div class="ds-row"><span class="ds-lbl">ISIN Local</span><span class="ds-val" style="font-family:monospace;font-size:11px">${dash(t.isinLocal)}</span></div>
-      <div class="ds-row"><span class="ds-lbl">Listed Shares</span><span class="ds-val">${t.listedShare!=null?(t.listedShare/1e9).toFixed(3)+'B':'—'}</span></div>
+    if(t.dividendPolicy) html+=`<div class="ds"><div class="ds-title">${tt('company.dividendPolicy')}</div><div style="font-size:12px;line-height:1.65;color:var(--muted)">${esc(t.dividendPolicy)}</div></div>`;
+    html+=`<div class="ds"><div class="ds-title">${tt('company.shareInfo')}</div>
+      <div class="ds-row"><span class="ds-lbl">${tt('company.ipoPrice')}</span><span class="ds-val">${t.ipo!=null?t.ipo.toFixed(2)+' THB':'—'}</span></div>
+      <div class="ds-row"><span class="ds-lbl">${tt('company.parValue')}</span><span class="ds-val">${t.par!=null?t.par.toFixed(2)+' THB':'—'}</span></div>
+      <div class="ds-row"><span class="ds-lbl">${tt('company.isinLocal')}</span><span class="ds-val" style="font-family:monospace;font-size:11px">${dash(t.isinLocal)}</span></div>
+      <div class="ds-row"><span class="ds-lbl">${tt('company.listedShares')}</span><span class="ds-val">${t.listedShare!=null?tx('company.sharesBShort', { n: (t.listedShare/1e9).toFixed(3) }):'—'}</span></div>
     </div>`;
   }
 
   if(tab==='governance'){
     const col=SCOL[t.sector]||'#6366f1';
-    html+=`<div class="ds"><div class="ds-title">Ratings</div>
+    html+=`<div class="ds"><div class="ds-title">${tt('company.ratings')}</div>
       <div style="display:flex;gap:20px;align-items:flex-start;flex-wrap:wrap;margin-bottom:14px">
-        <div><div style="font-size:10px;color:var(--muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:.6px">CG Score</div>${cgScore(t.cgScore)}</div>
-        <div><div style="font-size:10px;color:var(--muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:.6px">ESG Rating</div>${t.esgRating?esgBadge(t.esgRating,true):'<span style="color:var(--dim)">—</span>'}</div>
-        <div><div style="font-size:10px;color:var(--muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:.6px">CAC Member</div><div style="font-size:14px;font-weight:700;color:${t.cacFlag?'#a78bfa':'var(--dim)'}">${t.cacFlag?'✓ Yes':'No'}</div></div>
+        <div><div style="font-size:10px;color:var(--muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:.6px">${tt('company.cgScore')}</div>${cgScore(t.cgScore)}</div>
+        <div><div style="font-size:10px;color:var(--muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:.6px">${tt('company.esgRating')}</div>${t.esgRating?esgBadge(t.esgRating,true):'<span style="color:var(--dim)">—</span>'}</div>
+        <div><div style="font-size:10px;color:var(--muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:.6px">${tt('company.cacMember')}</div><div style="font-size:14px;font-weight:700;color:${t.cacFlag?'#a78bfa':'var(--dim)'}">${t.cacFlag?'✓ '+tt('company.yes'):tt('company.no')}</div></div>
       </div>
-      <div class="ds-row"><span class="ds-lbl">Audit Opinion</span><span class="ds-val" style="color:var(--green)">${dash(t.auditOpinion?esc(t.auditOpinion):null)}</span></div>
+      <div class="ds-row"><span class="ds-lbl">${tt('company.auditOpinion')}</span><span class="ds-val" style="color:var(--green)">${dash(t.auditOpinion?esc(t.auditOpinion):null)}</span></div>
     </div>`;
     if(t.auditors&&t.auditors.length){
-      html+=`<div class="ds"><div class="ds-title">Auditors</div>`;
-      t.auditors.forEach(a=>{ html+=`<div class="person-row"><div class="person-pos">Certified Auditor</div><div class="person-name">${esc(a.name||'—')}</div><div class="person-co">${esc(a.company||'')}</div></div>`; });
+      html+=`<div class="ds"><div class="ds-title">${tt('company.auditors')}</div>`;
+      t.auditors.forEach(a=>{ html+=`<div class="person-row"><div class="person-pos">${tt('company.certifiedAuditor')}</div><div class="person-name">${esc(a.name||'—')}</div><div class="person-co">${esc(a.company||'')}</div></div>`; });
       html+='</div>';
     }
     if(t.managements&&t.managements.length){
-      html+=`<div class="ds"><div class="ds-title">Key Management</div>`;
+      html+=`<div class="ds"><div class="ds-title">${tt('company.keyManagement')}</div>`;
       t.managements.forEach(m=>{ html+=`<div class="person-row"><div class="person-pos">${esc(m.position||'')}</div><div class="person-name">${esc(m.name||'—')}</div></div>`; });
       html+='</div>';
     }
@@ -1018,12 +1154,11 @@ function renderTab(tab){
   if(tab==='disclosures'){
     const filings=(DISC_MAP[t.tk]||[]);
     if(!filings.length){
-      html='<div style="color:var(--muted);padding:24px 0;text-align:center">No disclosures in the 90-day window for this ticker.</div>';
+      html=`<div style="color:var(--muted);padding:24px 0;text-align:center">${tt('company.noDisclosures90')}</div>`;
     } else {
-      const SEV_LABEL={high:'CRIT',critical:'CRIT',medium:'MAT',material:'MAT',low:'LOW',routine:'LOW'};
       const SEV_COL={high:'#ef4444',critical:'#ef4444',medium:'#f59e0b',material:'#f59e0b',low:'#5a627a',routine:'#5a627a'};
       const SEV_BG={high:'#ef444418',critical:'#ef444418',medium:'#f59e0b18',material:'#f59e0b18',low:'#5a627a18',routine:'#5a627a18'};
-      html+=`<div class="ds"><div class="ds-title">${filings.length} filing${filings.length!==1?'s':''} · last 90 days</div>`;
+      html+=`<div class="ds"><div class="ds-title">${tx('company.filingsLast90', { n: filings.length, s: filings.length!==1?'s':'' })}</div>`;
       filings.forEach(f=>{
         const sev=(f.severity||'low').toLowerCase();
         const title=esc(f.title||f.headline||'—');
@@ -1031,7 +1166,7 @@ function renderTab(tab){
         const summ=f._summary||f.summary||'';
         html+=`<div class="disc-row">
           <div class="disc-row-left">
-            <span class="disc-row-sev" style="color:${SEV_COL[sev]||'#5a627a'};background:${SEV_BG[sev]||'#5a627a18'}">${SEV_LABEL[sev]||'LOW'}</span>
+            <span class="disc-row-sev" style="color:${SEV_COL[sev]||'#5a627a'};background:${SEV_BG[sev]||'#5a627a18'}">${shortSeverity(sev)}</span>
             <span class="disc-row-ts">${formatDiscTs(f.ts)}</span>
           </div>
           <div class="disc-row-body">
@@ -1051,6 +1186,7 @@ function renderTab(tab){
 // ── state & render ───────────────────────────────────────────────────────────
 let ALL=[], SECTOR_STATS={}, DISC_MAP={}, OPP_MAP={}, VAULT_MAP={}, REPORT_MAP={}, sectFilter='ALL', rmFilter='', sortKey='tk', searchQ='';
 let STARRED = new Set(JSON.parse(localStorage.getItem('is1_starred')||'[]'));
+let DATA_META = { asOf: '', source: '', sourceKey: false, built: '' };
 
 function refreshOpenTab(){
   if(!CURRENT) return;
@@ -1070,13 +1206,18 @@ function toggleStar(tk, e){
 
 const SEV_ORDER = {high:0,critical:0,medium:1,material:1,low:2,routine:2};
 function discClass(sev){ return 'disc-sev disc-sev-'+(sev||'low').toLowerCase(); }
+function shortSeverity(sev){
+  return sev==='high'||sev==='critical' ? tt('company.critShort')
+    : sev==='medium'||sev==='material' ? tt('company.matShort')
+    : tt('company.lowShort');
+}
 function formatDiscTs(ts){
   if(!ts) return '';
   const d=new Date(ts), now=Date.now(), diff=now-d.getTime();
   const h=diff/3600000;
-  if(h<1) return Math.round(diff/60000)+'m ago';
-  if(h<24) return Math.round(h)+'h ago';
-  return Math.round(h/24)+'d ago';
+  if(h<1) return tx('common.minutesAgoShort', { n: Math.round(diff/60000) });
+  if(h<24) return tx('common.hoursAgoShort', { n: Math.round(h) });
+  return tx('common.daysAgoShort', { n: Math.round(h/24) });
 }
 
 function sortTickers(arr){
@@ -1103,8 +1244,8 @@ function render(){
   filtered=sortTickers(filtered);
   // remap indices to ALL for drawer
   const grid=document.getElementById('grid');
-  document.getElementById('cntLbl').textContent=`${filtered.length} / ${ALL.length} tickers`;
-  if(!filtered.length){ grid.innerHTML='<div class="empty">No tickers match the filter.</div>'; return; }
+  document.getElementById('cntLbl').textContent=tx('company.count', { shown: filtered.length, total: ALL.length });
+  if(!filtered.length){ grid.innerHTML=`<div class="empty">${tt('common.noTickersMatch')}</div>`; return; }
   grid.innerHTML=filtered.map(t=>{const idx=ALL.indexOf(t); return buildCard(t,idx);}).join('');
 }
 
@@ -1128,36 +1269,36 @@ function renderHero(tickers){
   const sects=[...new Set(tickers.map(t=>ns(t.sector)).filter(Boolean))];
   const rms=[...new Set(tickers.map(t=>t.rm).filter(Boolean))];
   document.getElementById('hero').innerHTML=[
-    ['◉','Tickers',tickers.length,''],
-    ['⊞','Sectors',sects.length,''],
-    ['▲','Advancing',pos,'color:var(--green)'],
-    ['▼','Declining',neg,'color:var(--red)'],
-    ['◆','RMs',rms.length,''],
-    ['↑','52W Hi',hi,'color:var(--green)'],
-    ['↓','52W Lo',lo,'color:var(--red)'],
+    ['◉',tt('common.tickers'),tickers.length,''],
+    ['⊞',tt('index.sectors'),sects.length,''],
+    ['▲',tt('company.heroAdvancing'),pos,'color:var(--green)'],
+    ['▼',tt('company.heroDeclining'),neg,'color:var(--red)'],
+    ['◆',tt('index.rms'),rms.length,''],
+    ['↑',tt('company.hero52Hi'),hi,'color:var(--green)'],
+    ['↓',tt('company.hero52Lo'),lo,'color:var(--red)'],
   ].map(([ic,lbl,val,style])=>`<div class="hstat"><span>${ic}</span><div><div class="hstat-lbl">${lbl}</div><div class="hstat-val" style="${style}">${val}</div></div></div>`).join('');
 }
 
 // ── sort options ──────────────────────────────────────────────────────────────
 const SORT_OPTS=[
   {key:'tk',    label:'A–Z',   def:'a'},
-  {key:'last',  label:'Price', def:'d'},
+  {key:'last',  labelKey:'common.price', def:'d'},
   {key:'pct1d', label:'1D',    def:'d'},
   {key:'pctYtd',label:'YTD',   def:'d'},
   {key:'pe',    label:'PE',    def:'a'},
   {key:'pbv',   label:'PBV',   def:'a'},
   {key:'dy',    label:'DY',    def:'d'},
-  {key:'mktcap',label:'Cap',   def:'d'},
+  {key:'mktcap',labelKey:'company.cap',   def:'d'},
 ];
 
 function buildSortButtons(){
   const [ak,ad]=sortKey.includes('-')
     ?[sortKey.slice(0,sortKey.lastIndexOf('-')),sortKey.slice(sortKey.lastIndexOf('-')+1)]
     :[sortKey,'a'];
-  document.getElementById('sortFilter').innerHTML=SORT_OPTS.map(({key,label,def})=>{
+  document.getElementById('sortFilter').innerHTML=SORT_OPTS.map(({key,label,labelKey,def})=>{
     const active=key===ak;
     const arrow=active?(ad==='a'?' ↑':' ↓'):'';
-    return `<button class="sbtn sort-btn${active?' active':''}" onclick="clickSort('${key}','${def}')">${label}${arrow}</button>`;
+    return `<button class="sbtn sort-btn${active?' active':''}" onclick="clickSort('${key}','${def}')">${labelKey?tt(labelKey):label}${arrow}</button>`;
   }).join('');
 }
 
@@ -1178,29 +1319,44 @@ function initControls(tickers){
   // Sector filter
   const sects=['ALL',...new Set(tickers.map(t=>ns(t.sector)).filter(Boolean)),'STARRED'];
   const sf=document.getElementById('sectFilter');
-  sf.innerHTML=sects.map(s=>`<button class="sbtn${s==='ALL'?' active':''}" data-s="${s}">${s==='STARRED'?'★ Starred':s}</button>`).join('');
-  sf.addEventListener('click',e=>{const b=e.target.closest('.sbtn');if(!b)return;sf.querySelectorAll('.sbtn').forEach(x=>x.classList.remove('active'));b.classList.add('active');sectFilter=b.dataset.s;render();});
+  sf.innerHTML=sects.map(s=>`<button class="sbtn${s===sectFilter?' active':''}" data-s="${s}">${s==='STARRED'?tt('company.starred'):s==='ALL'?tt('common.all'):s}</button>`).join('');
+  sf.onclick=e=>{const b=e.target.closest('.sbtn');if(!b)return;sf.querySelectorAll('.sbtn').forEach(x=>x.classList.remove('active'));b.classList.add('active');sectFilter=b.dataset.s;render();};
 
   // RM filter as buttons
   const rms=['ALL',...new Set(tickers.map(t=>t.rm).filter(Boolean)).values()];
   const rf=document.getElementById('rmFilter');
-  rf.innerHTML=rms.map(r=>`<button class="sbtn${r==='ALL'?' active':''}" data-rm="${r}">${r==='ALL'?'All':r}</button>`).join('');
-  rf.addEventListener('click',e=>{const b=e.target.closest('[data-rm]');if(!b)return;rf.querySelectorAll('[data-rm]').forEach(x=>x.classList.remove('active'));b.classList.add('active');rmFilter=b.dataset.rm==='ALL'?'':b.dataset.rm;render();});
+  rf.innerHTML=rms.map(r=>`<button class="sbtn${(r==='ALL'&&!rmFilter)||r===rmFilter?' active':''}" data-rm="${r}">${r==='ALL'?tt('common.all'):r}</button>`).join('');
+  rf.onclick=e=>{const b=e.target.closest('[data-rm]');if(!b)return;rf.querySelectorAll('[data-rm]').forEach(x=>x.classList.remove('active'));b.classList.add('active');rmFilter=b.dataset.rm==='ALL'?'':b.dataset.rm;render();};
 
   // Sort buttons
   buildSortButtons();
 
-  document.getElementById('srch').addEventListener('input',e=>{searchQ=e.target.value.trim();render();});
+  document.getElementById('srch').oninput=e=>{searchQ=e.target.value.trim();render();};
 }
 
 // ── stale badge ──────────────────────────────────────────────────────────────
 function updateStale(asOf, built){
   const badge=document.getElementById('staleBadge');
-  if(!asOf){badge.textContent='● unknown';return;}
+  if(!asOf){badge.textContent='● '+tt('common.unknown');return;}
   const ms=Date.now()-new Date(built||asOf).getTime();
   const h=ms/3600000;
   badge.textContent=`● ${asOf}`;
   badge.className=h>24?'stale warn':'stale';
+}
+
+function updatePageMeta(){
+  const source = DATA_META.sourceKey ? tt(DATA_META.source) : (DATA_META.source || '');
+  document.title = `${tt('page.companySummary')} — ${tt('brand.coverageDesk')}`;
+  document.getElementById('pgSub').textContent=tx('company.meta', {
+    n: ALL.length,
+    asOf: DATA_META.asOf || '—',
+    source
+  });
+  document.getElementById('fsrc').textContent=tx('company.footerSource', {
+    asOf: DATA_META.asOf || '—',
+    source
+  });
+  updateStale(DATA_META.asOf, DATA_META.built);
 }
 
 // ── data load ────────────────────────────────────────────────────────────────
@@ -1214,14 +1370,15 @@ async function loadData(){
   const rmMap={};(tkr.tickers||[]).forEach(t=>{rmMap[t.tk]=t.rm;});
   const hm={};(heat.rows||[]).forEach(r=>{hm[r.tk]=r.values||{};});
   const tickers=(brief.rows||[]).map(r=>({tk:r.tk,sector:r.sector,segment:SEGS[r.tk]||r.sector,rm:rmMap[r.tk]||'—',last:r.last,pct1d:r.pct1d,pct5d:r.pct5d,pctMtd:r.pctMtd,pctYtd:r.pctYtd,sparkline:r.path,volRatio:r.volRatio,atHi52:r.hi52,atLo52:r.lo52,hi52:r.path?Math.max(...r.path):null,lo52:r.path?Math.min(...r.path):null,pe:hm[r.tk]?.PE,pbv:hm[r.tk]?.PBV,dy:hm[r.tk]?.DY,evebitda:hm[r.tk]?.EVEBITDA,mktcap:null}));
-  return{tickers,asOf:brief.asOf,source:'morning-brief+heatmap fallback',built:brief._built_at};
+  return{tickers,asOf:brief.asOf,source:'company.fallbackSource',sourceKey:true,built:brief._built_at};
 }
 
 // ── boot ─────────────────────────────────────────────────────────────────────
 (async()=>{
   try{
-    const{tickers,asOf,source,built}=await loadData();
+    const{tickers,asOf,source,sourceKey,built}=await loadData();
     ALL=tickers;
+    DATA_META = { asOf, source, sourceKey: !!sourceKey, built };
     SECTOR_STATS=computeSectorStats(tickers);
     // Load disclosures best-effort, re-render cards when ready
     fetch('data/disclosure-pulse.json').then(r=>r.ok?r.json():null).then(d=>{
@@ -1260,15 +1417,13 @@ async function loadData(){
     }).catch(()=>{});
     document.getElementById('loading').style.display='none';
     document.getElementById('grid').style.display='';
-    document.getElementById('pgSub').textContent=`${tickers.length} tickers · ${asOf||'—'} · ${source||''}`;
-    document.getElementById('fsrc').textContent=`IS1 Coverage Desk · ${asOf||'—'} · ${source||''}`;
-    updateStale(asOf,built);
+    updatePageMeta();
     renderHero(tickers);
     initControls(tickers);
     render();
     openInitialDrawer();
   }catch(err){
-    document.getElementById('loading').innerHTML=`<div style="color:var(--red)">Failed to load: ${err.message}</div>`;
+    document.getElementById('loading').innerHTML=`<div style="color:var(--red)">${tx('common.failedToLoadMsg', { msg: err.message })}</div>`;
   }
 })();
 
@@ -1285,6 +1440,17 @@ document.getElementById('overlay').addEventListener('click',closeDrawer);
 
 // close on ESC
 document.addEventListener('keydown',e=>{if(e.key==='Escape')closeDrawer();});
+
+window.addEventListener('i18n:change',()=>{
+  if(window.I18N) I18N.apply();
+  updatePageMeta();
+  if(ALL.length){
+    renderHero(ALL);
+    initControls(ALL);
+    render();
+    refreshOpenTab();
+  }
+});
 </script>
 <script src="nav.js" defer></script>
 <script src="chat-dock.js" defer></script>

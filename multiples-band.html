@@ -65,6 +65,7 @@ footer a{color:var(--muted);text-decoration:none}
 @media(max-width:600px){main{padding:12px 12px 40px}header{padding:10px 12px}nav.nav a{font-size:10px;padding:4px 5px}}
 </style>
   <link rel="stylesheet" href="theme.css">
+  <script src="i18n.js"></script>
 
 </head>
 <body>
@@ -72,46 +73,63 @@ footer a{color:var(--muted);text-decoration:none}
 <header>
   <a class="brand" href="index.html">
     <div class="brand-mark">IS</div>
-    <div><div class="brand-name">Coverage Desk</div><div class="brand-sub">SET Issuer Dept 1</div></div>
+    <div><div class="brand-name" data-i18n="brand.coverageDesk">Coverage Desk</div><div class="brand-sub" data-i18n="brand.setIssuerDept1">SET Issuer Dept 1</div></div>
   </a>
   <nav class="nav">
-    <a href="index.html">Index</a>
-    <a href="price-movement.html">Price Movement</a>
-    <a href="disclosure-pulse.html">Disclosures</a>
-    <a href="oppday-minutes.html">Oppday</a>
-    <a href="multiples-comparison.html">Multiples Comparison</a>
-    <a href="company-summary.html">Company Summary</a>
-    <a href="multiples-band.html" class="active">Multiples Band</a>
-    <a href="bond-summary.html">Bonds</a>
-    <a href="unusual-trading.html">Alerts</a>
-    <a href="external-news.html">External</a>
-    <a href="trading-signs.html">Signs</a>
-    <a href="sec-enforcement.html">SEC</a>
-    <span class="stale unknown" id="staleBadge">● loading</span>
+    <a href="index.html" data-i18n="nav.index">Index</a>
+    <a href="price-movement.html" data-i18n="page.priceMovement">Price Movement</a>
+    <a href="disclosure-pulse.html" data-i18n="nav.disclosures">Disclosures</a>
+    <a href="oppday-minutes.html" data-i18n="nav.oppday">Oppday</a>
+    <a href="multiples-comparison.html" data-i18n="page.multiplesComparison">Multiples Comparison</a>
+    <a href="company-summary.html" data-i18n="page.companySummary">Company Summary</a>
+    <a href="multiples-band.html" class="active" data-i18n="page.multiplesBand">Multiples Band</a>
+    <a href="bond-summary.html" data-i18n="nav.bonds">Bonds</a>
+    <a href="unusual-trading.html" data-i18n="nav.alerts">Alerts</a>
+    <a href="external-news.html" data-i18n="nav.external">External</a>
+    <a href="trading-signs.html" data-i18n="nav.signs">Signs</a>
+    <a href="sec-enforcement.html" data-i18n="nav.sec">SEC</a>
+    <span class="stale unknown" id="staleBadge">● <span data-i18n="common.loadingDots">loading</span></span>
   </nav>
 </header>
 
 <main>
-  <div><div class="pg-title">Multiples Band</div><div class="pg-sub" id="pgSub">Loading…</div></div>
-  <div id="loading"><div class="spinner"></div>Building sector statistics…</div>
+  <div><div class="pg-title" data-i18n="page.multiplesBand">Multiples Band</div><div class="pg-sub" id="pgSub" data-i18n="common.loading">Loading…</div></div>
+  <div id="loading"><div class="spinner"></div><span data-i18n="common.buildingSectorStats">Building sector statistics…</span></div>
   <div id="sections"></div>
 </main>
 
 <footer>
   <span id="fsrc">IS1 Coverage Desk · Multiples Band</span>
-  <span>Data: <a href="https://www.set.or.th" target="_blank" rel="noopener">SET.or.th</a> · SETSMART</span>
+  <span><span data-i18n="common.data">Data</span>: <a href="https://www.set.or.th" target="_blank" rel="noopener">SET.or.th</a> · SETSMART</span>
 </footer>
 
 <script>
+const TT_FALLBACK = {
+  "band.noMetricData": "No data for this metric.",
+  "band.legend": "▌ = IQR (25–75th pctile)  │ = median  ● = individual tickers  ─ = 10–90th pctile",
+  "common.sector": "Sector",
+  "common.median": "Median",
+  "common.mean": "Mean",
+  "band.lowerAttractive": " Lower is more attractive for buyers.",
+  "band.higherAttractive": " Higher is more attractive.",
+  "common.failedToLoadMsg": "Failed to load: {msg}",
+  "band.runBuild": "Run build_ticker_summary.py to generate data.",
+  "multiples.meta": "{n} tickers · as of {asOf} · {source}",
+  "band.footerSource": "IS1 Multiples Band · {asOf}",
+};
+function tt(key) { return window.I18N ? I18N.t(key) : (TT_FALLBACK[key] || key); }
+function tx(key, vars){return tt(key).replace(/\{(\w+)\}/g,(_,k)=>vars&&vars[k]!=null?vars[k]:'')}
+function esc(s){return String(s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 const SCOL={FOOD:'#3b82f6',AGRI:'#10b981',PROP:'#8b5cf6',CONS:'#f97316',CONMAT:'#ec4899',PFREIT:'#06b6d4'};
 const SECT_ORDER=['FOOD','AGRI','PROP','CONS','CONMAT','PFREIT'];
 const ns=s=>s==='PF&REIT'?'PFREIT':(s||'');
+let LAST_STATS=null, LAST_ASOF=null, LAST_SOURCE='', LAST_TICKERS=[];
 
 const METRICS=[
-  {key:'pe',  label:'Price-to-Earnings (PE)', desc:'Lower = cheaper relative to earnings. N/A for loss-making companies.', unit:'×', lowerBetter:true,  fmt:v=>v==null?null:v.toFixed(1)+'×'},
-  {key:'pbv', label:'Price-to-Book (PBV)',     desc:'Lower = cheaper relative to net assets. REITs/PFs typically trade near 1×.', unit:'×', lowerBetter:true,  fmt:v=>v==null?null:v.toFixed(2)+'×'},
-  {key:'dy',  label:'Dividend Yield (DY)',     desc:'Higher = more income return. Excludes special dividends.', unit:'%', lowerBetter:false, fmt:v=>v==null?null:v.toFixed(2)+'%'},
-  {key:'npm', label:'Net Profit Margin (NPM)', desc:'Higher = more profitable per baht of revenue. From latest annual highlights.', unit:'%', lowerBetter:false, fmt:v=>v==null?null:v.toFixed(1)+'%'},
+  {key:'pe',  labelKey:'band.peLabel',  descKey:'band.peDesc',  unit:'×', lowerBetter:true,  fmt:v=>v==null?null:v.toFixed(1)+'×'},
+  {key:'pbv', labelKey:'band.pbvLabel', descKey:'band.pbvDesc', unit:'×', lowerBetter:true,  fmt:v=>v==null?null:v.toFixed(2)+'×'},
+  {key:'dy',  labelKey:'band.dyLabel',  descKey:'band.dyDesc',  unit:'%', lowerBetter:false, fmt:v=>v==null?null:v.toFixed(2)+'%'},
+  {key:'npm', labelKey:'band.npmLabel', descKey:'band.npmDesc', unit:'%', lowerBetter:false, fmt:v=>v==null?null:v.toFixed(1)+'%'},
 ];
 
 // ── stats computation ────────────────────────────────────────────────────────
@@ -160,7 +178,7 @@ function boxPlot(stats, metricKey, fmt, lowerBetter){
   const W=680, LEFT=74, RIGHT=20, CHART=W-LEFT-RIGHT;
   const ROW=46, TOP=14, BOTTOM=28;
   const sectors=SECT_ORDER.filter(s=>stats[s]?.metrics[metricKey]);
-  if(!sectors.length) return '<p style="color:var(--dim);font-size:12px;padding:8px 0">No data for this metric.</p>';
+  if(!sectors.length) return `<p style="color:var(--dim);font-size:12px;padding:8px 0">${tt('band.noMetricData')}</p>`;
   const H=TOP+sectors.length*ROW+BOTTOM;
 
   // Determine x range across all sectors
@@ -218,11 +236,11 @@ function boxPlot(stats, metricKey, fmt, lowerBetter){
     // Median value label
     const lblX=medX+6, lblAnchor=medX>LEFT+CHART*0.8?'end':'start';
     const lblXFinal=lblAnchor==='end'?medX-6:medX+6;
-    svg+=`<text x="${lblXFinal}" y="${cy-14}" text-anchor="${lblAnchor}" fill="${col}" font-size="9" font-weight="600" opacity="0.9">med ${fmt(m.median).replace('×','x')}</text>`;
+    svg+=`<text x="${lblXFinal}" y="${cy-14}" text-anchor="${lblAnchor}" fill="${col}" font-size="9" font-weight="600" opacity="0.9">${esc(tt('band.medAbbrev'))} ${fmt(m.median).replace('×','x')}</text>`;
   });
 
   // Legend
-  svg+=`<text x="${LEFT}" y="${H}" fill="#5a627a" font-size="9">▌ = IQR (25–75th pctile)  │ = median  ● = individual tickers  ─ = 10–90th pctile</text>`;
+  svg+=`<text x="${LEFT}" y="${H}" fill="#5a627a" font-size="9">${tt('band.legend')}</text>`;
 
   svg+='</svg>';
   return svg;
@@ -233,7 +251,7 @@ function summaryTable(stats, metricKey, fmt, lowerBetter){
   const sectors=SECT_ORDER.filter(s=>stats[s]?.metrics[metricKey]);
   if(!sectors.length) return '';
   let html=`<div style="overflow-x:auto"><table class="sum-table">
-    <thead><tr><th>Sector</th><th>n</th><th>p25</th><th>Median</th><th>p75</th><th>Mean</th></tr></thead><tbody>`;
+    <thead><tr><th>${tt('common.sector')}</th><th>n</th><th>p25</th><th>${tt('common.median')}</th><th>p75</th><th>${tt('common.mean')}</th></tr></thead><tbody>`;
   sectors.forEach(s=>{
     const m=stats[s].metrics[metricKey];
     const col=SCOL[s]||'#6366f1';
@@ -253,10 +271,10 @@ function summaryTable(stats, metricKey, fmt, lowerBetter){
 // ── render ────────────────────────────────────────────────────────────────────
 function renderSections(stats, asOf){
   const el=document.getElementById('sections');
-  el.innerHTML=METRICS.map(({key,label,desc,fmt,lowerBetter})=>`
+  el.innerHTML=METRICS.map(({key,labelKey,descKey,fmt,lowerBetter})=>`
     <div class="metric-section">
-      <div class="metric-title">${label}</div>
-      <div class="metric-desc">${desc}${lowerBetter?' Lower is more attractive for buyers.':' Higher is more attractive.'}</div>
+      <div class="metric-title">${tt(labelKey)}</div>
+      <div class="metric-desc">${tt(descKey)}${lowerBetter?tt('band.lowerAttractive'):tt('band.higherAttractive')}</div>
       <div class="chart-wrap">${boxPlot(stats,key,fmt,lowerBetter)}</div>
       ${summaryTable(stats,key,fmt,lowerBetter)}
     </div>`).join('');
@@ -270,9 +288,9 @@ function renderSections(stats, asOf){
     const d=await r.json();
     const tickers=d.tickers||[];
     const stats=computeStats(tickers);
+    LAST_STATS=stats; LAST_ASOF=d.asOf; LAST_SOURCE=d.source||''; LAST_TICKERS=tickers;
     document.getElementById('loading').style.display='none';
-    document.getElementById('pgSub').textContent=`${tickers.length} tickers · ${d.asOf||'—'} · ${d.source||''}`;
-    document.getElementById('fsrc').textContent=`IS1 Multiples Band · ${d.asOf||'—'}`;
+    updateMeta(d);
     const badge=document.getElementById('staleBadge');
     if(d._built_at){
       const h=(Date.now()-new Date(d._built_at).getTime())/3600000;
@@ -281,9 +299,19 @@ function renderSections(stats, asOf){
     }
     renderSections(stats, d.asOf);
   }catch(err){
-    document.getElementById('loading').innerHTML=`<div style="color:var(--red)">Failed to load: ${err.message}<br><small style="color:var(--dim)">Run build_ticker_summary.py to generate data.</small></div>`;
+    document.getElementById('loading').innerHTML=`<div style="color:var(--red)">${tx('common.failedToLoadMsg',{msg:err.message})}<br><small style="color:var(--dim)">${tt('band.runBuild')}</small></div>`;
   }
 })();
+function updateMeta(d){
+  if(!d) return;
+  document.getElementById('pgSub').textContent=tx('multiples.meta',{n:LAST_TICKERS.length,asOf:d.asOf||'—',source:d.source||''});
+  document.getElementById('fsrc').textContent=tx('band.footerSource',{asOf:d.asOf||'—'});
+}
+window.addEventListener('i18n:change',()=>{
+  if(window.I18N) I18N.apply();
+  if(LAST_STATS) renderSections(LAST_STATS,LAST_ASOF);
+  updateMeta({asOf:LAST_ASOF,source:LAST_SOURCE});
+});
 </script>
 <script src="nav.js" defer></script>
 <script src="chat-dock.js" defer></script>

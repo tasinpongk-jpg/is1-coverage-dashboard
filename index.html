@@ -153,6 +153,7 @@ footer a{color:var(--muted);text-decoration:none}
 }
 </style>
   <link rel="stylesheet" href="theme.css">
+  <script src="i18n.js"></script>
 
 </head>
 <body>
@@ -160,27 +161,27 @@ footer a{color:var(--muted);text-decoration:none}
 <header>
   <div class="brand">
     <div class="brand-mark">IS</div>
-    <div class="brand-text"><h1>The Terminal<span class="cursor"></span></h1><div class="sub">IS1 Coverage Desk · SET Issuer Department 1</div></div>
+    <div class="brand-text"><h1>The Terminal<span class="cursor"></span></h1><div class="sub" data-i18n="brand.subtitle">IS1 Coverage Desk · SET Issuer Department 1</div></div>
   </div>
   <nav class="nav"></nav>
-  <div class="stale-pill unknown" id="staleBadge">● loading</div>
+  <div class="stale-pill unknown" id="staleBadge">● <span data-i18n="common.loading">loading</span></div>
 </header>
 
 <main>
 
   <!-- ═══ TODAY BRIEFING ═══ -->
   <div class="today-bar">
-    <span class="t-label">Today</span>
+    <span class="t-label" data-i18n="common.today">Today</span>
     <span class="t-date" id="todayDate">—</span>
     <span class="t-asof" id="todayAsOf"></span>
-    <span class="t-asof" style="margin-left:auto" id="introMeta">loading coverage data…</span>
+    <span class="t-asof" style="margin-left:auto" id="introMeta" data-i18n="common.loadingCoverageData">loading coverage data…</span>
   </div>
 
   <a class="ai-take" href="ai-insights.html" id="aiTake" style="display:none">
-    <span class="at-tag">✦ AI morning take</span>
+    <span class="at-tag" data-i18n="index.aiMorningTake">✦ AI morning take</span>
     <div class="at-head" id="aiHeadline"></div>
     <div class="at-take" id="aiMarketTake"></div>
-    <span class="at-more">read full commentary →</span>
+    <span class="at-more" data-i18n="index.readFullCommentary">read full commentary →</span>
   </a>
 
   <div class="chip-row" id="moverChips"></div>
@@ -198,42 +199,42 @@ footer a{color:var(--muted);text-decoration:none}
     .agent-role{font-size:11.5px;color:var(--muted);margin-top:2px;line-height:1.45}
     .agent-eg{font-size:11px;color:var(--agc);margin-top:5px;font-style:italic}
   </style>
-  <div class="sec-title"><svg class="t-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3Z"/></svg>Ask the agents</div>
+  <div class="sec-title"><svg class="t-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3Z"/></svg><span data-i18n="index.askAgents">Ask the agents</span></div>
   <div class="agent-strip">
     <button type="button" class="agent-card" style="--agc:#f59e0b;--agc-bg:#f59e0b2e;--agc-bd:#f59e0b73" onclick="IS1Dock&&IS1Dock.open('hermes')">
       <div class="agent-avatar">⚡</div>
       <div><div class="agent-name">Hermes</div>
-        <div class="agent-role">News messenger — catalysts, disclosures, silent filers, Oppday takeaways</div>
-        <div class="agent-eg">“What news moved my names today?”</div></div>
+        <div class="agent-role" data-i18n="index.hermesRole">News messenger — catalysts, disclosures, silent filers, Oppday takeaways</div>
+        <div class="agent-eg" data-i18n="index.hermesEg">What news moved my names today?</div></div>
     </button>
     <button type="button" class="agent-card" style="--agc:#3b82f6;--agc-bg:#3b82f62e;--agc-bd:#3b82f673" onclick="IS1Dock&&IS1Dock.open('atlas')">
       <div class="agent-avatar">🗺</div>
       <div><div class="agent-name">Atlas</div>
-        <div class="agent-role">Market data — movers, volume spikes, alerts, strict threshold checks</div>
-        <div class="agent-eg">“Top movers beyond ±2% in my coverage”</div></div>
+        <div class="agent-role" data-i18n="index.atlasRole">Market data — movers, volume spikes, alerts, strict threshold checks</div>
+        <div class="agent-eg" data-i18n="index.atlasEg">Top movers beyond ±2% in my coverage</div></div>
     </button>
     <button type="button" class="agent-card" style="--agc:#8b5cf6;--agc-bg:#8b5cf62e;--agc-bd:#8b5cf673" onclick="IS1Dock&&IS1Dock.open('pythia')">
       <div class="agent-avatar">🔮</div>
       <div><div class="agent-name">Pythia</div>
-        <div class="agent-role">Macro &amp; sectors — breadth, daily AI commentary</div>
-        <div class="agent-eg">“Which sector leads and which lags?”</div></div>
+        <div class="agent-role" data-i18n="index.pythiaRole">Macro &amp; sectors — breadth, daily AI commentary</div>
+        <div class="agent-eg" data-i18n="index.pythiaEg">Which sector leads and which lags?</div></div>
     </button>
     <button type="button" class="agent-card" style="--agc:#10b981;--agc-bg:#10b9812e;--agc-bd:#10b98173" onclick="IS1Dock&&IS1Dock.open('lex')">
       <div class="agent-avatar">⚖️</div>
       <div><div class="agent-name">Lex</div>
-        <div class="agent-role">Rules &amp; regulations — answers cited to the source PDF &amp; page</div>
-        <div class="agent-eg">“When is a fund flagged with a CF sign?”</div></div>
+        <div class="agent-role" data-i18n="index.lexRole">Rules &amp; regulations — answers cited to the source PDF &amp; page</div>
+        <div class="agent-eg" data-i18n="index.lexEg">When is a fund flagged with a CF sign?</div></div>
     </button>
   </div>
 
   <!-- ═══ DASHBOARDS — GROUPED ═══ -->
-  <div class="sec-title"><svg class="t-ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></svg>Dashboards</div>
+  <div class="sec-title"><svg class="t-ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></svg><span data-i18n="index.dashboards">Dashboards</span></div>
 
   <!-- GROUP 1: Prices & Market Data -->
   <div class="group-title" style="--gc:#3b82f6">
     <svg class="t-ico" viewBox="0 0 24 24" aria-hidden="true"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>
-    <span>Prices &amp; Market Data</span>
-    <span class="gtag" style="background:#3b82f620;color:#3b82f6">daily refresh</span>
+    <span data-i18n="index.pricesMarketData">Prices &amp; Market Data</span>
+    <span class="gtag" style="background:#3b82f620;color:#3b82f6" data-i18n="index.dailyRefresh">daily refresh</span>
   </div>
   <div class="dash-grid">
 
@@ -255,12 +256,12 @@ footer a{color:var(--muted);text-decoration:none}
               <polyline points="2,22 6,18 10,20 14,14 18,10 22,7 26,4" fill="none" stroke="#3b82f6" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"/>
             </svg>
           </div>
-          <span class="card-cat">Market Data</span>
+          <span class="card-cat" data-i18n="index.marketData">Market Data</span>
         </div>
-        <div class="card-title">Price Movement</div>
-        <div class="card-desc">EOD prices, daily / weekly / MTD / YTD returns, volume ratios, and 20-day sparklines. Tabs by RM and sector.</div>
+        <div class="card-title" data-i18n="page.priceMovement">Price Movement</div>
+        <div class="card-desc" data-i18n="index.priceDesc">EOD prices, daily / weekly / MTD / YTD returns, volume ratios, and 20-day sparklines. Tabs by RM and sector.</div>
         <div class="card-footer">
-          <div class="card-meta"><span>232 tickers</span><span>daily refresh</span></div>
+          <div class="card-meta"><span>232 <span data-i18n="common.tickers">tickers</span></span><span data-i18n="index.dailyRefresh">daily refresh</span></div>
           <div class="card-arrow">→</div>
         </div>
       </div>
@@ -284,12 +285,12 @@ footer a{color:var(--muted);text-decoration:none}
               <polyline points="4.5,14 11.5,9 18.5,5" fill="none" stroke="#22c55e" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/>
             </svg>
           </div>
-          <span class="card-cat">Market Data</span>
+          <span class="card-cat" data-i18n="index.marketData">Market Data</span>
         </div>
-        <div class="card-title">Company Summary</div>
-        <div class="card-desc">Per-ticker cards with price, sparklines, 52W range, PE / PBV / DY, and multi-year financials. Click any card for full detail drawer.</div>
+        <div class="card-title" data-i18n="page.companySummary">Company Summary</div>
+        <div class="card-desc" data-i18n="index.companyDesc">Per-ticker cards with price, sparklines, 52W range, PE / PBV / DY, and multi-year financials. Click any card for full detail drawer.</div>
         <div class="card-footer">
-          <div class="card-meta"><span>all tickers</span><span>sector filter</span></div>
+          <div class="card-meta"><span data-i18n="common.tickers">all tickers</span><span data-i18n="index.sectorFilterUnit">sector filter</span></div>
           <div class="card-arrow">→</div>
         </div>
       </div>
@@ -317,12 +318,12 @@ footer a{color:var(--muted);text-decoration:none}
               <rect x="20" y="23" width="6" height="3" rx="1.5" fill="#22c55e" opacity=".7"/>
             </svg>
           </div>
-          <span class="card-cat">Valuation</span>
+          <span class="card-cat" data-i18n="index.valuation">Valuation</span>
         </div>
-        <div class="card-title">Multiples Comparison</div>
-        <div class="card-desc">PE / PBV / DY / EV-EBITDA / NPM coloured by sector percentile rank. Spot cheap vs expensive tickers at a glance.</div>
+        <div class="card-title" data-i18n="page.multiplesComparison">Multiples Comparison</div>
+        <div class="card-desc" data-i18n="index.multiplesComparisonDesc">PE / PBV / DY / EV-EBITDA / NPM coloured by sector percentile rank. Spot cheap vs expensive tickers at a glance.</div>
         <div class="card-footer">
-          <div class="card-meta"><span>6 sectors</span><span>5 metrics</span></div>
+          <div class="card-meta"><span>6 <span data-i18n="index.sectorsUnit">sectors</span></span><span>5 <span data-i18n="index.metricsUnit">metrics</span></span></div>
           <div class="card-arrow">→</div>
         </div>
       </div>
@@ -355,12 +356,12 @@ footer a{color:var(--muted);text-decoration:none}
               <circle cx="22" cy="13" r="1.5" fill="#8b5cf6" opacity=".6"/>
             </svg>
           </div>
-          <span class="card-cat">Valuation</span>
+          <span class="card-cat" data-i18n="index.valuation">Valuation</span>
         </div>
-        <div class="card-title">Multiples Band</div>
-        <div class="card-desc">Box plots for PE / PBV / DY / NPM across all 6 sectors. See distribution, median, and every individual ticker at once.</div>
+        <div class="card-title" data-i18n="page.multiplesBand">Multiples Band</div>
+        <div class="card-desc" data-i18n="index.multiplesBandDesc">Box plots for PE / PBV / DY / NPM across all 6 sectors. See distribution, median, and every individual ticker at once.</div>
         <div class="card-footer">
-          <div class="card-meta"><span>4 metrics</span><span>6 sectors</span></div>
+          <div class="card-meta"><span>4 <span data-i18n="index.metricsUnit">metrics</span></span><span>6 <span data-i18n="index.sectorsUnit">sectors</span></span></div>
           <div class="card-arrow">→</div>
         </div>
       </div>
@@ -371,8 +372,8 @@ footer a{color:var(--muted);text-decoration:none}
   <!-- GROUP 2: News & Disclosures -->
   <div class="group-title" style="--gc:#f59e0b">
     <svg class="t-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 22h16a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v16a2 2 0 0 1-2 2Zm0 0a2 2 0 0 1-2-2v-9c0-1.1.9-2 2-2h2"/><path d="M18 14h-8"/><path d="M15 18h-5"/><path d="M10 6h8v4h-8z"/></svg>
-    <span>News &amp; Disclosures</span>
-    <span class="gtag" style="background:#f59e0b20;color:#f59e0b">2× daily refresh</span>
+    <span data-i18n="index.newsDisclosures">News &amp; Disclosures</span>
+    <span class="gtag" style="background:#f59e0b20;color:#f59e0b" data-i18n="index.twiceDailyRefresh">2× daily refresh</span>
   </div>
   <div class="dash-grid">
     <!-- Oppday Minutes -->
@@ -392,11 +393,11 @@ footer a{color:var(--muted);text-decoration:none}
             </svg>
           </div>
           <div>
-            <div class="card-title">Oppday Minutes</div>
+            <div class="card-title" data-i18n="page.oppdayMinutes">Oppday Minutes</div>
             <div class="card-sub">Opportunity Day &amp; Earnings Call summaries</div>
           </div>
         </div>
-        <div class="card-desc">110 executive summaries across all 6 RMs · YE/2025 · Filter by RM, sector &amp; source · Full Thai reports with financials and RM insights</div>
+        <div class="card-desc" data-i18n="index.oppdayDesc">110 executive summaries across all 6 RMs · YE/2025 · Filter by RM, sector &amp; source · Full Thai reports with financials and RM insights</div>
         <div class="card-tags">
           <span class="gtag" style="background:#f59e0b20;color:#f59e0b">110 summaries</span>
           <span class="gtag" style="background:#22c55e20;color:#22c55e">transcript+slides</span>
@@ -420,12 +421,12 @@ footer a{color:var(--muted);text-decoration:none}
               <text x="20.5" y="9.2" fill="#fff" font-size="5.5" font-weight="bold">!</text>
             </svg>
           </div>
-          <span class="card-cat">Filings</span>
+          <span class="card-cat" data-i18n="index.filings">Filings</span>
         </div>
-        <div class="card-title">Disclosure Pulse</div>
-        <div class="card-desc">Recent SET filings classified as critical / material / low. Rules-based classifier, 90-day history, per-RM and sector tabs.</div>
+        <div class="card-title" data-i18n="page.disclosurePulse">Disclosure Pulse</div>
+        <div class="card-desc" data-i18n="index.disclosureDesc">Recent SET filings classified as critical / material / low. Rules-based classifier, 90-day history, per-RM and sector tabs.</div>
         <div class="card-footer">
-          <div class="card-meta"><span>90d window</span><span>2× daily</span></div>
+          <div class="card-meta"><span data-i18n="index.windowDays">90d window</span><span data-i18n="index.twiceDaily">2× daily</span></div>
           <div class="card-arrow">→</div>
         </div>
       </div>
@@ -448,12 +449,12 @@ footer a{color:var(--muted);text-decoration:none}
               <rect x="17" y="22" width="6" height="2" rx="1" fill="#10b981" opacity=".25"/>
             </svg>
           </div>
-          <span class="card-cat">Intelligence</span>
+          <span class="card-cat" data-i18n="index.intelligence">Intelligence</span>
         </div>
-        <div class="card-title">External News</div>
-        <div class="card-desc">Ticker-matched wire flow from RYT9, Kaohoon, Hoonsmart, Prachachat, and Bangkok Biznews. Refreshed intraday.</div>
+        <div class="card-title" data-i18n="page.externalNews">External News</div>
+        <div class="card-desc" data-i18n="index.externalNewsDesc">Ticker-matched wire flow from RYT9, Kaohoon, Hoonsmart, Prachachat, and Bangkok Biznews. Refreshed intraday.</div>
         <div class="card-footer">
-          <div class="card-meta"><span id="extNewsMeta">5 sources</span><span>ticker-matched</span></div>
+          <div class="card-meta"><span id="extNewsMeta">5 sources</span><span data-i18n="index.tickerMatched">ticker-matched</span></div>
           <div class="card-arrow">→</div>
         </div>
       </div>
@@ -471,12 +472,12 @@ footer a{color:var(--muted);text-decoration:none}
               <circle cx="20" cy="13.5" r="1.2" fill="#10b981" opacity=".7"/>
             </svg>
           </div>
-          <span class="card-cat">AI Analyst</span>
+          <span class="card-cat" data-i18n="index.aiAnalyst">AI Analyst</span>
         </div>
-        <div class="card-title">AI Insights</div>
-        <div class="card-desc">Model-written morning commentary: headline, sector notes, watchlist and risk flags synthesized from today's brief, alerts and filings.</div>
+        <div class="card-title" data-i18n="page.aiInsights">AI Insights</div>
+        <div class="card-desc" data-i18n="index.aiInsightsDesc">Model-written morning commentary: headline, sector notes, watchlist and risk flags synthesized from today's brief, alerts and filings.</div>
         <div class="card-footer">
-          <div class="card-meta"><span>Groq free tier</span><span>daily 09:15</span></div>
+          <div class="card-meta"><span data-i18n="index.groqFreeTier">Groq free tier</span><span data-i18n="index.dailyAt">daily 09:15</span></div>
           <div class="card-arrow">→</div>
         </div>
       </div>
@@ -486,8 +487,8 @@ footer a{color:var(--muted);text-decoration:none}
   <!-- GROUP 3: Surveillance & Compliance -->
   <div class="group-title" style="--gc:#ef4444">
     <svg class="t-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1Z"/><circle cx="12" cy="11" r="1.6"/></svg>
-    <span>Surveillance &amp; Compliance</span>
-    <span class="gtag" style="background:#ef444420;color:#ef4444">real-time</span>
+    <span data-i18n="index.surveillanceCompliance">Surveillance &amp; Compliance</span>
+    <span class="gtag" style="background:#ef444420;color:#ef4444" data-i18n="index.realTime">real-time</span>
   </div>
   <div class="dash-grid">
     <!-- Unusual Trading -->
@@ -510,12 +511,12 @@ footer a{color:var(--muted);text-decoration:none}
               <line x1="2" y1="26" x2="26" y2="26" stroke="#232733" stroke-width="1"/>
             </svg>
           </div>
-          <span class="card-cat">Surveillance</span>
+          <span class="card-cat" data-i18n="index.surveillance">Surveillance</span>
         </div>
-        <div class="card-title">Unusual Trading</div>
-        <div class="card-desc">Volume spikes (σ), price gaps, intraday moves, 52W highs / lows. Severity-ranked with cross-linked SET filings where present.</div>
+        <div class="card-title" data-i18n="page.unusualTrading">Unusual Trading</div>
+        <div class="card-desc" data-i18n="index.unusualTradingDesc">Volume spikes (σ), price gaps, intraday moves, 52W highs / lows. Severity-ranked with cross-linked SET filings where present.</div>
         <div class="card-footer">
-          <div class="card-meta"><span>auto-refreshed</span><span>3 alert types</span></div>
+          <div class="card-meta"><span data-i18n="index.autoRefreshed">auto-refreshed</span><span data-i18n="index.alertTypesUnit">3 alert types</span></div>
           <div class="card-arrow">→</div>
         </div>
       </div>
@@ -541,10 +542,10 @@ footer a{color:var(--muted);text-decoration:none}
               <rect x="1" y="2" width="26" height="2.5" rx="1" fill="#ef4444" opacity=".6"/>
             </svg>
           </div>
-          <span class="card-cat">Compliance</span>
+          <span class="card-cat" data-i18n="index.compliance">Compliance</span>
         </div>
-        <div class="card-title">Trading Signs</div>
-        <div class="card-desc">Live CB / CS / CF / CC / SP / NP / NC / ST / DS flags on coverage tickers — Caution (Business, Financial Statement, Free Float, Non-Compliance) and suspension status.</div>
+        <div class="card-title" data-i18n="page.tradingSigns">Trading Signs</div>
+        <div class="card-desc" data-i18n="index.tradingSignsDesc">Live CB / CS / CF / CC / SP / NP / NC / ST / DS flags on coverage tickers — Caution (Business, Financial Statement, Free Float, Non-Compliance) and suspension status.</div>
         <div class="card-footer">
           <div class="card-meta"><span id="signsMeta">8 sign types</span></div>
           <div class="card-arrow">→</div>
@@ -572,12 +573,12 @@ footer a{color:var(--muted);text-decoration:none}
               <rect x="11" y="24" width="6" height="2" rx="1" fill="#dc2626" opacity=".6"/>
             </svg>
           </div>
-          <span class="card-cat">Compliance</span>
+          <span class="card-cat" data-i18n="index.compliance">Compliance</span>
         </div>
-        <div class="card-title">SEC Enforcement</div>
-        <div class="card-desc">Thai SEC iDisc civil / criminal / administrative actions. Matched against your IS1 coverage universe.</div>
+        <div class="card-title" data-i18n="page.secEnforcement">SEC Enforcement</div>
+        <div class="card-desc" data-i18n="index.secEnforcementDesc">Thai SEC iDisc civil / criminal / administrative actions. Matched against your IS1 coverage universe.</div>
         <div class="card-footer">
-          <div class="card-meta"><span id="secMeta">SEC iDisc</span><span>coverage-matched</span></div>
+          <div class="card-meta"><span id="secMeta">SEC iDisc</span><span data-i18n="index.coverageMatched">coverage-matched</span></div>
           <div class="card-arrow">→</div>
         </div>
       </div>
@@ -597,12 +598,12 @@ footer a{color:var(--muted);text-decoration:none}
               <circle cx="15" cy="17" r="2" fill="#ef4444" opacity=".8"/>
             </svg>
           </div>
-          <span class="card-cat">Ownership</span>
+          <span class="card-cat" data-i18n="index.ownership">Ownership</span>
         </div>
-        <div class="card-title">SEC Form 59</div>
-        <div class="card-desc">Management and related-person buy / sell reports from SEC iDisc Form 59. Filter by RM, sector, side, reporter and value.</div>
+        <div class="card-title" data-i18n="page.secForm59">SEC Form 59</div>
+        <div class="card-desc" data-i18n="index.secForm59Desc">Management and related-person buy / sell reports from SEC iDisc Form 59. Filter by RM, sector, side, reporter and value.</div>
         <div class="card-footer">
-          <div class="card-meta"><span id="form59Meta">Form 59</span><span>coverage-matched</span></div>
+          <div class="card-meta"><span id="form59Meta">Form 59</span><span data-i18n="index.coverageMatched">coverage-matched</span></div>
           <div class="card-arrow">→</div>
         </div>
       </div>
@@ -612,8 +613,8 @@ footer a{color:var(--muted);text-decoration:none}
   <!-- GROUP 4: Bond Data -->
   <div class="group-title" style="--gc:#06b6d4">
     <svg class="t-ico" viewBox="0 0 24 24" aria-hidden="true"><line x1="3" y1="22" x2="21" y2="22"/><line x1="6" y1="18" x2="6" y2="11"/><line x1="10" y1="18" x2="10" y2="11"/><line x1="14" y1="18" x2="14" y2="11"/><line x1="18" y1="18" x2="18" y2="11"/><polygon points="12 2 20 7 4 7"/></svg>
-    <span>Bond Data</span>
-    <span class="gtag" style="background:#06b6d420;color:#06b6d4">monthly / daily</span>
+    <span data-i18n="index.bondData">Bond Data</span>
+    <span class="gtag" style="background:#06b6d420;color:#06b6d4" data-i18n="index.monthlyDaily">monthly / daily</span>
   </div>
   <div class="dash-grid">
     <a class="dash-card" href="bond-summary.html" style="--cc:#06b6d4"><!-- placeholder suppressed -->
@@ -637,12 +638,12 @@ footer a{color:var(--muted);text-decoration:none}
               <text x="20" y="28" fill="#5a627a" font-size="3.5">'29</text>
             </svg>
           </div>
-          <span class="card-cat">Debt Markets</span>
+          <span class="card-cat" data-i18n="index.debtMarkets">Debt Markets</span>
         </div>
-        <div class="card-title">Bond Summary</div>
-        <div class="card-desc">ThaiBMA outstanding bonds per issuer — maturity wall chart, sector breakdown, TTM timeline, ESG flags, and D/E leverage context.</div>
+        <div class="card-title" data-i18n="page.bondSummary">Bond Summary</div>
+        <div class="card-desc" data-i18n="index.bondSummaryDesc">ThaiBMA outstanding bonds per issuer — maturity wall chart, sector breakdown, TTM timeline, ESG flags, and D/E leverage context.</div>
         <div class="card-footer">
-          <div class="card-meta"><span>ThaiBMA</span><span>no API key</span></div>
+          <div class="card-meta"><span>ThaiBMA</span><span data-i18n="index.noApiKeyShort">no API key</span></div>
           <div class="card-arrow">→</div>
         </div>
       </div>
@@ -664,12 +665,12 @@ footer a{color:var(--muted);text-decoration:none}
               <path d="M18.3 20 l1.2 1.2 l2.2 -2.4" fill="none" stroke="#22c55e" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
             </svg>
           </div>
-          <span class="card-cat">Debt Markets</span>
+          <span class="card-cat" data-i18n="index.debtMarkets">Debt Markets</span>
         </div>
-        <div class="card-title">BOND Data from SEC</div>
-        <div class="card-desc">SEC Open API bond filings per IS1 coverage name — outstanding face value, issuer cards with full bond tables, RM &amp; sector breakdowns, credit-rating mix and ESG flags.</div>
+        <div class="card-title" data-i18n="page.bondDataSec">BOND Data from SEC</div>
+        <div class="card-desc" data-i18n="index.bondDataSecDesc">SEC Open API bond filings per IS1 coverage name — outstanding face value, issuer cards with full bond tables, RM &amp; sector breakdowns, credit-rating mix and ESG flags.</div>
         <div class="card-footer">
-          <div class="card-meta"><span>SEC /v2/bond</span><span>95 names</span></div>
+          <div class="card-meta"><span>SEC /v2/bond</span><span data-i18n="index.namesUnit95">95 names</span></div>
           <div class="card-arrow">→</div>
         </div>
       </div>
@@ -678,57 +679,57 @@ footer a{color:var(--muted);text-decoration:none}
 
   <!-- ═══ COVERAGE STATS (folded) ═══ -->
   <details class="fold" id="foldCoverage">
-  <summary>Coverage Universe &amp; Team</summary>
+  <summary data-i18n="index.coverageUniverseTeam">Coverage Universe &amp; Team</summary>
   <div class="fold-body">
   <div class="hero">
     <div class="hero-stat" style="--accent:#6366f1">
-      <div class="lbl">Tickers</div>
+      <div class="lbl" data-i18n="index.tickers">Tickers</div>
       <div class="val" id="statTickers">—</div>
-      <div class="hint">SET-listed companies</div>
+      <div class="hint" data-i18n="index.setListedCompanies">SET-listed companies</div>
     </div>
     <div class="hero-stat" style="--accent:#22c55e">
-      <div class="lbl">RMs</div>
+      <div class="lbl" data-i18n="index.rms">RMs</div>
       <div class="val" id="statRms">—</div>
-      <div class="hint">analyst coverage</div>
+      <div class="hint" data-i18n="index.analystCoverage">analyst coverage</div>
     </div>
     <div class="hero-stat" style="--accent:#f59e0b">
-      <div class="lbl">Sectors</div>
+      <div class="lbl" data-i18n="index.sectors">Sectors</div>
       <div class="val" id="statSectors">—</div>
-      <div class="hint">industry buckets</div>
+      <div class="hint" data-i18n="index.industryBuckets">industry buckets</div>
     </div>
     <div class="hero-stat" style="--accent:#06b6d4">
-      <div class="lbl">Refreshed</div>
+      <div class="lbl" data-i18n="index.refreshed">Refreshed</div>
       <div class="val" style="font-size:20px" id="statFreshness">—</div>
-      <div class="hint">daily 06:30 ICT</div>
+      <div class="hint" data-i18n="index.daily0630">daily 06:30 ICT</div>
     </div>
   </div>
 
-  <div class="group-title" style="--gc:#22c55e"><span>By RM</span></div>
+  <div class="group-title" style="--gc:#22c55e"><span data-i18n="index.byRm">By RM</span></div>
   <div class="rm-grid" id="rmGrid"></div>
 
-  <div class="group-title" style="--gc:#f59e0b"><span>By Sector</span></div>
+  <div class="group-title" style="--gc:#f59e0b"><span data-i18n="index.bySector">By Sector</span></div>
   <div class="sector-strip" id="sectorStrip"></div>
   </div>
   </details>
 
   <!-- ═══ PIPELINE HEALTH (folded) ═══ -->
   <details class="fold" id="foldHealth">
-  <summary>Pipeline Health</summary>
+  <summary data-i18n="index.pipelineHealth">Pipeline Health</summary>
   <div class="fold-body">
   <div class="diag-grid" id="diagnosticsPanel">
     <div class="diag-card">
-      <div class="diag-title">RM Staleness</div>
-      <div class="diag-desc">Hours since each RM's most recent classified filing. Yellow above 36h on a weekday.</div>
+      <div class="diag-title" data-i18n="index.rmStaleness">RM Staleness</div>
+      <div class="diag-desc" data-i18n="index.rmStalenessDesc">Hours since each RM's most recent classified filing. Yellow above 36h on a weekday.</div>
       <div id="rmStaleness" style="display:flex;flex-direction:column;gap:5px;font-size:12px"></div>
     </div>
     <div class="diag-card">
-      <div class="diag-title">Unclassified Queue</div>
-      <div class="diag-desc">Rule-misses awaiting the offline mining pass. Triggers a GitHub issue at ≥ 30.</div>
+      <div class="diag-title" data-i18n="index.unclassifiedQueue">Unclassified Queue</div>
+      <div class="diag-desc" data-i18n="index.unclassifiedQueueDesc">Rule-misses awaiting the offline mining pass. Triggers a GitHub issue at ≥ 30.</div>
       <div id="unclassQueue" style="font-size:12px;color:var(--muted)"></div>
     </div>
     <div class="diag-card">
-      <div class="diag-title">Coverage Gap</div>
-      <div class="diag-desc">Symbols seen in the firehose in the last 14 days that are NOT in <code style="background:var(--border2);padding:1px 5px;border-radius:3px">tickers.json</code>.</div>
+      <div class="diag-title" data-i18n="index.coverageGap">Coverage Gap</div>
+      <div class="diag-desc"><span data-i18n="index.coverageGapDesc">Symbols seen in the firehose in the last 14 days that are NOT in tickers.json.</span></div>
       <div id="coverageGap" style="font-size:12px;color:var(--muted)"></div>
     </div>
   </div>
@@ -738,24 +739,54 @@ footer a{color:var(--muted);text-decoration:none}
 </main>
 
 <footer>
-  <span>Data refreshed daily from SETSMART · classifier: MiniMax-M3 · ThaiBMA (bonds)</span>
-  <span class="t-asof" id="visitCounter" style="display:none">visited <span id="visitNum">—</span>× since <span id="visitFirst">—</span></span>
-  <span><a href="https://github.com/tasinpongk-jpg/is1-coverage-dashboard" target="_blank" rel="noopener">view source</a></span>
+  <span data-i18n="index.footerData">Data refreshed daily from SETSMART · classifier: MiniMax-M3 · ThaiBMA (bonds)</span>
+  <span class="t-asof" id="visitCounter" style="display:none"></span>
+  <span><a href="https://github.com/tasinpongk-jpg/is1-coverage-dashboard" target="_blank" rel="noopener" data-i18n="common.viewSource">view source</a></span>
 </footer>
 
 <script>
 const SECTOR_COLOR={AGRI:'#84cc16',FOOD:'#3b82f6',CONS:'#a855f7',CONMAT:'#ec4899',PROP:'#8b5cf6','PF&REIT':'#06b6d4',PFREIT:'#06b6d4'};
+const TT_FALLBACK = {
+  "common.pricesAsOf": "· prices as of {date}",
+  "index.aiWatchlist": "{n} on AI watchlist",
+  "index.askAtlas": "✦ Ask Atlas about today",
+  "common.failedToLoad": "Failed to load",
+  "common.tickers": "tickers",
+  "index.rms": "RMs",
+  "index.sectors": "Sectors",
+  "common.updatedAgo": "updated {x} ago",
+  "common.dotUpdatedAgo": "● updated {x} ago",
+  "common.unknown": "unknown",
+  "index.hits7d": "{n} hits / 7d",
+  "index.active": "{n} active",
+  "common.none": "none",
+  "index.inCoverageTotal": "{n} in coverage / {total}",
+  "index.buysSells": "{buy} buys / {sell} sells",
+  "common.noData": "no data",
+  "index.ruleMisses": "rule-misses awaiting mining",
+  "index.thresholdReached": "(threshold reached)",
+  "index.gapTickerIndustry": "tickers in industry, not on RM list",
+  "index.noCoverageGap": "No gap · all hits matched coverage",
+};
+function tt(key) { return window.I18N ? I18N.t(key) : (TT_FALLBACK[key] || key); }
+function tx(key,vars){return tt(key).replace(/\{(\w+)\}/g,(_,k)=>vars&&vars[k]!=null?vars[k]:'')}
+function esc(s){return String(s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+function locale(){return window.I18N&&I18N.lang==='th'?'th-TH':'en-GB'}
+function relAge(ts){
+  const ageH=(Date.now()-new Date(ts).getTime())/36e5;
+  return ageH<1?`${Math.round(ageH*60)}m`:`${Math.round(ageH)}h`;
+}
 
 // ── TODAY BRIEFING ────────────────────────────────────────────────────────────
 async function initToday(){
-  document.getElementById('todayDate').textContent=new Date().toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+  document.getElementById('todayDate').textContent=new Date().toLocaleDateString(locale(),{weekday:'long',day:'numeric',month:'long',year:'numeric'});
   const safe=u=>fetch(u).then(r=>r.ok?r.json():null).catch(()=>null);
   const [brief,unusual,ai]=await Promise.all([
     safe('./data/morning-brief.json'),
     safe('./data/unusual-trading.json'),
     safe('./data/ai-insights.json'),
   ]);
-  if(brief&&brief.asOf)document.getElementById('todayAsOf').textContent=`· prices as of ${brief.asOf}`;
+  if(brief&&brief.asOf)document.getElementById('todayAsOf').textContent=tx('common.pricesAsOf',{date:brief.asOf});
 
   if(ai&&ai.headline){
     document.getElementById('aiHeadline').textContent=ai.headline;
@@ -766,7 +797,7 @@ async function initToday(){
   if(brief&&Array.isArray(brief.rows)){
     const rows=brief.rows.filter(r=>typeof r.pct1d==='number').sort((a,b)=>b.pct1d-a.pct1d);
     const fmt=r=>`${r.pct1d>0?'+':''}${r.pct1d.toFixed(2)}%`;
-    const chip=(r,cls,sym)=>`<a class="chip ${cls}" href="price-movement.html" title="last ${r.last}">${sym} ${r.tk} <span>${fmt(r)}</span></a>`;
+    const chip=(r,cls,sym)=>`<a class="chip ${cls}" href="price-movement.html" title="${esc(tt('common.last'))} ${esc(String(r.last))}">${sym} ${esc(r.tk)} <span>${fmt(r)}</span></a>`;
     const ups=rows.slice(0,3).filter(r=>r.pct1d>0).map(r=>chip(r,'up','▲'));
     const dns=rows.slice(-3).reverse().filter(r=>r.pct1d<0).map(r=>chip(r,'dn','▼'));
     document.getElementById('moverChips').innerHTML=[...ups,...dns].join('');
@@ -775,11 +806,11 @@ async function initToday(){
   const acts=[];
   if(unusual&&Array.isArray(unusual.alerts)){
     const hi=unusual.alerts.filter(a=>a.severity==='high').length;
-    if(hi)acts.push(`<a class="chip alert" href="unusual-trading.html">⚠ ${hi} high-severity alert${hi>1?'s':''} <span class="c-sub">→</span></a>`);
+    if(hi)acts.push(`<a class="chip alert" href="unusual-trading.html">⚠ ${tx(hi>1?'index.highSeverityAlerts':'index.highSeverityAlert',{n:hi})} <span class="c-sub">→</span></a>`);
   }
   if(ai&&Array.isArray(ai.watchlist)&&ai.watchlist.length)
-    acts.push(`<a class="chip" href="ai-insights.html">👁 ${ai.watchlist.length} on AI watchlist <span class="c-sub">→</span></a>`);
-  acts.push(`<button type="button" class="chip ask" onclick="IS1Dock&&IS1Dock.open('atlas')">✦ Ask Atlas about today</button>`);
+    acts.push(`<a class="chip" href="ai-insights.html">👁 ${tx('index.aiWatchlist',{n:ai.watchlist.length})} <span class="c-sub">→</span></a>`);
+  acts.push(`<button type="button" class="chip ask" onclick="IS1Dock&&IS1Dock.open('atlas')">${tt('index.askAtlas')}</button>`);
   document.getElementById('actionChips').innerHTML=acts.join('');
 }
 initToday();
@@ -792,7 +823,7 @@ async function init(){
       fetch('./data/build-status.json').then(r=>r.json()).catch(()=>null),
     ]);
   }catch(e){
-    document.getElementById('rmGrid').innerHTML=`<div style="color:var(--red);font-size:13px;padding:20px">Error loading data: ${e.message}</div>`;
+    document.getElementById('rmGrid').innerHTML=`<div style="color:var(--red);font-size:13px;padding:20px">${tt('common.failedToLoad')}: ${e.message}</div>`;
     return;
   }
 
@@ -804,19 +835,19 @@ async function init(){
   document.getElementById('statTickers').textContent=total.toLocaleString();
   document.getElementById('statRms').textContent=(tj.rms||[]).length;
   document.getElementById('statSectors').textContent=(tj.sectors||Object.keys(bySector)).length;
-  document.getElementById('introMeta').textContent=`${total} tickers · ${(tj.rms||[]).length} RMs · ${(tj.sectors||[]).length} sectors`;
+  document.getElementById('introMeta').textContent=`${total} ${tt('common.tickers')} · ${(tj.rms||[]).length} ${tt('index.rms')} · ${(tj.sectors||[]).length} ${tt('index.sectors')}`;
 
   if(status&&status.built_at){
     const d=new Date(status.built_at);
     const ageH=(Date.now()-d.getTime())/36e5;
-    const txt=ageH<1?`${Math.round(ageH*60)}m ago`:`${Math.round(ageH)}h ago`;
+    const txt=tx('common.updatedAgo',{x:relAge(status.built_at)});
     document.getElementById('statFreshness').textContent=txt;
     const badge=document.getElementById('staleBadge');
-    badge.textContent=`● updated ${txt}`;
+    badge.textContent=tx('common.dotUpdatedAgo',{x:relAge(status.built_at)});
     badge.classList.remove('unknown');
     badge.classList.toggle('warn',ageH>36);
   }else{
-    document.getElementById('statFreshness').textContent='unknown';
+    document.getElementById('statFreshness').textContent=tt('common.unknown');
   }
 
   // RM grid
@@ -827,7 +858,7 @@ async function init(){
     const n=byRm[rm];
     const sectors=rmSectors[rm]||{};
     const bar=Object.entries(sectors).map(([s,c])=>`<span style="flex:${c};background:${SECTOR_COLOR[s]||'#5a627a'}" title="${s}: ${c}"></span>`).join('');
-    return `<div class="rm-card"><div class="rm-name">${rm}</div><div class="rm-count">${n}<span class="unit">tickers</span></div><div class="rm-bar">${bar}</div></div>`;
+    return `<div class="rm-card"><div class="rm-name">${rm}</div><div class="rm-count">${n}<span class="unit">${tt('common.tickers')}</span></div><div class="rm-bar">${bar}</div></div>`;
   }).join('');
 
   // Sector strip
@@ -846,10 +877,10 @@ async function init(){
     safe(fetch('./data/sec-form59.json')),
     safe(fetch('./data/diagnostics.json')),
   ]);
-  if(extNews){const items=extNews.items||[];const last7d=items.filter(it=>it.ts&&(Date.now()-new Date(it.ts).getTime())<7*86400*1000);document.getElementById('extNewsMeta').textContent=`${last7d.length} hits / 7d`;}
-  if(signs){const t=signs.total||0;document.getElementById('signsMeta').textContent=t?`${t} active`:'none';}
-  if(sec){const c=sec.in_coverage_count||0;document.getElementById('secMeta').textContent=`${c} in coverage / ${sec.total||0}`;}
-  if(form59){const s=form59.bySide||{};document.getElementById('form59Meta').textContent=`${s.buy||0} buys / ${s.sell||0} sells`;}
+  if(extNews){const items=extNews.items||[];const last7d=items.filter(it=>it.ts&&(Date.now()-new Date(it.ts).getTime())<7*86400*1000);document.getElementById('extNewsMeta').textContent=tx('index.hits7d',{n:last7d.length});}
+  if(signs){const t=signs.total||0;document.getElementById('signsMeta').textContent=t?tx('index.active',{n:t}):tt('common.none');}
+  if(sec){const c=sec.in_coverage_count||0;document.getElementById('secMeta').textContent=tx('index.inCoverageTotal',{n:c,total:sec.total||0});}
+  if(form59){const s=form59.bySide||{};document.getElementById('form59Meta').textContent=tx('index.buysSells',{buy:s.buy||0,sell:s.sell||0});}
 
 
   // Diagnostics
@@ -857,14 +888,14 @@ async function init(){
     const rmRows=diag.rm_staleness||[];
     document.getElementById('rmStaleness').innerHTML=rmRows.length
       ?rmRows.map(r=>{const age=r.age_hours;const col=age==null?'var(--muted)':(age>36?'#f59e0b':'#22c55e');const ageTxt=age==null?'unknown':(age<24?`${age.toFixed(1)}h`:`${(age/24).toFixed(1)}d`);return`<div style="display:flex;justify-content:space-between"><span style="font-weight:600">${r.rm}</span><span style="color:${col};font-variant-numeric:tabular-nums">${ageTxt}</span></div>`;}).join('')
-      :'<span style="color:var(--muted)">no data</span>';
+      :`<span style="color:var(--muted)">${tt('common.noData')}</span>`;
     const u=diag.unclassified||{};const uTotal=u.total||0;const uColor=uTotal>=30?'#f59e0b':(uTotal===0?'#22c55e':'var(--text)');
     const recentHtml=(u.recent||[]).slice(0,5).map(r=>`<div style="padding:4px 0;border-top:1px dashed var(--border);font-size:11px"><span style="font-weight:600">${r.tk}</span> <span style="color:var(--muted)">${(r.headline||'').slice(0,80)}</span></div>`).join('');
-    document.getElementById('unclassQueue').innerHTML=`<div style="font-size:22px;font-weight:700;color:${uColor};font-variant-numeric:tabular-nums">${uTotal}</div><div style="margin-top:2px;font-size:11px">rule-misses awaiting mining${uTotal>=30?' <span style="color:#f59e0b">(threshold reached)</span>':''}</div>${recentHtml?`<div style="margin-top:10px">${recentHtml}</div>`:''}`;
+    document.getElementById('unclassQueue').innerHTML=`<div style="font-size:22px;font-weight:700;color:${uColor};font-variant-numeric:tabular-nums">${uTotal}</div><div style="margin-top:2px;font-size:11px">${tt('index.ruleMisses')}${uTotal>=30?` <span style="color:#f59e0b">${tt('index.thresholdReached')}</span>`:''}</div>${recentHtml?`<div style="margin-top:10px">${recentHtml}</div>`:''}`;
     const gap=diag.coverage_gap||[];
     document.getElementById('coverageGap').innerHTML=gap.length
-      ?`<div style="font-size:22px;font-weight:700;color:#f59e0b">${gap.length}</div><div style="margin-top:2px;font-size:11px">tickers in industry, not on RM list</div><div style="margin-top:10px;display:flex;flex-wrap:wrap;gap:4px">${gap.slice(0,10).map(g=>`<span style="font-size:11px;padding:2px 7px;background:var(--bg2);border:1px solid var(--border);border-radius:4px"><strong>${g.tk}</strong> <span style="color:var(--muted)">·${g.count_14d}</span></span>`).join('')}</div>`
-      :'<div style="font-size:14px;color:#22c55e">No gap · all hits matched coverage</div>';
+      ?`<div style="font-size:22px;font-weight:700;color:#f59e0b">${gap.length}</div><div style="margin-top:2px;font-size:11px">${tt('index.gapTickerIndustry')}</div><div style="margin-top:10px;display:flex;flex-wrap:wrap;gap:4px">${gap.slice(0,10).map(g=>`<span style="font-size:11px;padding:2px 7px;background:var(--bg2);border:1px solid var(--border);border-radius:4px"><strong>${g.tk}</strong> <span style="color:var(--muted)">·${g.count_14d}</span></span>`).join('')}</div>`
+      :`<div style="font-size:14px;color:#22c55e">${tt('index.noCoverageGap')}</div>`;
   }
 }
 init();
@@ -875,10 +906,12 @@ init();
   const first  = localStorage.getItem('is1_first_visit') || new Date().toISOString().slice(0,10);
   localStorage.setItem('is1_visits',      String(visits));
   localStorage.setItem('is1_first_visit', first);
-  document.getElementById('visitNum').textContent   = visits.toLocaleString();
-  document.getElementById('visitFirst').textContent = first;
+  function render(){document.getElementById('visitCounter').textContent = tx('index.visitedSince',{n:visits.toLocaleString(),date:first});}
+  render();
   document.getElementById('visitCounter').style.display = 'inline-flex';
+  window.addEventListener('i18n:change', render);
 })();
+window.addEventListener('i18n:change',()=>{if(window.I18N)I18N.apply();initToday();init();});
 </script>
 <script src="nav.js" defer></script>
 <script src="chat-dock.js" defer></script>

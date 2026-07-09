@@ -14,47 +14,60 @@
 (function () {
   "use strict";
 
+  function tr(key, fallback) {
+    return (typeof I18N !== "undefined" && I18N && I18N.t) ? I18N.t(key) : fallback;
+  }
+
+  // ponytail: dictionary values are plain text, but they still flow into
+  // innerHTML below — escape before interpolating so a bad translation
+  // string can never inject markup.
+  function esc(s) {
+    return String(s).replace(/[&<>"']/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+    });
+  }
+
   var GROUPS = [
     {
-      label: "Market", color: "#3b82f6",
+      label: "Market", labelKey: "group.market", color: "#3b82f6",
       pages: [
-        ["price-movement.html", "Price Movement"],
-        ["company-summary.html", "Company Summary"],
-        ["multiples-comparison.html", "Multiples Comparison"],
-        ["multiples-band.html", "Multiples Band"],
-        ["https://tradingview-daily-dashboard.tasinpong-k.workers.dev/", "Daily Market Board"], // external (separate worker, opens new tab)
+        ["price-movement.html", "Price Movement", "page.priceMovement"],
+        ["company-summary.html", "Company Summary", "page.companySummary"],
+        ["multiples-comparison.html", "Multiples Comparison", "page.multiplesComparison"],
+        ["multiples-band.html", "Multiples Band", "page.multiplesBand"],
+        ["https://tradingview-daily-dashboard.tasinpong-k.workers.dev/", "Daily Market Board", "page.dailyMarketBoard"], // external (separate worker, opens new tab)
       ],
     },
     {
-      label: "News", color: "#f59e0b",
+      label: "News", labelKey: "group.news", color: "#f59e0b",
       pages: [
-        ["disclosure-pulse.html", "Disclosure Pulse"],
-        ["external-news.html", "External News"],
-        ["oppday-minutes.html", "Oppday Minutes"],
-        ["ai-insights.html", "AI Insights"],
-        ["https://macro-brief-buy.pages.dev", "Global-Macro Brief"], // external (Cloudflare Pages, opens new tab)
+        ["disclosure-pulse.html", "Disclosure Pulse", "page.disclosurePulse"],
+        ["external-news.html", "External News", "page.externalNews"],
+        ["oppday-minutes.html", "Oppday Minutes", "page.oppdayMinutes"],
+        ["ai-insights.html", "AI Insights", "page.aiInsights"],
+        ["https://macro-brief-buy.pages.dev", "Global-Macro Brief", "page.globalMacroBrief"], // external (Cloudflare Pages, opens new tab)
       ],
     },
     {
-      label: "Surveillance", color: "#ef4444",
+      label: "Surveillance", labelKey: "group.surveillance", color: "#ef4444",
       pages: [
-        ["unusual-trading.html", "Unusual Trading"],
-        ["trading-signs.html", "Trading Signs"],
-        ["sec-enforcement.html", "SEC Enforcement"],
-        ["sec-form59.html", "SEC Form 59"],
+        ["unusual-trading.html", "Unusual Trading", "page.unusualTrading"],
+        ["trading-signs.html", "Trading Signs", "page.tradingSigns"],
+        ["sec-enforcement.html", "SEC Enforcement", "page.secEnforcement"],
+        ["sec-form59.html", "SEC Form 59", "page.secForm59"],
       ],
     },
     {
-      label: "Bond Data", color: "#06b6d4",
+      label: "Bond Data", labelKey: "group.bondData", color: "#06b6d4",
       pages: [
-        ["bond-summary.html", "Bond Summary"],
-        ["bond-data-sec.html", "BOND Data from SEC"],
+        ["bond-summary.html", "Bond Summary", "page.bondSummary"],
+        ["bond-data-sec.html", "BOND Data from SEC", "page.bondDataSec"],
       ],
     },
     {
-      label: "Visits", color: "#22c55e",
+      label: "Visits", labelKey: "group.visits", color: "#22c55e",
       pages: [
-        ["visits.html", "Visit Planner"],
+        ["visits.html", "Visit Planner", "page.visitPlanner"],
       ],
     },
   ];
@@ -63,21 +76,21 @@
   // Page NAME and COLOR come from GROUPS above (single source of truth, so the
   // banner title can never drift from the menu label).
   var META = {
-    "price-movement.html":      { ic: '<path d="M3 17l6-6 4 4 7-7"/><path d="M17 8h4v4"/>',                                                                  desc: "Daily price moves across coverage" },
-    "company-summary.html":     { ic: '<path d="M3 21h18"/><path d="M5 21V4a1 1 0 0 1 1-1h8a1 1 0 0 1 1 1v17"/><path d="M19 21V9a1 1 0 0 0-1-1h-3"/><path d="M9 7h2M9 11h2M9 15h2"/>', desc: "Fundamentals and profile per company" },
-    "multiples-comparison.html":{ ic: '<path d="M3 3v18h18"/><path d="M7 14v3"/><path d="M12 9v8"/><path d="M17 5v12"/>',                                     desc: "Valuation multiples side by side" },
-    "multiples-band.html":      { ic: '<path d="M3 12l4-4 4 3 4-6 6 5"/><path d="M3 18l4-4 4 3 4-6 6 5"/>',                                              desc: "Valuation ranges over time" },
-    "disclosure-pulse.html":    { ic: '<path d="M22 12h-4l-3 9L9 3l-3 9H2"/>',                                                                          desc: "Live SET filings, ranked by importance" },
-    "external-news.html":       { ic: '<path d="M4 4h13a1 1 0 0 1 1 1v13a2 2 0 0 0 2 2H6a2 2 0 0 1-2-2V4Z"/><path d="M8 8h6M8 12h6M8 16h4"/>',          desc: "Wire & RSS headlines matched to coverage" },
-    "oppday-minutes.html":      { ic: '<path d="M2 4h20"/><path d="M3 4v10a1 1 0 0 0 1 1h16a1 1 0 0 0 1-1V4"/><path d="M12 15v5"/><path d="M9 20h6"/>', desc: "Earnings-call notes and takeaways" },
-    "ai-insights.html":         { ic: '<path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3Z"/>', desc: "Model-written commentary on the coverage" },
-    "unusual-trading.html":     { ic: '<path d="M10.3 3.3 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.3a2 2 0 0 0-3.4 0Z"/><path d="M12 9v4"/><path d="M12 17h.01"/>', desc: "Volume and price anomalies flagged" },
-    "trading-signs.html":       { ic: '<path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><path d="M4 22v-7"/>',                       desc: "Current SET trading signs on coverage" },
-    "sec-enforcement.html":     { ic: '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/><path d="M12 8v4"/><path d="M12 16h.01"/>',                desc: "Thai SEC enforcement actions" },
-    "sec-form59.html":          { ic: '<path d="M3 3v18h18"/><path d="M7 15l3-3 3 2 4-6"/><path d="M17 8h3v3"/>',                                      desc: "Management and related-person trades" },
-    "bond-summary.html":        { ic: '<path d="M3 22h18"/><path d="M4 10l8-6 8 6"/><path d="M6 22v-9M10 22v-9M14 22v-9M18 22v-9"/>',                    desc: "Outstanding bonds across coverage" },
-    "bond-data-sec.html":       { ic: '<path d="M12 7c4.4 0 8-1.1 8-2.5S16.4 2 12 2 4 3.1 4 4.5 7.6 7 12 7Z"/><path d="M4 4.5v15C4 20.9 7.6 22 12 22s8-1.1 8-2.5v-15"/><path d="M4 12c0 1.4 3.6 2.5 8 2.5s8-1.1 8-2.5"/>', desc: "Bond filings from the SEC" },
-    "visits.html":              { ic: '<path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><path d="M12 12a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5Z"/>', desc: "Plan and track company visits" },
+    "price-movement.html":      { ic: '<path d="M3 17l6-6 4 4 7-7"/><path d="M17 8h4v4"/>',                                                                  desc: "Daily price moves across coverage", descKey: "meta.priceMovement" },
+    "company-summary.html":     { ic: '<path d="M3 21h18"/><path d="M5 21V4a1 1 0 0 1 1-1h8a1 1 0 0 1 1 1v17"/><path d="M19 21V9a1 1 0 0 0-1-1h-3"/><path d="M9 7h2M9 11h2M9 15h2"/>', desc: "Fundamentals and profile per company", descKey: "meta.companySummary" },
+    "multiples-comparison.html":{ ic: '<path d="M3 3v18h18"/><path d="M7 14v3"/><path d="M12 9v8"/><path d="M17 5v12"/>',                                     desc: "Valuation multiples side by side", descKey: "meta.multiplesComparison" },
+    "multiples-band.html":      { ic: '<path d="M3 12l4-4 4 3 4-6 6 5"/><path d="M3 18l4-4 4 3 4-6 6 5"/>',                                              desc: "Valuation ranges over time", descKey: "meta.multiplesBand" },
+    "disclosure-pulse.html":    { ic: '<path d="M22 12h-4l-3 9L9 3l-3 9H2"/>',                                                                          desc: "Live SET filings, ranked by importance", descKey: "meta.disclosurePulse" },
+    "external-news.html":       { ic: '<path d="M4 4h13a1 1 0 0 1 1 1v13a2 2 0 0 0 2 2H6a2 2 0 0 1-2-2V4Z"/><path d="M8 8h6M8 12h6M8 16h4"/>',          desc: "Wire & RSS headlines matched to coverage", descKey: "meta.externalNews" },
+    "oppday-minutes.html":      { ic: '<path d="M2 4h20"/><path d="M3 4v10a1 1 0 0 0 1 1h16a1 1 0 0 0 1-1V4"/><path d="M12 15v5"/><path d="M9 20h6"/>', desc: "Earnings-call notes and takeaways", descKey: "meta.oppdayMinutes" },
+    "ai-insights.html":         { ic: '<path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3Z"/>', desc: "Model-written commentary on the coverage", descKey: "meta.aiInsights" },
+    "unusual-trading.html":     { ic: '<path d="M10.3 3.3 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.3a2 2 0 0 0-3.4 0Z"/><path d="M12 9v4"/><path d="M12 17h.01"/>', desc: "Volume and price anomalies flagged", descKey: "meta.unusualTrading" },
+    "trading-signs.html":       { ic: '<path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><path d="M4 22v-7"/>',                       desc: "Current SET trading signs on coverage", descKey: "meta.tradingSigns" },
+    "sec-enforcement.html":     { ic: '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/><path d="M12 8v4"/><path d="M12 16h.01"/>',                desc: "Thai SEC enforcement actions", descKey: "meta.secEnforcement" },
+    "sec-form59.html":          { ic: '<path d="M3 3v18h18"/><path d="M7 15l3-3 3 2 4-6"/><path d="M17 8h3v3"/>',                                      desc: "Management and related-person trades", descKey: "meta.secForm59" },
+    "bond-summary.html":        { ic: '<path d="M3 22h18"/><path d="M4 10l8-6 8 6"/><path d="M6 22v-9M10 22v-9M14 22v-9M18 22v-9"/>',                    desc: "Outstanding bonds across coverage", descKey: "meta.bondSummary" },
+    "bond-data-sec.html":       { ic: '<path d="M12 7c4.4 0 8-1.1 8-2.5S16.4 2 12 2 4 3.1 4 4.5 7.6 7 12 7Z"/><path d="M4 4.5v15C4 20.9 7.6 22 12 22s8-1.1 8-2.5v-15"/><path d="M4 12c0 1.4 3.6 2.5 8 2.5s8-1.1 8-2.5"/>', desc: "Bond filings from the SEC", descKey: "meta.bondDataSec" },
+    "visits.html":              { ic: '<path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><path d="M12 12a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5Z"/>', desc: "Plan and track company visits", descKey: "meta.visitPlanner" },
   };
 
   var css = "\
@@ -186,7 +199,7 @@ nav.nav{display:flex;align-items:center;gap:2px;position:relative}\
     xbrand.innerHTML =
       '<div class="gbrand-mark">IS</div>' +
       '<div class="gbrand-text"><h1>The Terminal<span class="cursor"></span></h1>' +
-      '<div class="sub">IS1 Coverage Desk · SET Issuer Department 1</div></div>';
+      '<div class="sub">' + esc(tr("brand.subtitle", "IS1 Coverage Desk · SET Issuer Department 1")) + '</div></div>';
     nav = document.createElement("nav");
     nav.className = "nav";
     extBar.appendChild(xbrand);
@@ -198,131 +211,167 @@ nav.nav{display:flex;align-items:center;gap:2px;position:relative}\
   // Live URLs are extensionless (/price-movement), local ones keep .html —
   // compare on the stem so both resolve to the same page.
   var hereKey = here.replace(/\.html$/, "");
+  var header = nav.closest("header") || document.querySelector("header");
+  var staleNode = document.getElementById("staleBadge");
+  var metaNode = document.getElementById("meta");
 
   // keep non-link extras (stale badge etc.) to re-append after rebuild
   var extras = Array.prototype.filter.call(nav.children, function (el) {
-    return el.tagName !== "A";
+    return el.tagName !== "A" && el.id !== "staleBadge" && !el.classList.contains("i18n-toggle");
   });
 
-  nav.innerHTML = "";
-  var home = document.createElement("a");
-  home.className = "gnav-home";
-  home.href = link("index.html");
-  home.textContent = "The Terminal";
-  nav.appendChild(home);
+  function pageText(p) { return tr(p[2], p[1]); }
+  function groupText(g) { return tr(g.labelKey, g.label); }
+  function metaText(meta) { return meta ? tr(meta.descKey, meta.desc) : ""; }
 
-  var heroTitle = null, heroColor = null, heroGroup = null, heroFile = null;
-  GROUPS.forEach(function (g) {
-    var wrap = document.createElement("div");
-    wrap.className = "gnav-group";
-    wrap.style.setProperty("--gn", g.color);
+  function placeLangToggle() {
+    if (typeof I18N === "undefined" || !I18N || !I18N.createToggle) return;
+    var host = (staleNode && staleNode.parentNode) || header || nav;
+    if (!host || host.querySelector(".i18n-toggle")) {
+      if (I18N.updateToggles) I18N.updateToggles();
+      return;
+    }
+    var btn = I18N.createToggle();
+    if (staleNode && staleNode.parentNode === host) staleNode.insertAdjacentElement("afterend", btn);
+    else host.appendChild(btn);
+    if (I18N.updateToggles) I18N.updateToggles();
+  }
 
-    var btn = document.createElement("button");
-    btn.type = "button";
-    btn.className = "gnav-btn";
-    btn.setAttribute("aria-haspopup", "true");
-    btn.setAttribute("aria-expanded", "false");
-    btn.innerHTML = '<span class="dot"></span>' + g.label + '<span class="chev">▾</span>';
+  function setBrandSub() {
+    var sub = document.querySelector(".gbrand-text .sub");
+    if (sub) sub.textContent = tr("brand.subtitle", "IS1 Coverage Desk · SET Issuer Department 1");
+  }
 
-    var panel = document.createElement("div");
-    panel.className = "gnav-panel";
-    g.pages.forEach(function (p) {
-      var a = document.createElement("a");
-      a.href = link(p[0]);
-      var external = /^https?:\/\//.test(p[0]);
-      // Every dashboard — including the external workers/Pages sites (Daily
-      // Market Board, Global-Macro Brief) — navigates in the SAME tab so moving
-      // between them feels like one app rather than spawning new windows.
-      a.innerHTML = '<span class="pdot"></span>' + p[1];
-      if (!external && p[0].replace(/\.html$/, "") === hereKey) {
-        a.classList.add("here");
-        wrap.classList.add("active");
-        heroTitle = p[1];
-        heroColor = g.color;
-        heroGroup = g.label;
-        heroFile = p[0];
-      }
-      panel.appendChild(a);
-    });
+  function buildNav() {
+    closeAll();
+    nav.innerHTML = "";
+    var home = document.createElement("a");
+    home.className = "gnav-home";
+    home.href = link("index.html");
+    home.textContent = tr("nav.home", "The Terminal");
+    nav.appendChild(home);
 
-    btn.addEventListener("click", function (e) {
-      e.stopPropagation();
-      var was = wrap.classList.contains("open");
-      closeAll();
-      if (!was) {
+    var heroTitle = null, heroColor = null, heroGroup = null, heroFile = null;
+    GROUPS.forEach(function (g) {
+      var wrap = document.createElement("div");
+      wrap.className = "gnav-group";
+      wrap.style.setProperty("--gn", g.color);
+
+      var btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "gnav-btn";
+      btn.setAttribute("aria-haspopup", "true");
+      btn.setAttribute("aria-expanded", "false");
+      btn.innerHTML = '<span class="dot"></span>' + esc(groupText(g)) + '<span class="chev">▾</span>';
+
+      var panel = document.createElement("div");
+      panel.className = "gnav-panel";
+      g.pages.forEach(function (p) {
+        var a = document.createElement("a");
+        a.href = link(p[0]);
+        var external = /^https?:\/\//.test(p[0]);
+        // Every dashboard — including the external workers/Pages sites (Daily
+        // Market Board, Global-Macro Brief) — navigates in the SAME tab so moving
+        // between them feels like one app rather than spawning new windows.
+        a.innerHTML = '<span class="pdot"></span>' + esc(pageText(p));
+        if (!external && p[0].replace(/\.html$/, "") === hereKey) {
+          a.classList.add("here");
+          wrap.classList.add("active");
+          heroTitle = pageText(p);
+          heroColor = g.color;
+          heroGroup = groupText(g);
+          heroFile = p[0];
+        }
+        panel.appendChild(a);
+      });
+
+      btn.addEventListener("click", function (e) {
+        e.stopPropagation();
+        var was = wrap.classList.contains("open");
+        closeAll();
+        if (!was) {
+          wrap.classList.add("open");
+          btn.setAttribute("aria-expanded", "true");
+        }
+      });
+      // hover with forgiveness: a short close delay so crossing the gap (or
+      // briefly overshooting) doesn't snap the menu shut mid-click
+      var closeTimer = null;
+      wrap.addEventListener("mouseenter", function () {
+        clearTimeout(closeTimer);
+        closeAll();
         wrap.classList.add("open");
         btn.setAttribute("aria-expanded", "true");
+      });
+      wrap.addEventListener("mouseleave", function () {
+        clearTimeout(closeTimer);
+        closeTimer = setTimeout(function () {
+          wrap.classList.remove("open");
+          btn.setAttribute("aria-expanded", "false");
+        }, 350);
+      });
+
+      wrap.appendChild(btn);
+      wrap.appendChild(panel);
+      nav.appendChild(wrap);
+    });
+
+    extras.forEach(function (el) { nav.appendChild(el); });
+
+    // ── Unified top bar + page title banner (subpages only; index keeps its own) ──
+    if (heroTitle && header) {
+      if (!header.classList.contains("gtopbar")) {
+        // Rebuild the bar to match the homepage: IS mark · The Terminal
+        // (blinking) · menu · status. The old page-specific title is dropped —
+        // the colored banner below now carries the page identity.
+        header.classList.add("gtopbar");
+        header.innerHTML = "";
+
+        var brand = document.createElement("a");
+        brand.className = "gbrand";
+        brand.href = "index.html";
+        brand.innerHTML =
+          '<div class="gbrand-mark">IS</div>' +
+          '<div class="gbrand-text"><h1>The Terminal<span class="cursor"></span></h1>' +
+          '<div class="sub"></div></div>';
+        header.appendChild(brand);
+        header.appendChild(nav);
+        if (staleNode) header.appendChild(staleNode); // status pill, far right
       }
-    });
-    // hover with forgiveness: a short close delay so crossing the gap (or
-    // briefly overshooting) doesn't snap the menu shut mid-click
-    var closeTimer = null;
-    wrap.addEventListener("mouseenter", function () {
-      clearTimeout(closeTimer);
-      closeAll();
-      wrap.classList.add("open");
-      btn.setAttribute("aria-expanded", "true");
-    });
-    wrap.addEventListener("mouseleave", function () {
-      clearTimeout(closeTimer);
-      closeTimer = setTimeout(function () {
-        wrap.classList.remove("open");
-        btn.setAttribute("aria-expanded", "false");
-      }, 350);
-    });
-
-    wrap.appendChild(btn);
-    wrap.appendChild(panel);
-    nav.appendChild(wrap);
-  });
-
-  extras.forEach(function (el) { nav.appendChild(el); });
-
-  // ── Unified top bar + page title banner (subpages only; index keeps its own) ──
-  if (heroTitle) {
-    var header = nav.closest("header") || document.querySelector("header");
-    if (header && !header.classList.contains("gtopbar")) {
-      // Preserve the live status pill and detail line before we rebuild —
-      // page scripts keep updating these same nodes by id.
-      var staleNode = document.getElementById("staleBadge");
-      var metaNode = document.getElementById("meta");
-
-      // Rebuild the bar to match the homepage: IS mark · The Terminal
-      // (blinking) · menu · status. The old page-specific title is dropped —
-      // the colored banner below now carries the page identity.
-      header.classList.add("gtopbar");
-      header.innerHTML = "";
-
-      var brand = document.createElement("a");
-      brand.className = "gbrand";
-      brand.href = "index.html";
-      brand.innerHTML =
-        '<div class="gbrand-mark">IS</div>' +
-        '<div class="gbrand-text"><h1>The Terminal<span class="cursor"></span></h1>' +
-        '<div class="sub">IS1 Coverage Desk · SET Issuer Department 1</div></div>';
-      header.appendChild(brand);
-      header.appendChild(nav);
-      if (staleNode) header.appendChild(staleNode); // status pill, far right
+      setBrandSub();
 
       // Colored page banner directly below the bar; the live detail line
       // (counts / as-of) rides along next to the description.
-      if (!document.querySelector(".phbanner")) {
-        var meta = META[heroFile] || { ic: "", desc: "" };
-        var banner = document.createElement("div");
+      var meta = META[heroFile] || { ic: "", desc: "" };
+      var banner = document.querySelector(".phbanner");
+      if (!banner) {
+        banner = document.createElement("div");
         banner.className = "phbanner";
-        banner.style.setProperty("--ph", heroColor);
         banner.innerHTML =
-          '<div class="ph-ico"><svg viewBox="0 0 24 24" aria-hidden="true">' + meta.ic + '</svg></div>' +
+          '<div class="ph-ico"><svg viewBox="0 0 24 24" aria-hidden="true"></svg></div>' +
           '<div class="ph-txt">' +
-            '<span class="ph-cat">' + heroGroup + '</span>' +
-            '<div class="ph-title">' + heroTitle + '</div>' +
-            '<div class="ph-desc">' + (meta.desc ? '<span class="ph-d">' + meta.desc + '</span>' : '') + '</div>' +
+            '<span class="ph-cat"></span>' +
+            '<div class="ph-title"></div>' +
+            '<div class="ph-desc"><span class="ph-d"></span></div>' +
           '</div>';
-        if (metaNode) banner.querySelector(".ph-desc").appendChild(metaNode);
         header.parentNode.insertBefore(banner, header.nextSibling);
       }
+      banner.style.setProperty("--ph", heroColor);
+      banner.querySelector(".ph-ico svg").innerHTML = meta.ic || "";
+      banner.querySelector(".ph-cat").textContent = heroGroup;
+      banner.querySelector(".ph-title").textContent = heroTitle;
+      banner.querySelector(".ph-d").textContent = metaText(meta);
+      if (metaNode && metaNode.parentNode !== banner.querySelector(".ph-desc")) {
+        banner.querySelector(".ph-desc").appendChild(metaNode);
+      }
+    } else {
+      setBrandSub();
     }
+    placeLangToggle();
   }
+
+  buildNav();
+  window.addEventListener("i18n:change", buildNav);
 
   function closeAll() {
     nav.querySelectorAll(".gnav-group.open").forEach(function (w) {

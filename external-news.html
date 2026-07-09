@@ -56,28 +56,29 @@
   .empty, .loading { text-align: center; padding: 60px; color: var(--muted); }
 </style>
   <link rel="stylesheet" href="theme.css">
+  <script src="i18n.js"></script>
 
 </head>
 <body>
 
 <header>
   <div>
-    <h1>External News <span style="color:var(--muted);font-weight:400;font-size:13px">— Wire / RSS coverage matches</span></h1>
-    <div class="meta" id="meta">Loading...</div>
+    <h1><span data-i18n="page.externalNews">External News</span> <span style="color:var(--muted);font-weight:400;font-size:13px">— Wire / RSS coverage matches</span></h1>
+    <div class="meta" id="meta" data-i18n="common.loadingDots">Loading...</div>
   </div>
   <nav class="nav">
-    <a href="index.html">Index</a>
-    <a href="price-movement.html">Price Movement</a>
-    <a href="disclosure-pulse.html">Disclosures</a>
-    <a href="oppday-minutes.html">Oppday</a>
-    <a href="multiples-comparison.html">Multiples Comparison</a>
-    <a href="company-summary.html">Company Summary</a>
-    <a href="multiples-band.html">Multiples Band</a>
-    <a href="bond-summary.html">Bonds</a>
-    <a href="unusual-trading.html">Alerts</a>
-    <a href="external-news.html" class="active">External</a>
-    <a href="trading-signs.html">Signs</a>
-    <a href="sec-enforcement.html">SEC</a>
+    <a href="index.html" data-i18n="nav.index">Index</a>
+    <a href="price-movement.html" data-i18n="page.priceMovement">Price Movement</a>
+    <a href="disclosure-pulse.html" data-i18n="nav.disclosures">Disclosures</a>
+    <a href="oppday-minutes.html" data-i18n="nav.oppday">Oppday</a>
+    <a href="multiples-comparison.html" data-i18n="page.multiplesComparison">Multiples Comparison</a>
+    <a href="company-summary.html" data-i18n="page.companySummary">Company Summary</a>
+    <a href="multiples-band.html" data-i18n="page.multiplesBand">Multiples Band</a>
+    <a href="bond-summary.html" data-i18n="nav.bonds">Bonds</a>
+    <a href="unusual-trading.html" data-i18n="nav.alerts">Alerts</a>
+    <a href="external-news.html" class="active" data-i18n="nav.external">External</a>
+    <a href="trading-signs.html" data-i18n="nav.signs">Signs</a>
+    <a href="sec-enforcement.html" data-i18n="nav.sec">SEC</a>
     <span class="stale" id="staleBadge">..</span>
   </nav>
 </header>
@@ -86,26 +87,41 @@
 
 <div class="tab-bar">
   <div class="tab-row">
-    <span class="tab-label">Window:</span>
+    <span class="tab-label"><span data-i18n="common.window">Window</span>:</span>
     <div id="windowTabs" style="display:flex;gap:4px;flex-wrap:wrap"></div>
   </div>
   <div class="tab-row">
-    <span class="tab-label">Source:</span>
+    <span class="tab-label"><span data-i18n="common.source">Source</span>:</span>
     <div id="srcTabs" style="display:flex;gap:4px;flex-wrap:wrap"></div>
-    <span class="tab-label" style="margin-left:20px">Sector:</span>
+    <span class="tab-label" style="margin-left:20px"><span data-i18n="common.sector">Sector</span>:</span>
     <div id="sectorTabs" style="display:flex;gap:4px;flex-wrap:wrap"></div>
   </div>
   <div class="tab-row">
-    <span class="tab-label">RM:</span>
+    <span class="tab-label"><span data-i18n="common.rm">RM</span>:</span>
     <div id="rmTabs" style="display:flex;gap:4px;flex-wrap:wrap"></div>
   </div>
 </div>
 
-<div id="feed" class="feed"><div class="loading">Fetching wire hits...</div></div>
+<div id="feed" class="feed"><div class="loading" data-i18n="common.fetchingWireHits">Fetching wire hits...</div></div>
 
 <script>
 let TICKERS = {}, ITEMS = [];
 let activeWindow = 7, activeSrc = 'ALL', activeSector = 'ALL', activeRm = 'ALL';
+let DATA_META = null;
+const TT_FALLBACK = {
+  "common.all": "All",
+  "common.updatedAgo": "updated {x} ago",
+  "external.itemsWindow": "Items - {window}",
+  "external.tickersHit": "Tickers hit",
+  "external.sources": "Sources",
+  "external.topSource": "Top source",
+  "common.noExternalNews": "No external news matches the filters.",
+  "common.errorWithMsg": "Error: {msg}",
+  "external.meta": "{n} wire/RSS hits - {sources} - as of {asOf}",
+};
+function tt(key) { return window.I18N ? I18N.t(key) : (TT_FALLBACK[key] || key); }
+function tx(key, vars) { return tt(key).replace(/\{(\w+)\}/g, (_, k) => vars && vars[k] != null ? vars[k] : ''); }
+function allLabel() { return tt('common.all'); }
 const WINDOWS = [
   { key: 1, label: '1d' }, { key: 3, label: '3d' }, { key: 7, label: '7d' },
   { key: 14, label: '14d' }, { key: 30, label: '30d' }, { key: 0, label: 'All' },
@@ -114,7 +130,8 @@ const WINDOWS = [
 function freshnessLabel(builtAt) {
   if (!builtAt) return { txt: '?', warn: true };
   const ageH = (Date.now() - new Date(builtAt).getTime()) / 36e5;
-  return { txt: 'updated ' + (ageH < 1 ? Math.round(ageH * 60) + 'm' : Math.round(ageH) + 'h') + ' ago', warn: ageH > 36 };
+  const x = ageH < 1 ? Math.round(ageH * 60) + 'm' : Math.round(ageH) + 'h';
+  return { txt: tx('common.updatedAgo', { x }), warn: ageH > 36 };
 }
 function formatTs(ts) { if (!ts) return ''; try { return new Date(ts).toLocaleString('th-TH', { month:'short', day:'numeric', hour:'2-digit', minute:'2-digit' }); } catch { return ts; } }
 function inWindow(it) {
@@ -143,7 +160,7 @@ function buildSrcTabs() {
   const sources = ['ALL', ...Object.keys(counts).sort((a,b)=>counts[b]-counts[a])];
   document.getElementById('srcTabs').innerHTML = sources.map(s => {
     const cnt = s === 'ALL' ? inWin.length : counts[s];
-    return `<div class="tab ${s === activeSrc ? 'active' : ''}" onclick="setSrc('${s}')">${s === 'ALL' ? 'All' : s} <span class="tab-count">${cnt}</span></div>`;
+    return `<div class="tab ${s === activeSrc ? 'active' : ''}" onclick="setSrc('${s}')">${s === 'ALL' ? allLabel() : s} <span class="tab-count">${cnt}</span></div>`;
   }).join('');
 }
 function buildSectorTabs() {
@@ -154,7 +171,7 @@ function buildSectorTabs() {
   const sectors = ['ALL', ...Object.keys(counts).sort((a,b) => order.indexOf(a) - order.indexOf(b))];
   document.getElementById('sectorTabs').innerHTML = sectors.map(s => {
     const cnt = s === 'ALL' ? inScope.length : counts[s];
-    return `<div class="tab ${s === activeSector ? 'active' : ''}" onclick="setSector('${s}')">${s === 'ALL' ? 'All' : s} <span class="tab-count">${cnt}</span></div>`;
+    return `<div class="tab ${s === activeSector ? 'active' : ''}" onclick="setSector('${s}')">${s === 'ALL' ? allLabel() : s} <span class="tab-count">${cnt}</span></div>`;
   }).join('');
 }
 function buildRmTabs() {
@@ -162,7 +179,7 @@ function buildRmTabs() {
   const counts = {};
   inScope.forEach(it => { const r = it.rm || '?'; counts[r] = (counts[r]||0)+1; });
   const rms = Object.keys(counts).sort((a,b) => counts[b]-counts[a]);
-  document.getElementById('rmTabs').innerHTML = `<div class="tab ${activeRm==='ALL'?'active':''}" onclick="setRm('ALL')">All <span class="tab-count">${inScope.length}</span></div>` +
+  document.getElementById('rmTabs').innerHTML = `<div class="tab ${activeRm==='ALL'?'active':''}" onclick="setRm('ALL')">${allLabel()} <span class="tab-count">${inScope.length}</span></div>` +
     rms.map(r => `<div class="tab ${activeRm===r?'active':''}" onclick="setRm('${r}')">${r} <span class="tab-count">${counts[r]}</span></div>`).join('');
 }
 function setWindow(d) { activeWindow=+d; buildAll(); }
@@ -177,15 +194,15 @@ function updateStats() {
   rows.forEach(it => { bySrc[it.source] = (bySrc[it.source]||0)+1; });
   const topSrc = Object.keys(bySrc).sort((a,b)=>bySrc[b]-bySrc[a])[0] || '-';
   document.getElementById('statsBar').innerHTML = `
-    <div class="stat"><div class="stat-val">${rows.length}</div><div class="stat-lbl">Items - ${winLabel}</div></div>
-    <div class="stat"><div class="stat-val">${new Set(rows.map(r=>r.tk)).size}</div><div class="stat-lbl">Tickers hit</div></div>
-    <div class="stat"><div class="stat-val">${Object.keys(bySrc).length}</div><div class="stat-lbl">Sources</div></div>
-    <div class="stat"><div class="stat-val" style="font-size:13px;font-weight:600">${topSrc}</div><div class="stat-lbl">Top source</div></div>`;
+    <div class="stat"><div class="stat-val">${rows.length}</div><div class="stat-lbl">${tx('external.itemsWindow', { window: winLabel })}</div></div>
+    <div class="stat"><div class="stat-val">${new Set(rows.map(r=>r.tk)).size}</div><div class="stat-lbl">${tt('external.tickersHit')}</div></div>
+    <div class="stat"><div class="stat-val">${Object.keys(bySrc).length}</div><div class="stat-lbl">${tt('external.sources')}</div></div>
+    <div class="stat"><div class="stat-val" style="font-size:13px;font-weight:600">${topSrc}</div><div class="stat-lbl">${tt('external.topSource')}</div></div>`;
 }
 function render() {
   const rows = filtered();
   const feed = document.getElementById('feed');
-  if (!rows.length) { feed.innerHTML = '<div class="empty">No external news matches the filters.</div>'; return; }
+  if (!rows.length) { feed.innerHTML = `<div class="empty">${tt('common.noExternalNews')}</div>`; return; }
   feed.innerHTML = rows.map(it => `<div class="item">
     <div class="item-top">
       <div class="item-tk">${it.tk}</div>
@@ -211,17 +228,31 @@ async function init() {
     ]);
     tj.tickers.forEach(t => { TICKERS[t.tk] = t; });
     ITEMS = dj.items || [];
+    DATA_META = dj;
     const fresh = freshnessLabel(dj._built_at);
     const badge = document.getElementById('staleBadge');
     badge.textContent = fresh.txt;
     if (fresh.warn) badge.classList.add('warn');
-    document.getElementById('meta').textContent = `${ITEMS.length} wire/RSS hits - ${(dj.sources||[]).join(', ')} - as of ${dj.asOf || ''}`;
+    updateMeta();
     buildAll();
   } catch(e) {
-    document.getElementById('feed').innerHTML = `<div class="empty">Error: ${e.message}</div>`;
+    document.getElementById('feed').innerHTML = `<div class="empty">${tx('common.errorWithMsg', { msg: e.message })}</div>`;
   }
 }
 init();
+function updateMeta() {
+  if (!DATA_META) return;
+  document.getElementById('meta').textContent = tx('external.meta', {
+    n: ITEMS.length,
+    sources: (DATA_META.sources || []).join(', '),
+    asOf: DATA_META.asOf || ''
+  });
+}
+window.addEventListener('i18n:change', () => {
+  if (window.I18N) I18N.apply();
+  updateMeta();
+  buildAll();
+});
 </script>
 <script src="nav.js" defer></script>
 <script src="chat-dock.js" defer></script>

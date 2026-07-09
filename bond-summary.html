@@ -157,6 +157,7 @@ footer a{color:var(--muted);text-decoration:none}
 }
 </style>
   <link rel="stylesheet" href="theme.css">
+  <script src="i18n.js"></script>
 
 </head>
 <body>
@@ -164,33 +165,33 @@ footer a{color:var(--muted);text-decoration:none}
 <header>
   <a class="brand" href="index.html">
     <div class="brand-mark">IS</div>
-    <div><div class="brand-name">Coverage Desk</div><div class="brand-sub">SET Issuer Dept 1</div></div>
+    <div><div class="brand-name" data-i18n="brand.coverageDesk">Coverage Desk</div><div class="brand-sub" data-i18n="brand.setIssuerDept1">SET Issuer Dept 1</div></div>
   </a>
   <nav class="nav">
-    <a href="index.html">Index</a>
-    <a href="price-movement.html">Price Movement</a>
-    <a href="disclosure-pulse.html">Disclosures</a>
-    <a href="oppday-minutes.html">Oppday</a>
-    <a href="multiples-comparison.html">Multiples Comparison</a>
-    <a href="company-summary.html">Company Summary</a>
-    <a href="multiples-band.html">Multiples Band</a>
-    <a href="bond-summary.html" class="active">Bonds</a>
-    <a href="unusual-trading.html">Alerts</a>
-    <a href="external-news.html">External</a>
-    <a href="trading-signs.html">Signs</a>
-    <a href="sec-enforcement.html">SEC</a>
-    <span class="stale unknown" id="staleBadge">● loading</span>
+    <a href="index.html" data-i18n="nav.index">Index</a>
+    <a href="price-movement.html" data-i18n="page.priceMovement">Price Movement</a>
+    <a href="disclosure-pulse.html" data-i18n="nav.disclosures">Disclosures</a>
+    <a href="oppday-minutes.html" data-i18n="nav.oppday">Oppday</a>
+    <a href="multiples-comparison.html" data-i18n="page.multiplesComparison">Multiples Comparison</a>
+    <a href="company-summary.html" data-i18n="page.companySummary">Company Summary</a>
+    <a href="multiples-band.html" data-i18n="page.multiplesBand">Multiples Band</a>
+    <a href="bond-summary.html" class="active" data-i18n="nav.bonds">Bonds</a>
+    <a href="unusual-trading.html" data-i18n="nav.alerts">Alerts</a>
+    <a href="external-news.html" data-i18n="nav.external">External</a>
+    <a href="trading-signs.html" data-i18n="nav.signs">Signs</a>
+    <a href="sec-enforcement.html" data-i18n="nav.sec">SEC</a>
+    <span class="stale unknown" id="staleBadge">● <span data-i18n="common.loadingDots">loading</span></span>
   </nav>
 </header>
 
 <main>
-  <div><div class="pg-title">Bond Summary</div><div class="pg-sub" id="pgSub">Loading ThaiBMA bond data…</div></div>
+  <div><div class="pg-title" data-i18n="page.bondSummary">Bond Summary</div><div class="pg-sub" id="pgSub" data-i18n="common.loadingThaiBma">Loading ThaiBMA bond data…</div></div>
   <div class="hero" id="hero"></div>
 
   <!-- Maturity Wall -->
   <div class="chart-panel" id="wallPanel" style="display:none">
-    <div class="chart-title">Maturity Wall</div>
-    <div class="chart-sub">Total outstanding by maturity year · M฿ · stacked by sector</div>
+    <div class="chart-title" data-i18n="bond.maturityWall">Maturity Wall</div>
+    <div class="chart-sub" data-i18n="bond.maturityWallSub">Total outstanding by maturity year · M฿ · stacked by sector</div>
     <div id="wallChart"></div>
     <div class="legend" id="wallLegend"></div>
   </div>
@@ -198,43 +199,77 @@ footer a{color:var(--muted);text-decoration:none}
   <!-- Two-column: Donut + Top Issuers -->
   <div class="two-col" id="twoCol" style="display:none">
     <div class="chart-panel">
-      <div class="chart-title">Outstanding by Sector</div>
-      <div class="chart-sub">Share of total bond outstanding</div>
+      <div class="chart-title" data-i18n="bond.outstandingBySector">Outstanding by Sector</div>
+      <div class="chart-sub" data-i18n="bond.shareOutstanding">Share of total bond outstanding</div>
       <div id="donutChart" style="display:flex;gap:20px;align-items:center;flex-wrap:wrap"></div>
     </div>
     <div class="chart-panel">
-      <div class="chart-title">Top Issuers by Outstanding</div>
-      <div class="chart-sub">M฿ outstanding · long + short term</div>
+      <div class="chart-title" data-i18n="bond.topIssuers">Top Issuers by Outstanding</div>
+      <div class="chart-sub" data-i18n="bond.topIssuersSub">M฿ outstanding · long + short term</div>
       <div id="topIssuers"></div>
     </div>
   </div>
 
   <!-- Controls -->
   <div class="controls" id="controls" style="display:none">
-    <div class="ctrl-row"><span class="ctrl-lbl">Sector</span><div id="sectFilter"></div></div>
+    <div class="ctrl-row"><span class="ctrl-lbl" data-i18n="common.sector">Sector</span><div id="sectFilter"></div></div>
     <div class="ctrl-row"><span class="ctrl-lbl">RM</span><div id="rmFilter"></div></div>
-    <button class="toggle-btn" id="esgToggle" onclick="toggleESG()">🌿 ESG only</button>
-    <button class="toggle-btn" id="nearToggle" onclick="toggleNear()">⚠ Maturing ≤ 1yr</button>
-    <div class="ctrl-row"><span class="ctrl-lbl">Sort</span><div id="sortFilter"></div></div>
+    <button class="toggle-btn" id="esgToggle" onclick="toggleESG()" data-i18n="bond.esgOnly">🌿 ESG only</button>
+    <button class="toggle-btn" id="nearToggle" onclick="toggleNear()" data-i18n="bond.maturingOneYear">⚠ Maturing ≤ 1yr</button>
+    <div class="ctrl-row"><span class="ctrl-lbl" data-i18n="common.sort">Sort</span><div id="sortFilter"></div></div>
     <span class="cnt-lbl" id="cntLbl">—</span>
   </div>
 
-  <div id="loading"><div class="spinner"></div>Fetching bond data…</div>
+  <div id="loading"><div class="spinner"></div><span data-i18n="common.fetchingBondData">Fetching bond data…</span></div>
   <div class="grid" id="grid" style="display:none"></div>
 </main>
 
 <footer>
   <span id="fsrc">IS1 Coverage Desk · Bond Summary</span>
-  <span>Source: <a href="https://www.thaibma.or.th" target="_blank" rel="noopener">ThaiBMA.or.th</a> · No API key required</span>
+  <span><span data-i18n="common.source">Source</span>: <a href="https://www.thaibma.or.th" target="_blank" rel="noopener">ThaiBMA.or.th</a> · <span data-i18n="common.noApiKeyRequired">No API key required</span></span>
 </footer>
 
 <script>
 // ── constants ────────────────────────────────────────────────────────────────
+const TT_FALLBACK = {
+  "bond.currentYear": "■ Current year",
+  "common.total": "Total",
+  "bond.moreCount": "+{n} more",
+  "bond.symbol": "Symbol",
+  "bond.outM": "Out (M฿)",
+  "bond.maturity": "Maturity",
+  "bond.dist": "Dist",
+  "bond.maturingOneYear": "⚠ Maturing ≤ 1yr",
+  "bond.outstanding": "outstanding",
+  "bond.longTerm": "{n} long-term",
+  "bond.shortTerm": "{n} short-term",
+  "bond.bondsTotal": "{n} bond{s} total",
+  "bond.issuersCount": "{shown} / {total} issuers",
+  "common.noIssuerFilter": "No issuers match the current filter.",
+  "bond.totalOutstanding": "Total Outstanding",
+  "bond.acrossAllBonds": "across all bonds",
+  "bond.issuersWithBonds": "Issuers with Bonds",
+  "bond.ofCovered": "of {n} covered",
+  "bond.totalIssues": "Total Issues",
+  "bond.outstandingBonds": "outstanding bonds",
+  "bond.ttmOneYear": "TTM ≤ 1 year",
+  "bond.avgTtm": "Avg TTM",
+  "bond.yearsToMaturity": "years to maturity",
+  "bond.esgBonds": "ESG Bonds",
+  "bond.greenSocialSustainability": "green/social/sustainability",
+  "bond.dataUnavailable": "Bond data not available",
+  "bond.runBuild": "Run: python scripts/build_bond_summary.py",
+  "bond.meta": "{n} issuers with outstanding bonds · as of {asOf} · Source: ThaiBMA (no API key)",
+  "bond.footerSource": "IS1 Bond Summary · {asOf} · {source}",
+};
+function tt(key) { return window.I18N ? I18N.t(key) : (TT_FALLBACK[key] || key); }
+function tx(key, vars){return tt(key).replace(/\{(\w+)\}/g,(_,k)=>vars&&vars[k]!=null?vars[k]:'')}
 const SCOL={FOOD:'#3b82f6',AGRI:'#10b981',PROP:'#8b5cf6',CONS:'#f97316',CONMAT:'#ec4899',PFREIT:'#06b6d4'};
 const SECT_ORDER=['FOOD','AGRI','PROP','CONS','CONMAT','PFREIT'];
 const esc=s=>(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 const fmb=v=>v==null?'—':v>=1000?`${(v/1000).toFixed(1)}B`:v>=1?`${v.toFixed(0)}M`:`${v.toFixed(1)}M`;
 const f2=v=>v==null?'—':v.toFixed(2);
+let DATA_META=null, SUMMARY_DATA=null;
 
 // TTM color
 function ttmCol(ttm){return ttm==null?'#5a627a':ttm<1?'#ef4444':ttm<3?'#f59e0b':'#22c55e'}
@@ -295,7 +330,7 @@ function renderMaturityWall(byYearSector, byYear){
   // Legend
   document.getElementById('wallLegend').innerHTML=sectors.map(s=>
     `<div class="legend-item"><div class="legend-dot" style="background:${SCOL[s]}"></div>${s}</div>`
-  ).join('')+'<div class="legend-item" style="margin-left:auto;color:var(--red)">■ Current year</div>';
+  ).join('')+`<div class="legend-item" style="margin-left:auto;color:var(--red)">${tt('bond.currentYear')}</div>`;
 }
 
 // ── DONUT CHART ───────────────────────────────────────────────────────────────
@@ -319,7 +354,7 @@ function renderDonut(bySector){
   const donutSvg=`<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" xmlns="http://www.w3.org/2000/svg">
     ${paths}
     <circle cx="${cx}" cy="${cy}" r="${r-2}" fill="${'#14171f'}"/>
-    <text x="${cx}" y="${cy-6}" text-anchor="middle" fill="#e6e8ed" font-size="9" font-weight="600">Total</text>
+    <text x="${cx}" y="${cy-6}" text-anchor="middle" fill="#e6e8ed" font-size="9" font-weight="600">${tt('common.total')}</text>
     <text x="${cx}" y="${cy+8}" text-anchor="middle" fill="#e6e8ed" font-size="11" font-weight="800">${fmb(total)}</text>
   </svg>`;
   const legendHtml=data.map(([s,val])=>
@@ -424,8 +459,8 @@ function bondTable(bonds){
       <td><span class="dist">${esc(b.distribution)}</span></td>
     </tr>`;
   }).join('');
-  const more=bonds.length>active.length?`<tr><td colspan="5" style="text-align:center;color:var(--dim);font-size:9px;padding:4px">+${bonds.length-active.length} more</td></tr>`:'';
-  return `<table class="bond-tbl"><thead><tr><th>Symbol</th><th>Out (M฿)</th><th>Maturity</th><th>TTM</th><th>Dist</th></tr></thead><tbody>${rows}${more}</tbody></table>`;
+  const more=bonds.length>active.length?`<tr><td colspan="5" style="text-align:center;color:var(--dim);font-size:9px;padding:4px">${tx('bond.moreCount',{n:bonds.length-active.length})}</td></tr>`:'';
+  return `<table class="bond-tbl"><thead><tr><th>${tt('bond.symbol')}</th><th>${tt('bond.outM')}</th><th>${tt('bond.maturity')}</th><th>TTM</th><th>${tt('bond.dist')}</th></tr></thead><tbody>${rows}${more}</tbody></table>`;
 }
 
 // ── ISSUER CARD ───────────────────────────────────────────────────────────────
@@ -441,7 +476,7 @@ function buildCard(issuer){
   const matBar=nearAmt>0?`
     <div style="margin-top:6px">
       <div style="display:flex;justify-content:space-between;font-size:10px;margin-bottom:3px">
-        <span style="color:var(--red);font-weight:700">⚠ Maturing ≤ 1yr</span>
+        <span style="color:var(--red);font-weight:700">${tt('bond.maturingOneYear')}</span>
         <span style="color:var(--red);font-weight:800;font-variant-numeric:tabular-nums">฿${fmb(nearAmt)} <span style="font-weight:400;color:var(--dim)">(${nearPct}%)</span></span>
       </div>
       <div style="height:5px;background:var(--border2);border-radius:3px;overflow:hidden">
@@ -462,25 +497,25 @@ function buildCard(issuer){
       <div>
         <div class="out-big">
           <span class="out-val">฿${fmb(issuer.totalOutstanding)}</span>
-          <span class="out-unit">outstanding</span>
+          <span class="out-unit">${tt('bond.outstanding')}</span>
         </div>
         ${matBar}
       </div>
       <div class="count-pills">
-        <span class="pill pill-long">${issuer.longCount} long-term</span>
-        <span class="pill pill-short">${issuer.shortCount} short-term</span>
+        <span class="pill pill-long">${tx('bond.longTerm',{n:issuer.longCount})}</span>
+        <span class="pill pill-short">${tx('bond.shortTerm',{n:issuer.shortCount})}</span>
         ${(()=>{
           const de=DE_MAP[issuer.tk];
           if(de==null) return '';
           const col=de<=0.5?'var(--green)':de<=1.2?'var(--yellow)':'var(--red)';
           const bg=de<=0.5?'#22c55e18':de<=1.2?'#f59e0b18':'#ef444418';
-          return `<span class="pill" style="color:${col};background:${bg}" title="Debt-to-Equity ratio (latest annual)">D/E ${de.toFixed(2)}×</span>`;
+          return `<span class="pill" style="color:${col};background:${bg}" title="${esc(tt('bond.deTooltip'))}">D/E ${de.toFixed(2)}×</span>`;
         })()}
       </div>
       ${maturityTimeline(issuer.bonds)}
       ${bondTable(issuer.bonds)}
       <div class="icard-foot">
-        <span style="font-size:10px;color:var(--dim)">${issuer.bonds.length} bond${issuer.bonds.length!==1?'s':''} total</span>
+        <span style="font-size:10px;color:var(--dim)">${tx('bond.bondsTotal',{n:issuer.bonds.length,s:issuer.bonds.length!==1?'s':''})}</span>
         <a class="thaibma-link" href="${thaibmaUrl}" target="_blank" rel="noopener">ThaiBMA ↗</a>
       </div>
     </div>
@@ -515,9 +550,9 @@ function applySort(arr){
 }
 function render(){
   const filtered=applySort(applyFilters());
-  document.getElementById('cntLbl').textContent=`${filtered.length} / ${ALL.length} issuers`;
+  document.getElementById('cntLbl').textContent=tx('bond.issuersCount',{shown:filtered.length,total:ALL.length});
   const grid=document.getElementById('grid');
-  if(!filtered.length){grid.innerHTML='<div class="empty">No issuers match the current filter.</div>';return;}
+  if(!filtered.length){grid.innerHTML=`<div class="empty">${tt('common.noIssuerFilter')}</div>`;return;}
   grid.innerHTML=filtered.map(buildCard).join('');
 }
 function toggleESG(){esgOnly=!esgOnly;document.getElementById('esgToggle').classList.toggle('on',esgOnly);render();}
@@ -525,16 +560,16 @@ function toggleNear(){nearOnly=!nearOnly;document.getElementById('nearToggle').c
 
 // ── SORT TOGGLE BUTTONS ───────────────────────────────────────────────────────
 const SORT_OPTS=[
-  {key:'out-d',  label:'Outstanding ↓'},
-  {key:'near-d', label:'≤1yr ↓'},
-  {key:'bonds-d',label:'Bonds ↓'},
-  {key:'ttm-a',  label:'TTM ↑'},
-  {key:'tk',     label:'A–Z'},
+  {key:'out-d',  tKey:'bond.sortOutstanding'},
+  {key:'near-d', tKey:'bond.sortNear'},
+  {key:'bonds-d',tKey:'secBond.sortBonds'},
+  {key:'ttm-a',  tKey:'bond.sortTtm'},
+  {key:'tk',     tKey:'common.aToZ'},
 ];
 
 function buildSortButtons(){
-  document.getElementById('sortFilter').innerHTML=SORT_OPTS.map(({key,label})=>
-    `<button class="sbtn sort-btn${key===sortKey?' active':''}" onclick="setSort('${key}')">${label}</button>`
+  document.getElementById('sortFilter').innerHTML=SORT_OPTS.map(({key,tKey})=>
+    `<button class="sbtn sort-btn${key===sortKey?' active':''}" onclick="setSort('${key}')">${esc(tt(tKey))}</button>`
   ).join('');
 }
 function setSort(key){ sortKey=key; buildSortButtons(); render(); }
@@ -555,12 +590,12 @@ function initControls(issuers){
 function renderHero(summary,issuers){
   const cur=new Date().getFullYear();
   const stats=[
-    ['Total Outstanding','--hc:#6366f1',`฿${fmb(summary.totalOutstanding)}`,'across all bonds'],
-    ['Issuers with Bonds','--hc:#22c55e',`${summary.issuersWithBonds}`,`of ${issuers.length+summary.issuersWithBonds} covered`],
-    ['Total Issues','--hc:#3b82f6',`${summary.totalBonds}`,'outstanding bonds'],
-    ['Maturing ≤ 1yr','--hc:#ef4444',`฿${fmb(issuers.reduce((s,i)=>s+nearAmt(i),0))}`,'TTM ≤ 1 year'],
-    ['Avg TTM','--hc:#f59e0b',`${summary.avgTTM?.toFixed(1)||'—'}y`,'years to maturity'],
-    ['ESG Bonds','--hc:#10b981',`${summary.esgBondCount}`,'green/social/sustainability'],
+    [tt('bond.totalOutstanding'),'--hc:#6366f1',`฿${fmb(summary.totalOutstanding)}`,tt('bond.acrossAllBonds')],
+    [tt('bond.issuersWithBonds'),'--hc:#22c55e',`${summary.issuersWithBonds}`,tx('bond.ofCovered',{n:issuers.length+summary.issuersWithBonds})],
+    [tt('bond.totalIssues'),'--hc:#3b82f6',`${summary.totalBonds}`,tt('bond.outstandingBonds')],
+    [tt('bond.maturingOneYear'),'--hc:#ef4444',`฿${fmb(issuers.reduce((s,i)=>s+nearAmt(i),0))}`,tt('bond.ttmOneYear')],
+    [tt('bond.avgTtm'),'--hc:#f59e0b',`${summary.avgTTM?.toFixed(1)||'—'}y`,tt('bond.yearsToMaturity')],
+    [tt('bond.esgBonds'),'--hc:#10b981',`${summary.esgBondCount}`,tt('bond.greenSocialSustainability')],
   ];
   document.getElementById('hero').innerHTML=stats.map(([lbl,hc,val,hint])=>
     `<div class="hstat" style="${hc}"><div class="hstat-lbl">${lbl}</div><div class="hstat-val">${val}</div><div class="hstat-hint">${hint}</div></div>`
@@ -576,6 +611,7 @@ function renderHero(summary,issuers){
     ]);
     if(!r.ok) throw new Error('bond-summary.json not found — run build_bond_summary.py first');
     const d=await r.json();
+    DATA_META=d;
     // Build D/E lookup from ticker-summary highlights (latest full-year)
     if(tr&&tr.ok){
       const td=await tr.json();
@@ -586,13 +622,13 @@ function renderHero(summary,issuers){
     }
     ALL=d.issuers||[];
     const summ=d.summary||{};
+    SUMMARY_DATA=summ;
     document.getElementById('loading').style.display='none';
     document.getElementById('grid').style.display='';
     document.getElementById('wallPanel').style.display='';
     document.getElementById('twoCol').style.display='';
     document.getElementById('controls').style.display='flex';
-    document.getElementById('pgSub').textContent=`${ALL.length} issuers with outstanding bonds · as of ${d.asOf||'—'} · Source: ThaiBMA (no API key)`;
-    document.getElementById('fsrc').textContent=`IS1 Bond Summary · ${d.asOf||'—'} · ${d.source||''}`;
+    updateMeta();
     const badge=document.getElementById('staleBadge');
     if(d._built_at){const h=(Date.now()-new Date(d._built_at).getTime())/3600000;badge.textContent=`● ${d.asOf}`;badge.className=h>24*35?'stale warn':'stale';}
     renderHero(summ, ALL);
@@ -603,12 +639,29 @@ function renderHero(summary,issuers){
     render();
   }catch(err){
     document.getElementById('loading').innerHTML=`<div style="color:var(--red);max-width:500px;margin:0 auto">
-      <div style="font-size:16px;font-weight:700;margin-bottom:8px">Bond data not available</div>
+      <div style="font-size:16px;font-weight:700;margin-bottom:8px">${tt('bond.dataUnavailable')}</div>
       <div style="font-size:12px;color:var(--muted)">${esc(err.message)}</div>
-      <div style="margin-top:12px;font-size:11px;color:var(--dim)">Run: <code style="background:var(--border);padding:2px 6px;border-radius:4px">python scripts/build_bond_summary.py</code></div>
+      <div style="margin-top:12px;font-size:11px;color:var(--dim)">${tt('bond.runBuild')}</div>
     </div>`;
   }
 })();
+function updateMeta(){
+  if(!DATA_META) return;
+  document.getElementById('pgSub').textContent=tx('bond.meta',{n:ALL.length,asOf:DATA_META.asOf||'—'});
+  document.getElementById('fsrc').textContent=tx('bond.footerSource',{asOf:DATA_META.asOf||'—',source:DATA_META.source||''});
+}
+window.addEventListener('i18n:change',()=>{
+  if(window.I18N) I18N.apply();
+  updateMeta();
+  if(SUMMARY_DATA){
+    renderHero(SUMMARY_DATA,ALL);
+    renderMaturityWall(SUMMARY_DATA.byYearSector||{}, SUMMARY_DATA.byYear||{});
+    renderDonut(SUMMARY_DATA.bySector||{});
+    renderTopIssuers(ALL);
+    buildSortButtons();
+    render();
+  }
+});
 </script>
 <script src="nav.js" defer></script>
 <script src="chat-dock.js" defer></script>
