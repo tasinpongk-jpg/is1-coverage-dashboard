@@ -92,6 +92,7 @@ let TICKERS = {}, ITEMS = [];
 let DATA_META = null;
 
 function tt(key) { return window.I18N ? I18N.t(key) : key; }
+function esc(s) { return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 function tx(key, vars) { return tt(key).replace(/\{(\w+)\}/g, (_, k) => vars && vars[k] != null ? vars[k] : ''); }
 
 function freshnessLabel(builtAt) {
@@ -123,12 +124,12 @@ function render() {
       <tbody>
         ${rows.map(r => `
           <tr>
-            <td><span class="tk">${r.tk}</span></td>
-            <td>${r.sector ? `<span class="sector-badge s-${r.sector}">${r.sector}</span>` : ''}</td>
-            <td>${r.rm ? `<span class="rm-badge">${r.rm}</span>` : ''}</td>
-            <td>${[...new Set(r.signs)].map(s => `<span class="sign-pill sign-${s}">${s}</span>`).join('')}</td>
-            <td style="font-variant-numeric:tabular-nums;color:var(--muted)">${[...r.dates].join(', ') || '-'}</td>
-            <td style="color:var(--muted);font-size:12px">${[...r.reasons].join(' | ') || ''}</td>
+            <td><span class="tk">${esc(r.tk || '')}</span></td>
+            <td>${r.sector ? `<span class="sector-badge s-${esc(r.sector)}">${esc(r.sector)}</span>` : ''}</td>
+            <td>${r.rm ? `<span class="rm-badge">${esc(r.rm)}</span>` : ''}</td>
+            <td>${[...new Set(r.signs)].map(s => `<span class="sign-pill sign-${esc(s)}">${esc(s)}</span>`).join('')}</td>
+            <td style="font-variant-numeric:tabular-nums;color:var(--muted)">${esc([...r.dates].join(', ') || '-')}</td>
+            <td style="color:var(--muted);font-size:12px">${esc([...r.reasons].join(' | ') || '')}</td>
           </tr>
         `).join('')}
       </tbody>

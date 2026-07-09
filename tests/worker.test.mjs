@@ -27,9 +27,11 @@ const env = {
 };
 
 function chatReq(body, token = "testtoken") {
+  const headers = { "Content-Type": "application/json" };
+  if (token) headers.Authorization = `Bearer ${token}`;
   return new Request("https://x.test/api/chat", {
     method: "POST",
-    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    headers,
     body: JSON.stringify(body),
   });
 }
@@ -60,6 +62,34 @@ test("auth: missing or wrong token is 401", async () => {
 test("messages must end with a user turn", async () => {
   const r = await worker.fetch(chatReq({ messages: [] }), env);
   assert.equal(r.status, 400);
+
+  let bad = await worker.fetch(new Request("https://x.test/api/chat", {
+    method: "POST",
+    headers: { Authorization: "Bearer testtoken" },
+    body: JSON.stringify({ messages: userMsg }),
+  }), env);
+  assert.equal(bad.status, 415);
+
+  bad = await worker.fetch(new Request("https://x.test/api/chat", {
+    method: "POST",
+    headers: { Authorization: "Bearer testtoken", "Content-Type": "application/json", "Content-Length": String(64 * 1024 + 1) },
+    body: "{}",
+  }), env);
+  assert.equal(bad.status, 413);
+
+  bad = await worker.fetch(new Request("https://x.test/api/chat", {
+    method: "POST",
+    headers: { Authorization: "Bearer testtoken", "Content-Type": "application/json" },
+    body: "{",
+  }), env);
+  assert.equal(bad.status, 400);
+
+  bad = await worker.fetch(new Request("https://x.test/api/chat", {
+    method: "POST",
+    headers: { Authorization: "Bearer testtoken", "Content-Type": "application/json" },
+    body: "null",
+  }), env);
+  assert.equal(bad.status, 400);
 });
 
 test("non-chat paths pass through to assets", async () => {
@@ -75,6 +105,17 @@ test("feedback endpoint records a vote (auth + validation)", async () => {
   let r = await worker.fetch(fb({ agent: "atlas", vote: "down", question: "q", reply: "a" }), env);
   assert.equal(r.status, 200);
   assert.equal((await r.json()).stored, "log");
+  // KV path normalizes known ids and drops unknown agent/rm values
+  const stored = [];
+  const fbEnv = { ...env, FEEDBACK: { put: async (_key, value) => { stored.push(JSON.parse(value)); } } };
+  r = await worker.fetch(fb({ agent: "ATLAS", rm: "c", vote: "up" }), fbEnv);
+  assert.equal(r.status, 200);
+  assert.equal(stored[0].agent, "atlas");
+  assert.equal(stored[0].rm, "C");
+  r = await worker.fetch(fb({ agent: "<img>", rm: "Champ", vote: "up" }), fbEnv);
+  assert.equal(r.status, 200);
+  assert.equal(stored[1].agent, "");
+  assert.equal(stored[1].rm, "");
   // invalid vote -> 400
   r = await worker.fetch(fb({ agent: "atlas", vote: "meh" }), env);
   assert.equal(r.status, 400);
@@ -194,6 +235,27 @@ test("atlas range query keeps only rows inside the band", async () => {
   const block = lastSystem.split("TICKERS (tk")[1] || "";
   const moves = [...block.matchAll(/^\S+ \S+ \S+ \| \S+ (-?\d+(?:\.\d+)?)/gm)].map((m) => +m[1]);
   assert.ok(moves.every((v) => v >= -2 && v <= -1.5), `rows must be in [-2,-1.5]; got ${moves.filter(v => v < -2 || v > -1.5)}`);
+
+  const savedFetch = env.ASSETS.fetch;
+  env.ASSETS.fetch = async (req) => {
+    const p = new URL(req.url).pathname;
+    if (p === "/data/morning-brief.json") {
+      return new Response(JSON.stringify({ asOf: "test", rows: [
+        { tk: "MID", pct1d: 0.2, pct5d: 0, pctYtd: 0, volRatio: 1, last: 1, sector: "FOOD" },
+        { tk: "NULLY", pct1d: null, pct5d: null, pctYtd: null, volRatio: null, last: 1, sector: "FOOD" },
+        { tk: "OUT", pct1d: 5, pct5d: 0, pctYtd: 0, volRatio: 1, last: 1, sector: "FOOD" },
+      ] }));
+    }
+    return savedFetch(req);
+  };
+  try {
+    await worker.fetch(chatReq({ agent: "atlas", messages: [{ role: "user", content: "names between -1% and 1% today" }] }), env);
+    const synthetic = lastSystem.split("TICKERS (tk")[1] || "";
+    assert.ok(/^MID /m.test(synthetic), "valid in-range row should remain");
+    assert.ok(!/^NULLY /m.test(synthetic), "null metric row must not pass range screen");
+  } finally {
+    env.ASSETS.fetch = savedFetch;
+  }
 });
 
 test("atlas top-N by metric returns exactly N rows, sorted", async () => {
@@ -202,6 +264,28 @@ test("atlas top-N by metric returns exactly N rows, sorted", async () => {
   const block = lastSystem.split("TICKERS (tk")[1] || "";
   const rows = (block.match(/^\S+ \S+ \S+ \| /gm) || []).length;
   assert.ok(rows === 5, `expected exactly 5 rows, got ${rows}`);
+
+  const savedFetch = env.ASSETS.fetch;
+  env.ASSETS.fetch = async (req) => {
+    const p = new URL(req.url).pathname;
+    if (p === "/data/morning-brief.json") {
+      return new Response(JSON.stringify({ asOf: "test", rows: [
+        { tk: "TOP", pct1d: 1, pct5d: 1, pctYtd: 10, volRatio: 2, last: 1, sector: "FOOD" },
+        { tk: "SECOND", pct1d: 1, pct5d: 1, pctYtd: 5, volRatio: 2, last: 1, sector: "FOOD" },
+        { tk: "NULLY", pct1d: 1, pct5d: 1, pctYtd: null, volRatio: 2, last: 1, sector: "FOOD" },
+      ] }));
+    }
+    return savedFetch(req);
+  };
+  try {
+    await worker.fetch(chatReq({ agent: "atlas", messages: [{ role: "user", content: "top 3 names by YTD" }] }), env);
+    const synthetic = lastSystem.split("TICKERS (tk")[1] || "";
+    const syntheticRows = synthetic.match(/^\S+ \S+ \S+ \| /gm) || [];
+    assert.equal(syntheticRows.length, 2);
+    assert.ok(!/^NULLY /m.test(synthetic), "null metric row must not pass top-N screen");
+  } finally {
+    env.ASSETS.fetch = savedFetch;
+  }
 });
 
 test("recency word date-filters Hermes news/filings context", async () => {
