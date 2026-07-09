@@ -76,6 +76,11 @@ h2::after{content:"";position:absolute;left:0;bottom:-2px;width:64px;height:2px;
 .opts td{font-size:16px;line-height:1.45}
 /* split / note */
 .split{display:grid;grid-template-columns:1.5fr 1fr;gap:22px;align-items:start;margin-top:16px}
+.s4grid{display:grid;grid-template-columns:1.22fr .9fr;gap:24px;align-items:center;margin-top:12px}
+.s4side{display:flex;flex-direction:column;gap:12px}
+.s4side .tbl{font-size:14.5px;margin-top:0}
+.s4side .tbl th,.s4side .tbl td{padding:6px 12px}
+.s4side .note{margin-top:0;font-size:14px;padding:10px 14px}
 .note{font-size:15.5px;color:var(--muted);line-height:1.55;background:rgba(255,157,61,.07);
   border-left:3px solid var(--ex);padding:12px 16px;border-radius:8px;margin-top:14px}
 .note b{color:#ffd0a0}
@@ -142,6 +147,7 @@ h2::after{content:"";position:absolute;left:0;bottom:-2px;width:64px;height:2px;
 <div class="footer">Index Strategy Team · ข้อมูล ณ 8 ก.ค. 2026</div><div class="pageno">3 / 11</div></section>
 <section class="slide">
   <h2>น้ำหนัก DELTA: แนวโน้มการกระจุกตัว</h2>
+  <div class="s4grid">
   <div class="chart-wrap"><svg viewBox="0 0 1000 380" class="chart" role="img" aria-label="DELTA weight in index over time">
 <line class="grid" x1="58" y1="274.0" x2="942" y2="274.0"/>
 <text class="ytick" x="48" y="278.0" text-anchor="end">5%</text>
@@ -162,11 +168,11 @@ h2::after{content:"";position:absolute;left:0;bottom:-2px;width:64px;height:2px;
 <path d="M 58.0 250.9 L 63.7 250.2 L 69.3 245.8 L 76.6 242.8 L 81.4 242.1 L 87.9 249.7 L 93.6 252.1 L 99.2 248.4 L 104.9 248.0 L 110.5 248.8 L 116.2 247.3 L 121.8 249.2 L 126.7 261.5 L 132.3 262.8 L 138.8 261.9 L 145.3 269.6 L 150.9 260.5 L 156.6 261.2 L 162.2 262.2 L 167.9 264.2 L 172.7 266.2 L 179.2 266.6 L 185.7 260.7 L 191.3 253.7 L 200.2 256.0 L 205.9 260.3 L 211.5 261.6 L 217.2 259.0 L 222.0 264.0 L 227.7 263.0 L 233.3 262.8 L 239.0 265.6 L 245.5 269.7 L 251.1 275.6 L 256.8 272.9 L 262.4 275.5 L 267.3 269.4 L 272.9 268.4 L 279.4 267.0 L 287.5 271.0 L 293.1 268.1 L 302.0 269.6 L 307.7 271.2 L 313.3 268.0 L 319.0 267.8 L 325.5 268.3 L 331.1 261.9 L 336.8 252.1 L 342.4 255.9 L 348.1 256.1 L 353.7 254.3 L 358.6 247.6 L 365.1 247.7 L 371.5 238.3 L 377.2 239.7 L 383.6 236.3 L 389.3 242.0 L 395.0 238.1 L 400.6 247.7 L 405.5 244.7 L 411.1 243.0 L 416.8 241.7 L 422.4 243.9 L 428.1 237.5 L 434.5 226.9 L 442.6 227.2 L 448.3 217.4 L 451.5 204.5 L 457.2 195.1 L 462.8 210.5 L 468.5 205.0 L 476.6 205.3 L 483.0 201.6 L 488.7 201.5 L 496.0 210.9 L 500.8 197.7 L 506.5 207.5 L 512.1 201.9 L 517.8 211.6 L 523.4 225.5 L 529.9 224.4 L 535.6 259.0 L 541.2 253.5 L 546.1 258.3 L 551.7 262.1 L 557.4 262.2 L 563.0 259.3 L 568.7 260.1 L 575.1 259.6 L 584.0 261.0 L 589.7 246.2 L 596.2 230.7 L 602.6 218.6 L 608.3 223.0 L 613.9 223.9 L 621.2 231.0 L 626.9 225.3 L 632.5 221.3 L 638.2 225.2 L 643.0 214.1 L 649.5 215.1 L 655.1 193.6 L 660.8 189.7 L 668.9 189.0 L 676.2 188.3 L 681.8 193.7 L 686.7 189.1 L 692.3 191.8 L 698.0 196.3 L 703.6 185.0 L 709.3 175.1 L 714.9 183.4 L 720.6 157.9 L 727.1 156.8 L 731.9 149.8 L 738.4 124.4 L 744.0 129.3 L 749.7 131.5 L 755.3 130.5 L 761.0 137.4 L 766.7 141.4 L 773.9 158.5 L 778.8 171.6 L 784.4 169.7 L 794.1 160.4 L 799.8 178.1 L 805.4 174.2 L 811.1 143.5 L 816.8 146.5 L 822.4 147.9 L 827.3 148.1 L 832.9 131.1 L 838.6 113.3 L 845.0 113.3 L 850.7 107.4 L 856.3 107.1 L 862.0 117.3 L 868.5 102.1 L 875.7 87.7 L 881.4 92.5 L 890.3 81.6 L 895.9 88.5 L 901.6 83.5 L 907.3 69.0 L 914.5 62.8 L 920.2 57.4 L 925.0 68.4 L 930.7 87.8 L 936.3 85.6 L 942.0 104.6" class="line wt"/>
 <circle cx="918.6" cy="54.8" r="4.5" class="dot wt"/>
 <line class="anno" x1="918.6" y1="54.8" x2="918.6" y2="24.799999999999997"/>
-<text class="annolab peak" x="918.6" y="16.799999999999997" text-anchor="middle">สูงสุด 22.68% · 9 มิ.ย. 2026</text>
+<text class="annolab peak" x="905" y="16.8" text-anchor="end">สูงสุด 22.68%</text>
 <circle cx="942.0" cy="104.6" r="4.5" class="dot wt"/>
-<text class="annolab latest" x="936.0" y="92.6" text-anchor="end">ล่าสุด 18.66% · 8 ก.ค. 2026</text>
+<text class="annolab latest" x="905" y="118" text-anchor="end">ล่าสุด 18.66%</text>
 </svg></div>
-  <div class="split">
+  <div class="s4side">
     <table class="tbl">
       <thead><tr><th>ช่วงเวลา</th><th class="num">น้ำหนัก DELTA</th></tr></thead>
       <tbody>
@@ -180,6 +186,7 @@ h2::after{content:"";position:absolute;left:0;bottom:-2px;width:64px;height:2px;
       </tbody>
     </table>
     <p class="note">DELTA ใหญ่กว่า ADVANC + PTT + GULF รวมกันประมาณ <b>1.5 เท่า</b> (18.66% เทียบ ~12.5%) — ต้องยืนยันน้ำหนัก constituent ล่าสุดอีกครั้ง</p>
+  </div>
   </div>
 <div class="footer">Index Strategy Team · ข้อมูล ณ 8 ก.ค. 2026</div><div class="pageno">4 / 11</div></section>
 <section class="slide hero">
