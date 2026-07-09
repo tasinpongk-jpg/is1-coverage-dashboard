@@ -78,17 +78,18 @@ tr.panel>td{padding:0;border-bottom:1px solid var(--border);background:var(--bg2
 .foot code{background:var(--card2);border:1px solid var(--border);border-radius:4px;padding:1px 6px}
 </style>
   <link rel="stylesheet" href="theme.css">
+  <script src="i18n.js"></script>
 
 </head>
 <body>
 
 <header>
-  <h1>Visit Planner <span class="sub">— company visits: priorities, theses, last seen, next actions</span></h1>
+  <h1><span data-i18n="page.visitPlanner">Visit Planner</span> <span class="sub" data-i18n="visits.subtitle">— company visits: priorities, theses, last seen, next actions</span></h1>
   <nav class="nav">
-    <a href="index.html">Index</a>
-    <a href="company-summary.html">Company Summary</a>
-    <a href="price-movement.html">Price Movement</a>
-    <a href="disclosure-pulse.html">Disclosures</a>
+    <a href="index.html" data-i18n="nav.index">Index</a>
+    <a href="company-summary.html" data-i18n="page.companySummary">Company Summary</a>
+    <a href="price-movement.html" data-i18n="page.priceMovement">Price Movement</a>
+    <a href="disclosure-pulse.html" data-i18n="nav.disclosures">Disclosures</a>
     <span class="stale" id="staleBadge">…</span>
   </nav>
 </header>
@@ -97,68 +98,79 @@ tr.panel>td{padding:0;border-bottom:1px solid var(--border);background:var(--bg2
   <div class="kpis" id="kpis"></div>
 
   <div class="filters">
-    <select id="fRm" title="Filter by RM"><option value="">All RMs</option></select>
-    <select id="fPri" title="Filter by priority"><option value="">All priorities</option>
+    <select id="fRm" title="Filter by RM" data-i18n-title="common.filterByRm"><option value="" data-i18n="visits.allRms">All RMs</option></select>
+    <select id="fPri" title="Filter by priority" data-i18n-title="common.filterByPriority"><option value="" data-i18n="visits.allPriorities">All priorities</option>
       <option>A</option><option>B</option><option>C</option></select>
-    <select id="fSector" title="Filter by sector"><option value="">All sectors</option></select>
-    <select id="fVisited" title="Filter by visit status"><option value="">Visited + not</option>
-      <option value="no">Not visited yet</option>
-      <option value="yes">Visited</option></select>
-    <select id="fFlag" title="Filter by flags"><option value="">Flagged + not</option>
-      <option value="yes">Flagged only</option></select>
-    <input id="fQ" type="search" placeholder="search ticker or thesis…">
+    <select id="fSector" title="Filter by sector" data-i18n-title="common.filterBySector"><option value="" data-i18n="visits.allSectors">All sectors</option></select>
+    <select id="fVisited" title="Filter by visit status" data-i18n-title="common.filterByVisitStatus"><option value="" data-i18n="visits.visitedNot">Visited + not</option>
+      <option value="no" data-i18n="visits.notVisitedYet">Not visited yet</option>
+      <option value="yes" data-i18n="visits.visited">Visited</option></select>
+    <select id="fFlag" title="Filter by flags" data-i18n-title="common.filterByFlags"><option value="" data-i18n="visits.flaggedNot">Flagged + not</option>
+      <option value="yes" data-i18n="visits.flaggedOnly">Flagged only</option></select>
+    <input id="fQ" type="search" placeholder="search ticker or thesis…" data-i18n-placeholder="common.searchTickerThesis">
     <span class="hint" id="count"></span>
   </div>
 
   <table>
     <thead><tr>
-      <th><span class="vh">exp</span></th><th>Ticker</th><th>Sector</th><th>RM</th><th>Pri</th>
-      <th>Thesis</th><th>Flags</th><th>Last visit</th><th>Next action</th>
+      <th><span class="vh">exp</span></th><th data-i18n="common.ticker">Ticker</th><th data-i18n="common.sector">Sector</th><th>RM</th><th data-i18n="visits.priority">Pri</th>
+      <th data-i18n="visits.thesis">Thesis</th><th data-i18n="visits.flags">Flags</th><th data-i18n="visits.lastVisit">Last visit</th><th data-i18n="visits.nextAction">Next action</th>
     </tr></thead>
-    <tbody id="rows"><tr><td colspan="9" class="empty">Loading…</td></tr></tbody>
+    <tbody id="rows"><tr><td colspan="9" class="empty" data-i18n="common.loading">Loading…</td></tr></tbody>
   </table>
 
-  <div class="foot">
-    Data comes from the Obsidian vault's coverage notes, exported by
-    <code>vault_visits.py export</code>. Before a meeting:
-    <code>python3 prep_visit.py TICKER</code> builds the brief. After:
-    <code>python3 vault_visits.py log TICKER "notes" --next "action"</code>
-    sets last-visit and the note, then re-export to refresh this page.
-    Theses tagged <span class="dtag" style="font-size:9.5px;color:var(--yellow)">draft</span>
-    were auto-written from company reports — edit them in the vault.
-  </div>
+  <div class="foot" data-i18n="visits.foot">Data comes from the Obsidian vault's coverage notes, exported by vault_visits.py export. Before a meeting: python3 prep_visit.py TICKER builds the brief. After: python3 vault_visits.py log TICKER notes --next action sets last-visit and the note, then re-export to refresh this page. Theses tagged draft were auto-written from company reports — edit them in the vault.</div>
 </main>
 
 <script>
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 let DATA = null;
+const TT_FALLBACK = {
+  "visits.coverageNames": "coverage names",
+  "visits.visited": "Visited",
+  "visits.withFlags": "with flags",
+  "visits.openNextActions": "open next actions",
+  "visits.priorityA": "priority A",
+  "visits.financialSnapshot": "Financial snapshot",
+  "common.segment": "Segment",
+  "visits.watchFlags": "Watch flags ({n})",
+  "visits.preparedQuestions": "Prepared questions for management",
+  "visits.beforeMeeting": "Before the meeting: python3 prep_visit.py {tk} builds the full brief · after: python3 vault_visits.py log {tk} notes --next action",
+  "visits.never": "never",
+  "visits.count": "{n} shown · click a row for prep detail",
+  "visits.draft": "draft",
+  "common.noRowsMatch": "No rows match the filters.",
+  "common.exported": "exported",
+};
+function tt(key) { return window.I18N ? I18N.t(key) : (TT_FALLBACK[key] || key); }
+function tx(key, vars){return tt(key).replace(/\{(\w+)\}/g,(_,k)=>vars&&vars[k]!=null?vars[k]:'')}
 
 function kpis(t) {
   document.getElementById('kpis').innerHTML = `
-    <div class="kpi"><div class="n">${t.all}</div><div class="l">coverage names</div></div>
-    <div class="kpi ${t.visited ? 'good' : 'warn'}"><div class="n">${t.visited}</div><div class="l">visited</div></div>
-    <div class="kpi ${t.flagged ? 'warn' : ''}"><div class="n">${t.flagged ?? 0}</div><div class="l">with flags</div></div>
-    <div class="kpi"><div class="n">${t.withNextAction}</div><div class="l">open next actions</div></div>
-    <div class="kpi"><div class="n">${DATA.rows.filter(r => r.priority === 'A').length}</div><div class="l">priority A</div></div>`;
+    <div class="kpi"><div class="n">${t.all}</div><div class="l">${tt('visits.coverageNames')}</div></div>
+    <div class="kpi ${t.visited ? 'good' : 'warn'}"><div class="n">${t.visited}</div><div class="l">${tt('visits.visited')}</div></div>
+    <div class="kpi ${t.flagged ? 'warn' : ''}"><div class="n">${t.flagged ?? 0}</div><div class="l">${tt('visits.withFlags')}</div></div>
+    <div class="kpi"><div class="n">${t.withNextAction}</div><div class="l">${tt('visits.openNextActions')}</div></div>
+    <div class="kpi"><div class="n">${DATA.rows.filter(r => r.priority === 'A').length}</div><div class="l">${tt('visits.priorityA')}</div></div>`;
 }
 
 function panel(r) {
   const two = r.questions && r.questions.length;
-  const fin = r.financials ? `<div class="pblock"><h4>Financial snapshot</h4><div class="fin">${esc(r.financials)}</div>${r.segment ? `<div class="seg">Segment: ${esc(r.segment)}</div>` : ''}</div>` : '';
+  const fin = r.financials ? `<div class="pblock"><h4>${tt('visits.financialSnapshot')}</h4><div class="fin">${esc(r.financials)}</div>${r.segment ? `<div class="seg">${tt('common.segment')}: ${esc(r.segment)}</div>` : ''}</div>` : '';
   const flags = r.flags && r.flags.length
-    ? `<div class="pblock"><h4>Watch flags (${r.flags.length})</h4><ul>${r.flags.map(f => `<li class="flag">${esc(f)}</li>`).join('')}</ul></div>` : '';
+    ? `<div class="pblock"><h4>${tx('visits.watchFlags',{n:r.flags.length})}</h4><ul>${r.flags.map(f => `<li class="flag">${esc(f)}</li>`).join('')}</ul></div>` : '';
   const qs = r.questions && r.questions.length
-    ? `<div class="pblock"><h4>Prepared questions for management</h4><ul>${r.questions.map(q => `<li class="q">${esc(q)}</li>`).join('')}</ul></div>` : '';
+    ? `<div class="pblock"><h4>${tt('visits.preparedQuestions')}</h4><ul>${r.questions.map(q => `<li class="q">${esc(q)}</li>`).join('')}</ul></div>` : '';
   const left = fin + flags;
   return `<div class="panel-inner ${two ? '' : 'one'}">
     ${left ? `<div>${left}</div>` : ''}
     ${qs}
-    <div class="panel-act">Before the meeting: <code>python3 prep_visit.py ${esc(r.tk)}</code> builds the full brief · after: <code>python3 vault_visits.py log ${esc(r.tk)} "notes" --next "action"</code></div>
+    <div class="panel-act">${tx('visits.beforeMeeting',{tk:esc(r.tk)})}</div>
   </div>`;
 }
 
 function visitCell(r) {
-  if (!r.lastVisit) return '<span class="visit never">never</span>';
+  if (!r.lastVisit) return `<span class="visit never">${tt('visits.never')}</span>`;
   const days = Math.round((Date.now() - new Date(r.lastVisit)) / 864e5);
   const cls = days <= 90 ? 'recent' : '';
   return `<span class="visit ${cls}">${esc(r.lastVisit)} <span style="color:var(--dim)">(${days}d)</span></span>`;
@@ -173,7 +185,7 @@ function render() {
     (!vis || (vis === 'yes') === !!r.lastVisit) &&
     (!fl || !!(r.flags && r.flags.length)) &&
     (!q || r.tk.toLowerCase().includes(q) || (r.thesis || '').toLowerCase().includes(q)));
-  document.getElementById('count').textContent = `${rows.length} shown · click a row for prep detail`;
+  document.getElementById('count').textContent = tx('visits.count',{n:rows.length});
   document.getElementById('rows').innerHTML = rows.length ? rows.map((r, i) => {
     const nf = (r.flags || []).length;
     return `
@@ -182,14 +194,14 @@ function render() {
       <td><a class="tk" href="company-summary.html?tk=${esc(r.tk)}" onclick="event.stopPropagation()">${esc(r.tk)}</a></td>
       <td>${esc(r.sector)}</td><td>${esc(r.rm)}</td>
       <td><span class="pri ${esc(r.priority)}">${esc(r.priority)}</span></td>
-      <td><div class="thesis ${r.thesisDraft ? 'draft' : ''}">${esc((r.thesis || '—').replace(/\s*\*\(draft[^)]*\)\*\s*/, ''))}${r.thesisDraft ? '<span class="dtag">draft</span>' : ''}</div></td>
+      <td><div class="thesis ${r.thesisDraft ? 'draft' : ''}">${esc((r.thesis || '—').replace(/\s*\*\(draft[^)]*\)\*\s*/, ''))}${r.thesisDraft ? `<span class="dtag">${tt('visits.draft')}</span>` : ''}</div></td>
       <td>${nf ? `<span class="flag-pill">🚩 ${nf}</span>` : '<span class="flag-pill none">—</span>'}</td>
       <td>${visitCell(r)}</td>
       <td><div class="next ${r.nextAction ? '' : 'none'}">${esc(r.nextAction || '—')}</div></td>
     </tr>
     <tr class="panel" data-pi="${i}" hidden><td colspan="9">${panel(r)}</td></tr>`;
   }).join('') :
-    '<tr><td colspan="9" class="empty">No rows match the filters.</td></tr>';
+    `<tr><td colspan="9" class="empty">${tt('common.noRowsMatch')}</td></tr>`;
   // delegate expand
   document.querySelectorAll('tr.main').forEach(tr => tr.onclick = () => {
     const p = tr.nextElementSibling;
@@ -211,7 +223,7 @@ async function init() {
       `<tr><td colspan="7" class="empty">${esc(e.message)}</td></tr>`;
     return;
   }
-  document.getElementById('staleBadge').textContent = 'exported ' + DATA.generated;
+  document.getElementById('staleBadge').textContent = `${tt('common.exported')} ${DATA.generated}`;
   kpis(DATA.totals);
   const fill = (id, vals) => {
     const el = document.getElementById(id);
@@ -227,6 +239,14 @@ async function init() {
   render();
 }
 init();
+window.addEventListener('i18n:change',()=>{
+  if(window.I18N) I18N.apply();
+  if(DATA){
+    document.getElementById('staleBadge').textContent = `${tt('common.exported')} ${DATA.generated}`;
+    kpis(DATA.totals);
+    render();
+  }
+});
 </script>
 <script src="nav.js" defer></script>
 <script src="chat-dock.js" defer></script>

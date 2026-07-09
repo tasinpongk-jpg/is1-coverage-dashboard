@@ -5,7 +5,7 @@ creates one per-ticker report, saves Markdown back to the Obsidian vault, and
 writes data/company-reports.json for the static dashboard.
 
 LLM use is optional:
-  - default auto mode uses Anthropic only when ANTHROPIC_API_KEY is set
+  - default auto mode uses the LLM only when MINIMAX_API_KEY is set
   - --llm never produces deterministic drafts for wiring/tests
   - --llm always fails fast if the key or package is unavailable
 
@@ -39,7 +39,7 @@ OUT = DATA_DIR / "company-reports.json"
 LISTED_SUBPATH = Path("Work-SET") / "Listed Company"
 REPORT_SUBPATH = Path("2-Analysis") / "AI-Generated" / "07-Company Reports"
 
-DEFAULT_MODEL = os.environ.get("COMPANY_REPORT_MODEL", "claude-sonnet-4-5")
+DEFAULT_MODEL = os.environ.get("COMPANY_REPORT_MODEL", os.environ.get("MINIMAX_MODEL", "MiniMax-M3"))
 MAX_SOURCE_NOTES = 4
 
 
@@ -396,7 +396,7 @@ def deterministic_report(context: dict[str, Any], generated: str) -> dict[str, A
         "questions": questions,
         "qualityFlags": [
             "Generated from compact dashboard and vault excerpts; verify primary filings before escalation.",
-            "Use LLM mode with ANTHROPIC_API_KEY for richer narrative synthesis.",
+            "Use LLM mode with MINIMAX_API_KEY for richer narrative synthesis.",
         ],
         "sourceNotes": source_note_rows(
             {
@@ -426,9 +426,9 @@ def llm_report(context: dict[str, Any], generated: str, model: str) -> dict[str,
     except ImportError as exc:
         raise RuntimeError("Install anthropic or run with --llm never") from exc
 
-    key = os.environ.get("ANTHROPIC_API_KEY")
+    key = os.environ.get("MINIMAX_API_KEY") or os.environ.get("ANTHROPIC_API_KEY")
     if not key:
-        raise RuntimeError("ANTHROPIC_API_KEY is not set")
+        raise RuntimeError("MINIMAX_API_KEY (or ANTHROPIC_API_KEY fallback) is not set")
 
     system = (
         "You are an IS1 equity coverage analyst. Write concise, evidence-grounded "
@@ -453,7 +453,8 @@ def llm_report(context: dict[str, Any], generated: str, model: str) -> dict[str,
         "Context:\n"
         f"{json.dumps(context, ensure_ascii=False, indent=2, default=str)}"
     )
-    client = anthropic.Anthropic(api_key=key)
+    base_url = os.environ.get("MINIMAX_BASE_URL", "https://api.minimax.io/anthropic")
+    client = anthropic.Anthropic(api_key=key, base_url=base_url)
     message = client.messages.create(
         model=model,
         max_tokens=2200,
@@ -597,7 +598,7 @@ def build_reports(args: argparse.Namespace) -> dict[str, Any]:
             reports[tk] = old
             continue
         try:
-            use_llm = args.llm == "always" or (args.llm == "auto" and os.environ.get("ANTHROPIC_API_KEY"))
+            use_llm = args.llm == "always" or (args.llm == "auto" and (os.environ.get("MINIMAX_API_KEY") or os.environ.get("ANTHROPIC_API_KEY")))
             if use_llm:
                 report = llm_report(context, generated, args.model)
                 llm_used = True

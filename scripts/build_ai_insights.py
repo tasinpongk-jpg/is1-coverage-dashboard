@@ -30,7 +30,7 @@ MODEL = os.environ.get("AI_INSIGHTS_MODEL", "openai/gpt-oss-120b")
 SYSTEM_PROMPT = (
     "You are the morning analyst for IS1, a relationship-manager team at a Thai "
     "securities firm covering 232 SET tickers (FOOD, PROP, PF&REIT, AGRI, CONS, "
-    "CONMAT). RMs: Champ, Kae, Orn, Gift, Pim, Tony. You receive a digest of "
+    "CONMAT). RMs: C, K, O, G, P, T. You receive a digest of "
     "today's coverage data: price moves, volume, unusual-trading alerts and "
     "disclosure filings. Write a concise, factual morning commentary an RM can "
     "skim in 60 seconds before calling clients.\n"
@@ -42,7 +42,7 @@ SYSTEM_PROMPT = (
     '  "headline": "one sentence, the single most important thing today",\n'
     '  "market_take": "2-4 sentences on the overall coverage picture",\n'
     '  "sector_notes": [{"sector": "FOOD", "note": "1-2 sentences"}],\n'
-    '  "watchlist": [{"tk": "ABC", "rm": "Champ", "reason": "1 sentence"}],\n'
+    '  "watchlist": [{"tk": "ABC", "rm": "C", "reason": "1 sentence"}],\n'
     '  "risk_flags": ["short sentence per flag"]\n'
     "}\n"
     "sector_notes: only sectors with something worth saying (max 6). "
@@ -62,7 +62,10 @@ def build_digest():
     pulse = _read("disclosure-pulse")
 
     def rm(tk):
-        return tickers.get(tk, {}).get("rm", "?")
+        # Anonymise RM to its initial (privacy), defensively — even if
+        # tickers.json ever regresses to full names upstream.
+        r = tickers.get(tk, {}).get("rm", "?")
+        return str(r).strip()[:1].upper() if r not in (None, "", "?") else r
 
     def sector(tk):
         return tickers.get(tk, {}).get("sector", "?")

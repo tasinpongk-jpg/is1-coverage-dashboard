@@ -65,28 +65,29 @@
   .empty, .loading { text-align: center; padding: 60px; color: var(--muted); }
 </style>
   <link rel="stylesheet" href="theme.css">
+  <script src="i18n.js"></script>
 
 </head>
 <body>
 
 <header>
   <div>
-    <h1>SEC Enforcement <span style="color:var(--muted);font-weight:400;font-size:13px">— Thai SEC iDisc actions, coverage matches highlighted</span></h1>
-    <div class="meta" id="meta">Loading...</div>
+    <h1><span data-i18n="page.secEnforcement">SEC Enforcement</span> <span style="color:var(--muted);font-weight:400;font-size:13px">— Thai SEC iDisc actions, coverage matches highlighted</span></h1>
+    <div class="meta" id="meta" data-i18n="common.loadingDots">Loading...</div>
   </div>
   <nav class="nav">
-    <a href="index.html">Index</a>
-    <a href="price-movement.html">Price Movement</a>
-    <a href="disclosure-pulse.html">Disclosures</a>
-    <a href="oppday-minutes.html">Oppday</a>
-    <a href="multiples-comparison.html">Multiples Comparison</a>
-    <a href="company-summary.html">Company Summary</a>
-    <a href="multiples-band.html">Multiples Band</a>
-    <a href="bond-summary.html">Bonds</a>
-    <a href="unusual-trading.html">Alerts</a>
-    <a href="external-news.html">External</a>
-    <a href="trading-signs.html">Signs</a>
-    <a href="sec-enforcement.html" class="active">SEC</a>
+    <a href="index.html" data-i18n="nav.index">Index</a>
+    <a href="price-movement.html" data-i18n="page.priceMovement">Price Movement</a>
+    <a href="disclosure-pulse.html" data-i18n="nav.disclosures">Disclosures</a>
+    <a href="oppday-minutes.html" data-i18n="nav.oppday">Oppday</a>
+    <a href="multiples-comparison.html" data-i18n="page.multiplesComparison">Multiples Comparison</a>
+    <a href="company-summary.html" data-i18n="page.companySummary">Company Summary</a>
+    <a href="multiples-band.html" data-i18n="page.multiplesBand">Multiples Band</a>
+    <a href="bond-summary.html" data-i18n="nav.bonds">Bonds</a>
+    <a href="unusual-trading.html" data-i18n="nav.alerts">Alerts</a>
+    <a href="external-news.html" data-i18n="nav.external">External</a>
+    <a href="trading-signs.html" data-i18n="nav.signs">Signs</a>
+    <a href="sec-enforcement.html" class="active" data-i18n="nav.sec">SEC</a>
     <span class="stale" id="staleBadge">..</span>
   </nav>
 </header>
@@ -95,34 +96,51 @@
 
 <div class="tab-bar">
   <div class="tab-row">
-    <span class="tab-label">Window:</span>
+    <span class="tab-label"><span data-i18n="common.window">Window</span>:</span>
     <div id="windowTabs" style="display:flex;gap:4px;flex-wrap:wrap"></div>
     <span class="filter-note" id="windowNote"></span>
   </div>
   <div class="tab-row">
-    <span class="tab-label">Scope:</span>
+    <span class="tab-label"><span data-i18n="common.scope">Scope</span>:</span>
     <div id="scopeTabs" style="display:flex;gap:4px;flex-wrap:wrap"></div>
-    <span class="tab-label" style="margin-left:20px">Type:</span>
+    <span class="tab-label" style="margin-left:20px"><span data-i18n="common.type">Type</span>:</span>
     <div id="typeTabs" style="display:flex;gap:4px;flex-wrap:wrap"></div>
   </div>
   <div class="tab-row">
-    <span class="tab-label">Search:</span>
-    <input class="search" id="searchBox" type="search" placeholder="Ticker, name, law, detail" oninput="setQuery(this.value)">
-    <span class="tab-label" style="margin-left:12px">Sort:</span>
+    <span class="tab-label"><span data-i18n="common.search">Search</span>:</span>
+    <input class="search" id="searchBox" type="search" placeholder="Ticker, name, law, detail" data-i18n-placeholder="common.searchSecEnforcement" oninput="setQuery(this.value)">
+    <span class="tab-label" style="margin-left:12px"><span data-i18n="common.sort">Sort</span>:</span>
     <select class="select" id="sortMode" onchange="setSort(this.value)">
-      <option value="latest">Latest first</option>
-      <option value="coverage">Coverage first</option>
-      <option value="oldest">Oldest first</option>
+      <option value="latest" data-i18n="common.latestFirst">Latest first</option>
+      <option value="coverage" data-i18n="common.coverageFirst">Coverage first</option>
+      <option value="oldest" data-i18n="common.oldestFirst">Oldest first</option>
     </select>
-    <button class="reset-btn" type="button" onclick="resetFilters()">Reset</button>
+    <button class="reset-btn" type="button" onclick="resetFilters()" data-i18n="common.reset">Reset</button>
   </div>
 </div>
 
-<div id="feed" class="feed"><div class="loading">Fetching SEC enforcement actions...</div></div>
+<div id="feed" class="feed"><div class="loading" data-i18n="common.fetchingSecEnforcement">Fetching SEC enforcement actions...</div></div>
 
 <script>
 let ITEMS = [], activeScope = 'ALL', activeType = 'ALL', activeWindow = 0, activeQuery = '', sortMode = 'latest';
 let latestActionMs = 0;
+let DATA_META = null;
+const TT_FALLBACK = {
+  "common.updatedAgo": "updated {x} ago",
+  "sec.latestAction": "latest action {date}",
+  "common.showing": "Showing",
+  "sec.latestInView": "Latest in view",
+  "common.criminal": "Criminal",
+  "sec.coverageHits": "Coverage hits",
+  "common.noSecActions": "No SEC enforcement actions match the filters.",
+  "common.latest": "latest",
+  "common.outOfCoverage": "out-of-coverage",
+  "sec.detail": "SEC iDisc",
+  "common.errorWithMsg": "Error: {msg}",
+  "sec.meta": "{n} actions - {coverage} in coverage - latest action {latest} - as of {asOf}",
+};
+function tt(key) { return window.I18N ? I18N.t(key) : (TT_FALLBACK[key] || key); }
+function tx(key, vars) { return tt(key).replace(/\{(\w+)\}/g, (_, k) => vars && vars[k] != null ? vars[k] : ''); }
 
 const WINDOWS = [
   { key: 0, label: 'All' },
@@ -131,18 +149,18 @@ const WINDOWS = [
   { key: 90, label: '90d' },
 ];
 const SCOPES = [
-  { key: 'ALL', label: 'All' },
-  { key: 'COVERAGE', label: 'In coverage' },
+  { key: 'ALL', labelKey: 'common.all' },
+  { key: 'COVERAGE', labelKey: 'common.inCoverage' },
 ];
 const TYPE_ORDER = ['CRIMINAL', 'CIVIL', 'ADMIN', 'WARNING', 'OTHER', 'UNKNOWN'];
 const TYPE_LABELS = {
-  ALL: 'All',
-  CRIMINAL: 'Criminal',
-  CIVIL: 'Civil',
-  ADMIN: 'Admin',
-  WARNING: 'Warning',
-  OTHER: 'Other',
-  UNKNOWN: 'Unknown',
+  ALL: 'common.all',
+  CRIMINAL: 'common.criminal',
+  CIVIL: 'common.civil',
+  ADMIN: 'common.admin',
+  WARNING: 'common.warning',
+  OTHER: 'common.other',
+  UNKNOWN: 'common.unknown',
 };
 const TYPE_TAG_CLASS = {
   CRIMINAL: 'tag-criminal',
@@ -156,7 +174,8 @@ const TYPE_TAG_CLASS = {
 function freshnessLabel(builtAt) {
   if (!builtAt) return { txt: '?', warn: true };
   const ageH = (Date.now() - new Date(builtAt).getTime()) / 36e5;
-  return { txt: 'updated ' + (ageH < 1 ? Math.round(ageH * 60) + 'm' : Math.round(ageH) + 'h') + ' ago', warn: ageH > 36 };
+  const x = ageH < 1 ? Math.round(ageH * 60) + 'm' : Math.round(ageH) + 'h';
+  return { txt: tx('common.updatedAgo', { x }), warn: ageH > 36 };
 }
 function decodeHtml(s) {
   const el = document.createElement('textarea');
@@ -258,12 +277,12 @@ function buildWindowTabs() {
     const cnt = filterRows({ window: w.key }).length;
     return `<div class="tab ${w.key === activeWindow ? 'active' : ''}" onclick="setWindow(${w.key})">${w.label} <span class="tab-count">${cnt}</span></div>`;
   }).join('');
-  document.getElementById('windowNote').textContent = latestActionMs ? `latest action ${formatActionDate(latestActionMs)}` : '';
+  document.getElementById('windowNote').textContent = latestActionMs ? tx('sec.latestAction', { date: formatActionDate(latestActionMs) }) : '';
 }
 function buildScopeTabs() {
   document.getElementById('scopeTabs').innerHTML = SCOPES.map(s => {
     const cnt = filterRows({ scope: s.key }).length;
-    return `<div class="tab ${s.key === activeScope ? 'active' : ''}" onclick="setScope('${s.key}')">${s.label} <span class="tab-count">${cnt}</span></div>`;
+    return `<div class="tab ${s.key === activeScope ? 'active' : ''}" onclick="setScope('${s.key}')">${tt(s.labelKey)} <span class="tab-count">${cnt}</span></div>`;
   }).join('');
 }
 function buildTypeTabs() {
@@ -271,7 +290,7 @@ function buildTypeTabs() {
   const keys = ['ALL', ...TYPE_ORDER.filter(k => present.has(k))];
   document.getElementById('typeTabs').innerHTML = keys.map(k => {
     const cnt = filterRows({ type: k }).length;
-    return `<div class="tab ${k === activeType ? 'active' : ''}" onclick="setType('${k}')">${TYPE_LABELS[k]} <span class="tab-count">${cnt}</span></div>`;
+    return `<div class="tab ${k === activeType ? 'active' : ''}" onclick="setType('${k}')">${tt(TYPE_LABELS[k])} <span class="tab-count">${cnt}</span></div>`;
   }).join('');
 }
 function buildControls() {
@@ -318,16 +337,16 @@ function updateStats() {
   const criminal = rows.filter(it => it._typeGroup === 'CRIMINAL').length;
   const coverage = rows.filter(it => it.matched_ticker).length;
   document.getElementById('statsBar').innerHTML = `
-    <div class="stat"><div class="stat-val">${rows.length}</div><div class="stat-lbl">Showing</div></div>
-    <div class="stat"><div class="stat-val" style="font-size:16px">${formatActionDate(latestInView)}</div><div class="stat-lbl">Latest in view</div></div>
-    <div class="stat"><div class="stat-val" style="color:var(--crit)">${criminal}</div><div class="stat-lbl">Criminal</div></div>
-    <div class="stat"><div class="stat-val" style="color:var(--green)">${coverage}</div><div class="stat-lbl">Coverage hits</div></div>`;
+    <div class="stat"><div class="stat-val">${rows.length}</div><div class="stat-lbl">${tt('common.showing')}</div></div>
+    <div class="stat"><div class="stat-val" style="font-size:16px">${formatActionDate(latestInView)}</div><div class="stat-lbl">${tt('sec.latestInView')}</div></div>
+    <div class="stat"><div class="stat-val" style="color:var(--crit)">${criminal}</div><div class="stat-lbl">${tt('common.criminal')}</div></div>
+    <div class="stat"><div class="stat-val" style="color:var(--green)">${coverage}</div><div class="stat-lbl">${tt('sec.coverageHits')}</div></div>`;
 }
 function render() {
   const rows = filtered();
   const feed = document.getElementById('feed');
   if (!rows.length) {
-    feed.innerHTML = '<div class="empty">No SEC enforcement actions match the filters.</div>';
+    feed.innerHTML = `<div class="empty">${tt('common.noSecActions')}</div>`;
     return;
   }
   feed.innerHTML = rows.map(it => {
@@ -338,12 +357,12 @@ function render() {
       <div class="item-content">
         <div class="item-resp">${escapeHtml(it._respondent || it.description || '-')}</div>
         <div class="item-meta">
-          ${it._dateMs === latestActionMs ? '<span class="tag tag-new">latest</span>' : ''}
-          ${it.matched_ticker ? `<span class="tag tag-matched">${it.matched_ticker}</span>` : `<span class="tag tag-uncov">out-of-coverage</span>`}
+          ${it._dateMs === latestActionMs ? `<span class="tag tag-new">${tt('common.latest')}</span>` : ''}
+          ${it.matched_ticker ? `<span class="tag tag-matched">${it.matched_ticker}</span>` : `<span class="tag tag-uncov">${tt('common.outOfCoverage')}</span>`}
           ${it.case_no ? `<span class="tag tag-case">${it.case_no}</span>` : ''}
           ${it._type ? `<span class="tag ${typeCls}">${escapeHtml(it._type)}</span>` : ''}
           ${it._law ? `<span class="tag tag-law">${escapeHtml(it._law)}</span>` : ''}
-          ${it.url ? `<a href="${it.url}" target="_blank" rel="noopener" style="font-size:11px;color:var(--accent)">SEC iDisc</a>` : ''}
+          ${it.url ? `<a href="${it.url}" target="_blank" rel="noopener" style="font-size:11px;color:var(--accent)">${tt('sec.detail')}</a>` : ''}
         </div>
         ${it._facts ? `<div class="desc">${escapeHtml(truncate(it._facts))}</div>` : ''}
         ${it._details ? `<div class="desc">${escapeHtml(truncate(it._details, 240))}</div>` : ''}
@@ -355,6 +374,7 @@ function render() {
 async function init() {
   try {
     const dj = await fetch('./data/sec-enforcement.json').then(r => r.json());
+    DATA_META = dj;
     ITEMS = (dj.items || []).filter(it => !isHeaderRow(it)).map(hydrateItem);
     latestActionMs = ITEMS.reduce((m, it) => Math.max(m, it._dateMs || 0), 0);
     const fresh = freshnessLabel(dj._built_at);
@@ -362,15 +382,32 @@ async function init() {
     badge.textContent = fresh.txt;
     if (fresh.warn) badge.classList.add('warn');
     const coverageCount = ITEMS.filter(i => i.matched_ticker).length;
-    document.getElementById('meta').textContent = `${ITEMS.length} actions - ${coverageCount} in coverage - latest action ${formatActionDate(latestActionMs)} - as of ${dj.asOf || ''}`;
+    updateMeta();
     buildControls();
     updateStats();
     render();
   } catch(e) {
-    document.getElementById('feed').innerHTML = `<div class="empty">Error: ${e.message}</div>`;
+    document.getElementById('feed').innerHTML = `<div class="empty">${tx('common.errorWithMsg', { msg: e.message })}</div>`;
   }
 }
 init();
+function updateMeta() {
+  if (!DATA_META) return;
+  const coverageCount = ITEMS.filter(i => i.matched_ticker).length;
+  document.getElementById('meta').textContent = tx('sec.meta', {
+    n: ITEMS.length,
+    coverage: coverageCount,
+    latest: formatActionDate(latestActionMs),
+    asOf: DATA_META.asOf || ''
+  });
+}
+window.addEventListener('i18n:change', () => {
+  if (window.I18N) I18N.apply();
+  updateMeta();
+  buildControls();
+  updateStats();
+  render();
+});
 </script>
 <script src="nav.js" defer></script>
 <script src="chat-dock.js" defer></script>

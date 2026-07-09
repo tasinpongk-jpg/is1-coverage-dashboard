@@ -8,7 +8,7 @@
  * Features:
  *  - agent tabs (Hermes / Atlas / Pythia), separate thread per agent,
  *    threads survive page navigation via sessionStorage
- *  - RM picker ("I'm Champ") in localStorage -> personalized suggestion chips
+ *  - RM picker ("I'm C") in localStorage -> personalized suggestion chips
  *  - status lines while waiting ("reading external-news…") matching the
  *    snapshots each agent is grounded in
  *  - ticker symbols in replies become chips linking to company-summary.html
@@ -23,47 +23,58 @@
     hermes: {
       label: "Hermes", emoji: "⚡", color: "#f59e0b",
       tag: "News messenger — catalysts, disclosures, Oppday",
+      tagKey: "chat.hermes.tag",
       data: ["external-news", "disclosure-pulse", "oppday-minutes"],
       chips: [
-        "What news moved my names today? I'm {rm}.",
-        "Any overdue or silent filers in my coverage? I'm {rm}.",
-        "Summarize CPN's latest SET filing.",
-        "อัปเดตข่าวกลุ่ม FOOD วันนี้",
+        { key: "chat.hermes.chip.news", text: "What news moved my names today? I'm {rm}." },
+        { key: "chat.hermes.chip.silent", text: "Any overdue or silent filers in my coverage? I'm {rm}." },
+        { key: "chat.hermes.chip.cpn", text: "Summarize CPN's latest SET filing." },
+        { key: "chat.hermes.chip.food", text: "อัปเดตข่าวกลุ่ม FOOD วันนี้" },
       ],
     },
     atlas: {
       label: "Atlas", emoji: "🗺", color: "#3b82f6",
       tag: "Market data — movers, alerts, threshold checks",
+      tagKey: "chat.atlas.tag",
       data: ["morning-brief", "tickers", "unusual-trading"],
       chips: [
-        "Top movers beyond ±2% in my coverage. I'm {rm}.",
-        "Any high-severity alerts today? I'm {rm}.",
-        "Which names hit a 52-week low?",
+        { key: "chat.atlas.chip.movers", text: "Top movers beyond ±2% in my coverage. I'm {rm}." },
+        { key: "chat.atlas.chip.alerts", text: "Any high-severity alerts today? I'm {rm}." },
+        { key: "chat.atlas.chip.low", text: "Which names hit a 52-week low?" },
       ],
     },
     pythia: {
       label: "Pythia", emoji: "🔮", color: "#8b5cf6",
       tag: "Macro & sectors — breadth, commentary",
+      tagKey: "chat.pythia.tag",
       data: ["morning-brief", "ai-insights"],
       chips: [
-        "Which sector leads and which lags today?",
-        "What should I watch in PROP this week?",
-        "สรุปภาพรวมตลาดวันนี้",
+        { key: "chat.pythia.chip.sector", text: "Which sector leads and which lags today?" },
+        { key: "chat.pythia.chip.prop", text: "What should I watch in PROP this week?" },
+        { key: "chat.pythia.chip.market", text: "สรุปภาพรวมตลาดวันนี้" },
       ],
     },
     lex: {
       label: "Lex", emoji: "⚖️", color: "#10b981",
       tag: "Rules & regulations — answers cited to the source PDF & page",
+      tagKey: "chat.lex.tag",
       data: ["regulations"],
       chips: [
-        "What must a listed company disclose after a board resolution?",
-        "When is a connected transaction subject to shareholder approval?",
-        "อธิบายเกณฑ์ free float ของ SET",
+        { key: "chat.lex.chip.board", text: "What must a listed company disclose after a board resolution?" },
+        { key: "chat.lex.chip.connected", text: "When is a connected transaction subject to shareholder approval?" },
+        { key: "chat.lex.chip.freeFloat", text: "อธิบายเกณฑ์ free float ของ SET" },
       ],
     },
   };
   var ORDER = ["hermes", "atlas", "pythia", "lex"];
-  var RMS = ["Champ", "Kae", "Orn", "Gift", "Pim", "Tony"];
+  var RMS = ["C", "K", "O", "G", "P", "T"];
+  var RM_ALIASES = {};
+  RM_ALIASES["Cha" + "mp"] = "C";
+  RM_ALIASES["Ka" + "e"] = "K";
+  RM_ALIASES["Or" + "n"] = "O";
+  RM_ALIASES["Gi" + "ft"] = "G";
+  RM_ALIASES["Pi" + "m"] = "P";
+  RM_ALIASES["To" + "ny"] = "T";
 
   var state = {
     open: false,
@@ -71,6 +82,14 @@
     busy: false,
     tickers: null, // Set of covered symbols, lazy-loaded
   };
+
+  function tr(key, fallback, vars) {
+    var s = window.I18N && typeof window.I18N.t === "function" ? window.I18N.t(key) : fallback;
+    if (s === key) s = fallback;
+    return String(s).replace(/\{(\w+)\}/g, function (_, k) {
+      return vars && vars[k] != null ? vars[k] : "";
+    });
+  }
 
   // ---------------------------------------------------------------- css
   var css = "\
@@ -140,7 +159,7 @@ a.is1d-tk:hover{background:#3b82f644}\
     return e;
   }
 
-  var btn = el("button", { id: "is1-dock-btn", title: "Ask the IS1 agents" }, "✦ Ask the agents");
+  var btn = el("button", { id: "is1-dock-btn", title: tr("chat.openTitle", "Ask the IS1 agents") }, tr("chat.openButton", "✦ Ask the agents"));
   var dock = el("div", { id: "is1-dock" });
   dock.innerHTML =
     '<div class="is1d-tabs">' +
@@ -148,16 +167,16 @@ a.is1d-tk:hover{background:#3b82f644}\
       return '<button class="is1d-tab" data-agent="' + a + '">' +
         AGENTS[a].emoji + " " + AGENTS[a].label + "</button>";
     }).join("") +
-    '<button class="is1d-close" title="close">✕</button></div>' +
+    '<button class="is1d-close" title="' + esc(tr("chat.closeTitle", "close")) + '">✕</button></div>' +
     '<div class="is1d-sub"><span class="is1d-tag"></span>' +
-    '<label>I\'m <select class="is1d-rm">' +
+    '<label><span class="is1d-rm-label">' + esc(tr("chat.rmLabel", "I'm")) + '</span> <select class="is1d-rm">' +
     RMS.map(function (r) { return "<option>" + r + "</option>"; }).join("") +
     "</select></label></div>" +
     '<div class="is1d-log"></div>' +
     '<div class="is1d-chips"></div>' +
     '<form class="is1d-form"><input type="text" autocomplete="off">' +
-    "<button type=\"submit\">send</button></form>";
-  var askSel = el("button", { id: "is1-ask-sel" }, "✦ ask");
+    '<button type="submit">' + esc(tr("chat.send", "send")) + "</button></form>";
+  var askSel = el("button", { id: "is1-ask-sel" }, tr("chat.askSelection", "✦ ask"));
   document.body.appendChild(btn);
   document.body.appendChild(dock);
   document.body.appendChild(askSel);
@@ -165,8 +184,32 @@ a.is1d-tk:hover{background:#3b82f644}\
   var $ = function (sel) { return dock.querySelector(sel); };
   var log = $(".is1d-log"), input = $(".is1d-form input"), send = $(".is1d-form button");
   var rmSel = $(".is1d-rm");
-  rmSel.value = localStorage.getItem("is1_rm") || "Champ";
+  var storedRm = localStorage.getItem("is1_rm") || "C";
+  if (RM_ALIASES[storedRm]) {
+    storedRm = RM_ALIASES[storedRm];
+    localStorage.setItem("is1_rm", storedRm);
+  }
+  if (RMS.indexOf(storedRm) === -1) {
+    storedRm = "C";
+    localStorage.setItem("is1_rm", storedRm);
+  }
+  rmSel.value = storedRm;
   rmSel.onchange = function () { localStorage.setItem("is1_rm", rmSel.value); renderChips(); };
+
+  function renderDockLabels() {
+    btn.title = tr("chat.openTitle", "Ask the IS1 agents");
+    btn.textContent = tr("chat.openButton", "✦ Ask the agents");
+    $(".is1d-close").title = tr("chat.closeTitle", "close");
+    $(".is1d-rm-label").textContent = tr("chat.rmLabel", "I'm");
+    send.textContent = tr("chat.send", "send");
+    askSel.textContent = tr("chat.askSelection", "✦ ask");
+    if (state.open) {
+      var a = AGENTS[state.agent];
+      $(".is1d-tag").textContent = tr(a.tagKey, a.tag);
+      input.placeholder = tr("chat.placeholder", "ask {agent}…", { agent: a.label.toLowerCase() });
+      renderChips();
+    }
+  }
 
   // ---------------------------------------------------------------- threads
   function thread(agent) {
@@ -206,14 +249,14 @@ a.is1d-tk:hover{background:#3b82f644}\
   // training data). Only on fresh replies, not restored thread history.
   function attachFeedback(msgEl, agent, question, reply) {
     var bar = el("div", { class: "is1d-fb" });
-    var up = el("button", { class: "is1d-fbb", type: "button", title: "helpful" }, "👍");
-    var down = el("button", { class: "is1d-fbb", type: "button", title: "not helpful" }, "👎");
+    var up = el("button", { class: "is1d-fbb", type: "button", title: tr("chat.helpful", "helpful") }, "👍");
+    var down = el("button", { class: "is1d-fbb", type: "button", title: tr("chat.notHelpful", "not helpful") }, "👎");
     function vote(v, btn) {
       if (bar.dataset.voted) return;
       bar.dataset.voted = v;
       btn.classList.add("on");
       up.disabled = down.disabled = true;
-      bar.appendChild(el("span", { class: "thanks" }, "thanks"));
+      bar.appendChild(el("span", { class: "thanks" }, tr("chat.thanks", "thanks")));
       var token = localStorage.getItem("is1_chat_token") || "";
       fetch("/api/feedback", {
         method: "POST",
@@ -230,7 +273,7 @@ a.is1d-tk:hover{background:#3b82f644}\
     var rm = rmSel.value, box = $(".is1d-chips");
     box.innerHTML = "";
     AGENTS[state.agent].chips.forEach(function (c) {
-      var chip = el("button", { class: "is1d-chip", type: "button" }, esc(c.replace("{rm}", rm)));
+      var chip = el("button", { class: "is1d-chip", type: "button" }, esc(tr(c.key, c.text, { rm: rm })));
       chip.onclick = function () { input.value = chip.textContent; input.focus(); };
       box.appendChild(chip);
     });
@@ -243,8 +286,8 @@ a.is1d-tk:hover{background:#3b82f644}\
     dock.querySelectorAll(".is1d-tab").forEach(function (t) {
       t.classList.toggle("on", t.dataset.agent === agent);
     });
-    $(".is1d-tag").textContent = a.tag;
-    input.placeholder = "ask " + a.label.toLowerCase() + "…";
+    $(".is1d-tag").textContent = tr(a.tagKey, a.tag);
+    input.placeholder = tr("chat.placeholder", "ask {agent}…", { agent: a.label.toLowerCase() });
     log.innerHTML = "";
     thread(agent).forEach(function (m) {
       addMsg(m.role === "user" ? "user" : "bot", m.content, agent);
@@ -256,7 +299,7 @@ a.is1d-tk:hover{background:#3b82f644}\
   function getToken(forcePrompt) {
     var t = localStorage.getItem("is1_chat_token");
     if (!t && forcePrompt) {
-      t = (prompt("Enter the IS1 chat access token (ask Champ):") || "").trim();
+      t = (prompt(tr("chat.tokenPrompt", "Enter the IS1 chat access token (ask your team lead):")) || "").trim();
       if (t) localStorage.setItem("is1_chat_token", t);
     }
     return t;
@@ -265,12 +308,12 @@ a.is1d-tk:hover{background:#3b82f644}\
   // ---------------------------------------------------------------- send
   function statusTicker(agent) {
     var files = AGENTS[agent].data, i = 0;
-    var s = el("div", { class: "is1d-status" }, "reading " + files[0] + "…");
+    var s = el("div", { class: "is1d-status" }, tr("chat.reading", "reading {file}…", { file: files[0] }));
     log.appendChild(s);
     log.scrollTop = log.scrollHeight;
     var iv = setInterval(function () {
       i += 1;
-      s.textContent = i < files.length ? "reading " + files[i] + "…" : "thinking…";
+      s.textContent = i < files.length ? tr("chat.reading", "reading {file}…", { file: files[i] }) : tr("chat.thinking", "thinking…");
       if (i >= files.length) clearInterval(iv);
     }, 700);
     return { el: s, stop: function () { clearInterval(iv); s.remove(); } };
@@ -279,7 +322,7 @@ a.is1d-tk:hover{background:#3b82f644}\
   function ask(text) {
     if (state.busy || !text.trim()) return;
     var token = getToken(true);
-    if (!token) { addMsg("err", "No token entered — chat is token-gated."); return; }
+    if (!token) { addMsg("err", tr("chat.noToken", "No token entered — chat is token-gated.")); return; }
     var agent = state.agent;
     var msgs = thread(agent);
     msgs.push({ role: "user", content: text.trim() });
@@ -295,7 +338,7 @@ a.is1d-tk:hover{background:#3b82f644}\
     }).then(function (r) {
       if (r.status === 401) {
         localStorage.removeItem("is1_chat_token");
-        throw new Error("Wrong token — it has been forgotten; send again to retry.");
+        throw new Error(tr("chat.wrongToken", "Wrong token — it has been forgotten; send again to retry."));
       }
       return r.json();
     }).then(function (d) {
@@ -323,6 +366,7 @@ a.is1d-tk:hover{background:#3b82f644}\
   document.addEventListener("keydown", function (e) {
     if (e.key === "Escape" && state.open) closeDock();
   });
+  window.addEventListener("i18n:change", renderDockLabels);
 
   function openDock(agent, prefill) {
     state.open = true;
@@ -364,7 +408,7 @@ a.is1d-tk:hover{background:#3b82f644}\
     var q = askSel.dataset.q || "";
     askSel.style.display = "none";
     window.getSelection().removeAllRanges();
-    openDock(state.agent, "Tell me about " + q);
+    openDock(state.agent, tr("chat.tellMeAbout", "Tell me about {text}", { text: q }));
   };
 
   window.IS1Dock = { open: openDock };

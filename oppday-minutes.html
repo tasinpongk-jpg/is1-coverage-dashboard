@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="th">
+<html lang="en">
 <head>
 <meta charset="UTF-8">
 <title>Oppday Minutes — IS1 Team</title>
@@ -65,12 +65,12 @@
   /* Badges */
   .badge { display: inline-block; padding: 1px 7px; border-radius: 4px; font-size: 10px; font-weight: 600; white-space: nowrap; }
   .rm-badge { background: #6366f115; color: #a5b4fc; }
-  .rm-Champ { background: #6366f115; color: #a5b4fc; }
-  .rm-Kae   { background: #10b98115; color: #6ee7b7; }
-  .rm-Orn   { background: #f9731615; color: #fdba74; }
-  .rm-Gift  { background: #ec489915; color: #f9a8d4; }
-  .rm-Pim   { background: #f59e0b15; color: #fcd34d; }
-  .rm-Tony  { background: #8b5cf615; color: #c4b5fd; }
+  .rm-C { background: #6366f115; color: #a5b4fc; }
+  .rm-K { background: #10b98115; color: #6ee7b7; }
+  .rm-O { background: #f9731615; color: #fdba74; }
+  .rm-G { background: #ec489915; color: #f9a8d4; }
+  .rm-P { background: #f59e0b15; color: #fcd34d; }
+  .rm-T { background: #8b5cf615; color: #c4b5fd; }
   .s-FOOD    { background: #3b82f615; color: var(--food); }
   .s-AGRI    { background: #10b98115; color: var(--agri); }
   .s-PROP    { background: #8b5cf615; color: var(--prop); }
@@ -132,48 +132,49 @@
   }
 </style>
   <link rel="stylesheet" href="theme.css">
+  <script src="i18n.js"></script>
 
 </head>
 <body>
 
 <header>
   <div>
-    <h1>Oppday Minutes <span style="color:var(--muted);font-weight:400;font-size:13px">— IS1 Team · YE/2025</span></h1>
-    <div class="meta" id="meta">Loading…</div>
+    <h1><span data-i18n="page.oppdayMinutes">Oppday Minutes</span> <span style="color:var(--muted);font-weight:400;font-size:13px">— IS1 Team · YE/2025</span></h1>
+    <div class="meta" id="meta" data-i18n="common.loading">Loading…</div>
   </div>
   <nav class="nav">
-    <a href="index.html">Index</a>
-    <a href="price-movement.html">Price Movement</a>
-    <a href="disclosure-pulse.html">Disclosures</a>
-    <a href="oppday-minutes.html" class="active">Oppday</a>
-    <a href="multiples-comparison.html">Multiples Comparison</a>
-    <a href="company-summary.html">Ticker</a>
-    <a href="multiples-band.html">Multiples Band</a>
-    <a href="bond-summary.html">Bonds</a>
-    <a href="unusual-trading.html">Alerts</a>
-    <a href="external-news.html">News</a>
-    <a href="trading-signs.html">Signals</a>
-    <a href="sec-enforcement.html">SEC</a>
+    <a href="index.html" data-i18n="nav.index">Index</a>
+    <a href="price-movement.html" data-i18n="page.priceMovement">Price Movement</a>
+    <a href="disclosure-pulse.html" data-i18n="nav.disclosures">Disclosures</a>
+    <a href="oppday-minutes.html" class="active" data-i18n="nav.oppday">Oppday</a>
+    <a href="multiples-comparison.html" data-i18n="page.multiplesComparison">Multiples Comparison</a>
+    <a href="company-summary.html" data-i18n="nav.ticker">Ticker</a>
+    <a href="multiples-band.html" data-i18n="page.multiplesBand">Multiples Band</a>
+    <a href="bond-summary.html" data-i18n="nav.bonds">Bonds</a>
+    <a href="unusual-trading.html" data-i18n="nav.alerts">Alerts</a>
+    <a href="external-news.html" data-i18n="nav.news">News</a>
+    <a href="trading-signs.html" data-i18n="nav.signals">Signals</a>
+    <a href="sec-enforcement.html" data-i18n="nav.sec">SEC</a>
   </nav>
 </header>
 
 <div class="filter-bar">
   <div class="tab-row">
-    <span class="tab-label">RM</span>
-    <div class="tab active" data-filter="rm" data-val="All">All <span class="tab-count" id="cnt-rm-All"></span></div>
-    <div class="tab" data-filter="rm" data-val="Champ">Champ <span class="tab-count" id="cnt-rm-Champ"></span></div>
-    <div class="tab" data-filter="rm" data-val="Kae">Kae <span class="tab-count" id="cnt-rm-Kae"></span></div>
-    <div class="tab" data-filter="rm" data-val="Orn">Orn <span class="tab-count" id="cnt-rm-Orn"></span></div>
-    <div class="tab" data-filter="rm" data-val="Gift">Gift <span class="tab-count" id="cnt-rm-Gift"></span></div>
-    <div class="tab" data-filter="rm" data-val="Pim">Pim <span class="tab-count" id="cnt-rm-Pim"></span></div>
-    <div class="tab" data-filter="rm" data-val="Tony">Tony <span class="tab-count" id="cnt-rm-Tony"></span></div>
+    <span class="tab-label" data-i18n="common.rm">RM</span>
+    <div class="tab active" data-filter="rm" data-val="All"><span data-i18n="common.all">All</span> <span class="tab-count" id="cnt-rm-All"></span></div>
+    <div class="tab" data-filter="rm" data-val="C">C <span class="tab-count" id="cnt-rm-C"></span></div>
+    <div class="tab" data-filter="rm" data-val="K">K <span class="tab-count" id="cnt-rm-K"></span></div>
+    <div class="tab" data-filter="rm" data-val="O">O <span class="tab-count" id="cnt-rm-O"></span></div>
+    <div class="tab" data-filter="rm" data-val="G">G <span class="tab-count" id="cnt-rm-G"></span></div>
+    <div class="tab" data-filter="rm" data-val="P">P <span class="tab-count" id="cnt-rm-P"></span></div>
+    <div class="tab" data-filter="rm" data-val="T">T <span class="tab-count" id="cnt-rm-T"></span></div>
     <div class="search-wrap">
-      <input id="search" type="text" placeholder="Search ticker…" autocomplete="off">
+      <input id="search" type="text" placeholder="Search ticker…" data-i18n-placeholder="common.searchTicker" autocomplete="off">
     </div>
   </div>
   <div class="tab-row">
-    <span class="tab-label">Sector</span>
-    <div class="tab active" data-filter="sector" data-val="All">All</div>
+    <span class="tab-label" data-i18n="common.sector">Sector</span>
+    <div class="tab active" data-filter="sector" data-val="All" data-i18n="common.all">All</div>
     <div class="tab" data-filter="sector" data-val="FOOD">FOOD</div>
     <div class="tab" data-filter="sector" data-val="PROP">PROP</div>
     <div class="tab" data-filter="sector" data-val="PFREIT">PF&amp;REIT</div>
@@ -181,18 +182,18 @@
     <div class="tab" data-filter="sector" data-val="CONS">CONS</div>
     <div class="tab" data-filter="sector" data-val="AGRI">AGRI</div>
     <span style="margin-left:auto;display:flex;gap:6px;align-items:center">
-      <span style="font-size:11px;color:var(--muted)">Source:</span>
-      <div class="src-btn active" data-src="all">All</div>
-      <div class="src-btn" data-src="transcript+slides">Transcript+Slides</div>
-      <div class="src-btn" data-src="slides-only">Slides only</div>
+      <span style="font-size:11px;color:var(--muted)" data-i18n="oppday.source">Source:</span>
+      <div class="src-btn active" data-src="all" data-i18n="common.all">All</div>
+      <div class="src-btn" data-src="transcript+slides" data-i18n="oppday.transcriptSlides">Transcript+Slides</div>
+      <div class="src-btn" data-src="slides-only" data-i18n="oppday.slidesOnly">Slides only</div>
     </span>
   </div>
 </div>
 
 <div class="stats-bar">
-  <span>Showing <strong id="stat-showing">—</strong> of <strong id="stat-total">—</strong> summaries</span>
+  <span id="stat-summary">Showing <strong id="stat-showing">—</strong> of <strong id="stat-total">—</strong> summaries</span>
   <span class="stats-sep">|</span>
-  <span>Period: <strong>YE/2025</strong></span>
+  <span><span data-i18n="common.period">Period</span>: <strong>YE/2025</strong></span>
   <span class="stats-sep">|</span>
   <span id="stat-src-breakdown"></span>
 </div>
@@ -200,22 +201,22 @@
 <div class="main">
   <div class="table-wrap">
     <div class="loading" id="loading">
-      <div class="spin"></div><br>Loading summaries…
+      <div class="spin"></div><br><span data-i18n="oppday.loadingSummaries">Loading summaries…</span>
     </div>
     <table id="tbl" style="display:none">
       <thead>
         <tr>
-          <th>Ticker</th>
+          <th data-i18n="common.ticker">Ticker</th>
           <th>RM</th>
-          <th>Sector</th>
-          <th>Period</th>
-          <th>Source</th>
-          <th class="overview-col-th">Overview</th>
+          <th data-i18n="common.sector">Sector</th>
+          <th data-i18n="common.period">Period</th>
+          <th data-i18n="common.source">Source</th>
+          <th class="overview-col-th" data-i18n="common.overview">Overview</th>
         </tr>
       </thead>
       <tbody id="tbody"></tbody>
     </table>
-    <div class="no-results" id="no-results" style="display:none">No summaries match the current filter.</div>
+    <div class="no-results" id="no-results" style="display:none" data-i18n="oppday.noSummaries">No summaries match the current filter.</div>
   </div>
 
   <div class="drawer" id="drawer">
@@ -236,12 +237,28 @@
 let allData = [];
 let activeRM = 'All', activeSector = 'All', activeSrc = 'all', searchQ = '';
 let selectedTicker = null;
+let DATA_META = null;
 
-const SOURCE_LABELS = {
-  'transcript+slides': '<span class="badge src-ts">Transcript+Slides</span>',
-  'slides-only':        '<span class="badge src-sl">Slides only</span>',
-  'transcript-only':    '<span class="badge src-tr">Transcript only</span>',
+const TT_FALLBACK = {
+  "oppday.transcriptSlides": "Transcript+Slides",
+  "oppday.slidesOnly": "Slides only",
+  "oppday.transcriptOnly": "Transcript only",
+  "oppday.showingSummary": "Showing {showing} of {total} summaries",
+  "oppday.meta": "{n} summaries · Period: {period} · Generated: {generated}",
+  "oppday.failedLoad": "Failed to load data: {msg}",
 };
+function tt(key) { return window.I18N ? I18N.t(key) : (TT_FALLBACK[key] || key); }
+function tx(key, vars){return tt(key).replace(/\{(\w+)\}/g,(_,k)=>vars&&vars[k]!=null?vars[k]:'')}
+
+function sourceBadge(source) {
+  const labels = {
+    'transcript+slides': tt('oppday.transcriptSlides'),
+    'slides-only': tt('oppday.slidesOnly'),
+    'transcript-only': tt('oppday.transcriptOnly'),
+  };
+  const cls = {'transcript+slides':'src-ts','slides-only':'src-sl','transcript-only':'src-tr'}[source] || '';
+  return `<span class="badge ${cls}">${labels[source] || source}</span>`;
+}
 
 function sectorClass(s) {
   const m = {'FOOD':'s-FOOD','AGRI':'s-AGRI','PROP':'s-PROP','CONS':'s-CONS','CONMAT':'s-CONMAT','PFREIT':'s-PFREIT'};
@@ -251,19 +268,20 @@ function sectorClass(s) {
 function dqBanner(dq) {
   if (!dq || dq.severity === 'none' || !dq.severity) return '';
   const cfg = {
-    high: {cls:'dq-high', icon:'⛔', label:'Figures unreliable'},
-    med:  {cls:'dq-med',  icon:'⚠️', label:'Reconcile vs filed financials'},
-    low:  {cls:'dq-low',  icon:'ℹ️', label:'Indicative figures'},
+    high: {cls:'dq-high', icon:'⛔', labelKey:'oppday.dqHigh'},
+    med:  {cls:'dq-med',  icon:'⚠️', labelKey:'oppday.dqMed'},
+    low:  {cls:'dq-low',  icon:'ℹ️', labelKey:'oppday.dqLow'},
   }[dq.severity];
   if (!cfg) return '';
   const note = (dq.note || '').replace(/</g,'&lt;').replace(/>/g,'&gt;');
   return `<div class="dq-banner ${cfg.cls}"><span class="dq-icon">${cfg.icon}</span>`
-    + `<span><span class="dq-label">${cfg.label}</span><br>${note}</span></div>`;
+    + `<span><span class="dq-label">${tt(cfg.labelKey)}</span><br>${note}</span></div>`;
 }
 
+const DQ_SEVERITY_KEY = {high:'common.high', med:'common.medium', low:'common.low'};
 function dqDot(dq) {
   if (!dq || (dq.severity !== 'high' && dq.severity !== 'med')) return '';
-  return `<span class="dq-dot dq-dot-${dq.severity}" title="Data quality: ${dq.severity}"></span>`;
+  return `<span class="dq-dot dq-dot-${dq.severity}" title="${tx('oppday.dqTitle',{severity:tt(DQ_SEVERITY_KEY[dq.severity])})}"></span>`;
 }
 
 function render() {
@@ -277,6 +295,7 @@ function render() {
   });
 
   document.getElementById('stat-showing').textContent = rows.length;
+  updateSummaryText(DATA_META?.total ?? allData.length);
   const tbody = document.getElementById('tbody');
   tbody.innerHTML = '';
 
@@ -296,7 +315,7 @@ function render() {
       <td><span class="badge rm-${d.rm}">${d.rm}</span></td>
       <td><span class="badge ${sectorClass(d.sector)}">${d.sector}</span></td>
       <td class="period-col">${d.period.replace(/ผลประกอบการ\s*/,'').split('(')[0].trim().substring(0,35)}</td>
-      <td>${SOURCE_LABELS[d.source] || `<span class="badge">${d.source}</span>`}</td>
+      <td>${sourceBadge(d.source)}</td>
       <td class="overview-col"><span>${d.overview.replace(/</g,'&lt;').replace(/>/g,'&gt;').substring(0,180)}…</span></td>
     `;
     tr.addEventListener('click', () => openDrawer(d));
@@ -310,7 +329,7 @@ function openDrawer(d) {
   document.getElementById('d-meta').innerHTML = `
     <span class="badge rm-${d.rm}">${d.rm}</span>
     <span class="badge ${sectorClass(d.sector)}">${d.sector}</span>
-    ${SOURCE_LABELS[d.source] || ''}
+    ${sourceBadge(d.source)}
     <span style="color:var(--muted)">${d.period}</span>
   `;
   document.getElementById('d-content').innerHTML = dqBanner(d.dataQuality) + marked.parse(d.content);
@@ -325,7 +344,7 @@ function closeDrawer() {
 }
 
 function updateCounts() {
-  const rms = ['All','Champ','Kae','Orn','Gift','Pim','Tony'];
+  const rms = ['All','C','K','O','G','P','T'];
   rms.forEach(rm => {
     const el = document.getElementById(`cnt-rm-${rm}`);
     if (!el) return;
@@ -338,7 +357,21 @@ function updateStats() {
   const ts = allData.filter(d => d.source === 'transcript+slides').length;
   const sl = allData.filter(d => d.source === 'slides-only').length;
   document.getElementById('stat-src-breakdown').innerHTML =
-    `<span style="color:var(--green)">${ts} transcript+slides</span>  <span style="color:var(--muted)">·</span>  <span style="color:var(--yellow)">${sl} slides only</span>`;
+    `<span style="color:var(--green)">${ts} ${tt('oppday.transcriptSlides')}</span>  <span style="color:var(--muted)">·</span>  <span style="color:var(--yellow)">${sl} ${tt('oppday.slidesOnly')}</span>`;
+}
+function updateSummaryText(total){
+  document.getElementById('stat-summary').innerHTML = tx('oppday.showingSummary', {
+    showing: `<strong id="stat-showing">${document.getElementById('stat-showing')?.textContent || '—'}</strong>`,
+    total: `<strong id="stat-total">${total ?? document.getElementById('stat-total')?.textContent ?? '—'}</strong>`
+  });
+}
+function updateMeta(json){
+  if(!json) return;
+  document.getElementById('meta').textContent = tx('oppday.meta', {
+    n: json.total,
+    period: json.period,
+    generated: json.generated
+  });
 }
 
 // Tab clicks
@@ -378,16 +411,25 @@ fetch('data/oppday-minutes.json')
   .then(r => r.json())
   .then(json => {
     allData = json.summaries;
+    DATA_META = json;
     document.getElementById('loading').style.display = 'none';
     document.getElementById('stat-total').textContent = json.total;
-    document.getElementById('meta').textContent = `${json.total} summaries · Period: ${json.period} · Generated: ${json.generated}`;
+    updateSummaryText(json.total);
+    updateMeta(json);
     updateCounts();
     updateStats();
     render();
   })
   .catch(err => {
-    document.getElementById('loading').innerHTML = `<span style="color:var(--red)">Failed to load data: ${err.message}</span>`;
+    document.getElementById('loading').innerHTML = `<span style="color:var(--red)">${tx('oppday.failedLoad',{msg:err.message})}</span>`;
   });
+window.addEventListener('i18n:change',()=>{
+  if(window.I18N) I18N.apply();
+  updateMeta(DATA_META);
+  updateCounts();
+  updateStats();
+  render();
+});
 </script>
 <script src="nav.js" defer></script>
 <script src="chat-dock.js" defer></script>

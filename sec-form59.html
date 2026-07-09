@@ -79,29 +79,30 @@
   }
 </style>
   <link rel="stylesheet" href="theme.css">
+  <script src="i18n.js"></script>
 
 </head>
 <body>
 
 <header>
   <div>
-    <h1>SEC Form 59 <span style="color:var(--muted);font-weight:400;font-size:13px">- management and related-person trades</span></h1>
-    <div class="meta" id="meta">Loading...</div>
+    <h1><span data-i18n="page.secForm59">SEC Form 59</span> <span style="color:var(--muted);font-weight:400;font-size:13px">- management and related-person trades</span></h1>
+    <div class="meta" id="meta" data-i18n="common.loadingDots">Loading...</div>
   </div>
   <nav class="nav">
-    <a href="index.html">Index</a>
-    <a href="price-movement.html">Price Movement</a>
-    <a href="disclosure-pulse.html">Disclosures</a>
-    <a href="oppday-minutes.html">Oppday</a>
-    <a href="multiples-comparison.html">Multiples Comparison</a>
-    <a href="company-summary.html">Company Summary</a>
-    <a href="multiples-band.html">Multiples Band</a>
-    <a href="bond-summary.html">Bonds</a>
-    <a href="unusual-trading.html">Alerts</a>
-    <a href="external-news.html">External</a>
-    <a href="trading-signs.html">Signs</a>
-    <a href="sec-enforcement.html">SEC</a>
-    <a href="sec-form59.html" class="active">Form 59</a>
+    <a href="index.html" data-i18n="nav.index">Index</a>
+    <a href="price-movement.html" data-i18n="page.priceMovement">Price Movement</a>
+    <a href="disclosure-pulse.html" data-i18n="nav.disclosures">Disclosures</a>
+    <a href="oppday-minutes.html" data-i18n="nav.oppday">Oppday</a>
+    <a href="multiples-comparison.html" data-i18n="page.multiplesComparison">Multiples Comparison</a>
+    <a href="company-summary.html" data-i18n="page.companySummary">Company Summary</a>
+    <a href="multiples-band.html" data-i18n="page.multiplesBand">Multiples Band</a>
+    <a href="bond-summary.html" data-i18n="nav.bonds">Bonds</a>
+    <a href="unusual-trading.html" data-i18n="nav.alerts">Alerts</a>
+    <a href="external-news.html" data-i18n="nav.external">External</a>
+    <a href="trading-signs.html" data-i18n="nav.signs">Signs</a>
+    <a href="sec-enforcement.html" data-i18n="nav.sec">SEC</a>
+    <a href="sec-form59.html" class="active" data-i18n="nav.form59">Form 59</a>
     <span class="stale" id="staleBadge">..</span>
   </nav>
 </header>
@@ -110,47 +111,72 @@
 
 <div class="tab-bar">
   <div class="tab-row">
-    <span class="tab-label">Window:</span>
+    <span class="tab-label"><span data-i18n="common.window">Window</span>:</span>
     <div id="windowTabs" style="display:flex;gap:4px;flex-wrap:wrap"></div>
-    <span class="tab-label" style="margin-left:20px">Side:</span>
+    <span class="tab-label" style="margin-left:20px"><span data-i18n="common.side">Side</span>:</span>
     <div id="sideTabs" style="display:flex;gap:4px;flex-wrap:wrap"></div>
   </div>
   <div class="tab-row">
-    <span class="tab-label">RM:</span>
+    <span class="tab-label"><span data-i18n="common.rm">RM</span>:</span>
     <div id="rmTabs" style="display:flex;gap:4px;flex-wrap:wrap"></div>
-    <span class="tab-label" style="margin-left:20px">Sector:</span>
+    <span class="tab-label" style="margin-left:20px"><span data-i18n="common.sector">Sector</span>:</span>
     <div id="sectorTabs" style="display:flex;gap:4px;flex-wrap:wrap"></div>
   </div>
   <div class="tab-row">
-    <span class="tab-label">Search:</span>
-    <input class="search" id="searchBox" type="search" placeholder="Ticker, reporter, relationship, security" oninput="setQuery(this.value)">
-    <span class="tab-label" style="margin-left:12px">Sort:</span>
+    <span class="tab-label"><span data-i18n="common.search">Search</span>:</span>
+    <input class="search" id="searchBox" type="search" placeholder="Ticker, reporter, relationship, security" data-i18n-placeholder="common.searchForm59" oninput="setQuery(this.value)">
+    <span class="tab-label" style="margin-left:12px"><span data-i18n="common.sort">Sort</span>:</span>
     <select class="select" id="sortMode" onchange="setSort(this.value)">
-      <option value="latest">Latest first</option>
-      <option value="value">Largest value</option>
-      <option value="ticker">Ticker</option>
+      <option value="latest" data-i18n="common.latestFirst">Latest first</option>
+      <option value="value" data-i18n="common.largestValue">Largest value</option>
+      <option value="ticker" data-i18n="common.ticker">Ticker</option>
     </select>
-    <button class="reset-btn" type="button" onclick="resetFilters()">Reset</button>
+    <button class="reset-btn" type="button" onclick="resetFilters()" data-i18n="common.reset">Reset</button>
   </div>
 </div>
 
-<div id="feed" class="feed"><div class="loading">Fetching Form 59 rows...</div></div>
+<div id="feed" class="feed"><div class="loading" data-i18n="common.fetchingForm59">Fetching Form 59 rows...</div></div>
 
 <script>
 let ITEMS = [], activeWindow = 30, activeSide = 'ALL', activeRm = 'ALL', activeSector = 'ALL', activeQuery = '', sortMode = 'latest';
+let DATA_META = null;
+const TT_FALLBACK = {
+  "common.updatedAgo": "updated {x} ago",
+  "common.buy": "Buy",
+  "common.sell": "Sell",
+  "common.transfer": "Transfer",
+  "common.other": "Other",
+  "common.all": "All",
+  "common.showing": "Showing",
+  "form59.buyRows": "Buy rows",
+  "form59.sellRows": "Sell rows",
+  "form59.netValueBaht": "Net value baht",
+  "common.noForm59": "No Form 59 rows match the filters.",
+  "form59.revoked": "revoked",
+  "form59.secDetail": "SEC detail",
+  "form59.tradeDate": "Trade date",
+  "form59.amount": "Amount",
+  "form59.avgPrice": "Avg price",
+  "form59.value": "Value",
+  "common.errorWithMsg": "Error: {msg}",
+  "form59.meta": "{n} rows - {buy} buys / {sell} sells - {days}d window - as of {asOf}",
+};
+function tt(key) { return window.I18N ? I18N.t(key) : (TT_FALLBACK[key] || key); }
+function tx(key, vars) { return tt(key).replace(/\{(\w+)\}/g, (_, k) => vars && vars[k] != null ? vars[k] : ''); }
 const WINDOWS = [
   { key: 1, label: '1d' }, { key: 7, label: '7d' }, { key: 30, label: '30d' },
   { key: 90, label: '90d' }, { key: 0, label: 'All' },
 ];
 const SIDES = [
-  { key: 'ALL', label: 'All' }, { key: 'buy', label: 'Buy' },
-  { key: 'sell', label: 'Sell' }, { key: 'transfer', label: 'Transfer' },
+  { key: 'ALL', labelKey: 'common.all' }, { key: 'buy', labelKey: 'common.buy' },
+  { key: 'sell', labelKey: 'common.sell' }, { key: 'transfer', labelKey: 'common.transfer' },
 ];
 
 function freshnessLabel(builtAt) {
   if (!builtAt) return { txt: '?', warn: true };
   const ageH = (Date.now() - new Date(builtAt).getTime()) / 36e5;
-  return { txt: 'updated ' + (ageH < 1 ? Math.round(ageH * 60) + 'm' : Math.round(ageH) + 'h') + ' ago', warn: ageH > 36 };
+  const x = ageH < 1 ? Math.round(ageH * 60) + 'm' : Math.round(ageH) + 'h';
+  return { txt: tx('common.updatedAgo', { x }), warn: ageH > 36 };
 }
 function escapeHtml(s) {
   return String(s ?? '').replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[ch]);
@@ -177,10 +203,10 @@ function formatMoney(v) {
   return n.toLocaleString('en-US', { maximumFractionDigits: 0 });
 }
 function sideLabel(side) {
-  if (side === 'buy') return 'Buy';
-  if (side === 'sell') return 'Sell';
-  if (side === 'transfer') return 'Transfer';
-  return side || 'Other';
+  if (side === 'buy') return tt('common.buy');
+  if (side === 'sell') return tt('common.sell');
+  if (side === 'transfer') return tt('common.transfer');
+  return side || tt('common.other');
 }
 function hydrate(it) {
   it._dateMs = rowDateMs(it);
@@ -229,14 +255,14 @@ function buildWindowTabs() {
 function buildSideTabs() {
   document.getElementById('sideTabs').innerHTML = SIDES.map(s => {
     const cnt = filterRows({ side: s.key }).length;
-    return `<div class="tab ${s.key === activeSide ? 'active' : ''}" onclick="setSide('${s.key}')">${s.label} <span class="tab-count">${cnt}</span></div>`;
+    return `<div class="tab ${s.key === activeSide ? 'active' : ''}" onclick="setSide('${s.key}')">${tt(s.labelKey)} <span class="tab-count">${cnt}</span></div>`;
   }).join('');
 }
 function buildRmTabs() {
   const counts = countBy(filterRows({ rm: 'ALL' }), 'rm');
   const rms = Object.keys(counts).sort((a, b) => counts[b] - counts[a]);
   document.getElementById('rmTabs').innerHTML =
-    `<div class="tab ${activeRm === 'ALL' ? 'active' : ''}" onclick="setRm('ALL')">All <span class="tab-count">${filterRows({ rm: 'ALL' }).length}</span></div>` +
+    `<div class="tab ${activeRm === 'ALL' ? 'active' : ''}" onclick="setRm('ALL')">${tt('common.all')} <span class="tab-count">${filterRows({ rm: 'ALL' }).length}</span></div>` +
     rms.map(r => `<div class="tab ${activeRm === r ? 'active' : ''}" onclick="setRm('${r}')">${r} <span class="tab-count">${counts[r]}</span></div>`).join('');
 }
 function buildSectorTabs() {
@@ -244,7 +270,7 @@ function buildSectorTabs() {
   const counts = countBy(filterRows({ sector: 'ALL' }), 'sector');
   const sectors = Object.keys(counts).sort((a, b) => order.indexOf(a) - order.indexOf(b));
   document.getElementById('sectorTabs').innerHTML =
-    `<div class="tab ${activeSector === 'ALL' ? 'active' : ''}" onclick="setSector('ALL')">All <span class="tab-count">${filterRows({ sector: 'ALL' }).length}</span></div>` +
+    `<div class="tab ${activeSector === 'ALL' ? 'active' : ''}" onclick="setSector('ALL')">${tt('common.all')} <span class="tab-count">${filterRows({ sector: 'ALL' }).length}</span></div>` +
     sectors.map(s => `<div class="tab ${activeSector === s ? 'active' : ''}" onclick="setSector('${s}')">${s} <span class="tab-count">${counts[s]}</span></div>`).join('');
 }
 function buildControls() {
@@ -268,16 +294,16 @@ function updateStats() {
   const sells = rows.filter(r => r.side === 'sell');
   const net = rows.reduce((s, r) => s + (r.side === 'buy' ? (r.notional || 0) : r.side === 'sell' ? -(r.notional || 0) : 0), 0);
   document.getElementById('statsBar').innerHTML = `
-    <div class="stat"><div class="stat-val">${rows.length}</div><div class="stat-lbl">Showing</div></div>
-    <div class="stat"><div class="stat-val" style="color:var(--green)">${buys.length}</div><div class="stat-lbl">Buy rows</div></div>
-    <div class="stat"><div class="stat-val" style="color:var(--red)">${sells.length}</div><div class="stat-lbl">Sell rows</div></div>
-    <div class="stat"><div class="stat-val" style="font-size:17px;color:${net >= 0 ? 'var(--green)' : 'var(--red)'}">${formatMoney(net)}</div><div class="stat-lbl">Net value baht</div></div>`;
+    <div class="stat"><div class="stat-val">${rows.length}</div><div class="stat-lbl">${tt('common.showing')}</div></div>
+    <div class="stat"><div class="stat-val" style="color:var(--green)">${buys.length}</div><div class="stat-lbl">${tt('form59.buyRows')}</div></div>
+    <div class="stat"><div class="stat-val" style="color:var(--red)">${sells.length}</div><div class="stat-lbl">${tt('form59.sellRows')}</div></div>
+    <div class="stat"><div class="stat-val" style="font-size:17px;color:${net >= 0 ? 'var(--green)' : 'var(--red)'}">${formatMoney(net)}</div><div class="stat-lbl">${tt('form59.netValueBaht')}</div></div>`;
 }
 function render() {
   const rows = sortedRows(filterRows());
   const feed = document.getElementById('feed');
   if (!rows.length) {
-    feed.innerHTML = '<div class="empty">No Form 59 rows match the filters.</div>';
+    feed.innerHTML = `<div class="empty">${tt('common.noForm59')}</div>`;
     return;
   }
   feed.innerHTML = rows.map(it => {
@@ -293,17 +319,17 @@ function render() {
           </div>
           <div class="item-meta">
             <span class="tag tag-${sideCls}">${sideLabel(it.side)}</span>
-            ${it.is_revoked ? '<span class="tag tag-revoked">revoked</span>' : ''}
+            ${it.is_revoked ? `<span class="tag tag-revoked">${tt('form59.revoked')}</span>` : ''}
             ${it.rm ? `<span class="tag tag-rm">${escapeHtml(it.rm)}</span>` : ''}
             ${it.sector ? `<span class="sector-badge s-${it.sector}">${escapeHtml(it.sector)}</span>` : ''}
             ${it.security_type ? `<span class="tag tag-other">${escapeHtml(it.security_type)}</span>` : ''}
-            ${it.url ? `<a class="link" href="${escapeHtml(it.url)}" target="_blank" rel="noopener">SEC detail</a>` : ''}
+            ${it.url ? `<a class="link" href="${escapeHtml(it.url)}" target="_blank" rel="noopener">${tt('form59.secDetail')}</a>` : ''}
           </div>
           <div class="facts">
-            <span>Trade date <strong>${formatDate(it.transaction_date)}</strong></span>
-            <span>Amount <strong>${formatNum(it.amount, 0)}</strong></span>
-            <span>Avg price <strong>${formatNum(it.price, 2)}</strong></span>
-            <span>Value <strong>${formatMoney(it.notional)}</strong></span>
+            <span>${tt('form59.tradeDate')} <strong>${formatDate(it.transaction_date)}</strong></span>
+            <span>${tt('form59.amount')} <strong>${formatNum(it.amount, 0)}</strong></span>
+            <span>${tt('form59.avgPrice')} <strong>${formatNum(it.price, 2)}</strong></span>
+            <span>${tt('form59.value')} <strong>${formatMoney(it.notional)}</strong></span>
             ${it.remark ? `<span>${escapeHtml(it.remark)}</span>` : ''}
           </div>
         </div>
@@ -314,18 +340,36 @@ function render() {
 async function init() {
   try {
     const dj = await fetch('./data/sec-form59.json').then(r => r.json());
+    DATA_META = dj;
     ITEMS = (dj.items || []).map(hydrate);
     const fresh = freshnessLabel(dj._built_at);
     const badge = document.getElementById('staleBadge');
     badge.textContent = fresh.txt;
     if (fresh.warn) badge.classList.add('warn');
-    document.getElementById('meta').textContent = `${ITEMS.length} rows - ${(dj.bySide || {}).buy || 0} buys / ${(dj.bySide || {}).sell || 0} sells - ${dj.windowDays || 90}d window - as of ${dj.asOf || ''}`;
+    updateMeta();
     buildControls(); updateStats(); render();
   } catch(e) {
-    document.getElementById('feed').innerHTML = `<div class="empty">Error: ${e.message}</div>`;
+    document.getElementById('feed').innerHTML = `<div class="empty">${tx('common.errorWithMsg', { msg: e.message })}</div>`;
   }
 }
 init();
+function updateMeta() {
+  if (!DATA_META) return;
+  document.getElementById('meta').textContent = tx('form59.meta', {
+    n: ITEMS.length,
+    buy: (DATA_META.bySide || {}).buy || 0,
+    sell: (DATA_META.bySide || {}).sell || 0,
+    days: DATA_META.windowDays || 90,
+    asOf: DATA_META.asOf || ''
+  });
+}
+window.addEventListener('i18n:change', () => {
+  if (window.I18N) I18N.apply();
+  updateMeta();
+  buildControls();
+  updateStats();
+  render();
+});
 </script>
 <script src="nav.js" defer></script>
 <script src="chat-dock.js" defer></script>

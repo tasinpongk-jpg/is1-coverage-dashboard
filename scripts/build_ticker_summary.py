@@ -273,6 +273,12 @@ async def main():
     if not tkr_path.exists():
         sys.exit(f"Missing {tkr_path}")
     tickers = json.loads(tkr_path.read_text(encoding="utf-8"))["tickers"]
+    for t in tickers:
+        # Anonymise RM to its initial (privacy), defensively — even if
+        # tickers.json ever regresses to full names upstream.
+        rm = t.get("rm")
+        if rm not in (None, ""):
+            t["rm"] = str(rm).strip()[:1].upper()
     if not API_KEY:
         print("Note: SETSMART_API_KEY not set — price/sparkline data will be absent")
     print(f"Building summaries for {len(tickers)} tickers "

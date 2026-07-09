@@ -74,6 +74,16 @@ def conn() -> Iterator[duckdb.DuckDBPyConnection]:
         )
         c.execute(
             """
+            CREATE TABLE IF NOT EXISTS title_translations (
+                news_id    TEXT PRIMARY KEY,
+                title_th   TEXT,
+                model      TEXT,
+                created_at TIMESTAMP DEFAULT current_timestamp
+            )
+            """
+        )
+        c.execute(
+            """
             CREATE TABLE IF NOT EXISTS financials_snapshots (
                 symbol           VARCHAR NOT NULL,
                 year             INTEGER NOT NULL,

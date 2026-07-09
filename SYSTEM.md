@@ -148,7 +148,7 @@ tasks (`IS1-Coverage-Daily-Build`, `SET-Surveillance-Daily`) and the
 
 | Var | Value source | Used by |
 |---|---|---|
-| `ANTHROPIC_API_KEY` | console.anthropic.com — your personal interactive key | Local Claude Code, ad-hoc surveillance runs |
+| `MINIMAX_API_KEY` (or `ANTHROPIC_API_KEY` fallback) | console.minimax.io — your personal interactive key (Anthropic key works as fallback) | Local Claude Code, ad-hoc surveillance runs |
 | `SETSMART_API_KEY` | SETSMART subscription | Local proxy + ad-hoc API calls |
 | `SURVEILLANCE_SQL` | 490-char SQL JOIN (news_items + classifications) | Proxy disclosure-pulse route |
 | `R2_ACCESS_KEY_ID` | Cloudflare R2 token | `update_vault.py` |
@@ -158,7 +158,7 @@ tasks (`IS1-Coverage-Daily-Build`, `SET-Surveillance-Daily`) and the
 
 **To export from current laptop:**
 ```powershell
-foreach ($n in 'ANTHROPIC_API_KEY','SETSMART_API_KEY','SURVEILLANCE_SQL',
+foreach ($n in 'MINIMAX_API_KEY','ANTHROPIC_API_KEY','SETSMART_API_KEY','SURVEILLANCE_SQL',
                'R2_ACCESS_KEY_ID','R2_SECRET_ACCESS_KEY','R2_ENDPOINT','R2_BUCKET') {
     $v = [Environment]::GetEnvironmentVariable($n,'User')
     if ($v) { Write-Output "$n=$v" } else { Write-Output "$n=<UNSET>" }
@@ -175,7 +175,7 @@ These are stored in the repo's GitHub Actions secrets (encrypted at rest by GitH
 They follow the repo, NOT the laptop. You do not need to recreate them on a new laptop.
 
 ```
-ANTHROPIC_API_KEY     EMAIL_APP_PASSWORD    EMAIL_FROM
+MINIMAX_API_KEY         EMAIL_APP_PASSWORD    EMAIL_FROM
 EMAIL_TO              EMAIL_USERNAME        R2_ACCESS_KEY_ID
 R2_BUCKET             R2_ENDPOINT           R2_SECRET_ACCESS_KEY
 SETSMART_API_KEY      SURVEILLANCE_SQL

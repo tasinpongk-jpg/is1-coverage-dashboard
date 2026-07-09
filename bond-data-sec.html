@@ -142,6 +142,7 @@ footer a{color:var(--muted)}
 @media(max-width:760px){.two-col{grid-template-columns:1fr}}
 </style>
   <link rel="stylesheet" href="theme.css">
+  <script src="i18n.js"></script>
 
 </head>
 <body>
@@ -149,62 +150,104 @@ footer a{color:var(--muted)}
 <header>
   <a class="brand" href="index.html">
     <div class="brand-mark">IS</div>
-    <div><div class="brand-name">Coverage Desk</div><div class="brand-sub">SET Issuer Dept 1</div></div>
+    <div><div class="brand-name" data-i18n="brand.coverageDesk">Coverage Desk</div><div class="brand-sub" data-i18n="brand.setIssuerDept1">SET Issuer Dept 1</div></div>
   </a>
   <nav class="nav">
-    <a href="index.html">Index</a>
-    <a href="price-movement.html">Price Movement</a>
-    <a href="bond-summary.html">Bonds</a>
-    <a href="bond-data-sec.html" class="active">SEC Bonds</a>
-    <span class="stale unknown" id="staleBadge">● loading</span>
+    <a href="index.html" data-i18n="nav.index">Index</a>
+    <a href="price-movement.html" data-i18n="page.priceMovement">Price Movement</a>
+    <a href="bond-summary.html" data-i18n="nav.bonds">Bonds</a>
+    <a href="bond-data-sec.html" class="active" data-i18n="nav.secBonds">SEC Bonds</a>
+    <span class="stale unknown" id="staleBadge" data-i18n="common.loading">● loading</span>
   </nav>
 </header>
 
 <main>
-  <div><div class="pg-title">BOND Data from SEC</div><div class="pg-sub" id="pgSub">Loading SEC Open API bond filings…</div></div>
+  <div><div class="pg-title" data-i18n="page.bondDataSec">BOND Data from SEC</div><div class="pg-sub" id="pgSub" data-i18n="common.loadingSecBondFilings">Loading SEC Open API bond filings…</div></div>
   <div class="hero" id="hero"></div>
 
   <div class="two-col" id="breakdowns" style="display:none">
     <div class="chart-panel">
-      <div class="chart-title">Outstanding by RM</div>
-      <div class="chart-sub">Outstanding face value · THB bn · issuers in tooltip</div>
+      <div class="chart-title" data-i18n="secBond.outstandingByRm">Outstanding by RM</div>
+      <div class="chart-sub" data-i18n="secBond.outstandingByRmSub">Outstanding face value · THB bn · issuers in tooltip</div>
       <div id="rmBars"></div>
     </div>
     <div class="chart-panel">
-      <div class="chart-title">Outstanding by Sector</div>
-      <div class="chart-sub">Outstanding face value · THB bn</div>
+      <div class="chart-title" data-i18n="secBond.outstandingBySector">Outstanding by Sector</div>
+      <div class="chart-sub" data-i18n="secBond.outstandingBySectorSub">Outstanding face value · THB bn</div>
       <div id="sectBars"></div>
     </div>
   </div>
 
   <div class="chart-panel" id="ratingPanel" style="display:none">
-    <div class="chart-title">Credit Rating Mix</div>
-    <div class="chart-sub">Outstanding bonds by SEC-reported rating</div>
+    <div class="chart-title" data-i18n="secBond.creditRatingMix">Credit Rating Mix</div>
+    <div class="chart-sub" data-i18n="secBond.creditRatingMixSub">Outstanding bonds by SEC-reported rating</div>
     <div class="rmix" id="ratingMix"></div>
   </div>
 
   <div class="controls" id="controls" style="display:none">
-    <div class="ctrl-row"><span class="ctrl-lbl">Sector</span><div id="sectFilter"></div></div>
+    <div class="ctrl-row"><span class="ctrl-lbl" data-i18n="common.sector">Sector</span><div id="sectFilter"></div></div>
     <div class="ctrl-row"><span class="ctrl-lbl">RM</span><div id="rmFilter"></div></div>
-    <button class="toggle-btn" id="esgToggle">🌿 ESG only</button>
-    <button class="toggle-btn" id="outToggle">Outstanding only</button>
-    <input class="search" id="search" placeholder="Search ticker / company…">
-    <div class="ctrl-row"><span class="ctrl-lbl">Sort</span><div id="sortFilter"></div></div>
+    <button class="toggle-btn" id="esgToggle" data-i18n="bond.esgOnly">🌿 ESG only</button>
+    <button class="toggle-btn" id="outToggle" data-i18n="secBond.outstandingOnly">Outstanding only</button>
+    <input class="search" id="search" placeholder="Search ticker / company…" data-i18n-placeholder="common.searchTickerCompany">
+    <div class="ctrl-row"><span class="ctrl-lbl" data-i18n="common.sort">Sort</span><div id="sortFilter"></div></div>
     <span class="cnt-lbl" id="cntLbl">—</span>
   </div>
 
-  <div id="loading"><div class="spinner"></div>Fetching SEC bond data…</div>
+  <div id="loading"><div class="spinner"></div><span data-i18n="common.fetchingSecBondData">Fetching SEC bond data…</span></div>
   <div class="grid" id="grid" style="display:none"></div>
 </main>
 
 <footer>
   <span id="fsrc">IS1 Coverage Desk · BOND Data from SEC</span>
-  <span>Source: SEC Open API <code>/v2/bond/*</code> · build_sec_bonds.py</span>
+  <span><span data-i18n="common.source">Source</span>: SEC Open API <code>/v2/bond/*</code> · build_sec_bonds.py</span>
 </footer>
 
 <script>
 const SECT_COLORS={FOOD:'var(--food)',AGRI:'var(--agri)',PROP:'var(--prop)',CONS:'var(--cons)',CONMAT:'var(--conmat)'};
 const IG=new Set(['AAA','AA+','AA','AA-','A+','A','A-','BBB+','BBB','BBB-']);
+const TT_FALLBACK = {
+  "page.bondDataSec": "BOND Data from SEC",
+  "brand.coverageDesk": "Coverage Desk",
+  "common.loadingSecBondFilings": "Loading SEC Open API bond filings…",
+  "common.unknown": "unknown",
+  "secBond.meta": "SEC Open API filings · {n} coverage names · as of {asOf}",
+  "secBond.footerTitle": "IS1 Coverage Desk · BOND Data from SEC",
+  "secBond.fetchError": "sec-bonds.json not found — run scripts/build_sec_bonds.py first",
+  "secBond.coverageNames": "Coverage names",
+  "secBond.coverageHint": "IS1 tickers in SEC bond universe",
+  "secBond.activeIssuers": "Active issuers",
+  "secBond.activeIssuersHint": "with bonds outstanding",
+  "bond.outstandingBonds": "outstanding bonds",
+  "secBond.liveSeries": "live series across issuers",
+  "secBond.outstandingValue": "Outstanding value",
+  "secBond.faceValueOutstanding": "total face value outstanding",
+  "bond.esgBonds": "ESG Bonds",
+  "secBond.esgHint": "green / sustainability series",
+  "secBond.issuersBondsTitle": "{issuers} issuers · {bonds} bonds",
+  "secBond.bondsShort": "{n}b",
+  "common.all": "All",
+  "secBond.sortThb": "THB ↓",
+  "secBond.sortBonds": "Bonds ↓",
+  "secBond.sortEsg": "ESG ↓",
+  "secBond.count": "{n} names · ฿{amount}bn outstanding",
+  "common.noIssuersMatch": "No issuers match the current filters.",
+  "secBond.hideBonds": "▲ Hide bonds",
+  "secBond.showBonds": "▼ Show {n} bonds",
+  "secBond.esgCount": "{n} ESG",
+  "secBond.tableIsin": "ISIN",
+  "secBond.tableMat": "Mat.",
+  "secBond.tableValueM": "฿m",
+  "secBond.tableRating": "Rating",
+  "secBond.bnOutstanding": "bn outstanding",
+  "secBond.noBondsOutstanding": "no bonds outstanding",
+  "secBond.outstandingCount": "{n} outstanding",
+  "secBond.everIssued": "{n} ever issued",
+};
+function tt(key) { return window.I18N ? I18N.t(key) : (TT_FALLBACK[key] || key); }
+function tx(key, vars) {
+  return tt(key).replace(/\{(\w+)\}/g, (_, k) => vars && vars[k] != null ? vars[k] : '');
+}
 const fmtBn=n=>n>=100?n.toFixed(0):n.toFixed(1);
 const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 
@@ -213,20 +256,40 @@ const state={sector:'all',rm:'all',esg:false,outOnly:false,q:'',sort:'thb'};
 
 function ratingClass(r){if(!r||r==='No Rating')return'nr';return IG.has(r)?'ig':'hy';}
 
+function updateMeta(){
+  document.title = `${tt('page.bondDataSec')} — ${tt('brand.coverageDesk')}`;
+  if(!DATA){
+    document.getElementById('pgSub').textContent = tt('common.loadingSecBondFilings');
+    return;
+  }
+  const badge=document.getElementById('staleBadge');
+  if(DATA.asOf){
+    const h=(Date.now()-new Date(DATA._built_at).getTime())/3600000;
+    badge.textContent='● '+DATA.asOf;
+    badge.className=h>24*35?'stale warn':'stale';
+  }else{
+    badge.textContent='● '+tt('common.unknown');
+    badge.className='stale unknown';
+  }
+  document.getElementById('pgSub').textContent=tx('secBond.meta', {
+    n: DATA.summary.tickers,
+    asOf: DATA.asOf || '—'
+  });
+  document.getElementById('fsrc').textContent=tt('secBond.footerTitle');
+}
+
 async function init(){
   let d;
   try{
     const r=await fetch('data/sec-bonds.json');
-    if(!r.ok)throw new Error('sec-bonds.json not found — run scripts/build_sec_bonds.py first');
+    if(!r.ok)throw new Error(tt('secBond.fetchError'));
     d=await r.json();
   }catch(e){
     document.getElementById('loading').innerHTML='⚠ '+esc(e.message);
     return;
   }
   DATA=d;
-  const badge=document.getElementById('staleBadge');
-  if(d.asOf){const h=(Date.now()-new Date(d._built_at).getTime())/3600000;badge.textContent='● '+d.asOf;badge.className=h>24*35?'stale warn':'stale';}
-  document.getElementById('pgSub').textContent=`SEC Open API filings · ${d.summary.tickers} coverage names · as of ${d.asOf}`;
+  updateMeta();
 
   renderHero(d.summary);
   renderBars('rmBars',d.byRM);
@@ -243,11 +306,11 @@ async function init(){
 
 function renderHero(s){
   const cards=[
-    {l:'Coverage names',v:s.tickers,h:'IS1 tickers in SEC bond universe',c:'var(--accent)'},
-    {l:'Active issuers',v:s.issuersWithBonds,h:'with bonds outstanding',c:'var(--blue)'},
-    {l:'Outstanding bonds',v:s.outstandingBonds,h:'live series across issuers',c:'var(--prop)'},
-    {l:'Outstanding value',v:'฿'+fmtBn(s.outstandingThbBn)+'bn',h:'total face value outstanding',c:'var(--green)'},
-    {l:'ESG bonds',v:s.esgBonds,h:'green / sustainability series',c:'var(--agri)'},
+    {l:tt('secBond.coverageNames'),v:s.tickers,h:tt('secBond.coverageHint'),c:'var(--accent)'},
+    {l:tt('secBond.activeIssuers'),v:s.issuersWithBonds,h:tt('secBond.activeIssuersHint'),c:'var(--blue)'},
+    {l:tt('bond.outstandingBonds'),v:s.outstandingBonds,h:tt('secBond.liveSeries'),c:'var(--prop)'},
+    {l:tt('secBond.outstandingValue'),v:'฿'+fmtBn(s.outstandingThbBn)+'bn',h:tt('secBond.faceValueOutstanding'),c:'var(--green)'},
+    {l:tt('bond.esgBonds'),v:s.esgBonds,h:tt('secBond.esgHint'),c:'var(--agri)'},
   ];
   document.getElementById('hero').innerHTML=cards.map(c=>
     `<div class="hstat" style="--hc:${c.c}"><div class="hstat-lbl">${c.l}</div><div class="hstat-val">${c.v}</div><div class="hstat-hint">${c.h}</div></div>`).join('');
@@ -258,10 +321,10 @@ function renderBars(id,grp,sector){
   const max=Math.max(...ent.map(([,v])=>v.thbBn),1);
   document.getElementById(id).innerHTML=ent.map(([k,v])=>{
     const col=sector?(SECT_COLORS[k]||'var(--accent)'):'var(--accent)';
-    return `<div class="bar-row" title="${v.issuers} issuers · ${v.bonds} bonds">
+    return `<div class="bar-row" title="${tx('secBond.issuersBondsTitle', { issuers: v.issuers, bonds: v.bonds })}">
       <span class="bname">${esc(k)}</span>
       <div class="bar-track"><div class="bar-fill" style="width:${(v.thbBn/max*100).toFixed(1)}%;--bc:${col}"></div></div>
-      <span class="bar-val"><b>${fmtBn(v.thbBn)}</b> · ${v.bonds}b</span>
+      <span class="bar-val"><b>${fmtBn(v.thbBn)}</b> · ${tx('secBond.bondsShort', { n: v.bonds })}</span>
     </div>`;
   }).join('');
 }
@@ -278,13 +341,13 @@ function buildControls(d){
   const rms=Object.keys(d.byRM);
   const mk=(host,items,key)=>{
     const el=document.getElementById(host);
-    el.innerHTML=[['all','All'],...items.map(x=>[x,x])].map(([v,l])=>
+    el.innerHTML=[['all',tt('common.all')],...items.map(x=>[x,x])].map(([v,l])=>
       `<span class="sbtn ${state[key]===v?'active':''}" data-${key}="${v}" ${key==='sector'?`data-s="${v}"`:''}>${l}</span>`).join('');
     el.querySelectorAll('.sbtn').forEach(b=>b.onclick=()=>{state[key]=b.dataset[key];mk(host,items,key);render();});
   };
   mk('sectFilter',sects,'sector');
   mk('rmFilter',rms,'rm');
-  const sorts=[['thb','THB ↓'],['bonds','Bonds ↓'],['esg','ESG ↓'],['ticker','A–Z']];
+  const sorts=[['thb',tt('secBond.sortThb')],['bonds',tt('secBond.sortBonds')],['esg',tt('secBond.sortEsg')],['ticker','A–Z']];
   const sf=document.getElementById('sortFilter');
   const drawSort=()=>{sf.innerHTML=sorts.map(([v,l])=>`<span class="sbtn ${state.sort===v?'active':''}" data-sort="${v}">${l}</span>`).join('');
     sf.querySelectorAll('.sbtn').forEach(b=>b.onclick=()=>{state.sort=b.dataset.sort;drawSort();render();});};
@@ -308,22 +371,22 @@ function render(){
   list.sort(cmp[state.sort]);
 
   const totBn=list.reduce((s,i)=>s+i.outstandingThbBn,0);
-  document.getElementById('cntLbl').textContent=`${list.length} names · ฿${fmtBn(totBn)}bn outstanding`;
+  document.getElementById('cntLbl').textContent=tx('secBond.count', { n: list.length, amount: fmtBn(totBn) });
 
   const grid=document.getElementById('grid');
-  if(!list.length){grid.innerHTML='<div class="empty">No issuers match the current filters.</div>';return;}
+  if(!list.length){grid.innerHTML=`<div class="empty">${tt('common.noIssuersMatch')}</div>`;return;}
   grid.innerHTML=list.map(card).join('');
   grid.querySelectorAll('.bond-toggle').forEach(b=>b.onclick=()=>{
     const w=b.nextElementSibling;const open=w.classList.toggle('open');
-    b.textContent=open?'▲ Hide bonds':`▼ Show ${w.dataset.n} bonds`;});
+    b.textContent=open?tt('secBond.hideBonds'):tx('secBond.showBonds', { n: w.dataset.n });});
 }
 
 function card(i){
-  const esg=i.esgBonds>0?`<span class="badge b-esg">🌿 ${i.esgBonds} ESG</span>`:'';
+  const esg=i.esgBonds>0?`<span class="badge b-esg">🌿 ${tx('secBond.esgCount', { n: i.esgBonds })}</span>`:'';
   const hasOut=i.bondsOutstanding>0;
-  const bonds=hasOut?`<button class="bond-toggle">▼ Show ${i.bonds.length} bonds</button>
+  const bonds=hasOut?`<button class="bond-toggle">${tx('secBond.showBonds', { n: i.bonds.length })}</button>
     <div class="bond-wrap" data-n="${i.bonds.length}"><table class="bond-tbl">
-    <thead><tr><th>ISIN</th><th>Mat.</th><th>฿m</th><th>Rating</th></tr></thead><tbody>
+    <thead><tr><th>${tt('secBond.tableIsin')}</th><th>${tt('secBond.tableMat')}</th><th>${tt('secBond.tableValueM')}</th><th>${tt('secBond.tableRating')}</th></tr></thead><tbody>
     ${i.bonds.map(b=>`<tr><td class="tk">${esc(b.isin||b.bondId)}</td><td>${esc(b.maturity)}</td><td>${b.valueM!=null?b.valueM.toLocaleString():'—'}</td><td><span class="rtg ${ratingClass(b.rating)}">${esc(b.rating)}</span></td></tr>`).join('')}
     </tbody></table></div>`:'';
   return `<div class="icard" data-sector="${esc(i.sector)}">
@@ -337,10 +400,10 @@ function card(i){
           ${esg}
         </div>
       </div>
-      <div class="out-big"><span class="out-val">${hasOut?'฿'+fmtBn(i.outstandingThbBn):'—'}</span><span class="out-unit">${hasOut?'bn outstanding':'no bonds outstanding'}</span></div>
+      <div class="out-big"><span class="out-val">${hasOut?'฿'+fmtBn(i.outstandingThbBn):'—'}</span><span class="out-unit">${hasOut?tt('secBond.bnOutstanding'):tt('secBond.noBondsOutstanding')}</span></div>
       <div class="count-pills">
-        <span class="pill pill-out">${i.bondsOutstanding} outstanding</span>
-        <span class="pill pill-tot">${i.bondsTotal} ever issued</span>
+        <span class="pill pill-out">${tx('secBond.outstandingCount', { n: i.bondsOutstanding })}</span>
+        <span class="pill pill-tot">${tx('secBond.everIssued', { n: i.bondsTotal })}</span>
       </div>
       ${bonds}
     </div>
@@ -348,6 +411,19 @@ function card(i){
 }
 
 init();
+
+window.addEventListener('i18n:change',()=>{
+  if(window.I18N) I18N.apply();
+  updateMeta();
+  if(DATA){
+    renderHero(DATA.summary);
+    renderBars('rmBars',DATA.byRM);
+    renderBars('sectBars',DATA.bySector,true);
+    renderRatingMix(DATA.ratingMix);
+    buildControls(DATA);
+    render();
+  }
+});
 </script>
 <script src="nav.js" defer></script>
 <script src="chat-dock.js" defer></script>

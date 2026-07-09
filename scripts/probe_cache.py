@@ -3,6 +3,8 @@
 If prompt caching is wired correctly we expect:
   Call 1: cache_write > 0, cache_read = 0
   Call 2 (within 5 min): cache_read > 0, cache_write = 0
+
+Provider-agnostic: works on any Anthropic-compatible endpoint that supports cache_control.
 """
 
 import sys

@@ -39,6 +39,8 @@ def main():
         if not row[0]:
             continue
         tk, sector, rm = row[0], row[1], row[2]
+        # Anonymise RM to its initial (privacy): "Champ"->"C", "Orn"->"O", ...
+        rm = (str(rm).strip()[:1].upper() if rm not in (None, "") else rm)
         tickers.append({
             "tk": tk,
             "sector": sector,

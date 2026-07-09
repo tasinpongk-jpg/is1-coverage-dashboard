@@ -168,6 +168,12 @@ async def main():
     if not TKRS.exists():
         raise SystemExit(f"Missing {TKRS}")
     tickers = json.loads(TKRS.read_text(encoding="utf-8"))["tickers"]
+    for t in tickers:
+        # Anonymise RM to its initial (privacy), defensively — even if
+        # tickers.json ever regresses to full names upstream.
+        rm = t.get("rm")
+        if rm not in (None, ""):
+            t["rm"] = str(rm).strip()[:1].upper()
     print(f"Fetching bonds for {len(tickers)} tickers (throttle={THROTTLE}s, concurrency={MAX_CONCURRENT}) …")
 
     sem = asyncio.Semaphore(MAX_CONCURRENT)

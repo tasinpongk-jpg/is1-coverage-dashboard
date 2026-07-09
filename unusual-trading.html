@@ -64,27 +64,28 @@
   .empty, .loading { text-align: center; padding: 60px; color: var(--muted); grid-column: 1 / -1; }
 </style>
   <link rel="stylesheet" href="theme.css">
+  <script src="i18n.js"></script>
 
 </head>
 <body>
 
 <header>
   <div>
-    <h1>Unusual Trading <span style="color:var(--muted);font-weight:400;font-size:13px">— IS1 Team</span></h1>
-    <div class="meta" id="meta">Loading…</div>
+    <h1><span data-i18n="page.unusualTrading">Unusual Trading</span> <span style="color:var(--muted);font-weight:400;font-size:13px">— IS1 Team</span></h1>
+    <div class="meta" id="meta" data-i18n="common.loading">Loading…</div>
   </div>
   <nav class="nav">
-    <a href="index.html">Index</a>
-    <a href="price-movement.html">Price Movement</a>
-    <a href="disclosure-pulse.html">Disclosures</a>
-    <a href="oppday-minutes.html">Oppday</a>
-    <a href="multiples-comparison.html">Multiples Comparison</a>
-    <a href="company-summary.html">Company Summary</a>
-    <a href="multiples-band.html">Multiples Band</a>
-    <a href="unusual-trading.html" class="active">Alerts</a>
-    <a href="external-news.html">External</a>
-    <a href="trading-signs.html">Signs</a>
-    <a href="sec-enforcement.html">SEC</a>
+    <a href="index.html" data-i18n="nav.index">Index</a>
+    <a href="price-movement.html" data-i18n="page.priceMovement">Price Movement</a>
+    <a href="disclosure-pulse.html" data-i18n="nav.disclosures">Disclosures</a>
+    <a href="oppday-minutes.html" data-i18n="nav.oppday">Oppday</a>
+    <a href="multiples-comparison.html" data-i18n="page.multiplesComparison">Multiples Comparison</a>
+    <a href="company-summary.html" data-i18n="page.companySummary">Company Summary</a>
+    <a href="multiples-band.html" data-i18n="page.multiplesBand">Multiples Band</a>
+    <a href="unusual-trading.html" class="active" data-i18n="nav.alerts">Alerts</a>
+    <a href="external-news.html" data-i18n="nav.external">External</a>
+    <a href="trading-signs.html" data-i18n="nav.signs">Signs</a>
+    <a href="sec-enforcement.html" data-i18n="nav.sec">SEC</a>
     <span class="stale" id="staleBadge">●</span>
   </nav>
 </header>
@@ -93,30 +94,60 @@
 
 <div class="tab-bar">
   <div class="tab-row">
-    <span class="tab-label">RM:</span>
+    <span class="tab-label"><span data-i18n="common.rm">RM</span>:</span>
     <div id="rmTabs" style="display:flex;gap:4px;flex-wrap:wrap"></div>
   </div>
   <div class="tab-row">
-    <span class="tab-label">Severity:</span>
+    <span class="tab-label"><span data-i18n="common.severity">Severity</span>:</span>
     <div id="sevTabs" style="display:flex;gap:4px;flex-wrap:wrap"></div>
-    <span class="tab-label" style="margin-left:20px">Type:</span>
+    <span class="tab-label" style="margin-left:20px"><span data-i18n="common.type">Type</span>:</span>
     <div id="typeTabs" style="display:flex;gap:4px;flex-wrap:wrap"></div>
-    <span class="tab-label" style="margin-left:20px">Sector:</span>
+    <span class="tab-label" style="margin-left:20px"><span data-i18n="common.sector">Sector</span>:</span>
     <div id="sectorTabs" style="display:flex;gap:4px;flex-wrap:wrap"></div>
   </div>
 </div>
 
-<div id="grid" class="grid"><div class="loading">Fetching alerts…</div></div>
+<div id="grid" class="grid"><div class="loading" data-i18n="common.fetchingAlerts">Fetching alerts…</div></div>
 
 <script>
 let TICKERS = {}, ALERTS = [];
 let activeRm = 'ALL', activeSev = 'ALL', activeType = 'ALL', activeSector = 'ALL';
 let activeTicker = new URLSearchParams(location.search).get('ticker') || null;
+let DATA_META = null;
+
+const TT_FALLBACK = {
+  "common.all": "All",
+  "common.dotUpdatedAgo": "● updated {x} ago",
+  "unusual.volume": "Volume",
+  "unusual.avgVol20d": "20D avg vol",
+  "unusual.std20d": "20D std",
+  "unusual.close": "Close",
+  "unusual.avg20d": "20D avg",
+  "unusual.movePct": "Move %",
+  "unusual.high52w": "52W high",
+  "unusual.low52w": "52W low",
+  "unusual.from52w": "% from 52W",
+  "common.high": "High",
+  "common.medium": "Medium",
+  "common.low": "Low",
+  "unusual.filteredTicker": "Filtered by ticker:",
+  "unusual.totalAlerts": "Total alerts",
+  "unusual.tickersFlagged": "Tickers flagged",
+  "common.noAlerts": "No alerts matching filters.",
+  "unusual.filingsLinked": "{n} filing(s) linked",
+  "common.errorWithMsg": "Error: {msg}",
+  "unusual.meta": "{n} alerts · as of {asOf} · {source}",
+};
+function tt(key) { return window.I18N ? I18N.t(key) : (TT_FALLBACK[key] || key); }
+function esc(s) { return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function tx(key, vars) { return tt(key).replace(/\{(\w+)\}/g, (_, k) => vars && vars[k] != null ? vars[k] : ''); }
+function allLabel() { return tt('common.all'); }
 
 function freshnessLabel(builtAt) {
   if (!builtAt) return { txt: '?', warn: true };
   const ageH = (Date.now() - new Date(builtAt).getTime()) / 36e5;
-  return { txt: `● updated ${ageH < 1 ? Math.round(ageH * 60) + 'm' : Math.round(ageH) + 'h'} ago`, warn: ageH > 36 };
+  const x = ageH < 1 ? Math.round(ageH * 60) + 'm' : Math.round(ageH) + 'h';
+  return { txt: tx('common.dotUpdatedAgo', { x }), warn: ageH > 36 };
 }
 
 function fmtNum(v) {
@@ -129,9 +160,9 @@ function fmtNum(v) {
 
 function evidenceRows(ev) {
   if (!ev) return '';
-  const map = { vol:'Volume', vol20dAvg:'20D avg vol', vol20dStd:'20D std',
-    close:'Close', close20dAvg:'20D avg', pctMove:'Move %',
-    high52w:'52W high', low52w:'52W low', pctFrom52:'% from 52W' };
+  const map = { vol:tt('unusual.volume'), vol20dAvg:tt('unusual.avgVol20d'), vol20dStd:tt('unusual.std20d'),
+    close:tt('unusual.close'), close20dAvg:tt('unusual.avg20d'), pctMove:tt('unusual.movePct'),
+    high52w:tt('unusual.high52w'), low52w:tt('unusual.low52w'), pctFrom52:tt('unusual.from52w') };
   return Object.entries(ev).map(([k, v]) => {
     const lbl = map[k] || k;
     const fmt = typeof v === 'number' ? fmtNum(v) : String(v);
@@ -144,18 +175,19 @@ function buildTabs() {
   ALERTS.forEach(a => { const r = (TICKERS[a.tk] || {}).rm || '?'; rmCounts[r] = (rmCounts[r] || 0) + 1; });
   const rms = Object.keys(rmCounts).filter(r => r !== 'ALL').sort((a, b) => rmCounts[b] - rmCounts[a]);
   document.getElementById('rmTabs').innerHTML = `
-    <div class="tab active" data-rm="ALL" onclick="setRm('ALL')">All <span class="tab-count">${rmCounts.ALL}</span></div>
+    <div class="tab ${activeRm === 'ALL' ? 'active' : ''}" data-rm="ALL" onclick="setRm('ALL')">${allLabel()} <span class="tab-count">${rmCounts.ALL}</span></div>
     ${rms.map(r => `<div class="tab" data-rm="${r}" onclick="setRm('${r}')">${r} <span class="tab-count">${rmCounts[r]}</span></div>`).join('')}`;
 
   document.getElementById('sevTabs').innerHTML = ['ALL','high','medium','low'].map(s => {
     const cls = s === activeSev ? 'tab active' : 'tab';
     const color = s === 'high' ? 'color:var(--red)' : s === 'medium' ? 'color:var(--yellow)' : s === 'low' ? 'color:var(--green)' : '';
-    return `<div class="${cls}" style="${color}" data-sev="${s}" onclick="setSev('${s}')">${s === 'ALL' ? 'All' : s}</div>`;
+    const lbl = { ALL: allLabel(), high: tt('common.high'), medium: tt('common.medium'), low: tt('common.low') }[s] || s;
+    return `<div class="${cls}" style="${color}" data-sev="${s}" onclick="setSev('${s}')">${lbl}</div>`;
   }).join('');
 
   const types = [...new Set(ALERTS.map(a => a.atype || a.type).filter(Boolean))].sort();
   document.getElementById('typeTabs').innerHTML = `
-    <div class="tab active" data-type="ALL" onclick="setType('ALL')">All</div>
+    <div class="tab ${activeType === 'ALL' ? 'active' : ''}" data-type="ALL" onclick="setType('ALL')">${allLabel()}</div>
     ${types.map(t => `<div class="tab" data-type="${t}" onclick="setType('${t}')">${t.replace(/_/g, ' ')}</div>`).join('')}`;
 
   // Sector — dynamic from alerts, all 6 buckets
@@ -166,7 +198,7 @@ function buildTabs() {
   document.getElementById('sectorTabs').innerHTML = sectorList.map(s => {
     const cls = s === activeSector ? 'tab active' : 'tab';
     const cnt = s === 'ALL' ? ALERTS.length : (secCounts[s] || 0);
-    return `<div class="${cls}" data-sector="${s}" onclick="setSector('${s}')">${s === 'ALL' ? 'All' : s} <span class="tab-count">${cnt}</span></div>`;
+    return `<div class="${cls}" data-sector="${s}" onclick="setSector('${s}')">${s === 'ALL' ? allLabel() : s} <span class="tab-count">${cnt}</span></div>`;
   }).join('');
 }
 
@@ -196,7 +228,7 @@ function renderTickerBanner() {
     el.style.cssText = 'margin:10px 20px;padding:8px 14px;background:#6366f118;border:1px solid #6366f133;border-radius:8px;font-size:12px;display:flex;align-items:center;justify-content:space-between;';
     document.getElementById('grid').before(el);
   }
-  el.innerHTML = `<span>Filtered by ticker: <strong style="color:#a5b4fc">${activeTicker}</strong></span><button onclick="clearTickerFilter()" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:14px;padding:0 4px">×</button>`;
+  el.innerHTML = `<span>${esc(tt('unusual.filteredTicker'))} <strong style="color:#a5b4fc">${esc(activeTicker)}</strong></span><button onclick="clearTickerFilter()" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:14px;padding:0 4px">×</button>`;
 }
 
 function clearTickerFilter() {
@@ -212,18 +244,18 @@ function updateStats() {
   const byTk = new Set(rows.map(a => a.tk));
   rows.forEach(a => { const k = (a.severity || 'low').toLowerCase(); if (counts[k] !== undefined) counts[k]++; });
   document.getElementById('statsBar').innerHTML = `
-    <div class="stat" style="color:var(--red)"><div class="stat-val">${counts.high}</div><div class="stat-lbl">High</div></div>
-    <div class="stat" style="color:var(--yellow)"><div class="stat-val">${counts.medium}</div><div class="stat-lbl">Medium</div></div>
-    <div class="stat" style="color:var(--green)"><div class="stat-val">${counts.low}</div><div class="stat-lbl">Low</div></div>
-    <div class="stat"><div class="stat-val">${rows.length}</div><div class="stat-lbl">Total alerts</div></div>
-    <div class="stat"><div class="stat-val">${byTk.size}</div><div class="stat-lbl">Tickers flagged</div></div>`;
+    <div class="stat" style="color:var(--red)"><div class="stat-val">${counts.high}</div><div class="stat-lbl">${tt('common.high')}</div></div>
+    <div class="stat" style="color:var(--yellow)"><div class="stat-val">${counts.medium}</div><div class="stat-lbl">${tt('common.medium')}</div></div>
+    <div class="stat" style="color:var(--green)"><div class="stat-val">${counts.low}</div><div class="stat-lbl">${tt('common.low')}</div></div>
+    <div class="stat"><div class="stat-val">${rows.length}</div><div class="stat-lbl">${tt('unusual.totalAlerts')}</div></div>
+    <div class="stat"><div class="stat-val">${byTk.size}</div><div class="stat-lbl">${tt('unusual.tickersFlagged')}</div></div>`;
 }
 
 function render() {
   renderTickerBanner();
   const rows = filtered();
   const grid = document.getElementById('grid');
-  if (!rows.length) { grid.innerHTML = '<div class="empty">No alerts matching filters.</div>'; return; }
+  if (!rows.length) { grid.innerHTML = `<div class="empty">${tt('common.noAlerts')}</div>`; return; }
   grid.innerHTML = rows.map(a => {
     const sev = (a.severity || 'low').toLowerCase();
     const t = TICKERS[a.tk] || {};
@@ -241,7 +273,7 @@ function render() {
       <div class="alert-type">${a.type || a.atype || '—'}</div>
       <div class="alert-label">${a.label || ''}</div>
       ${a.evidence ? `<div class="alert-evidence">${evidenceRows(a.evidence)}</div>` : ''}
-      ${a.filingsLinked ? `<div class="filings-linked">⚡ ${a.filingsLinked} filing(s) linked</div>` : ''}
+      ${a.filingsLinked ? `<div class="filings-linked">⚡ ${tx('unusual.filingsLinked', { n: a.filingsLinked })}</div>` : ''}
     </div>`;
   }).join('');
 }
@@ -254,17 +286,33 @@ async function init() {
     ]);
     tj.tickers.forEach(t => { TICKERS[t.tk] = t; });
     ALERTS = dj.alerts || [];
+    DATA_META = dj;
     const fresh = freshnessLabel(dj._built_at);
     const badge = document.getElementById('staleBadge');
     badge.textContent = fresh.txt;
     if (fresh.warn) badge.classList.add('warn');
-    document.getElementById('meta').textContent = `${ALERTS.length} alerts · as of ${dj.asOf || ''} · ${dj.source || ''}`;
+    updateMeta();
     buildTabs(); updateStats(); render();
   } catch(e) {
-    document.getElementById('grid').innerHTML = `<div class="empty">Error: ${e.message}</div>`;
+    document.getElementById('grid').innerHTML = `<div class="empty">${tx('common.errorWithMsg', { msg: e.message })}</div>`;
   }
 }
 init();
+function updateMeta() {
+  if (!DATA_META) return;
+  document.getElementById('meta').textContent = tx('unusual.meta', {
+    n: ALERTS.length,
+    asOf: DATA_META.asOf || '',
+    source: DATA_META.source || ''
+  });
+}
+window.addEventListener('i18n:change', () => {
+  if (window.I18N) I18N.apply();
+  updateMeta();
+  buildTabs();
+  updateStats();
+  render();
+});
 </script>
 <script src="nav.js" defer></script>
 <script src="chat-dock.js" defer></script>

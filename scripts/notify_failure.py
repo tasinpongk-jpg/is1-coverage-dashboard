@@ -54,8 +54,8 @@ def main() -> int:
         f"Run: {url}\n\n"
         f"Click the run link, find the first red step, and read the FAIL lines.\n"
         f"Common causes:\n"
-        f"  - invalid ANTHROPIC_API_KEY (rotate in GH Actions secrets)\n"
-        f"  - Anthropic workspace spend cap hit (raise it or wait for reset)\n"
+        f"  - invalid MINIMAX_API_KEY (rotate in console.minimax.io)\n"
+        f"  - MiniMax workspace spend cap hit (raise it or wait for reset)\n"
         f"  - SET portal returning 4xx (Imperva cookie outage — usually transient)\n"
         f"  - R2 sync timeout (re-run usually fixes)\n"
     )
