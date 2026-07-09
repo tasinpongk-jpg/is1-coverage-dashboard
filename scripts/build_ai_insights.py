@@ -62,7 +62,10 @@ def build_digest():
     pulse = _read("disclosure-pulse")
 
     def rm(tk):
-        return tickers.get(tk, {}).get("rm", "?")
+        # Anonymise RM to its initial (privacy), defensively — even if
+        # tickers.json ever regresses to full names upstream.
+        r = tickers.get(tk, {}).get("rm", "?")
+        return str(r).strip()[:1].upper() if r not in (None, "", "?") else r
 
     def sector(tk):
         return tickers.get(tk, {}).get("sector", "?")

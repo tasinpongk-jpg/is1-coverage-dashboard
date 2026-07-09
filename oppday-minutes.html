@@ -65,12 +65,12 @@
   /* Badges */
   .badge { display: inline-block; padding: 1px 7px; border-radius: 4px; font-size: 10px; font-weight: 600; white-space: nowrap; }
   .rm-badge { background: #6366f115; color: #a5b4fc; }
-  .rm-Champ { background: #6366f115; color: #a5b4fc; }
-  .rm-Kae   { background: #10b98115; color: #6ee7b7; }
-  .rm-Orn   { background: #f9731615; color: #fdba74; }
-  .rm-Gift  { background: #ec489915; color: #f9a8d4; }
-  .rm-Pim   { background: #f59e0b15; color: #fcd34d; }
-  .rm-Tony  { background: #8b5cf615; color: #c4b5fd; }
+  .rm-C { background: #6366f115; color: #a5b4fc; }
+  .rm-K { background: #10b98115; color: #6ee7b7; }
+  .rm-O { background: #f9731615; color: #fdba74; }
+  .rm-G { background: #ec489915; color: #f9a8d4; }
+  .rm-P { background: #f59e0b15; color: #fcd34d; }
+  .rm-T { background: #8b5cf615; color: #c4b5fd; }
   .s-FOOD    { background: #3b82f615; color: var(--food); }
   .s-AGRI    { background: #10b98115; color: var(--agri); }
   .s-PROP    { background: #8b5cf615; color: var(--prop); }
@@ -162,12 +162,12 @@
   <div class="tab-row">
     <span class="tab-label" data-i18n="common.rm">RM</span>
     <div class="tab active" data-filter="rm" data-val="All"><span data-i18n="common.all">All</span> <span class="tab-count" id="cnt-rm-All"></span></div>
-    <div class="tab" data-filter="rm" data-val="Champ">Champ <span class="tab-count" id="cnt-rm-Champ"></span></div>
-    <div class="tab" data-filter="rm" data-val="Kae">Kae <span class="tab-count" id="cnt-rm-Kae"></span></div>
-    <div class="tab" data-filter="rm" data-val="Orn">Orn <span class="tab-count" id="cnt-rm-Orn"></span></div>
-    <div class="tab" data-filter="rm" data-val="Gift">Gift <span class="tab-count" id="cnt-rm-Gift"></span></div>
-    <div class="tab" data-filter="rm" data-val="Pim">Pim <span class="tab-count" id="cnt-rm-Pim"></span></div>
-    <div class="tab" data-filter="rm" data-val="Tony">Tony <span class="tab-count" id="cnt-rm-Tony"></span></div>
+    <div class="tab" data-filter="rm" data-val="C">C <span class="tab-count" id="cnt-rm-C"></span></div>
+    <div class="tab" data-filter="rm" data-val="K">K <span class="tab-count" id="cnt-rm-K"></span></div>
+    <div class="tab" data-filter="rm" data-val="O">O <span class="tab-count" id="cnt-rm-O"></span></div>
+    <div class="tab" data-filter="rm" data-val="G">G <span class="tab-count" id="cnt-rm-G"></span></div>
+    <div class="tab" data-filter="rm" data-val="P">P <span class="tab-count" id="cnt-rm-P"></span></div>
+    <div class="tab" data-filter="rm" data-val="T">T <span class="tab-count" id="cnt-rm-T"></span></div>
     <div class="search-wrap">
       <input id="search" type="text" placeholder="Search ticker…" data-i18n-placeholder="common.searchTicker" autocomplete="off">
     </div>
@@ -344,7 +344,7 @@ function closeDrawer() {
 }
 
 function updateCounts() {
-  const rms = ['All','Champ','Kae','Orn','Gift','Pim','Tony'];
+  const rms = ['All','C','K','O','G','P','T'];
   rms.forEach(rm => {
     const el = document.getElementById(`cnt-rm-${rm}`);
     if (!el) return;

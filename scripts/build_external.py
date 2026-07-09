@@ -36,7 +36,15 @@ def _now_iso() -> str:
 
 def _load_tickers() -> dict[str, dict]:
     j = json.loads((DATA_DIR / "tickers.json").read_text(encoding="utf-8"))
-    return {t["tk"]: t for t in j["tickers"]}
+    out = {}
+    for t in j["tickers"]:
+        rm = t.get("rm")
+        # Anonymise RM to its initial (privacy), defensively — even if
+        # tickers.json ever regresses to full names upstream.
+        if rm not in (None, ""):
+            t = {**t, "rm": str(rm).strip()[:1].upper()}
+        out[t["tk"]] = t
+    return out
 
 
 def _write(path: Path, payload: dict) -> None:
