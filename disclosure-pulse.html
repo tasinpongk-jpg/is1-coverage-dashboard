@@ -293,12 +293,15 @@ function render() {
     const sev = (f.severity || 'low').toLowerCase();
     const label = sevLabel(sev);
     const t = TICKERS[f.tk] || {};
-    const summ = f._summary || f.summary || '';
+    const isThai = window.I18N && I18N.lang === 'th';
+    const title = isThai ? (f.title_th || f.title || f.headline || '—') : (f.title || f.headline || '—');
+    const href = isThai ? (f.url_th || f.url) : f.url;
+    const summ = isThai ? (f._summary_th || f._summary || f.summary || '') : (f._summary || f.summary || '');
     return `<div class="filing ${sev}">
       <div class="filing-top">
         <div class="filing-tk">${f.tk}</div>
         <div class="filing-content">
-          <div class="filing-title">${f.url ? `<a href="${f.url}" target="_blank" rel="noopener">${f.title || f.headline || '—'}</a>` : (f.title || f.headline || '—')}</div>
+          <div class="filing-title">${href ? `<a href="${href}" target="_blank" rel="noopener">${title}</a>` : title}</div>
           <div class="filing-meta">
             <span class="sev-badge sev-${sev}">${label}</span>
             ${t.rm ? `<span class="rm-badge">${t.rm}</span>` : ''}

@@ -40,6 +40,11 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
+try:
+    from disclosure_thai import _enrich_thai
+except ImportError:
+    from scripts.disclosure_thai import _enrich_thai
+
 # ------------------------------------------------------------------
 # Configuration
 # ------------------------------------------------------------------
@@ -595,7 +600,7 @@ async def fetch_classified_disclosures(days: int) -> Optional[List[Dict[str, Any
                 "_classifier_raw": (str(sev_raw).strip() if sev_raw else None),
                 "_summary": (r[idx["summary"]] if idx.get("summary") is not None else None),
             })
-        return out
+        return _enrich_thai(con, out)
     except Exception:
         return None
     finally:
@@ -1362,5 +1367,4 @@ async def sector_heatmap(force: bool = False):
     _heat_cache["payload"] = payload
     _heat_cache["ts"] = now
     return JSONResponse(payload)
-
 

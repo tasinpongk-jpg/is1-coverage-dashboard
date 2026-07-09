@@ -94,8 +94,10 @@ test("feedback endpoint records a vote (auth + validation)", async () => {
 });
 
 test("valid rm pins the user line; invalid rm is ignored", async () => {
+  await worker.fetch(chatReq({ agent: "hermes", rm: "C", messages: userMsg }), env);
+  assert.ok(lastSystem.includes("The user is RM C"));
   await worker.fetch(chatReq({ agent: "hermes", rm: "Champ", messages: userMsg }), env);
-  assert.ok(lastSystem.includes("The user is RM Champ"));
+  assert.ok(!lastSystem.includes("The user is RM"), "legacy full-name rm must be rejected");
   await worker.fetch(chatReq({ agent: "hermes", rm: "HACKER", messages: userMsg }), env);
   assert.ok(!lastSystem.includes("The user is RM"));
 });

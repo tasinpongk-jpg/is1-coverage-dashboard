@@ -98,6 +98,14 @@ jobs:
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
         run: python classify_batch.py
 
+      - name: Translate legacy EN-only headlines to Thai
+        working-directory: surveillance
+        env:
+          MINIMAX_API_KEY: ${{ secrets.MINIMAX_API_KEY }}
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+        run: python translate_titles.py
+        continue-on-error: true
+
       # External news / trading signs / SEC enforcement / SEC Form 59.
       # Best-effort: any source that fails logs and continues. Failures in
       # this step never block the SET pipeline above or the build job below.
