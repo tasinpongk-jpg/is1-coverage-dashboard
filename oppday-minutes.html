@@ -248,6 +248,7 @@ const TT_FALLBACK = {
   "oppday.failedLoad": "Failed to load data: {msg}",
 };
 function tt(key) { return window.I18N ? I18N.t(key) : (TT_FALLBACK[key] || key); }
+function esc(s) { return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 function tx(key, vars){return tt(key).replace(/\{(\w+)\}/g,(_,k)=>vars&&vars[k]!=null?vars[k]:'')}
 
 function sourceBadge(source) {
@@ -257,7 +258,7 @@ function sourceBadge(source) {
     'transcript-only': tt('oppday.transcriptOnly'),
   };
   const cls = {'transcript+slides':'src-ts','slides-only':'src-sl','transcript-only':'src-tr'}[source] || '';
-  return `<span class="badge ${cls}">${labels[source] || source}</span>`;
+  return `<span class="badge ${cls}">${esc(labels[source] || source || '')}</span>`;
 }
 
 function sectorClass(s) {
@@ -273,7 +274,7 @@ function dqBanner(dq) {
     low:  {cls:'dq-low',  icon:'ℹ️', labelKey:'oppday.dqLow'},
   }[dq.severity];
   if (!cfg) return '';
-  const note = (dq.note || '').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const note = esc(dq.note || '');
   return `<div class="dq-banner ${cfg.cls}"><span class="dq-icon">${cfg.icon}</span>`
     + `<span><span class="dq-label">${tt(cfg.labelKey)}</span><br>${note}</span></div>`;
 }
@@ -281,7 +282,7 @@ function dqBanner(dq) {
 const DQ_SEVERITY_KEY = {high:'common.high', med:'common.medium', low:'common.low'};
 function dqDot(dq) {
   if (!dq || (dq.severity !== 'high' && dq.severity !== 'med')) return '';
-  return `<span class="dq-dot dq-dot-${dq.severity}" title="${tx('oppday.dqTitle',{severity:tt(DQ_SEVERITY_KEY[dq.severity])})}"></span>`;
+  return `<span class="dq-dot dq-dot-${dq.severity}" title="${esc(tx('oppday.dqTitle',{severity:tt(DQ_SEVERITY_KEY[dq.severity])}))}"></span>`;
 }
 
 function render() {
@@ -290,7 +291,9 @@ function render() {
     if (activeRM !== 'All' && d.rm !== activeRM) return false;
     if (activeSector !== 'All' && d.sector !== activeSector) return false;
     if (activeSrc !== 'all' && d.source !== activeSrc) return false;
-    if (q && !d.ticker.toLowerCase().includes(q) && !d.overview.toLowerCase().includes(q)) return false;
+    const ticker = String(d.ticker || '');
+    const overview = String(d.overview || '');
+    if (q && !ticker.toLowerCase().includes(q) && !overview.toLowerCase().includes(q)) return false;
     return true;
   });
 
@@ -310,13 +313,18 @@ function render() {
   rows.forEach(d => {
     const tr = document.createElement('tr');
     tr.className = 'data-row' + (selectedTicker === d.ticker ? ' selected' : '');
+    const ticker = String(d.ticker || '');
+    const rm = String(d.rm || '');
+    const sector = String(d.sector || '');
+    const period = String(d.period || '');
+    const overview = String(d.overview || '');
     tr.innerHTML = `
-      <td><span class="ticker-col">${d.ticker}</span>${dqDot(d.dataQuality)}</td>
-      <td><span class="badge rm-${d.rm}">${d.rm}</span></td>
-      <td><span class="badge ${sectorClass(d.sector)}">${d.sector}</span></td>
-      <td class="period-col">${d.period.replace(/ผลประกอบการ\s*/,'').split('(')[0].trim().substring(0,35)}</td>
+      <td><span class="ticker-col">${esc(ticker)}</span>${dqDot(d.dataQuality)}</td>
+      <td><span class="badge rm-${esc(rm)}">${esc(rm)}</span></td>
+      <td><span class="badge ${sectorClass(sector)}">${esc(sector)}</span></td>
+      <td class="period-col">${esc(period.replace(/ผลประกอบการ\s*/,'').split('(')[0].trim().substring(0,35))}</td>
       <td>${sourceBadge(d.source)}</td>
-      <td class="overview-col"><span>${d.overview.replace(/</g,'&lt;').replace(/>/g,'&gt;').substring(0,180)}…</span></td>
+      <td class="overview-col"><span>${esc(overview.substring(0,180))}…</span></td>
     `;
     tr.addEventListener('click', () => openDrawer(d));
     tbody.appendChild(tr);
@@ -324,15 +332,19 @@ function render() {
 }
 
 function openDrawer(d) {
-  selectedTicker = d.ticker;
-  document.getElementById('d-ticker').textContent = d.ticker;
+  const ticker = String(d.ticker || '');
+  const rm = String(d.rm || '');
+  const sector = String(d.sector || '');
+  const period = String(d.period || '');
+  selectedTicker = ticker;
+  document.getElementById('d-ticker').textContent = ticker;
   document.getElementById('d-meta').innerHTML = `
-    <span class="badge rm-${d.rm}">${d.rm}</span>
-    <span class="badge ${sectorClass(d.sector)}">${d.sector}</span>
+    <span class="badge rm-${esc(rm)}">${esc(rm)}</span>
+    <span class="badge ${sectorClass(sector)}">${esc(sector)}</span>
     ${sourceBadge(d.source)}
-    <span style="color:var(--muted)">${d.period}</span>
+    <span style="color:var(--muted)">${esc(period)}</span>
   `;
-  document.getElementById('d-content').innerHTML = dqBanner(d.dataQuality) + marked.parse(d.content);
+  document.getElementById('d-content').innerHTML = dqBanner(d.dataQuality) + marked.parse(String(d.content || ''));
   document.getElementById('drawer').classList.add('open');
   render();
 }

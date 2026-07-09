@@ -166,7 +166,7 @@ function evidenceRows(ev) {
   return Object.entries(ev).map(([k, v]) => {
     const lbl = map[k] || k;
     const fmt = typeof v === 'number' ? fmtNum(v) : String(v);
-    return `<div class="ev-row"><span>${lbl}</span><span>${fmt}</span></div>`;
+    return `<div class="ev-row"><span>${esc(lbl)}</span><span>${esc(fmt)}</span></div>`;
   }).join('');
 }
 
@@ -259,19 +259,23 @@ function render() {
   grid.innerHTML = rows.map(a => {
     const sev = (a.severity || 'low').toLowerCase();
     const t = TICKERS[a.tk] || {};
-    return `<div class="alert-card ${sev}">
+    const alertType = a.type || a.atype || '—';
+    const rm = esc(t.rm || '');
+    const sector = esc(a.sector || '');
+    const safeSev = esc(sev);
+    return `<div class="alert-card ${safeSev}">
       <div class="alert-top">
         <div>
           <div class="alert-tk-row">
-            <span class="alert-tk">${a.tk}</span>
-            ${t.rm ? `<span class="rm-badge">${t.rm}</span>` : ''}
+            <span class="alert-tk">${esc(a.tk || '')}</span>
+            ${rm ? `<span class="rm-badge">${rm}</span>` : ''}
           </div>
-          <span class="sector-badge s-${a.sector}">${a.sector}</span>
+          <span class="sector-badge s-${sector}">${sector}</span>
         </div>
-        <span class="sev-badge sev-${sev}">${sev}</span>
+        <span class="sev-badge sev-${safeSev}">${safeSev}</span>
       </div>
-      <div class="alert-type">${a.type || a.atype || '—'}</div>
-      <div class="alert-label">${a.label || ''}</div>
+      <div class="alert-type">${esc(alertType)}</div>
+      <div class="alert-label">${esc(a.label || '')}</div>
       ${a.evidence ? `<div class="alert-evidence">${evidenceRows(a.evidence)}</div>` : ''}
       ${a.filingsLinked ? `<div class="filings-linked">⚡ ${tx('unusual.filingsLinked', { n: a.filingsLinked })}</div>` : ''}
     </div>`;

@@ -22,6 +22,9 @@
 const CHAT_MODEL = "@cf/meta/llama-3.3-70b-instruct-fp8-fast";
 const MAX_HISTORY = 12; // user+assistant turns kept from the client
 const MAX_USER_CHARS = 2000;
+const MAX_JSON_BODY_BYTES = 64 * 1024;
+const VALID_AGENTS = new Set(["atlas", "hermes", "pythia", "lex"]);
+const VALID_RMS = new Set(["C", "K", "O", "G", "P", "T"]);
 
 // Lex — the rules & regulations agent. Unlike the other three, it does NOT use
 // Workers AI: Gemini File Search does the retrieval AND generation over the
@@ -84,9 +87,11 @@ async function handleFeedback(request, env) {
   const vote = b.vote === "up" || b.vote === "down" ? b.vote : null;
   if (!vote) return json({ error: "vote must be 'up' or 'down'" }, 400);
   const s = (v, n) => (typeof v === "string" ? v.slice(0, n) : "");
+  const agent = normalizeAgent(b.agent);
+  const rm = normalizeRm(b.rm) || "";
   const rec = {
     ts: new Date().toISOString(),
-    agent: s(b.agent, 20), vote, rm: s(b.rm, 16),
+    agent, vote, rm,
     question: s(b.question, 500), reply: s(b.reply, 1500),
   };
   if (env.FEEDBACK) {
@@ -126,6 +131,45 @@ function authorized(request, env) {
   const header = request.headers.get("Authorization") || "";
   const token = header.replace(/^Bearer\s+/i, "").trim();
   return env.CHAT_TOKEN && token === env.CHAT_TOKEN;
+}
+
+function normalizeAgent(v) {
+  const agent = typeof v === "string" ? v.trim().toLowerCase() : "";
+  return VALID_AGENTS.has(agent) ? agent : "";
+}
+
+function normalizeRm(v) {
+  const rm = typeof v === "string" ? v.trim().toUpperCase() : "";
+  return VALID_RMS.has(rm) ? rm : null;
+}
+
+async function parseJsonBody(request) {
+  const type = (request.headers.get("Content-Type") || "").trim();
+  if (!/^application\/json(?:\s*;|$)/i.test(type)) {
+    return { response: json({ error: "Content-Type must be application/json" }, 415) };
+  }
+  const lenRaw = request.headers.get("Content-Length");
+  if (lenRaw != null) {
+    const len = Number(lenRaw);
+    if (Number.isFinite(len) && len > MAX_JSON_BODY_BYTES) {
+      return { response: json({ error: "request body too large" }, 413) };
+    }
+  }
+  let text;
+  try {
+    text = await request.text();
+  } catch {
+    return { response: json({ error: "could not read request body" }, 400) };
+  }
+  if (new TextEncoder().encode(text).length > MAX_JSON_BODY_BYTES) {
+    return { response: json({ error: "request body too large" }, 413) };
+  }
+  try {
+    const body = JSON.parse(text || "{}");
+    return { body: body && typeof body === "object" ? body : {} };
+  } catch {
+    return { response: json({ error: "malformed JSON" }, 400) };
+  }
 }
 
 async function loadJson(env, origin, name) {
@@ -340,26 +384,33 @@ async function ctxPrices(env, origin, _userRm, focus, q) {
   for (const t of tickers?.tickers || []) cov[t.tk] = t;
   const metric = pq?.metric || "pct1d";
   const mlabel = METRIC_LABEL[metric];
-  const mval = (r) => r[metric] || 0;
+  const mval = (r) => {
+    const v = r[metric];
+    if (v == null) return null;
+    const n = Number(v);
+    return Number.isFinite(n) ? n : null;
+  };
+  const sortVal = (r) => mval(r) ?? 0;
   // Llama can't reliably filter/sort a 230-row list. Pre-sort by |metric| so the
   // model reads top-down; for a parsed screen, hard-filter so it can only narrate.
-  let rows = (brief?.rows || []).slice().sort((a, b) => Math.abs(mval(b)) - Math.abs(mval(a)));
+  let rows = (brief?.rows || []).slice().sort((a, b) => Math.abs(sortVal(b)) - Math.abs(sortVal(a)));
   if (focus && focus.size) rows = rows.filter((r) => focus.has(r.tk));
   else if (q?.sector) rows = rows.filter((r) => (cov[r.tk]?.sector || r.sector) === q.sector);
   let note = `Rows are sorted by |${mlabel}| descending (biggest movers first).` +
     (q?.sector && !(focus && focus.size) ? ` Scoped to the ${q.sector} sector.` : "");
   if (pq?.mode === "threshold") {
     const pass = (v) => pq.dir === "up" ? v >= pq.x : pq.dir === "down" ? v <= -pq.x : Math.abs(v) >= pq.x;
-    rows = rows.filter((r) => pass(mval(r)));
+    rows = rows.filter((r) => { const v = mval(r); return v != null && pass(v); });
     const sign = pq.dir === "up" ? "+" : pq.dir === "down" ? "-" : "±";
     note = `PRE-FILTERED: every row below ALREADY clears the ${sign}${pq.x}% ${mlabel} ` +
       `bar (${rows.length} names). List them ALL and ONLY these — there are no others.`;
   } else if (pq?.mode === "range") {
-    rows = rows.filter((r) => { const v = mval(r); return v >= pq.lo && v <= pq.hi; })
+    rows = rows.filter((r) => { const v = mval(r); return v != null && v >= pq.lo && v <= pq.hi; })
       .sort((a, b) => mval(a) - mval(b));
     note = `PRE-FILTERED: every row below has ${mlabel} between ${pq.lo}% and ${pq.hi}% ` +
       `inclusive (${rows.length} names). List them ALL and ONLY these.`;
   } else if (pq?.mode === "topN") {
+    rows = rows.filter((r) => mval(r) != null);
     if (pq.dir === "up") rows = rows.slice().sort((a, b) => mval(b) - mval(a));
     else if (pq.dir === "down") rows = rows.slice().sort((a, b) => mval(a) - mval(b));
     rows = rows.slice(0, pq.n);
@@ -835,7 +886,9 @@ async function handleChat(request, env, origin) {
   if (!authorized(request, env)) {
     return json({ error: "missing or wrong access token" }, 401);
   }
-  const body = await request.json().catch(() => ({}));
+  const parsed = await parseJsonBody(request);
+  if (parsed.response) return parsed.response;
+  const body = parsed.body;
   const agentName = (body.agent === "lex" || AGENTS[body.agent]) ? body.agent : "atlas";
 
   const history = Array.isArray(body.messages) ? body.messages : [];
@@ -848,9 +901,7 @@ async function handleChat(request, env, origin) {
     return json({ error: "messages must end with a user turn" }, 400);
   }
 
-  const rm = typeof body.rm === "string" &&
-    ["C", "K", "O", "G", "P", "T"].includes(body.rm)
-    ? body.rm : null;
+  const rm = normalizeRm(body.rm);
   const rmLine = rm
     ? `\nThe user is RM ${rm}. "My names/my coverage" means tickers with rm=${rm} ONLY.`
     : "";

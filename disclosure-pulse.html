@@ -297,19 +297,27 @@ function render() {
     const title = isThai ? (f.title_th || f.title || f.headline || '—') : (f.title || f.headline || '—');
     const href = isThai ? (f.url_th || f.url) : f.url;
     const summ = isThai ? (f._summary_th || f._summary || f.summary || '') : (f._summary || f.summary || '');
-    return `<div class="filing ${sev}">
+    const safeSev = esc(sev);
+    const safeTitle = esc(title);
+    const safeHref = href ? esc(href) : '';
+    const safeSumm = esc(summ);
+    const safeTk = esc(f.tk || '');
+    const safeRm = esc(t.rm || '');
+    const safeSector = esc(f.sector || '');
+    const safeType = esc(f.type || '');
+    return `<div class="filing ${safeSev}">
       <div class="filing-top">
-        <div class="filing-tk">${f.tk}</div>
+        <div class="filing-tk">${safeTk}</div>
         <div class="filing-content">
-          <div class="filing-title">${href ? `<a href="${href}" target="_blank" rel="noopener">${title}</a>` : title}</div>
+          <div class="filing-title">${safeHref ? `<a href="${safeHref}" target="_blank" rel="noopener">${safeTitle}</a>` : safeTitle}</div>
           <div class="filing-meta">
-            <span class="sev-badge sev-${sev}">${label}</span>
-            ${t.rm ? `<span class="rm-badge">${t.rm}</span>` : ''}
-            <span class="sector-badge s-${f.sector}">${f.sector}</span>
-            ${f.type ? `<span style="font-size:10px;color:var(--muted)">${f.type}</span>` : ''}
-            <span class="ts">${formatTs(f.ts)}</span>
+            <span class="sev-badge sev-${safeSev}">${esc(label)}</span>
+            ${safeRm ? `<span class="rm-badge">${safeRm}</span>` : ''}
+            <span class="sector-badge s-${safeSector}">${safeSector}</span>
+            ${safeType ? `<span style="font-size:10px;color:var(--muted)">${safeType}</span>` : ''}
+            <span class="ts">${esc(formatTs(f.ts))}</span>
           </div>
-          ${summ ? `<div class="summary">${summ}</div>` : ''}
+          ${safeSumm ? `<div class="summary">${safeSumm}</div>` : ''}
         </div>
       </div>
     </div>`;

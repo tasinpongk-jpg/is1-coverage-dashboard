@@ -120,6 +120,7 @@ const TT_FALLBACK = {
   "external.meta": "{n} wire/RSS hits - {sources} - as of {asOf}",
 };
 function tt(key) { return window.I18N ? I18N.t(key) : (TT_FALLBACK[key] || key); }
+function esc(s) { return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 function tx(key, vars) { return tt(key).replace(/\{(\w+)\}/g, (_, k) => vars && vars[k] != null ? vars[k] : ''); }
 function allLabel() { return tt('common.all'); }
 const WINDOWS = [
@@ -197,28 +198,38 @@ function updateStats() {
     <div class="stat"><div class="stat-val">${rows.length}</div><div class="stat-lbl">${tx('external.itemsWindow', { window: winLabel })}</div></div>
     <div class="stat"><div class="stat-val">${new Set(rows.map(r=>r.tk)).size}</div><div class="stat-lbl">${tt('external.tickersHit')}</div></div>
     <div class="stat"><div class="stat-val">${Object.keys(bySrc).length}</div><div class="stat-lbl">${tt('external.sources')}</div></div>
-    <div class="stat"><div class="stat-val" style="font-size:13px;font-weight:600">${topSrc}</div><div class="stat-lbl">${tt('external.topSource')}</div></div>`;
+    <div class="stat"><div class="stat-val" style="font-size:13px;font-weight:600">${esc(topSrc)}</div><div class="stat-lbl">${tt('external.topSource')}</div></div>`;
 }
 function render() {
   const rows = filtered();
   const feed = document.getElementById('feed');
   if (!rows.length) { feed.innerHTML = `<div class="empty">${tt('common.noExternalNews')}</div>`; return; }
-  feed.innerHTML = rows.map(it => `<div class="item">
+  feed.innerHTML = rows.map(it => {
+    const title = esc(it.title || '');
+    const href = it.url ? esc(it.url) : '';
+    const source = esc(it.source || '');
+    const excerpt = esc(it.excerpt || '');
+    const ticker = esc(it.tk || '');
+    const rm = esc(it.rm || '');
+    const sector = esc(it.sector || '');
+    const lang = esc(it.lang || '');
+    return `<div class="item">
     <div class="item-top">
-      <div class="item-tk">${it.tk}</div>
+      <div class="item-tk">${ticker}</div>
       <div class="item-content">
-        <div class="item-title">${it.url ? `<a href="${it.url}" target="_blank" rel="noopener">${it.title || ''}</a>` : (it.title || '')}</div>
+        <div class="item-title">${href ? `<a href="${href}" target="_blank" rel="noopener">${title}</a>` : title}</div>
         <div class="item-meta">
-          <span class="src-badge">${it.source}</span>
-          ${it.rm ? `<span class="rm-badge">${it.rm}</span>` : ''}
-          ${it.sector ? `<span class="sector-badge s-${it.sector}">${it.sector}</span>` : ''}
-          ${it.lang ? `<span style="font-size:10px;color:var(--muted)">${it.lang}</span>` : ''}
-          <span class="ts">${formatTs(it.ts)}</span>
+          <span class="src-badge">${source}</span>
+          ${rm ? `<span class="rm-badge">${rm}</span>` : ''}
+          ${sector ? `<span class="sector-badge s-${sector}">${sector}</span>` : ''}
+          ${lang ? `<span style="font-size:10px;color:var(--muted)">${lang}</span>` : ''}
+          <span class="ts">${esc(formatTs(it.ts))}</span>
         </div>
-        ${it.excerpt ? `<div class="excerpt">${it.excerpt}</div>` : ''}
+        ${excerpt ? `<div class="excerpt">${excerpt}</div>` : ''}
       </div>
     </div>
-  </div>`).join('');
+  </div>`;
+  }).join('');
 }
 async function init() {
   try {
