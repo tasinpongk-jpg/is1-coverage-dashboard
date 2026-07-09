@@ -549,7 +549,7 @@ async function ctxSectorAgg(env, origin) {
 const SHARED_RULES =
   "IS1 is a relationship-manager team at a Thai securities firm covering " +
   "SET-listed tickers in FOOD, PROP, PF&REIT, AGRI, CONS and CONMAT. " +
-  "RMs: Champ, Kae, Orn, Gift, Pim, Tony.\n" +
+  "RMs: C, K, O, G, P, T.\n" +
   "Answer ONLY from the data below. If something is not in the data " +
   "(intraday prices, tickers outside coverage), say so and name which " +
   "dashboard page or sibling agent could help. RM ownership is STRICT: " +
@@ -557,8 +557,8 @@ const SHARED_RULES =
   "the user asks about 'my names', 'my coverage' or an RM's book, include " +
   "ONLY tickers whose rm tag matches that RM — silently dropping or adding " +
   "other RMs' tickers is an error. If nothing matches, say so rather than " +
-  "padding with other RMs' names. (E.g. for RM Gift, a row tagged rm=Kae is " +
-  "EXCLUDED even if it fits the question; only rm=Gift rows count.) " +
+  "padding with other RMs' names. (E.g. for RM G, a row tagged rm=K is " +
+  "EXCLUDED even if it fits the question; only rm=G rows count.) " +
   "Quote numbers exactly as " +
   "given — never round across a threshold (-1.93 is NOT beyond -2). Be " +
   "concise: short answers, tables only when listing several tickers. Reply " +
@@ -849,7 +849,7 @@ async function handleChat(request, env, origin) {
   }
 
   const rm = typeof body.rm === "string" &&
-    ["Champ", "Kae", "Orn", "Gift", "Pim", "Tony"].includes(body.rm)
+    ["C", "K", "O", "G", "P", "T"].includes(body.rm)
     ? body.rm : null;
   const rmLine = rm
     ? `\nThe user is RM ${rm}. "My names/my coverage" means tickers with rm=${rm} ONLY.`

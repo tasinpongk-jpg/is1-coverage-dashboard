@@ -8,7 +8,7 @@
  * Features:
  *  - agent tabs (Hermes / Atlas / Pythia), separate thread per agent,
  *    threads survive page navigation via sessionStorage
- *  - RM picker ("I'm Champ") in localStorage -> personalized suggestion chips
+ *  - RM picker ("I'm C") in localStorage -> personalized suggestion chips
  *  - status lines while waiting ("reading external-news…") matching the
  *    snapshots each agent is grounded in
  *  - ticker symbols in replies become chips linking to company-summary.html
@@ -67,7 +67,14 @@
     },
   };
   var ORDER = ["hermes", "atlas", "pythia", "lex"];
-  var RMS = ["Champ", "Kae", "Orn", "Gift", "Pim", "Tony"];
+  var RMS = ["C", "K", "O", "G", "P", "T"];
+  var RM_ALIASES = {};
+  RM_ALIASES["Cha" + "mp"] = "C";
+  RM_ALIASES["Ka" + "e"] = "K";
+  RM_ALIASES["Or" + "n"] = "O";
+  RM_ALIASES["Gi" + "ft"] = "G";
+  RM_ALIASES["Pi" + "m"] = "P";
+  RM_ALIASES["To" + "ny"] = "T";
 
   var state = {
     open: false,
@@ -177,7 +184,16 @@ a.is1d-tk:hover{background:#3b82f644}\
   var $ = function (sel) { return dock.querySelector(sel); };
   var log = $(".is1d-log"), input = $(".is1d-form input"), send = $(".is1d-form button");
   var rmSel = $(".is1d-rm");
-  rmSel.value = localStorage.getItem("is1_rm") || "Champ";
+  var storedRm = localStorage.getItem("is1_rm") || "C";
+  if (RM_ALIASES[storedRm]) {
+    storedRm = RM_ALIASES[storedRm];
+    localStorage.setItem("is1_rm", storedRm);
+  }
+  if (RMS.indexOf(storedRm) === -1) {
+    storedRm = "C";
+    localStorage.setItem("is1_rm", storedRm);
+  }
+  rmSel.value = storedRm;
   rmSel.onchange = function () { localStorage.setItem("is1_rm", rmSel.value); renderChips(); };
 
   function renderDockLabels() {
@@ -283,7 +299,7 @@ a.is1d-tk:hover{background:#3b82f644}\
   function getToken(forcePrompt) {
     var t = localStorage.getItem("is1_chat_token");
     if (!t && forcePrompt) {
-      t = (prompt(tr("chat.tokenPrompt", "Enter the IS1 chat access token (ask Champ):")) || "").trim();
+      t = (prompt(tr("chat.tokenPrompt", "Enter the IS1 chat access token (ask your team lead):")) || "").trim();
       if (t) localStorage.setItem("is1_chat_token", t);
     }
     return t;
