@@ -1,5 +1,5 @@
 {
-  "asOf": "2026-07-09",
+  "asOf": "2026-07-10",
   "source": "SETSMART intraday API · 42 alerts across 33 tickers",
   "thresholds": {
     "vol_spike": {
@@ -34,8 +34,10 @@
         "open": 0.1,
         "prevClose": 0.09
       },
-      "filingsLinked": 0,
-      "filingsTitles": []
+      "filingsLinked": 1,
+      "filingsTitles": [
+        "SEC News : สรุปแบบ 59 ประจำวันที่ 9 กรกฎาคม 2569"
+      ]
     },
     {
       "tk": "SST",
@@ -227,10 +229,9 @@
         "high": 3.84,
         "low": 3.56
       },
-      "filingsLinked": 2,
+      "filingsLinked": 1,
       "filingsTitles": [
-        "Notification for registration of increase in paid-up capital of the Company (Revised)",
-        "Notification for registration of increase in paid-up capital of the Company"
+        "Notification for registration of increase in paid-up capital of the Company (Revised)"
       ]
     },
     {
@@ -369,7 +370,7 @@
       "sector": "FOOD",
       "type": "Volume spike",
       "atype": "vol_spike",
-      "severity": "low",
+      "severity": "medium",
       "value": 2.539,
       "label": "2.5σ vs 20D avg",
       "evidence": {
@@ -377,10 +378,8 @@
         "vol20dAvg": 159666.65,
         "vol20dStd": 87766.70118916115
       },
-      "filingsLinked": 1,
-      "filingsTitles": [
-        "SEC News : สรุปแบบ 59 ประจำวันที่ 8 กรกฎาคม 2569"
-      ]
+      "filingsLinked": 0,
+      "filingsTitles": []
     },
     {
       "tk": "TIPCO",
@@ -905,23 +904,6 @@
       ]
     },
     {
-      "tk": "AQUA",
-      "sector": "FOOD",
-      "alertCount": 1,
-      "highestSeverity": "high",
-      "filingsLinked": 0,
-      "alertTypes": [
-        {
-          "atype": "gap",
-          "type": "Price gap",
-          "severity": "high"
-        }
-      ],
-      "summary": [
-        "Price gap: +11.11% open gap"
-      ]
-    },
-    {
       "tk": "DCON",
       "sector": "CONMAT",
       "alertCount": 1,
@@ -1038,6 +1020,23 @@
       ],
       "summary": [
         "Volume spike: 4.6σ vs 20D avg"
+      ]
+    },
+    {
+      "tk": "AQUA",
+      "sector": "FOOD",
+      "alertCount": 1,
+      "highestSeverity": "high",
+      "filingsLinked": 1,
+      "alertTypes": [
+        {
+          "atype": "gap",
+          "type": "Price gap",
+          "severity": "high"
+        }
+      ],
+      "summary": [
+        "Price gap: +11.11% open gap"
       ]
     },
     {
@@ -1166,6 +1165,23 @@
       ]
     },
     {
+      "tk": "JDF",
+      "sector": "FOOD",
+      "alertCount": 1,
+      "highestSeverity": "medium",
+      "filingsLinked": 0,
+      "alertTypes": [
+        {
+          "atype": "vol_spike",
+          "type": "Volume spike",
+          "severity": "medium"
+        }
+      ],
+      "summary": [
+        "Volume spike: 2.5σ vs 20D avg"
+      ]
+    },
+    {
       "tk": "SEAFCO",
       "sector": "CONS",
       "alertCount": 1,
@@ -1289,7 +1305,7 @@
       "sector": "CONS",
       "alertCount": 1,
       "highestSeverity": "medium",
-      "filingsLinked": 2,
+      "filingsLinked": 1,
       "alertTypes": [
         {
           "atype": "intraday",
@@ -1300,25 +1316,8 @@
       "summary": [
         "Intraday move: +6.74% intraday"
       ]
-    },
-    {
-      "tk": "JDF",
-      "sector": "FOOD",
-      "alertCount": 1,
-      "highestSeverity": "low",
-      "filingsLinked": 1,
-      "alertTypes": [
-        {
-          "atype": "vol_spike",
-          "type": "Volume spike",
-          "severity": "low"
-        }
-      ],
-      "summary": [
-        "Volume spike: 2.5σ vs 20D avg"
-      ]
     }
   ],
-  "_built_at": "2026-07-09T19:59:11.448582+00:00",
+  "_built_at": "2026-07-10T06:36:23.271336+00:00",
   "_coverage_size": 232
 }
