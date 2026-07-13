@@ -1,5 +1,5 @@
 {
-  "asOf": "2026-07-12",
+  "asOf": "2026-07-13",
   "source": "SETSMART intraday API · 60 alerts across 44 tickers",
   "thresholds": {
     "vol_spike": {
@@ -382,22 +382,25 @@
       "sector": "AGRI",
       "type": "Price gap",
       "atype": "gap",
-      "severity": "medium",
+      "severity": "low",
       "value": 4.545,
       "label": "-4.55% open gap",
       "evidence": {
         "open": 0.21,
         "prevClose": 0.22
       },
-      "filingsLinked": 0,
-      "filingsTitles": []
+      "filingsLinked": 2,
+      "filingsTitles": [
+        "Trading Suspension and termination of listing status of PPPM-W6",
+        "SEC News : สรุปแบบ 246-2 ประจำวันที่ 10 กรกฎาคม 2569"
+      ]
     },
     {
       "tk": "PPPM",
       "sector": "AGRI",
       "type": "Intraday move",
       "atype": "intraday",
-      "severity": "medium",
+      "severity": "low",
       "value": 4.762,
       "label": "+4.76% intraday",
       "evidence": {
@@ -406,8 +409,11 @@
         "high": 0.22,
         "low": 0.2
       },
-      "filingsLinked": 0,
-      "filingsTitles": []
+      "filingsLinked": 2,
+      "filingsTitles": [
+        "Trading Suspension and termination of listing status of PPPM-W6",
+        "SEC News : สรุปแบบ 246-2 ประจำวันที่ 10 กรกฎาคม 2569"
+      ]
     },
     {
       "tk": "APCS",
@@ -823,7 +829,7 @@
       "sector": "PROP",
       "type": "Volume spike",
       "atype": "vol_spike",
-      "severity": "high",
+      "severity": "medium",
       "value": 3.594,
       "label": "3.6σ vs 20D avg",
       "evidence": {
@@ -831,8 +837,10 @@
         "vol20dAvg": 5280219.85,
         "vol20dStd": 3728735.740325926
       },
-      "filingsLinked": 0,
-      "filingsTitles": []
+      "filingsLinked": 1,
+      "filingsTitles": [
+        "New shares of RABBIT to be traded on July 14, 2026"
+      ]
     },
     {
       "tk": "STELLA",
@@ -1499,23 +1507,6 @@
       ]
     },
     {
-      "tk": "RABBIT",
-      "sector": "PROP",
-      "alertCount": 1,
-      "highestSeverity": "high",
-      "filingsLinked": 0,
-      "alertTypes": [
-        {
-          "atype": "vol_spike",
-          "type": "Volume spike",
-          "severity": "high"
-        }
-      ],
-      "summary": [
-        "Volume spike: 3.6σ vs 20D avg"
-      ]
-    },
-    {
       "tk": "STELLA",
       "sector": "PROP",
       "alertCount": 1,
@@ -1581,29 +1572,6 @@
       ],
       "summary": [
         "Volume spike: 8.1σ vs 20D avg"
-      ]
-    },
-    {
-      "tk": "PPPM",
-      "sector": "AGRI",
-      "alertCount": 2,
-      "highestSeverity": "medium",
-      "filingsLinked": 0,
-      "alertTypes": [
-        {
-          "atype": "gap",
-          "type": "Price gap",
-          "severity": "medium"
-        },
-        {
-          "atype": "intraday",
-          "type": "Intraday move",
-          "severity": "medium"
-        }
-      ],
-      "summary": [
-        "Price gap: -4.55% open gap",
-        "Intraday move: +4.76% intraday"
       ]
     },
     {
@@ -1826,8 +1794,48 @@
       "summary": [
         "Volume spike: 3.0σ vs 20D avg"
       ]
+    },
+    {
+      "tk": "RABBIT",
+      "sector": "PROP",
+      "alertCount": 1,
+      "highestSeverity": "medium",
+      "filingsLinked": 1,
+      "alertTypes": [
+        {
+          "atype": "vol_spike",
+          "type": "Volume spike",
+          "severity": "medium"
+        }
+      ],
+      "summary": [
+        "Volume spike: 3.6σ vs 20D avg"
+      ]
+    },
+    {
+      "tk": "PPPM",
+      "sector": "AGRI",
+      "alertCount": 2,
+      "highestSeverity": "low",
+      "filingsLinked": 2,
+      "alertTypes": [
+        {
+          "atype": "gap",
+          "type": "Price gap",
+          "severity": "low"
+        },
+        {
+          "atype": "intraday",
+          "type": "Intraday move",
+          "severity": "low"
+        }
+      ],
+      "summary": [
+        "Price gap: -4.55% open gap",
+        "Intraday move: +4.76% intraday"
+      ]
     }
   ],
-  "_built_at": "2026-07-12T02:36:58.002706+00:00",
+  "_built_at": "2026-07-13T02:35:44.396255+00:00",
   "_coverage_size": 232
 }
