@@ -1,5 +1,5 @@
 {
-  "asOf": "2026-07-19",
+  "asOf": "2026-07-20",
   "source": "SETSMART intraday API · 69 alerts across 55 tickers",
   "thresholds": {
     "vol_spike": {
@@ -331,22 +331,24 @@
       "sector": "AGRI",
       "type": "Price gap",
       "atype": "gap",
-      "severity": "medium",
+      "severity": "low",
       "value": 4.762,
       "label": "+4.76% open gap",
       "evidence": {
         "open": 0.22,
         "prevClose": 0.21
       },
-      "filingsLinked": 0,
-      "filingsTitles": []
+      "filingsLinked": 1,
+      "filingsTitles": [
+        "22 July 2026 is the last trading day of PPPM-W6"
+      ]
     },
     {
       "tk": "PPPM",
       "sector": "AGRI",
       "type": "Intraday move",
       "atype": "intraday",
-      "severity": "medium",
+      "severity": "low",
       "value": 4.545,
       "label": "-4.55% intraday",
       "evidence": {
@@ -355,8 +357,10 @@
         "high": 0.22,
         "low": 0.21
       },
-      "filingsLinked": 0,
-      "filingsTitles": []
+      "filingsLinked": 1,
+      "filingsTitles": [
+        "22 July 2026 is the last trading day of PPPM-W6"
+      ]
     },
     {
       "tk": "STPI",
@@ -1792,29 +1796,6 @@
       ]
     },
     {
-      "tk": "PPPM",
-      "sector": "AGRI",
-      "alertCount": 2,
-      "highestSeverity": "medium",
-      "filingsLinked": 0,
-      "alertTypes": [
-        {
-          "atype": "gap",
-          "type": "Price gap",
-          "severity": "medium"
-        },
-        {
-          "atype": "intraday",
-          "type": "Intraday move",
-          "severity": "medium"
-        }
-      ],
-      "summary": [
-        "Price gap: +4.76% open gap",
-        "Intraday move: -4.55% intraday"
-      ]
-    },
-    {
       "tk": "AMATAR",
       "sector": "PFREIT",
       "alertCount": 1,
@@ -2153,8 +2134,31 @@
       "summary": [
         "Intraday move: -5.00% intraday"
       ]
+    },
+    {
+      "tk": "PPPM",
+      "sector": "AGRI",
+      "alertCount": 2,
+      "highestSeverity": "low",
+      "filingsLinked": 1,
+      "alertTypes": [
+        {
+          "atype": "gap",
+          "type": "Price gap",
+          "severity": "low"
+        },
+        {
+          "atype": "intraday",
+          "type": "Intraday move",
+          "severity": "low"
+        }
+      ],
+      "summary": [
+        "Price gap: +4.76% open gap",
+        "Intraday move: -4.55% intraday"
+      ]
     }
   ],
-  "_built_at": "2026-07-19T02:35:57.676328+00:00",
+  "_built_at": "2026-07-20T02:35:41.832697+00:00",
   "_coverage_size": 232
 }
