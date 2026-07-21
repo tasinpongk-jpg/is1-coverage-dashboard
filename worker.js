@@ -184,11 +184,13 @@ async function loadCovered(env, origin) {
   return new Set((tickers?.tickers || []).map((t) => t.tk));
 }
 
-// Covered ticker symbols appearing in a piece of text. Normalize case so users
-// can type cpn as naturally as CPN, and allow single-letter tickers such as M.
+// Covered ticker symbols appearing in a piece of text. Normalize multi-letter
+// symbols so users can type cpn as naturally as CPN. Single-letter symbols must
+// stay uppercase so the m in contractions such as I'm is not treated as M.
 function coveredIn(text, covered) {
   const out = new Set();
   for (const raw of String(text || "").match(/\b[A-Z][A-Z0-9]{0,7}\b/gi) || []) {
+    if (raw.length === 1 && raw !== raw.toUpperCase()) continue;
     const tok = raw.toUpperCase();
     if (covered.has(tok)) out.add(tok);
   }

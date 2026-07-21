@@ -341,12 +341,15 @@ test("recency word date-filters Hermes news/filings context", async () => {
   assert.ok(/FILTERED to the last 7 days/.test(lastSystem), "expected a 7-day recency filter note");
 });
 
-test("lowercase and single-letter ticker symbols focus chat context", async () => {
+test("lowercase tickers focus context without treating contractions as ticker M", async () => {
   await worker.fetch(chatReq({ agent: "atlas", messages: [{ role: "user", content: "price of cpn" }] }), env);
   assert.match(lastSystem, /focused on CPN/);
 
-  await worker.fetch(chatReq({ agent: "atlas", messages: [{ role: "user", content: "price of m" }] }), env);
+  await worker.fetch(chatReq({ agent: "atlas", messages: [{ role: "user", content: "price of M" }] }), env);
   assert.match(lastSystem, /focused on M/);
+
+  await worker.fetch(chatReq({ agent: "atlas", messages: [{ role: "user", content: "Top movers in my coverage. I'm Champ." }] }), env);
+  assert.doesNotMatch(lastSystem, /focused on M/);
 });
 
 test("Thai recency words date-filter Hermes context", async () => {
