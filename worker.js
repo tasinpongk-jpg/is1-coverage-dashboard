@@ -16,10 +16,12 @@
  *   pythia — macro/sector: AI commentary, sector aggregates
  *
  * Gated by a shared token: Authorization: Bearer <CHAT_TOKEN worker secret>.
- * Inference: Cloudflare Workers AI (free-tier neuron allocation).
+ * Inference: MiniMax M3, called server-side with the MINIMAX_API_KEY secret.
  */
 
-const CHAT_MODEL = "@cf/meta/llama-3.3-70b-instruct-fp8-fast";
+const CHAT_MODEL = "MiniMax-M3";
+const MINIMAX_CHAT_URL = "https://api.minimax.io/v1/text/chatcompletion_v2";
+const MINIMAX_TIMEOUT_MS = 60_000;
 const MAX_HISTORY = 12; // user+assistant turns kept from the client
 const MAX_USER_CHARS = 2000;
 const MAX_JSON_BODY_BYTES = 64 * 1024;
@@ -27,7 +29,7 @@ const VALID_AGENTS = new Set(["atlas", "hermes", "pythia", "lex"]);
 const VALID_RMS = new Set(["C", "K", "O", "G", "P", "T"]);
 
 // Lex — the rules & regulations agent. Unlike the other three, it does NOT use
-// Workers AI: Gemini File Search does the retrieval AND generation over the
+// MiniMax: Gemini File Search does the retrieval AND generation over the
 // regulation PDFs indexed by scripts/index_regulations.py, returning page-level
 // citations. The store name is read from data/regulations-index.json (built by
 // that script); only the GEMINI_API_KEY is a worker secret.
@@ -59,7 +61,7 @@ export default {
       try {
         return await handleChat(request, env, url.origin);
       } catch (e) {
-        return json({ error: `chat failed: ${e.message}` }, 500);
+        return json({ error: `chat failed: ${e.message}` }, e.status || 500);
       }
     }
     if (url.pathname === "/api/feedback") {
@@ -182,11 +184,12 @@ async function loadCovered(env, origin) {
   return new Set((tickers?.tickers || []).map((t) => t.tk));
 }
 
-// Covered ticker symbols appearing in a piece of text (uppercase tokens that are
-// real tickers, so plain English words never match).
+// Covered ticker symbols appearing in a piece of text. Normalize case so users
+// can type cpn as naturally as CPN, and allow single-letter tickers such as M.
 function coveredIn(text, covered) {
   const out = new Set();
-  for (const tok of String(text || "").match(/\b[A-Z][A-Z0-9]{1,7}\b/g) || []) {
+  for (const raw of String(text || "").match(/\b[A-Z][A-Z0-9]{0,7}\b/gi) || []) {
+    const tok = raw.toUpperCase();
     if (covered.has(tok)) out.add(tok);
   }
   return out;
@@ -270,13 +273,71 @@ function parsePriceQuery(text) {
 // date-filtered server-side instead of asking the model to compare dates.
 function parseRecency(text) {
   const t = String(text || "").toLowerCase();
-  if (/\b(today|วันนี้)\b/.test(t)) return { days: 1, label: "today" };
-  if (/\b(yesterday|เมื่อวาน)\b/.test(t)) return { days: 2, label: "the last 2 days" };
-  if (/\b(this week|past week|last 7 days|last week|สัปดาห์นี้|7 วัน)\b/.test(t)) return { days: 7, label: "the last 7 days" };
-  if (/\b(this month|past month|last 30 days|เดือนนี้|30 วัน)\b/.test(t)) return { days: 30, label: "the last 30 days" };
+  if (/\btoday\b|วันนี้/.test(t)) return { days: 1, label: "today" };
+  if (/\byesterday\b|เมื่อวาน/.test(t)) return { days: 2, label: "the last 2 days" };
+  if (/\b(?:this week|past week|last 7 days|last week)\b|สัปดาห์นี้|7 วัน/.test(t)) return { days: 7, label: "the last 7 days" };
+  if (/\b(?:this month|past month|last 30 days)\b|เดือนนี้|30 วัน/.test(t)) return { days: 30, label: "the last 30 days" };
   const m = t.match(/\b(?:last|past|in the last)\s+(\d{1,3})\s+days?\b/);
   if (m) { const d = parseInt(m[1], 10); if (d > 0) return { days: d, label: `the last ${d} days` }; }
   return null;
+}
+
+class ChatServiceError extends Error {
+  constructor(message, status) {
+    super(message);
+    this.status = status;
+  }
+}
+
+async function runMiniMax(env, messages) {
+  if (!env.MINIMAX_API_KEY) {
+    throw new ChatServiceError(
+      "MiniMax M3 is not configured (missing MINIMAX_API_KEY worker secret)",
+      503,
+    );
+  }
+
+  const fetcher = typeof env.MINIMAX_FETCH === "function" ? env.MINIMAX_FETCH : fetch;
+  let response;
+  try {
+    response = await fetcher(MINIMAX_CHAT_URL, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${env.MINIMAX_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: CHAT_MODEL,
+        messages,
+        max_tokens: 2200,
+        temperature: 0.2,
+      }),
+      signal: AbortSignal.timeout(MINIMAX_TIMEOUT_MS),
+    });
+  } catch (error) {
+    const timedOut = error?.name === "TimeoutError" || error?.name === "AbortError";
+    throw new ChatServiceError(
+      timedOut ? "MiniMax M3 timed out; retry the question" : "MiniMax M3 is temporarily unavailable",
+      timedOut ? 504 : 502,
+    );
+  }
+
+  const payload = await response.json().catch(() => null);
+  const apiStatus = payload?.base_resp?.status_code;
+  if (!response.ok || (apiStatus != null && apiStatus !== 0)) {
+    console.error("MiniMax M3 request failed", {
+      httpStatus: response.status,
+      apiStatus,
+      apiMessage: payload?.base_resp?.status_msg || "",
+    });
+    throw new ChatServiceError("MiniMax M3 rejected the request; retry shortly", 502);
+  }
+
+  const reply = payload?.choices?.[0]?.message?.content;
+  if (typeof reply !== "string" || !reply.trim()) {
+    throw new ChatServiceError("MiniMax M3 returned an empty answer; retry the question", 502);
+  }
+  return { reply: reply.trim(), model: payload.model || CHAT_MODEL };
 }
 
 // Keep items whose ts is within `days` of now (worker has real Date).
@@ -391,8 +452,8 @@ async function ctxPrices(env, origin, _userRm, focus, q) {
     return Number.isFinite(n) ? n : null;
   };
   const sortVal = (r) => mval(r) ?? 0;
-  // Llama can't reliably filter/sort a 230-row list. Pre-sort by |metric| so the
-  // model reads top-down; for a parsed screen, hard-filter so it can only narrate.
+  // The model should not filter/sort a 230-row list. Pre-sort by |metric| so it
+  // reads top-down; for a parsed screen, hard-filter so it can only narrate.
   let rows = (brief?.rows || []).slice().sort((a, b) => Math.abs(sortVal(b)) - Math.abs(sortVal(a)));
   if (focus && focus.size) rows = rows.filter((r) => focus.has(r.tk));
   else if (q?.sector) rows = rows.filter((r) => (cov[r.tk]?.sector || r.sector) === q.sector);
@@ -701,7 +762,7 @@ const AGENTS = {
   },
 };
 
-// Lex routes to Gemini File Search instead of Workers AI. Returns the same
+// Lex routes to Gemini File Search instead of MiniMax. Returns the same
 // { reply, ... } shape; citations are appended to the reply text so the dock
 // renders them with no client change.
 async function handleLex(env, origin, cleaned, rm) {
@@ -949,15 +1010,11 @@ async function handleChat(request, env, origin) {
     context += "\n\nNOTE: the user asked to summarize a filing but the PDF could " +
       "not be opened; say so plainly and fall back to the disclosure title.";
   }
-  const result = await env.AI.run(CHAT_MODEL, {
-    messages: [
-      { role: "system", content: agent.persona + SHARED_RULES + rmLine + "\n\nDATA:\n" + context },
-      ...cleaned,
-    ],
-    max_tokens: 1100,
-    temperature: 0.2,
-  });
-  let reply = result.response ?? "";
+  const result = await runMiniMax(env, [
+    { role: "system", content: agent.persona + SHARED_RULES + rmLine + "\n\nDATA:\n" + context },
+    ...cleaned,
+  ]);
+  let reply = result.reply;
   // Output verification: flag any covered ticker the model named that wasn't in
   // its data — catches hallucinated / pretraining-leaked names before the user
   // (and the dock's ticker-chip linkifier) treats them as real.
@@ -966,5 +1023,5 @@ async function handleChat(request, env, origin) {
     reply += `\n\n⚠ Unverified: ${ungrounded.join(", ")} — not in the data I was ` +
       `given for this question. Treat with caution / re-ask naming the ticker.`;
   }
-  return json({ reply, agent: agentName, model: CHAT_MODEL });
+  return json({ reply, agent: agentName, model: result.model });
 }

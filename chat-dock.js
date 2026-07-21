@@ -229,7 +229,7 @@ a.is1d-tk:hover{background:#3b82f644}\
   function md(s) { // escape, then bold + ticker chips
     var h = esc(s).replace(/\*\*([^*]+)\*\*/g, "<b>$1</b>");
     if (state.tickers) {
-      h = h.replace(/\b([A-Z][A-Z0-9]{1,7})\b/g, function (m, tk) {
+      h = h.replace(/\b([A-Z][A-Z0-9]{0,7})\b/g, function (m, tk) {
         return state.tickers.has(tk)
           ? '<a class="is1d-tk" href="company-summary.html?tk=' + tk + '">' + tk + "</a>" : m;
       });

@@ -1,5 +1,5 @@
 // Tests for worker.js /api/chat — run with `node --test tests/` from repo root.
-// Stubs env.ASSETS (reads local data/*.json) and env.AI (echoes prompt stats),
+// Stubs env.ASSETS (reads local data/*.json) and the MiniMax HTTP endpoint,
 // so this exercises routing, auth, agent selection, context building and the
 // RM-priority slicing without touching Cloudflare.
 
@@ -9,8 +9,10 @@ import { readFile } from "node:fs/promises";
 import worker from "../worker.js";
 
 let lastSystem = "";
+let lastMiniMaxRequest = null;
 const env = {
   CHAT_TOKEN: "testtoken",
+  MINIMAX_API_KEY: "test-minimax-key",
   ASSETS: {
     fetch: async (req) => {
       const p = new URL(req.url).pathname;
@@ -18,11 +20,15 @@ const env = {
       catch { return new Response("not found", { status: 404 }); }
     },
   },
-  AI: {
-    run: async (_model, opts) => {
-      lastSystem = opts.messages[0].content;
-      return { response: "stub-reply" };
-    },
+  MINIMAX_FETCH: async (url, opts) => {
+    const body = JSON.parse(opts.body);
+    lastSystem = body.messages[0].content;
+    lastMiniMaxRequest = { url, opts, body };
+    return new Response(JSON.stringify({
+      model: "MiniMax-M3",
+      choices: [{ finish_reason: "stop", message: { role: "assistant", content: "stub-reply" } }],
+      base_resp: { status_code: 0, status_msg: "" },
+    }), { headers: { "Content-Type": "application/json" } });
   },
 };
 
@@ -44,7 +50,49 @@ test("each agent responds 200 and reports its name", async () => {
     const d = await r.json();
     assert.equal(d.agent, agent);
     assert.equal(d.reply, "stub-reply");
+    assert.equal(d.model, "MiniMax-M3");
   }
+});
+
+test("chat calls the MiniMax M3 server API with grounded messages", async () => {
+  const r = await worker.fetch(chatReq({ agent: "atlas", messages: userMsg }), env);
+  assert.equal(r.status, 200);
+  assert.equal(lastMiniMaxRequest.url, "https://api.minimax.io/v1/text/chatcompletion_v2");
+  assert.equal(lastMiniMaxRequest.opts.method, "POST");
+  assert.equal(lastMiniMaxRequest.opts.headers.Authorization, "Bearer test-minimax-key");
+  assert.equal(lastMiniMaxRequest.body.model, "MiniMax-M3");
+  assert.equal(lastMiniMaxRequest.body.messages.at(-1).content, "hi");
+  assert.match(lastMiniMaxRequest.body.messages[0].content, /DATA:/);
+  assert.equal(lastMiniMaxRequest.body.max_tokens, 2200);
+});
+
+test("chat reports missing MiniMax configuration without calling an alternate model", async () => {
+  const r = await worker.fetch(chatReq({ agent: "atlas", messages: userMsg }), {
+    ...env,
+    MINIMAX_API_KEY: "",
+  });
+  assert.equal(r.status, 503);
+  assert.match((await r.json()).error, /missing MINIMAX_API_KEY/);
+});
+
+test("chat converts MiniMax upstream failures and empty answers to 502", async () => {
+  let r = await worker.fetch(chatReq({ agent: "atlas", messages: userMsg }), {
+    ...env,
+    MINIMAX_FETCH: async () => new Response(JSON.stringify({
+      base_resp: { status_code: 1001, status_msg: "bad request" },
+    }), { status: 400, headers: { "Content-Type": "application/json" } }),
+  });
+  assert.equal(r.status, 502);
+
+  r = await worker.fetch(chatReq({ agent: "atlas", messages: userMsg }), {
+    ...env,
+    MINIMAX_FETCH: async () => new Response(JSON.stringify({
+      model: "MiniMax-M3",
+      choices: [{ message: { content: "" } }],
+      base_resp: { status_code: 0, status_msg: "" },
+    }), { headers: { "Content-Type": "application/json" } }),
+  });
+  assert.equal(r.status, 502);
 });
 
 test("unknown agent falls back to atlas", async () => {
@@ -214,7 +262,7 @@ test("plain 'news on X' does NOT trigger the on-demand PDF summary path", async 
   const d = await r.json();
   // The summarize path short-circuits to Gemini (model=gemini-*). A plain news
   // query must take the normal chat-model path instead — proves it didn't fire.
-  assert.ok(/llama/i.test(d.model), `plain news should use the chat model, got ${d.model}`);
+  assert.equal(d.model, "MiniMax-M3", `plain news should use MiniMax M3, got ${d.model}`);
 });
 
 test("atlas 'beyond ±X%' query hard-filters prices to qualifying rows only", async () => {
@@ -293,6 +341,22 @@ test("recency word date-filters Hermes news/filings context", async () => {
   assert.ok(/FILTERED to the last 7 days/.test(lastSystem), "expected a 7-day recency filter note");
 });
 
+test("lowercase and single-letter ticker symbols focus chat context", async () => {
+  await worker.fetch(chatReq({ agent: "atlas", messages: [{ role: "user", content: "price of cpn" }] }), env);
+  assert.match(lastSystem, /focused on CPN/);
+
+  await worker.fetch(chatReq({ agent: "atlas", messages: [{ role: "user", content: "price of m" }] }), env);
+  assert.match(lastSystem, /focused on M/);
+});
+
+test("Thai recency words date-filter Hermes context", async () => {
+  await worker.fetch(chatReq({ agent: "hermes", messages: [{ role: "user", content: "ข่าว CPN วันนี้" }] }), env);
+  assert.match(lastSystem, /FILTERED to today/);
+
+  await worker.fetch(chatReq({ agent: "hermes", messages: [{ role: "user", content: "ข่าว CPN เมื่อวาน" }] }), env);
+  assert.match(lastSystem, /FILTERED to the last 2 days/);
+});
+
 test("naming a sector scopes Atlas prices to that sector", async () => {
   await worker.fetch(chatReq({ agent: "atlas", messages: [{ role: "user", content: "show me movers in FOOD" }] }), env);
   assert.ok(/Scoped to the FOOD sector/.test(lastSystem), "expected FOOD sector scope note");
@@ -329,8 +393,16 @@ test("output verification flags an ungrounded ticker the model invents", async (
   const tickers = JSON.parse(await readFile("./data/tickers.json", "utf-8")).tickers;
   // a covered ticker very unlikely to be in a single-ticker focused context
   const other = tickers[tickers.length - 1].tk;
-  const saved = env.AI.run;
-  env.AI.run = async (_m, opts) => { lastSystem = opts.messages[0].content; return { response: `You might also look at ${other}.` }; };
+  const saved = env.MINIMAX_FETCH;
+  env.MINIMAX_FETCH = async (_url, opts) => {
+    const body = JSON.parse(opts.body);
+    lastSystem = body.messages[0].content;
+    return new Response(JSON.stringify({
+      model: "MiniMax-M3",
+      choices: [{ message: { content: `You might also look at ${other}.` } }],
+      base_resp: { status_code: 0, status_msg: "" },
+    }), { headers: { "Content-Type": "application/json" } });
+  };
   try {
     // focus on tickers[0] so the context is a different name; reply names `other`
     const r = await worker.fetch(chatReq({ agent: "atlas", messages: [{ role: "user", content: `price of ${tickers[0].tk}?` }] }), env);
@@ -340,7 +412,7 @@ test("output verification flags an ungrounded ticker the model invents", async (
       assert.ok(d.reply.includes("⚠ Unverified") && d.reply.includes(other),
         "expected an Unverified flag for the ungrounded ticker");
     }
-  } finally { env.AI.run = saved; }
+  } finally { env.MINIMAX_FETCH = saved; }
 });
 
 test("agents are told to use ticker symbols only, never expand to company names", async () => {
