@@ -124,7 +124,7 @@ const CASES = [
   { agent: "pythia", q: "Which sector leads and which lags today? Figures and breadth.",
     checks: [["has a % figure", hasRe(/-?\d+(?:\.\d+)?\s*%/)], ["mentions breadth", hasRe(/breadth|\d+\s*\/\s*\d+|up\b/i)]] },
   { agent: "pythia", q: "Give me a specific catalyst explaining why FOOD outperformed today.",
-    checks: [["does not fabricate", hasRe(/no specific|don'?t see|not (?:in|available)|the daily ai|my read/i)]] },
+    checks: [["does not fabricate", hasRe(/no specific|don'?t see|not (?:in|available)|did not outperform|lagged|the daily ai|my read/i)]] },
   { agent: "hermes", q: "Any news on CPN? I'm Champ.",
     checks: [["shows external-news header", has("📰")], ["shows disclosures header", has("📄")]] },
   { agent: "hermes", q: "Summarize CPN's latest SET filing. I'm Champ.",
