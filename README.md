@@ -43,7 +43,7 @@ for deploy steps and the per-cron routing table.
 ## Agent chat (✦ Ask the agents)
 
 Every page carries a floating chat dock (`chat-dock.js`) talking to four
-named agents served by `worker.js` — the first three via Cloudflare Workers AI,
+named agents served by `worker.js` — the first three via MiniMax M3,
 Lex via Gemini File Search over the regulation PDFs — each grounded in a
 different slice of the daily snapshots:
 
@@ -63,6 +63,7 @@ Dock features: per-agent threads (survive navigation), RM picker for
 personalized suggestion chips, ticker chips in replies deep-linking to
 `company-summary.html?tk=X`, and select-any-text → "✦ ask". Token-gated by the
 `CHAT_TOKEN` worker secret (`localStorage is1_chat_token` client-side). The
+MiniMax credential stays server-side in the `MINIMAX_API_KEY` worker secret.
 "Ask the agents" cards on `index.html` open the dock via `IS1Dock.open(name)`.
 
 ## Files

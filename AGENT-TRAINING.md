@@ -12,9 +12,9 @@ Every dashboard page carries a chat dock talking to four named agents
 
 | Agent | Job | Model |
 |---|---|---|
-| 🗺 **Atlas** | prices, % moves, movers, threshold checks | Workers AI `llama-3.3-70b-instruct-fp8-fast` |
-| ⚡ **Hermes** | external news + SET disclosures, silent filers, filing summaries | Workers AI Llama (+ Gemini for PDFs) |
-| 🔮 **Pythia** | sector aggregates + daily AI commentary | Workers AI Llama |
+| 🗺 **Atlas** | prices, % moves, movers, threshold checks | MiniMax M3 |
+| ⚡ **Hermes** | external news + SET disclosures, silent filers, filing summaries | MiniMax M3 (+ Gemini for PDFs) |
+| 🔮 **Pythia** | sector aggregates + daily AI commentary | MiniMax M3 |
 | ⚖️ **Lex** | SET/SEC rules, cited to the source PDF | Gemini File Search |
 
 Each is grounded in the same daily JSON snapshots the dashboard shows, so the
@@ -22,12 +22,12 @@ chat never diverges from the pages.
 
 ## 2. The core thesis
 
-**You cannot fine-tune Workers AI models. So "training" = prompt + context +
-evaluation engineering.** The single highest-leverage principle we proved over
-and over:
+**No application-specific fine-tune is configured. So "training" = prompt +
+context + evaluation engineering.** The single highest-leverage principle we
+proved over and over:
 
-> **Move work *out* of the weak model and into deterministic code.** A 70B model
-> is unreliable at filtering, counting, sorting, and date math. Every time we did
+> **Move structured work out of the model and into deterministic code.** A model
+> is not the authority for filtering, counting, sorting, and date math. Every time we did
 > those *for* it — handing it a pre-filtered, pre-sorted, scoped context — answer
 > quality jumped. Every time we relied on a prompt rule alone, it eventually
 > failed.
@@ -46,7 +46,7 @@ into a structured intent and filters the context server-side:
 - **Price screens** (`parsePriceQuery`) — `threshold` ("beyond ±2%"), `range`
   ("between −2% and −1.5%"), `top-N` ("top 5 by YTD", "worst 3") over a chosen
   metric (1d/5d/YTD/volume). Rows are hard-filtered & sorted; the model lists
-  only what survives. **This fixed the flagship failure** where Llama listed
+  only what survives. **This fixed the flagship failure** where the model listed
   sub-threshold names as "movers."
 - **Sector scope** (`parseSector`) — a named sector scopes prices/news/filings.
 - **Recency** (`parseRecency`) — "today / this week / last N days" date-filters
@@ -64,12 +64,12 @@ into a structured intent and filters the context server-side:
 - **Hermes filing summaries → Gemini.** A "summarize CPN's filing" request reads
   the *actual filed PDF*: the worker resolves the SET newsdetails page → the
   `weblink.set.or.th` PDF → hands the bytes to Gemini (which reads PDFs natively,
-  no JS parser) → returns the summary **directly, bypassing Llama** (which mangled
-  injected summaries). Cached by news-id + language.
+  no JS parser) → returns the summary **directly, bypassing MiniMax** (the chat
+  path mangled injected summaries). Cached by news-id + language.
 
 ### 3.4 Persona engineering + few-shot
 Each persona has explicit rules **plus one worked example** — few-shot locks in
-format far better than rules for a 70B model. Shared rules enforce: tickers-only
+format far better than rules alone. Shared rules enforce: tickers-only
 (never hallucinate company names; the data has no name field), strict threshold
 math ("−1.93 is NOT beyond −2"), RM-scoping, reply in the user's language.
 
@@ -91,7 +91,7 @@ snapshot if the fetch is blocked.
   sections present; figures + breadth; cited rule; off-topic refusal). Exit code =
   failures.
 - **LLM-judge** (`--judge`) — an independent model (Groq, a *different* family than
-  the Llama under test) grades each reply 0–100 on directness/specificity/
+  MiniMax M3 under test) grades each reply 0–100 on directness/specificity/
   consistency/role. `--gate N` blocks a deploy if the mean drops below N.
 
 ### 3.8 Feedback loop
@@ -107,11 +107,11 @@ Real bugs found by **live-testing the deployed model**, not assuming:
 
 | Symptom | Root cause | Fix |
 |---|---|---|
-| "Movers beyond ±2%" listed +0.9%, +1.7% names | Llama won't self-truncate at a numeric cutoff | Parse threshold; hard-filter rows server-side |
+| "Movers beyond ±2%" listed +0.9%, +1.7% names | A chat model should not own numeric filtering | Parse threshold; hard-filter rows server-side |
 | Range query output was a garbled table | model free-handing a 2-sided numeric filter | `range` mode in `parsePriceQuery` |
 | Atlas said company names, not tickers | data has **no** name field → model guessed from pretraining | "tickers-only, never names" rule + grounding check |
 | "News on CPN" showed J/TIF1/BLAND filings | model padded an empty section | ticker-focus filters context; empty ⇒ honest "none" |
-| Filing summaries were a generic half-sentence | Llama won't faithfully reproduce injected text | bypass Llama; serve Gemini's summary directly |
+| Filing summaries were a generic half-sentence | The chat path did not faithfully reproduce injected text | bypass the chat model; serve Gemini's summary directly |
 | Gemini summaries truncated to "…filed" | `gemini-2.5-flash` is a **thinking model**; thinking tokens ate the `maxOutputTokens` budget | `thinkingConfig.thinkingBudget=0` + bigger cap |
 | Thai user got an English cached summary | cache key ignored language | key includes `lang` |
 | A passing test silently broke | persona text contained the literal string a test split on (`SET DISCLOSURES`, `FILED-DOCUMENT…`) | anchor tests on data-only markers |

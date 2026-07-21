@@ -36,6 +36,7 @@ main{max-width:1280px;margin:0 auto;padding:24px 28px 60px}
 .hint{margin-left:auto;font-size:11px;color:var(--dim)}
 
 table{width:100%;border-collapse:collapse;background:var(--card);border:1px solid var(--border);border-radius:12px;overflow:hidden}
+.table-shell{width:100%;overflow-x:auto;overscroll-behavior-inline:contain;border-radius:8px}
 thead th{font-size:10.5px;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);text-align:left;padding:11px 14px;border-bottom:1px solid var(--border);background:var(--bg2)}
 .vh{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
 tbody td{padding:11px 14px;border-bottom:1px solid var(--border);font-size:12.5px;vertical-align:top}
@@ -76,7 +77,15 @@ tr.panel>td{padding:0;border-bottom:1px solid var(--border);background:var(--bg2
 .panel-act code{background:var(--card);border:1px solid var(--border);border-radius:4px;padding:1px 6px;color:var(--muted)}
 .foot{font-size:11px;color:var(--dim);margin-top:14px;line-height:1.7}
 .foot code{background:var(--card2);border:1px solid var(--border);border-radius:4px;padding:1px 6px}
+@media(max-width:620px){
+  main{padding:18px 12px 44px}
+  .kpis{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+  .filters>*{flex:1 1 145px;min-width:0!important}
+  .hint{flex-basis:100%}
+  .table-shell table{min-width:820px}
+}
 </style>
+  <script src="theme.js"></script>
   <link rel="stylesheet" href="theme.css">
   <script src="i18n.js"></script>
 
@@ -111,6 +120,7 @@ tr.panel>td{padding:0;border-bottom:1px solid var(--border);background:var(--bg2
     <span class="hint" id="count"></span>
   </div>
 
+  <div class="table-shell">
   <table>
     <thead><tr>
       <th><span class="vh">exp</span></th><th data-i18n="common.ticker">Ticker</th><th data-i18n="common.sector">Sector</th><th>RM</th><th data-i18n="visits.priority">Pri</th>
@@ -118,6 +128,7 @@ tr.panel>td{padding:0;border-bottom:1px solid var(--border);background:var(--bg2
     </tr></thead>
     <tbody id="rows"><tr><td colspan="9" class="empty" data-i18n="common.loading">Loading…</td></tr></tbody>
   </table>
+  </div>
 
   <div class="foot" data-i18n="visits.foot">Data comes from the Obsidian vault's coverage notes, exported by vault_visits.py export. Before a meeting: python3 prep_visit.py TICKER builds the brief. After: python3 vault_visits.py log TICKER notes --next action sets last-visit and the note, then re-export to refresh this page. Theses tagged draft were auto-written from company reports — edit them in the vault.</div>
 </main>

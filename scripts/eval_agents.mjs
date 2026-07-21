@@ -4,7 +4,7 @@
  * each agent's key behaviours with property checks (pass/fail), so a prompt or
  * context change can be measured instead of eyeballed.
  *
- * This hits the live worker (Workers AI + Gemini cost real quota), so it is a
+ * This hits the live worker (MiniMax M3 + Gemini cost real quota), so it is a
  * MANUAL tool, not a CI gate. The committed unit tests (tests/worker.test.mjs)
  * cover the deterministic context logic with no network; this covers the model.
  *
@@ -52,7 +52,7 @@ async function ask(agent, content) {
 
 // ---- LLM judge (optional, --judge) ---------------------------------------
 // Grades each reply 0-100 with an independent model (Groq, a different family
-// than the Workers AI Llama under test) so quality regressions are measurable,
+// than MiniMax M3 under test) so quality regressions are measurable,
 // not just the boolean property checks. Reads GROQ_API_KEY like the chat token.
 function loadGroqKey() {
   if (process.env.GROQ_API_KEY) return process.env.GROQ_API_KEY.trim();

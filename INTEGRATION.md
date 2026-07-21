@@ -64,7 +64,7 @@ Runtime-specific tails (intentionally different, **not** drift):
 
 ## 3. Agents — cloud cousins, not clones
 
-| Concept | Dashboard (deployed, Workers AI / Gemini) | CLI (`agents/*.json`, tool-calling) |
+| Concept | Dashboard (deployed, MiniMax M3 / Gemini) | CLI (`agents/*.json`, tool-calling) |
 |---|---|---|
 | Hermes | snapshot-grounded; merges 📰 news + 📄 disclosures; on-demand PDF summary | live `web_search` + `read_filing`; news sweeps |
 | Atlas | snapshot prices; server-side threshold pre-filter | live `get_stock_quote` + `calculator` |

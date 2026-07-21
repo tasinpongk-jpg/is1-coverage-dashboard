@@ -1,63 +1,291 @@
 /* ===========================================================================
-   ISSUER INTELLIGENT TERMINAL — shared "phosphor" theme (single source of truth)
-   Link this AFTER a page's own <style> so these tokens win and the page adopts
-   the same black/amber terminal look as the original dashboard pages
-   (index, ticker-summary, rm-portfolio, risk-radar, trading-signs, …).
-   It only remaps the colour tokens + base font; page layout/structure is untouched.
+   IS1 TERMINAL UI SYSTEM
+   Shared color tokens, theme controls, interaction polish, and motion.
+   Page files own their layouts; this layer keeps every surface coherent.
    =========================================================================== */
-@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700;800&family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600;700&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600;700&display=swap');
 
-:root{
-  /* phosphor palette — overrides the navy/Inter tokens the new pages defined */
-  --bg:#000;
-  --card:#0a0a0a;
-  --panel2:#050505;
-  --body:#f4efe0;
-  --ink:#f4efe0;
-  --text2:#cdbf90;
-  --mut:#9a8f63;
-  --dim:#6f6440;
-  --line:rgba(255,176,0,.16);
-  --line-soft:rgba(255,176,0,.06);
-  --gold:#ffa028;
-  --accent:#ffa028;
-  --red:#ff433d;
-  --green:#00d46a;
-  --yellow:#f0c040;
-  --blue:#3b82f6;
-  --violet:#a855f7;
-  --gov:#a855f7;
+:root,
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg:#0c0e12;
+  --bg2:#11141a;
+  --card:#171a20;
+  --card2:#1d2129;
+  --panel2:#12151a;
+  --border:#2a2f39;
+  --border2:#373d49;
+  --line:#2a2f39;
+  --line-soft:#20242c;
+  --text:#f0f2f5;
+  --body:#f0f2f5;
+  --ink:#f0f2f5;
+  --text2:#c9ced7;
+  --muted:#9aa3b2;
+  --mut:#9aa3b2;
+  --dim:#6f7887;
+  --accent:#817cf3;
+  --accent-strong:#9b97ff;
+  --accent-soft:rgba(129,124,243,.13);
+  --accent-border:rgba(129,124,243,.36);
+  --glow:rgba(129,124,243,.20);
+  --green:#35c979;
+  --red:#ff6262;
+  --yellow:#f5ad42;
+  --blue:#5c92ff;
+  --violet:#b17cff;
+  --gov:#b17cff;
+  --header-bg:rgba(12,14,18,.88);
+  --overlay:rgba(0,0,0,.58);
+  --shadow-sm:0 1px 2px rgba(0,0,0,.24);
+  --shadow-md:0 10px 30px rgba(0,0,0,.28);
+  --shadow-lg:0 20px 56px rgba(0,0,0,.38);
+  --scroll-track:#0c0e12;
+  --scroll-thumb:#3c4350;
+  --surface-hover:#20242c;
+  --banner-mix:#171a20;
+  --banner-ink:#fff;
 }
 
-body{
+:root[data-theme="light"] {
+  color-scheme: light;
+  --bg:#f3f5f8;
+  --bg2:#e9edf2;
+  --card:#ffffff;
+  --card2:#f7f8fa;
+  --panel2:#f7f8fa;
+  --border:#d9dee7;
+  --border2:#c8d0dc;
+  --line:#d9dee7;
+  --line-soft:#e8ebf0;
+  --text:#171a21;
+  --body:#171a21;
+  --ink:#171a21;
+  --text2:#343a46;
+  --muted:#5f6878;
+  --mut:#5f6878;
+  --dim:#7b8493;
+  --accent:#5855c9;
+  --accent-strong:#4542b7;
+  --accent-soft:rgba(88,85,201,.10);
+  --accent-border:rgba(88,85,201,.28);
+  --glow:rgba(88,85,201,.15);
+  --green:#168449;
+  --red:#d23f43;
+  --yellow:#a96000;
+  --blue:#2463d4;
+  --violet:#7f46c8;
+  --gov:#7f46c8;
+  --header-bg:rgba(255,255,255,.90);
+  --overlay:rgba(18,22,30,.38);
+  --shadow-sm:0 1px 2px rgba(29,36,48,.08);
+  --shadow-md:0 12px 28px rgba(29,36,48,.11);
+  --shadow-lg:0 24px 52px rgba(29,36,48,.16);
+  --scroll-track:#edf0f4;
+  --scroll-thumb:#b9c1cd;
+  --surface-hover:#f0f2f6;
+  --banner-mix:#252932;
+  --banner-ink:#fff;
+}
+
+* { scrollbar-color:var(--scroll-thumb) var(--scroll-track); }
+html { background:var(--bg); }
+body {
   background:var(--bg);
   color:var(--body);
-  font-family:'JetBrains Mono','IBM Plex Sans Thai',ui-monospace,Menlo,monospace;
+  font-family:'Inter','IBM Plex Sans Thai','Segoe UI',system-ui,sans-serif;
   -webkit-font-smoothing:antialiased;
+  text-rendering:optimizeLegibility;
 }
-/* Thai text reads better in IBM Plex Sans Thai than in the mono face */
-.thai,.sub,.note,.info-strip,.statlabel,.bullets li{font-family:'IBM Plex Sans Thai','JetBrains Mono',sans-serif;}
+body::before { background:none !important; }
+h1,h2,h3,h4,h5,h6,.intro-title,.ph-title,.brand-name,.gbrand-text h1 { letter-spacing:0 !important; }
+.thai,.sub,.note,.info-strip,.statlabel,.bullets li {
+  font-family:'IBM Plex Sans Thai','Inter',system-ui,sans-serif;
+}
 
-::-webkit-scrollbar{width:8px;height:8px}
-::-webkit-scrollbar-track{background:#070707}
-::-webkit-scrollbar-thumb{background:rgba(255,176,0,.22)}
+::selection { background:var(--accent-border); color:var(--text); }
+::-webkit-scrollbar { width:9px; height:9px; }
+::-webkit-scrollbar-track { background:var(--scroll-track); }
+::-webkit-scrollbar-thumb { background:var(--scroll-thumb); border:2px solid var(--scroll-track); border-radius:8px; }
 
-/* bilingual toggle — pages provide .lx-en / .lx-th spans and a body.lang-en / .lang-th class */
-body.lang-en .lx-th{display:none}
-body.lang-th .lx-en{display:none}
-.langtoggle{background:var(--card);border:1px solid var(--line);color:var(--body);border-radius:8px;
-  padding:6px 12px;font:700 11px 'JetBrains Mono',monospace;cursor:pointer;letter-spacing:.04em}
-.langtoggle b{color:var(--gold)}
+a,button,input,select,textarea,summary,[tabindex] { -webkit-tap-highlight-color:transparent; }
+:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
+button,input,select,textarea { font-family:inherit; }
 
-/* "How this result is computed" methodology panel (shared across governance pages) */
-details.howto{margin:14px 0;border:1px solid var(--line);border-radius:10px;background:var(--card)}
-details.howto>summary{cursor:pointer;padding:11px 16px;font:700 13px 'JetBrains Mono',monospace;color:var(--gold);list-style:none}
-details.howto>summary::-webkit-details-marker{display:none}
-details.howto>summary:before{content:"▸ ";color:var(--gold)}
-details.howto[open]>summary:before{content:"▾ "}
-details.howto .howbody{padding:2px 18px 16px;font:400 12.5px/1.65 'IBM Plex Sans Thai','JetBrains Mono',sans-serif;color:var(--body)}
-details.howto .howbody b{color:var(--gold)}
-details.howto .howbody code{background:rgba(255,176,0,.1);padding:1px 5px;border-radius:4px;font-size:11.5px}
-details.howto .howbody ol,details.howto .howbody ul{margin:6px 0 6px 20px}
-details.howto .howbody li{margin:4px 0}
-details.howto .howbody .step{color:var(--gold);font-weight:700}
+/* Theme-independent surface corrections for legacy page-local hard-coded colors. */
+header,
+.gtopbar { background:var(--header-bg) !important; border-color:var(--border) !important; }
+.tab-bar,.filter-bar,.stats-bar,.is1d-tabs { background:var(--card) !important; border-color:var(--border) !important; }
+.tab:hover,.src-btn:hover,.sbtn:hover,.toggle-btn:hover,.gnav-home:hover,.gnav-btn:hover {
+  background:var(--surface-hover) !important;
+  color:var(--text) !important;
+}
+.tab.active,.src-btn.active,.sbtn.active,.toggle-btn.active {
+  background:var(--accent-soft) !important;
+  border-color:var(--accent-border) !important;
+  color:var(--text) !important;
+}
+input,select,textarea,#search,.search {
+  background:var(--bg2) !important;
+  color:var(--text) !important;
+  border-color:var(--border) !important;
+}
+input::placeholder,textarea::placeholder { color:var(--dim) !important; }
+thead th { background:var(--bg2); }
+tbody tr { transition:background-color .16s ease; }
+tbody tr:hover { background:var(--surface-hover) !important; }
+#overlay { background:var(--overlay) !important; }
+#drawer,.drawer { background:var(--bg2) !important; }
+
+/* Keep semantic alert colors readable in both themes. */
+:root { --crit:var(--red); --mat:var(--yellow); --low:var(--green); --routine:var(--muted); }
+.up,.pos,.gain { color:var(--green) !important; }
+.down,.neg,.loss { color:var(--red) !important; }
+
+/* Compact segmented theme control, inserted by theme.js. */
+.theme-switch {
+  display:inline-grid;
+  grid-template-columns:repeat(3,30px);
+  align-items:center;
+  height:30px;
+  padding:2px;
+  border:1px solid var(--border);
+  border-radius:8px;
+  background:var(--bg2);
+  box-shadow:var(--shadow-sm);
+  flex:0 0 auto;
+}
+.theme-switch button {
+  width:26px;
+  height:24px;
+  display:grid;
+  place-items:center;
+  padding:0;
+  border:0;
+  border-radius:5px;
+  color:var(--muted);
+  background:transparent;
+  cursor:pointer;
+  font:700 14px/1 'Inter',system-ui,sans-serif;
+  transition:background-color .16s ease,color .16s ease,box-shadow .16s ease,transform .16s ease;
+}
+.theme-switch button:hover { color:var(--text); transform:translateY(-1px); }
+.theme-switch button.active {
+  color:var(--accent-strong);
+  background:var(--card);
+  box-shadow:var(--shadow-sm);
+}
+.theme-switch .theme-auto { font-size:12px; }
+.theme-switch .theme-sun { font-size:15px; }
+.theme-switch .theme-moon { font-size:15px; }
+.theme-switch.theme-floating {
+  position:fixed;
+  top:16px;
+  right:16px;
+  z-index:500;
+}
+
+/* Existing language toggle now visually belongs to the same control rail. */
+.i18n-toggle,.langtoggle {
+  min-height:30px;
+  background:var(--bg2) !important;
+  color:var(--text) !important;
+  border-color:var(--border) !important;
+  border-radius:8px !important;
+  box-shadow:var(--shadow-sm);
+}
+.langtoggle b { color:var(--accent-strong); }
+body.lang-en .lx-th { display:none; }
+body.lang-th .lx-en { display:none; }
+
+/* Shared repeated items. Operational surfaces stay restrained and scannable. */
+.dash-card,.agent-card,.rm-card,.card,.icard,.alert-card,.filing,.item,.metric-section,.kpi,.hstat {
+  border-radius:8px !important;
+  box-shadow:var(--shadow-sm);
+  transition:border-color .18s ease,box-shadow .18s ease,transform .18s ease,background-color .22s ease;
+}
+.dash-card:hover,.agent-card:hover,.card:hover,.icard:hover,.alert-card:hover,.filing:hover,.item:hover {
+  border-color:color-mix(in srgb,var(--accent) 42%,var(--border)) !important;
+  box-shadow:var(--shadow-md);
+  transform:translateY(-2px);
+}
+.rm-card:hover,.kpi:hover,.hstat:hover,.metric-section:hover {
+  border-color:var(--border2) !important;
+  box-shadow:var(--shadow-md);
+}
+
+details.howto {
+  margin:14px 0;
+  border:1px solid var(--border);
+  border-radius:8px;
+  background:var(--card);
+}
+details.howto>summary {
+  cursor:pointer;
+  padding:11px 16px;
+  color:var(--accent-strong);
+  font:700 13px 'Inter','IBM Plex Sans Thai',system-ui,sans-serif;
+  list-style:none;
+}
+details.howto>summary::-webkit-details-marker { display:none; }
+details.howto>summary::before { content:'+'; display:inline-block; width:18px; color:var(--accent); }
+details.howto[open]>summary::before { content:'−'; }
+details.howto .howbody { padding:2px 18px 16px; color:var(--text2); font:400 12.5px/1.65 'IBM Plex Sans Thai','Inter',sans-serif; }
+details.howto .howbody b,.howbody .step { color:var(--accent-strong); }
+details.howto .howbody code { background:var(--accent-soft); padding:1px 5px; border-radius:4px; }
+
+/* Staged reveal. theme.js only adds motion-ready after the page can render. */
+.motion-ready .motion-reveal {
+  opacity:0;
+  transform:translateY(12px);
+}
+.motion-ready .motion-reveal.is-revealed {
+  opacity:1;
+  transform:none;
+  transition:opacity .48s cubic-bezier(.2,.75,.25,1),transform .48s cubic-bezier(.2,.75,.25,1);
+  transition-delay:calc(var(--motion-order,0) * 38ms);
+}
+.motion-ready .phbanner.is-revealed .ph-ico { animation:icon-settle .55s .08s cubic-bezier(.2,.9,.25,1.2) both; }
+@keyframes icon-settle { from { opacity:0; transform:scale(.82) rotate(-4deg); } to { opacity:1; transform:none; } }
+
+/* View Transition keeps theme changes coherent instead of flashing each surface. */
+::view-transition-old(root),::view-transition-new(root) { animation-duration:.24s; animation-timing-function:ease-out; }
+
+html.theme-changing *,html.theme-changing *::before,html.theme-changing *::after {
+  transition-property:background-color,border-color,color,box-shadow,fill,stroke !important;
+  transition-duration:.24s !important;
+  transition-timing-function:ease-out !important;
+}
+
+@media (max-width:900px) {
+  .theme-switch { grid-template-columns:repeat(3,28px); }
+  .theme-switch button { width:24px; }
+  header:not(.gtopbar) { flex-wrap:wrap; gap:9px; }
+  header:not(.gtopbar) nav.nav {
+    order:10;
+    flex:1 0 100%;
+    flex-wrap:nowrap;
+    overflow-x:auto;
+    padding-top:8px;
+    border-top:1px solid var(--border);
+    scrollbar-width:none;
+  }
+  header:not(.gtopbar) nav.nav::-webkit-scrollbar { display:none; }
+  header:not(.gtopbar) .gnav-home { display:none; }
+}
+
+@media (max-width:620px) {
+  .theme-switch { order:5; }
+  .motion-ready .motion-reveal { transform:translateY(8px); }
+}
+
+@media (prefers-reduced-motion:reduce) {
+  html { scroll-behavior:auto !important; }
+  *,*::before,*::after {
+    animation-duration:.01ms !important;
+    animation-iteration-count:1 !important;
+    scroll-behavior:auto !important;
+    transition-duration:.01ms !important;
+  }
+  .motion-ready .motion-reveal { opacity:1; transform:none; }
+}
