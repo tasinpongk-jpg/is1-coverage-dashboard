@@ -1,6 +1,11 @@
 # Exclude non-static files from the Cloudflare Workers asset upload.
 # Only HTML pages at root + data/*.json need to ship to the edge.
+.git
 .git/
+.wrangler/
+.DS_Store
+**/.DS_Store
+node_modules/
 .github/
 scripts/
 surveillance/
