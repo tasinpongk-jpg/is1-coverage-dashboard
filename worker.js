@@ -188,9 +188,16 @@ async function loadCovered(env, origin) {
 // symbols so users can type cpn as naturally as CPN. Single-letter symbols must
 // stay uppercase so the m in contractions such as I'm is not treated as M.
 function coveredIn(text, covered) {
+  const source = String(text || "");
   const out = new Set();
-  for (const raw of String(text || "").match(/\b[A-Z][A-Z0-9]{0,7}\b/gi) || []) {
+  for (const match of source.matchAll(/\b[A-Z][A-Z0-9]{0,7}\b/gi)) {
+    const raw = match[0];
     if (raw.length === 1 && raw !== raw.toUpperCase()) continue;
+    if (raw.length === 1) {
+      const before = source[match.index - 1] || "";
+      const after = source[match.index + 1] || "";
+      if (before === "&" || before === "/" || after === "&" || after === "/") continue;
+    }
     const tok = raw.toUpperCase();
     if (covered.has(tok)) out.add(tok);
   }

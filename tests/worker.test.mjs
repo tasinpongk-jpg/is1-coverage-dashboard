@@ -418,6 +418,24 @@ test("output verification flags an ungrounded ticker the model invents", async (
   } finally { env.MINIMAX_FETCH = saved; }
 });
 
+test("output verification does not treat MD&A as ticker A", async () => {
+  const saved = env.MINIMAX_FETCH;
+  env.MINIMAX_FETCH = async (_url, opts) => {
+    const body = JSON.parse(opts.body);
+    lastSystem = body.messages[0].content;
+    return new Response(JSON.stringify({
+      model: "MiniMax-M3",
+      choices: [{ message: { content: "Review the MD&A filing." } }],
+      base_resp: { status_code: 0, status_msg: "" },
+    }), { headers: { "Content-Type": "application/json" } });
+  };
+  try {
+    const r = await worker.fetch(chatReq({ agent: "hermes", messages: [{ role: "user", content: "news on CPN" }] }), env);
+    const d = await r.json();
+    assert.equal(d.reply, "Review the MD&A filing.");
+  } finally { env.MINIMAX_FETCH = saved; }
+});
+
 test("agents are told to use ticker symbols only, never expand to company names", async () => {
   for (const agent of ["atlas", "hermes", "pythia"]) {
     await worker.fetch(chatReq({ agent, messages: userMsg }), env);
