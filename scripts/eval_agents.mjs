@@ -37,7 +37,7 @@ function loadToken() {
 
 const TOKEN = loadToken();
 const URL = (process.env.IS1_DASHBOARD_URL || "https://is1-coverage-dashboard.tasinpong-k.workers.dev").replace(/\/$/, "") + "/api/chat";
-const RM = process.env.IS1_RM || "Champ";
+const RM = process.env.IS1_RM || "C";
 
 async function ask(agent, content) {
   const r = await fetch(URL, {
