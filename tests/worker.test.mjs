@@ -182,6 +182,27 @@ test("chat converts MiniMax upstream failures and empty answers to 502", async (
   assert.equal(r.status, 502);
 });
 
+test("chat retries an empty MiniMax answer with a larger token budget", async () => {
+  const budgets = [];
+  const r = await worker.fetch(chatReq({ agent: "atlas", messages: userMsg }), {
+    ...env,
+    MINIMAX_FETCH: async (_url, opts) => {
+      budgets.push(JSON.parse(opts.body).max_tokens);
+      return new Response(JSON.stringify({
+        model: "MiniMax-M3",
+        choices: [{
+          finish_reason: budgets.length === 1 ? "length" : "stop",
+          message: { content: budgets.length === 1 ? "" : "recovered-reply" },
+        }],
+        base_resp: { status_code: 0, status_msg: "" },
+      }), { headers: { "Content-Type": "application/json" } });
+    },
+  });
+  assert.equal(r.status, 200);
+  assert.equal((await r.json()).reply, "recovered-reply");
+  assert.deepEqual(budgets, [2200, 5000]);
+});
+
 test("unknown agent falls back to atlas", async () => {
   const r = await worker.fetch(chatReq({ agent: "zeus", messages: userMsg }), env);
   assert.equal((await r.json()).agent, "atlas");

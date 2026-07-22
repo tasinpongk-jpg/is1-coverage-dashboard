@@ -119,6 +119,7 @@ Real bugs found by **live-testing the deployed model**, not assuming:
 | Gemini summaries truncated to "…filed" | `gemini-2.5-flash` is a **thinking model**; thinking tokens ate the `maxOutputTokens` budget | `thinkingConfig.thinkingBudget=0` + bigger cap |
 | Lex failed in production without a Gemini secret | its only retrieval/generation path depended on Gemini File Search | build a page-level corpus locally; retrieve in the Worker; answer through the existing MiniMax M3 secret |
 | Lex returned an empty Thai free-float answer | MiniMax reasoning consumed the default 2,200-token output budget | use a Lex-specific 5,000-token budget and constrain the final answer to 350 words |
+| A normal Hermes sample intermittently returned an empty answer | MiniMax can spend the whole output budget on reasoning for any agent | retry empty-only responses once at 5,000 tokens; Lex retries at 8,000 |
 | Thai user got an English cached summary | cache key ignored language | key includes `lang` |
 | A passing test silently broke | persona text contained the literal string a test split on (`SET DISCLOSURES`, `FILED-DOCUMENT…`) | anchor tests on data-only markers |
 | Feedback verification looked broken for ~40 min | the deploy CLI's KV reads were an unreliable narrator (sandbox/consistency); data was always landing | confirmed in dashboard + via the worker's own export endpoint |
@@ -151,7 +152,7 @@ Real bugs found by **live-testing the deployed model**, not assuming:
 - Atlas threshold/range/top-N now deterministically correct; intraday answered.
 - Hermes merges both news sources, scopes per-ticker, summarizes real PDFs
   (verified rich numeric output in EN + TH).
-- 41 unit tests cover theme assets, chat routing, source retrieval, citation
+- 42 unit tests cover theme assets, chat routing, empty-answer recovery, source retrieval, citation
   validation and deterministic context logic.
 - Measurement (eval + judge + gate) and feedback (votes + miner) loops in place.
 
