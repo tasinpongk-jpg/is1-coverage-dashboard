@@ -146,7 +146,7 @@ Real bugs found by **live-testing the deployed model**, not assuming:
 ## 6. Results
 
 - All 13 suggestion-chip questions across the 4 agents are covered by the live
-  eval harness; the latest MiniMax M3 run passed **49/49** property checks.
+  eval harness; the latest production MiniMax M3 run passed **50/50** property checks.
 - Lex indexes 79 source PDFs into 560 page records and 561 retrieval chunks;
   all 3 Lex suggestion questions return page citations through MiniMax M3.
 - Atlas threshold/range/top-N now deterministically correct; intraday answered.
