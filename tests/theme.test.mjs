@@ -8,8 +8,8 @@ test("every page loads the appearance runtime before the shared theme", async ()
   assert.ok(htmlFiles.length >= 17, "expected the full dashboard page set");
   for (const file of htmlFiles) {
     const source = await readFile(file, "utf8");
-    const runtime = source.indexOf('src="theme.js"');
-    const styles = source.indexOf('href="theme.css"');
+    const runtime = source.search(/src="theme\.js(?:\?[^"#]*)?"/);
+    const styles = source.search(/href="theme\.css(?:\?[^"#]*)?"/);
     assert.ok(runtime >= 0, `${file} must load theme.js`);
     assert.ok(styles >= 0, `${file} must load theme.css`);
     assert.ok(runtime < styles, `${file} must apply the saved theme before shared CSS`);

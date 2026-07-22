@@ -51,7 +51,7 @@ grounded in a different data slice:
 |---|---|---|
 | ⚡ Hermes | News & catalysts, Form 59 trades, silent filers, Oppday | `external-news`, `disclosure-pulse`, `sec-form59`, `oppday-minutes` |
 | 🗺 Atlas | Prices, movers, alerts, threshold math | `morning-brief`, `tickers`, `unusual-trading` |
-| 🔮 Pythia | Macro & sector view | sector aggregates, `ai-insights` |
+| Pythia | IS1 sector performance, breadth and relative ranking | verified calculator over `morning-brief` |
 | ⚖️ Lex | SET/SEC rules & disclosure obligations | `lex-regulations.json` built from regulation PDFs (page-cited) |
 
 This dashboard pairs with a private local CLI (`~/VSCoder/AI Agent`) that reads

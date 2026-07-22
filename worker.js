@@ -12,7 +12,7 @@
  *
  *   atlas  — market data: prices, movers, alerts, strict threshold math
  *   hermes — news messenger: external news, disclosures, oppday minutes
- *   pythia — macro/sector: AI commentary, sector aggregates
+ *   pythia — IS1 sector screens: performance, breadth, relative ranking
  *   lex     — SET/SEC rules: deterministic retrieval over page-level PDF text
  *
  * Gated by a shared token: Authorization: Bearer <CHAT_TOKEN worker secret>.
@@ -34,7 +34,6 @@ const VALID_RMS = new Set(["C", "K", "O", "G", "P", "T"]);
 const LEX_CORPUS = "lex-regulations";
 const LEX_MAX_CHUNKS = 8;
 const LEX_MAX_CHUNKS_PER_DOCUMENT = 3;
-const GEMINI_PDF_MODEL = "gemini-2.5-flash";
 const LEX_SYSTEM =
   "You are Lex, the rules & regulations agent on the IS1 coverage dashboard. " +
   "You answer questions about SET/SEC listing rules, disclosure obligations and " +
@@ -190,6 +189,26 @@ async function loadJson(env, origin, name) {
   return r.ok ? r.json() : null;
 }
 
+async function chatResponseMeta(env, origin, agent) {
+  const files = agent === "atlas"
+    ? ["morning-brief", "unusual-trading"]
+    : agent === "hermes"
+      ? ["external-news", "disclosure-pulse", "sec-form59", "oppday-minutes"]
+      : agent === "pythia"
+        ? ["morning-brief"]
+        : [LEX_CORPUS];
+  const snapshots = await Promise.all(files.map((name) => loadJson(env, origin, name)));
+  const dates = snapshots
+    .map((data) => data?.asOf || data?.builtAt || data?._built_at || null)
+    .filter(Boolean)
+    .map((value) => String(value).slice(0, 10))
+    .sort();
+  return {
+    asOf: dates[0] || null,
+    sources: files,
+  };
+}
+
 async function loadCovered(env, origin) {
   const tickers = await loadJson(env, origin, "tickers");
   return new Set((tickers?.tickers || []).map((t) => t.tk));
@@ -204,6 +223,7 @@ function coveredIn(text, covered) {
   for (const match of source.matchAll(/\b[A-Z][A-Z0-9]{0,7}\b/gi)) {
     const raw = match[0];
     if (raw.length === 1 && raw !== raw.toUpperCase()) continue;
+    if (raw.toUpperCase() === "PF" && /^\s*&\s*REIT\b/i.test(source.slice(match.index + raw.length))) continue;
     if (raw.length === 1) {
       const before = source[match.index - 1] || "";
       const after = source[match.index + 1] || "";
@@ -392,6 +412,12 @@ function parseSector(text) {
   return null;
 }
 
+function canonicalSector(value) {
+  return String(value || "").toUpperCase().replace(/\s+/g, "") === "PFREIT"
+    ? "PF&REIT"
+    : String(value || "").toUpperCase();
+}
+
 // Structural/query words that must NOT count as topical keywords.
 const STOPWORDS = new Set((
   "news update updates latest recent recently happening happened give show tell about what which whats " +
@@ -487,7 +513,7 @@ async function ctxPrices(env, origin, _userRm, focus, q) {
   // reads top-down; for a parsed screen, hard-filter so it can only narrate.
   let rows = (brief?.rows || []).slice().sort((a, b) => Math.abs(sortVal(b)) - Math.abs(sortVal(a)));
   if (focus && focus.size) rows = rows.filter((r) => focus.has(r.tk));
-  else if (q?.sector) rows = rows.filter((r) => (cov[r.tk]?.sector || r.sector) === q.sector);
+  else if (q?.sector) rows = rows.filter((r) => canonicalSector(cov[r.tk]?.sector || r.sector) === q.sector);
   let note = `Rows are sorted by |${mlabel}| descending (biggest movers first).` +
     (q?.sector && !(focus && focus.size) ? ` Scoped to the ${q.sector} sector.` : "");
   if (pq?.mode === "threshold") {
@@ -560,7 +586,7 @@ async function ctxNews(env, origin, userRm, focus, q) {
   // model never pads "news on CPN" with unrelated names. Else, scope to a sector
   // if one was named.
   if (focused) items = items.filter((n) => focus.has(n.tk));
-  else if (q?.sector) items = items.filter((n) => n.sector === q.sector);
+  else if (q?.sector) items = items.filter((n) => canonicalSector(n.sector) === q.sector);
   const recency = q?.recency;
   if (recency) items = withinDays(items, recency.days, (n) => n.ts);
   // Rank-then-cap on topical keywords so a relevant item beyond the recency cap
@@ -590,7 +616,7 @@ async function ctxFilings(env, origin, userRm, focus, q) {
   let filings = pulse?.filings || [];
   const focused = focus && focus.size;
   if (focused) filings = filings.filter((f) => focus.has(f.tk));
-  else if (q?.sector) filings = filings.filter((f) => f.sector === q.sector);
+  else if (q?.sector) filings = filings.filter((f) => canonicalSector(f.sector) === q.sector);
   const recency = q?.recency;
   if (recency) filings = withinDays(filings, recency.days, (f) => f.ts);
   const topic = !focused && q?.topic?.length ? q.topic : null;
@@ -672,19 +698,170 @@ async function ctxInsights(env, origin) {
 
 async function ctxSectorAgg(env, origin) {
   const brief = await loadJson(env, origin, "morning-brief");
-  const by = {};
-  for (const r of brief?.rows || []) {
-    if (r.pct1d == null || !r.sector) continue;
-    (by[r.sector] ||= []).push(r);
-  }
+  const metrics = buildSectorMetrics(brief);
   const lines = [`SECTOR AGGREGATES (from morning brief, asOf ${brief?.asOf || "?"}):`];
-  for (const [sec, rows] of Object.entries(by)) {
-    const avg = (k) => (rows.reduce((s, r) => s + (r[k] || 0), 0) / rows.length).toFixed(2);
-    const up = rows.filter((r) => r.pct1d > 0).length;
-    lines.push(`${sec}: ${rows.length} names, avg 1d ${avg("pct1d")}%, avg ytd ${avg("pctYtd")}%, ` +
-      `breadth ${up}/${rows.length} up`);
+  for (const row of metrics) {
+    lines.push(`${row.sector}: ${row.count1d} names with 1d data, avg 1d ${fmtPct(row.avg1d)}, ` +
+      `median 1d ${fmtPct(row.median1d)}, avg 5d ${fmtPct(row.avg5d)}, ` +
+      `avg YTD ${fmtPct(row.avgYtd)}, breadth ${row.up}/${row.count1d} up`);
   }
   return lines.join("\n");
+}
+
+function finiteValues(rows, key) {
+  return rows
+    .map((row) => row[key])
+    .filter((value) => value !== null && value !== undefined && value !== "" && Number.isFinite(Number(value)))
+    .map(Number);
+}
+
+function hasFiniteValue(value) {
+  return value !== null && value !== undefined && value !== "" && Number.isFinite(Number(value));
+}
+
+function average(values) {
+  return values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : null;
+}
+
+function median(values) {
+  if (!values.length) return null;
+  const sorted = [...values].sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+}
+
+function fmtPct(value) {
+  if (!Number.isFinite(value)) return "n/a";
+  return `${value >= 0 ? "+" : ""}${value.toFixed(2)}%`;
+}
+
+export function buildSectorMetrics(brief) {
+  const grouped = new Map();
+  for (const row of brief?.rows || []) {
+    const sector = canonicalSector(row.sector);
+    if (!sector) continue;
+    if (!grouped.has(sector)) grouped.set(sector, []);
+    grouped.get(sector).push(row);
+  }
+  return [...grouped.entries()].map(([sector, rows]) => {
+    const oneDay = finiteValues(rows, "pct1d");
+    const fiveDay = finiteValues(rows, "pct5d");
+    const ytd = finiteValues(rows, "pctYtd");
+    const ranked = rows.filter((row) => hasFiniteValue(row.pct1d))
+      .sort((a, b) => Number(b.pct1d) - Number(a.pct1d));
+    return {
+      sector,
+      count: rows.length,
+      count1d: oneDay.length,
+      avg1d: average(oneDay),
+      median1d: median(oneDay),
+      avg5d: average(fiveDay),
+      avgYtd: average(ytd),
+      up: oneDay.filter((value) => value > 0).length,
+      down: oneDay.filter((value) => value < 0).length,
+      flat: oneDay.filter((value) => value === 0).length,
+      breadth: oneDay.length ? oneDay.filter((value) => value > 0).length / oneDay.length : null,
+      top: ranked[0] || null,
+      bottom: ranked.at(-1) || null,
+    };
+  }).sort((a, b) => (b.avg1d ?? -Infinity) - (a.avg1d ?? -Infinity));
+}
+
+function pythiaTable(metrics, lang) {
+  const thai = lang === "th";
+  const head = thai
+    ? "| Sector | เฉลี่ย 1 วัน | มัธยฐาน 1 วัน | เฉลี่ย 5 วัน | เฉลี่ย YTD | Breadth |"
+    : "| Sector | Avg 1d | Median 1d | Avg 5d | Avg YTD | Breadth |";
+  const align = "|---|---:|---:|---:|---:|---:|";
+  const rows = metrics.map((row) =>
+    `| ${row.sector} | ${fmtPct(row.avg1d)} | ${fmtPct(row.median1d)} | ${fmtPct(row.avg5d)} | ` +
+    `${fmtPct(row.avgYtd)} | ${row.up}/${row.count1d} |`);
+  return [head, align, ...rows].join("\n");
+}
+
+function pythiaSupportedPrompts(lang) {
+  return lang === "th"
+    ? [
+      "จัดอันดับ 6 sector ใน IS1 coverage ตามผลตอบแทน 1 วันและ breadth",
+      "เปรียบเทียบ FOOD, PROP และ PF&REIT ทั้ง 1 วัน 5 วัน และ YTD",
+      "Sector ไหนมี breadth อ่อนที่สุดวันนี้",
+    ]
+    : [
+      "Rank all 6 IS1 sectors by 1-day return and breadth",
+      "Compare FOOD, PROP and PF&REIT on 1-day, 5-day and YTD performance",
+      "Which sectors have the weakest breadth today",
+    ];
+}
+
+function pythiaScopeReply(lang, asOf) {
+  const prompts = pythiaSupportedPrompts(lang);
+  if (lang === "th") {
+    return `Pythia ไม่มีข้อมูล SET Index, fund flow, macro forecast หรือข้อมูลอนาคตใน snapshot ${asOf || "ล่าสุด"}\n\n` +
+      `คำถามที่ตอบได้จากข้อมูลจริง:\n${prompts.map((prompt) => `• ${prompt}`).join("\n")}`;
+  }
+  return `Pythia does not have SET Index, fund-flow, macro-forecast or future data in the ${asOf || "latest"} snapshot.\n\n` +
+    `Questions supported by the current data:\n${prompts.map((prompt) => `• ${prompt}`).join("\n")}`;
+}
+
+async function handlePythia(env, origin, cleaned) {
+  const question = cleaned.at(-1)?.content || "";
+  const lang = /[฀-๿]/.test(question) ? "th" : "en";
+  const brief = await loadJson(env, origin, "morning-brief");
+  const metrics = buildSectorMetrics(brief);
+  const unsupported = /\b(?:set\s*(?:index|50|100)|foreign (?:fund )?flow|fund flow|interest rate|gdp|fx|exchange rate|oil price|forecast|target price|next week|next month)\b|ต่างชาติ|ซื้อสุทธิ|ขายสุทธิ|ดอกเบี้ย|จีดีพี|ค่าเงินบาท|ราคาน้ำมัน|คาดการณ์|แนวโน้ม|ราคาเป้าหมาย|สัปดาห์หน้า|เดือนหน้า/iu;
+  if (unsupported.test(question)) {
+    return { reply: pythiaScopeReply(lang, brief?.asOf), model: "deterministic", asOf: brief?.asOf };
+  }
+
+  const coreCompare = /compare[\s\S]*(?:food|prop|reit)|เปรียบเทียบ[\s\S]*(?:food|prop|reit)/iu.test(question);
+  const weakBreadth = /weak(?:est)? breadth|breadth[\s\S]*(?:weak|low)|breadth[\s\S]*(?:อ่อน|แย่)|(?:อ่อน|แย่)[\s\S]*breadth/iu.test(question);
+  const leaderboard = /lead|lag|rank|leaderboard|sector[\s\S]*(?:today|performance)|จัดอันดับ|sector[\s\S]*(?:นำ|รั้งท้าย|วันนี้)|ภาพรวม[\s\S]*(?:coverage|sector)/iu.test(question);
+  const namedSector = parseSector(question);
+
+  let selected = metrics;
+  let lead = "";
+  if (coreCompare) {
+    const core = new Set(["FOOD", "PROP", "PF&REIT"]);
+    selected = metrics.filter((row) => core.has(row.sector));
+    lead = lang === "th"
+      ? `เปรียบเทียบ 3 กลุ่มหลักใน IS1 coverage ณ ${brief?.asOf || "?"}`
+      : `Core-sector comparison for IS1 coverage as of ${brief?.asOf || "?"}`;
+  } else if (weakBreadth) {
+    selected = [...metrics].sort((a, b) => (a.breadth ?? Infinity) - (b.breadth ?? Infinity));
+    lead = lang === "th"
+      ? `เรียงจาก breadth อ่อนที่สุด ณ ${brief?.asOf || "?"}`
+      : `Ranked from weakest breadth as of ${brief?.asOf || "?"}`;
+  } else if (namedSector) {
+    selected = metrics.filter((row) => row.sector === namedSector);
+    const row = selected[0];
+    if (row) {
+      const movers = row.top && row.bottom
+        ? `${row.top.tk} ${fmtPct(Number(row.top.pct1d))}; ${row.bottom.tk} ${fmtPct(Number(row.bottom.pct1d))}`
+        : "n/a";
+      lead = lang === "th"
+        ? `${namedSector} ณ ${brief?.asOf || "?"} ตัวเด่น/อ่อนสุด: ${movers}`
+        : `${namedSector} as of ${brief?.asOf || "?"}. Top/bottom 1d: ${movers}`;
+    }
+  } else if (leaderboard) {
+    lead = lang === "th"
+      ? `อันดับ sector ใน IS1 coverage ณ ${brief?.asOf || "?"} ตามค่าเฉลี่ย 1 วัน`
+      : `IS1 coverage sector ranking as of ${brief?.asOf || "?"}, sorted by equal-weight 1-day average`;
+  } else {
+    return {
+      reply: pythiaScopeReply(lang, brief?.asOf),
+      model: "deterministic",
+      asOf: brief?.asOf,
+    };
+  }
+
+  const note = lang === "th"
+    ? "คำนวณจากหุ้นที่มีข้อมูลในแต่ละ metric เท่านั้น จึงไม่แทนภาพ SET ทั้งตลาด"
+    : "Each metric uses only tickers with available values; this is not the full SET market.";
+  return {
+    reply: `${lead}\n\n${pythiaTable(selected, lang)}\n\n${note}`,
+    model: "deterministic",
+    asOf: brief?.asOf,
+  };
 }
 
 // ---------------------------------------------------------- Lex retrieval
@@ -969,26 +1146,75 @@ const AGENTS = {
   },
   pythia: {
     persona:
-      "You are Pythia, the macro and sector strategist on the IS1 coverage " +
-      "dashboard. You read sector aggregates and the daily AI commentary to " +
-      "answer top-down questions: which sectors lead or lag, what matters for " +
-      "FOOD/PROP/PF&REIT, what to watch this week.\n" +
+      "You are Pythia, the IS1 sector analyst on the coverage dashboard. " +
+      "You answer only from sector aggregates and daily coverage snapshots. " +
+      "You do not have SET Index, fund-flow, macro forecasts, target prices or " +
+      "future data. Redirect those requests to a supported sector screen.\n" +
       "RANK FROM THE NUMBERS: 'leads/lags' questions are answered by sorting " +
       "the SECTOR AGGREGATES on the metric asked (default avg 1d), naming the " +
       "exact figure and the breadth (e.g. 'FOOD +0.8%, breadth 9/12 up'). " +
       "Never assert a ranking the aggregates do not support.\n" +
-      "SEPARATE FACT FROM VIEW: numbers come from SECTOR AGGREGATES; any " +
-      "outlook, theme or 'watch' call must be attributed to TODAY'S AI " +
-      "COMMENTARY ('the daily AI take flags…'). If the commentary is silent on " +
-      "something, say it is your read of the aggregates, not a house view — " +
-      "and never invent a catalyst that is not in the data.\n" +
+      "SEPARATE FACT FROM VIEW: numbers come from SECTOR AGGREGATES. Do not " +
+      "convert relative performance into a market or macro conclusion. Never " +
+      "invent a catalyst that is not in the data.\n" +
       "EXAMPLE — user: 'which sector leads and which lags today?':\n" +
       "As of 2026-06-13: PF&REIT leads (avg 1d +0.9%, breadth 7/8 up); PROP " +
-      "lags (avg 1d -0.6%, breadth 3/11 up). The daily AI take ties PROP's " +
-      "softness to the BoT rate hold. FOOD is middling (+0.1%, 6/12 up).\n",
-    contexts: [ctxCoverage, ctxSectorAgg, ctxInsights],
+      "lags (avg 1d -0.6%, breadth 3/11 up). FOOD is middling (+0.1%, 6/12 up).\n",
+    contexts: [ctxCoverage, ctxSectorAgg],
   },
 };
+
+function needsHermesSections(text) {
+  return /\bnews\b|ข่าว/iu.test(String(text || ""));
+}
+
+function normalizeHermesSections(reply) {
+  let out = String(reply || "");
+  if (!out.includes("📰")) {
+    out = out.replace(
+      /(^|\n)(\s*(?:#{1,4}\s*)?)(?:external\s+news|ข่าวภายนอก|ข่าวจากภายนอก)(\s*[:：-]?)/iu,
+      "$1$2📰 External news$3",
+    );
+  }
+  if (!out.includes("📄")) {
+    out = out.replace(
+      /(^|\n)(\s*(?:#{1,4}\s*)?)(?:set\s+disclosures?|disclosures?|การเปิดเผยข้อมูล(?:ต่อตลาดหลักทรัพย์)?|ข่าว\s*SET)(\s*[:：-]?)/iu,
+      "$1$2📄 SET disclosures$3",
+    );
+  }
+  return out;
+}
+
+function hasHermesSections(reply) {
+  return String(reply || "").includes("📰") && String(reply || "").includes("📄");
+}
+
+function contextSectionRows(context, start, end) {
+  const source = String(context || "");
+  const from = source.indexOf(start);
+  if (from < 0) return [];
+  const tail = source.slice(from + start.length);
+  const to = end ? tail.indexOf(end) : -1;
+  return (to >= 0 ? tail.slice(0, to) : tail)
+    .split("\n")
+    .map((line) => line.trim().replace(/\s+rm=[A-Z]\b/g, ""))
+    .filter((line) => /^\d{4}-\d{2}-\d{2}\s/.test(line));
+}
+
+function hermesDeterministicFallback(context, question) {
+  const thai = /[฀-๿]/.test(String(question || ""));
+  const news = contextSectionRows(context, "EXTERNAL NEWS", "SET DISCLOSURES").slice(0, 8);
+  const filings = contextSectionRows(context, "SET DISCLOSURES", "SEC FORM 59").slice(0, 8);
+  const none = thai ? "• ไม่พบรายการใน snapshot ที่เลือก" : "• None in the selected snapshot";
+  const bullets = (rows) => rows.length ? rows.map((line) => `• ${line}`).join("\n") : none;
+  return `📰 External news\n${bullets(news)}\n\n📄 SET disclosures\n${bullets(filings)}`;
+}
+
+function ensureAsOf(reply, asOf, question) {
+  if (!asOf || String(reply || "").includes(asOf)) return reply;
+  const label = /[฀-๿]/.test(String(question || "")) ? "ข้อมูล ณ" : "Data as of";
+  return `${String(reply || "").trim()}\n\n${label} ${asOf}`;
+}
 
 // Lex retrieves the most relevant rulebook pages locally, then asks MiniMax M3
 // to answer only from those pages. The deterministic source list makes every
@@ -1025,142 +1251,14 @@ async function handleLex(env, origin, cleaned, rm) {
     ...cleaned,
   ], { maxTokens: 5000, temperature: 0.1 });
   const citedReply = resolveLexCitations(result.reply, chunks);
-  return { reply: appendLexSources(citedReply, chunks), model: result.model };
-}
-
-// ---------------------------------------------------- on-demand PDF summaries
-//
-// Canonical recipe + gotchas: INTEGRATION.md §2 (shared with the AI Agent CLI's
-// filing_tools.py — keep the two in sync).
-//
-// Hermes can summarize the ACTUAL filed document, not just its headline. SET
-// serves a newsdetails HTML page (the filing.url) that links the real PDF on
-// weblink.set.or.th; the PDF goes straight to Gemini (which reads PDFs natively
-// — no JS PDF parser needed). Summaries are cached by SET news id so a document
-// is fetched once. Header-only fetch clears SET's bot wall from a normal IP;
-// if Cloudflare egress is challenged, every step fails soft and Hermes simply
-// reports it couldn't open the document.
-
-const SET_HEADERS = {
-  "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 " +
-    "(KHTML, like Gecko) Chrome/124.0 Safari/537.36",
-  "Referer": "https://www.set.or.th/en/market/news-and-alert/news",
-  "Origin": "https://www.set.or.th",
-};
-
-// "summarize / explain / detail / what does it say" — Thai and English.
-function wantsDocSummary(text) {
-  return /\b(summar(?:y|ise|ize|ising|izing)|explain|detail|details|breakdown|full text|what (?:does|do|did)\b.*\bsay)\b/i
-    .test(String(text || "")) || /สรุป|รายละเอียด|อธิบาย|เนื้อหา/.test(String(text || ""));
-}
-
-function bytesToBase64(bytes) {
-  let out = "";
-  const chunk = 0x8000;
-  for (let i = 0; i < bytes.length; i += chunk) {
-    out += String.fromCharCode.apply(null, bytes.subarray(i, i + chunk));
-  }
-  return btoa(out);
-}
-
-async function resolvePdfUrl(newsUrl) {
-  if (!newsUrl) return null;
-  const r = await fetch(newsUrl, { headers: SET_HEADERS });
-  if (!r.ok) return null;
-  const html = await r.text();
-  const m = html.match(/https?:\/\/weblink\.set\.or\.th\/[^\s"'<>]+\.pdf/i);
-  return m ? m[0] : null;
-}
-
-// Returns a short summary string for one filing, or null if the document can't
-// be retrieved. Cached in the colo Cache API by news id.
-async function summarizeFiling(env, filing, lang) {
-  if (!env.GEMINI_API_KEY || !filing?.url) return null;
-  const cache = caches.default;
-  // v2: v1 entries were truncated by gemini-2.5-flash thinking-token budget.
-  // Key includes lang so an EN and a TH asker each get their own summary.
-  const cacheKey = new Request(
-    `https://is1-doc-summary/v2/${lang}/${filing._id || encodeURIComponent(filing.url)}`);
-  const cached = await cache.match(cacheKey);
-  if (cached) return await cached.text();
-
-  const pdfUrl = await resolvePdfUrl(filing.url);
-  if (!pdfUrl) return null;
-  const pr = await fetch(pdfUrl, { headers: SET_HEADERS });
-  if (!pr.ok) return null;
-  const buf = new Uint8Array(await pr.arrayBuffer());
-  if (buf.length < 1000 || buf.length > 15_000_000) return null; // empty / too big
-
-  const prompt =
-    "Summarize this SET (Stock Exchange of Thailand) disclosure document for a " +
-    "relationship manager. Output ONLY 3-4 tight bullets — no preamble, no " +
-    "'here is a summary', start directly with the first '•'. Cover: what was " +
-    "filed, the key numbers / decisions / dates, and why a client might care. " +
-    "EACH bullet MUST carry a concrete figure, date or decision from the " +
-    "document (e.g. revenue/profit value, % change, THB amount, board resolution, " +
-    "ex-date) — no vague 'filed its MD&A' lines. Use only what the document says. " +
-    "Write in " + (lang === "th" ? "Thai." : "English.");
-  const body = {
-    contents: [{ role: "user", parts: [
-      { inline_data: { mime_type: "application/pdf", data: bytesToBase64(buf) } },
-      { text: prompt },
-    ] }],
-    // gemini-2.5-flash is a thinking model: thinking tokens count against
-    // maxOutputTokens, so a low cap starves the actual text. Disable thinking
-    // (summarization needs none) and give the output real room.
-    generationConfig: {
-      temperature: 0.2,
-      maxOutputTokens: 1024,
-      thinkingConfig: { thinkingBudget: 0 },
+  return {
+    reply: appendLexSources(citedReply, chunks),
+    model: result.model,
+    meta: {
+      asOf: String(corpus.builtAt || "").slice(0, 10) || null,
+      sources: [LEX_CORPUS],
     },
   };
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_PDF_MODEL}:generateContent?key=${env.GEMINI_API_KEY}`;
-  const init = { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) };
-  let txt = "";
-  for (let attempt = 0; attempt < 2 && !txt; attempt++) { // one retry absorbs cold transients
-    try {
-      const gr = await fetch(url, init);
-      if (!gr.ok) continue;
-      const data = await gr.json();
-      txt = ((data.candidates || [])[0]?.content?.parts || [])
-        .map((p) => p.text).filter(Boolean).join("").trim();
-    } catch { /* retry */ }
-  }
-  if (!txt) return null;
-  await cache.put(cacheKey, new Response(txt, { headers: { "Cache-Control": "max-age=2592000" } }));
-  return txt;
-}
-
-// Build the full Hermes reply for a "summarize the filing" request directly
-// from Gemini's PDF summaries (newest 1-2 filings for the focused ticker), plus
-// an overdue-status line. Returns null if no PDF could be opened, so the caller
-// can fall back to the chat model. Summaries run in parallel; cached by news id.
-async function buildDocSummaryReply(env, origin, focus, lang) {
-  const pulse = await loadJson(env, origin, "disclosure-pulse");
-  const cand = (pulse?.filings || [])
-    .filter((f) => focus.has(f.tk))
-    .sort((a, b) => Date.parse(b.ts || 0) - Date.parse(a.ts || 0))
-    .slice(0, 2);
-  if (!cand.length) return null;
-  const sums = await Promise.all(cand.map(async (f) => {
-    const s = await summarizeFiling(env, f, lang);
-    return s ? { f, s } : null;
-  }));
-  const got = sums.filter(Boolean);
-  if (!got.length) return null;
-
-  const tks = [...focus].join(", ");
-  let reply = `📄 ${tks} — summarized from the filed PDF:\n`;
-  for (const { f, s } of got) {
-    reply += `\n${(f.ts || "").slice(0, 10)} — ${f.title}\n${s.trim()}\n`;
-  }
-  const overdue = (pulse?.status || []).filter((x) => x.overdue && focus.has(x.tk));
-  if (overdue.length) {
-    reply += "\n⏳ " + overdue
-      .map((x) => `${x.tk} silent ${x.silentDays}d (last filed ${(x.lastFiledTs || "?").slice(0, 10)})`)
-      .join("; ");
-  }
-  return reply.trim();
 }
 
 async function handleChat(request, env, origin) {
@@ -1189,7 +1287,18 @@ async function handleChat(request, env, origin) {
 
   if (agentName === "lex") {
     const result = await handleLex(env, origin, cleaned, rm);
-    return json({ reply: result.reply, agent: "lex", model: result.model });
+    return json({ reply: result.reply, agent: "lex", model: result.model, meta: result.meta });
+  }
+  if (agentName === "pythia") {
+    const direct = await handlePythia(env, origin, cleaned);
+    if (direct) {
+      return json({
+        reply: direct.reply,
+        agent: "pythia",
+        model: direct.model,
+        meta: { asOf: direct.asOf || null, sources: ["morning-brief"] },
+      });
+    }
   }
 
   const agent = AGENTS[agentName];
@@ -1218,23 +1327,24 @@ async function handleChat(request, env, origin) {
     if (sym) { const lq = await fetchLiveQuote(sym); if (lq) context = liveQuoteBlock(lq) + "\n\n" + context; }
   }
 
-  // On-demand: when a user asks Hermes to summarize a specific ticker's filing,
-  // read the actual PDF, summarize via Gemini, and return that DIRECTLY. The
-  // chat model won't faithfully reproduce an injected summary (it compresses to
-  // a generic line), so we bypass it and serve Gemini's output verbatim.
-  if (agentName === "hermes" && focus.size && wantsDocSummary(lastText)) {
-    const lang = /[฀-๿]/.test(lastText) ? "th" : "en";
-    const direct = await buildDocSummaryReply(env, origin, focus, lang);
-    if (direct) return json({ reply: direct, agent: "hermes", model: GEMINI_PDF_MODEL });
-    // couldn't open any PDF → fall through to the normal model, with a note
-    context += "\n\nNOTE: the user asked to summarize a filing but the PDF could " +
-      "not be opened; say so plainly and fall back to the disclosure title.";
-  }
-  const result = await runMiniMax(env, [
-    { role: "system", content: agent.persona + SHARED_RULES + rmLine + "\n\nDATA:\n" + context },
+  const baseSystem = agent.persona + SHARED_RULES + rmLine + "\n\nDATA:\n" + context;
+  let result = await runMiniMax(env, [
+    { role: "system", content: baseSystem },
     ...cleaned,
   ]);
-  let reply = result.reply;
+  let reply = agentName === "hermes" ? normalizeHermesSections(result.reply) : result.reply;
+  if (agentName === "hermes" && needsHermesSections(lastText) && !hasHermesSections(reply)) {
+    result = await runMiniMax(env, [
+      {
+        role: "system",
+        content: baseSystem + "\n\nOUTPUT CONTRACT: Return both labelled sections exactly: " +
+          "📰 External news and 📄 SET disclosures. Include a section even when it has no rows.",
+      },
+      ...cleaned,
+    ], { temperature: 0.1 });
+    reply = normalizeHermesSections(result.reply);
+    if (!hasHermesSections(reply)) reply = hermesDeterministicFallback(context, lastText);
+  }
   // Output verification: flag any covered ticker the model named that wasn't in
   // its data — catches hallucinated / pretraining-leaked names before the user
   // (and the dock's ticker-chip linkifier) treats them as real.
@@ -1243,5 +1353,12 @@ async function handleChat(request, env, origin) {
     reply += `\n\n⚠ Unverified: ${ungrounded.join(", ")} — not in the data I was ` +
       `given for this question. Treat with caution / re-ask naming the ticker.`;
   }
-  return json({ reply, agent: agentName, model: result.model });
+  const meta = await chatResponseMeta(env, origin, agentName);
+  reply = ensureAsOf(reply, meta.asOf, lastText);
+  return json({
+    reply,
+    agent: agentName,
+    model: result.model,
+    meta,
+  });
 }

@@ -4,7 +4,7 @@
  * each agent's key behaviours with property checks (pass/fail), so a prompt or
  * context change can be measured instead of eyeballed.
  *
- * This hits the live worker (MiniMax M3, plus optional Gemini PDF summaries), so it is a
+ * This hits the live worker (MiniMax M3 plus Pythia verified calculations), so it is a
  * MANUAL tool, not a CI gate. The committed unit tests (tests/worker.test.mjs)
  * cover the deterministic context logic with no network; this covers the model.
  *
@@ -66,7 +66,7 @@ const GROQ_KEY = loadGroqKey();
 const JUDGE_MODEL = process.env.GROQ_JUDGE_MODEL || "llama-3.3-70b-versatile";
 const ROLE = {
   atlas: "market-data agent: prices, % moves, movers, threshold checks (previous-close data)",
-  pythia: "macro/sector strategist: sector aggregates + the daily AI commentary",
+  pythia: "IS1 sector analyst: deterministic performance, breadth and relative screens",
   hermes: "news messenger: external news + SET disclosures, silent filers, filing summaries",
   lex: "rules & regulations agent answering only from SET/SEC regulation documents",
 };
@@ -140,16 +140,16 @@ const CASES = [
     checks: [["answers the 52-week-low screen", hasRe(/52[- ]?week|52w|low|ไม่มี|ไม่พบ|none/i)], ["uses a ticker or says none", hasRe(/\b[A-Z][A-Z0-9]{1,7}\b|ไม่มี|ไม่พบ|none/i)]],
   },
   {
-    agent: "pythia", q: "Which sector leads and which lags today?", expectedModel: "MiniMax-M3",
-    checks: [["has a % figure", hasRe(/-?\d+(?:\.\d+)?\s*%/)], ["mentions breadth", hasRe(/breadth|\d+\s*\/\s*\d+|up\b/i)], ["names leader", hasRe(/lead/i)], ["names laggard", hasRe(/lag/i)]],
+    agent: "pythia", q: "Rank all 6 IS1 sectors by 1-day return and breadth.", expectedModel: "deterministic",
+    checks: [["has sector table", hasRe(/\| Sector \| Avg 1d/)], ["has a % figure", hasRe(/-?\d+(?:\.\d+)?\s*%/)], ["includes breadth", hasRe(/Breadth|\d+\s*\/\s*\d+/i)], ["covers FOOD", hasRe(/\bFOOD\b/)], ["covers PROP", hasRe(/\bPROP\b/)], ["covers PF&REIT", hasRe(/PF&REIT/)]],
   },
   {
-    agent: "pythia", q: "What should I watch in PROP this week?", expectedModel: "MiniMax-M3",
-    checks: [["stays on PROP", hasRe(/\bPROP\b/)], ["grounds the view", hasRe(/daily AI|commentary|aggregate|data|breadth|my read/i)], ["gives a watch item", hasRe(/watch|monitor|focus|ติดตาม|จับตา/i)]],
+    agent: "pythia", q: "Compare FOOD, PROP and PF&REIT on 1-day, 5-day and YTD performance.", expectedModel: "deterministic",
+    checks: [["covers FOOD", hasRe(/\bFOOD\b/)], ["covers PROP", hasRe(/\bPROP\b/)], ["covers PF&REIT", hasRe(/PF&REIT/)], ["shows all periods", hasRe(/Avg 1d[\s\S]*Avg 5d[\s\S]*Avg YTD/)]],
   },
   {
-    agent: "pythia", q: "สรุปภาพรวมตลาดวันนี้", expectedModel: "MiniMax-M3",
-    checks: [["replies in Thai", hasRe(/[ก-๙]/)], ["includes market figures", hasFigure], ["covers sector direction", hasRe(/FOOD|PROP|PF&REIT|กลุ่ม|นำ|อ่อน/i)]],
+    agent: "pythia", q: "Which sectors have the weakest breadth today?", expectedModel: "deterministic",
+    checks: [["states weakest-breadth ordering", hasRe(/weakest breadth/i)], ["includes figures", hasFigure], ["includes breadth counts", hasRe(/\d+\s*\/\s*\d+/)]],
   },
   {
     agent: "lex", q: "What must a listed company disclose after a board resolution?", expectedModel: "MiniMax-M3",

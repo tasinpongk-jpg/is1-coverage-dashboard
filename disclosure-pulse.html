@@ -65,9 +65,9 @@
   .summary { margin-top: 6px; font-size: 12px; color: var(--muted); line-height: 1.4; font-style: italic; }
   .empty, .loading { text-align: center; padding: 60px; color: var(--muted); }
 </style>
-  <script src="theme.js"></script>
-  <link rel="stylesheet" href="theme.css">
-  <script src="i18n.js"></script>
+  <script src="theme.js?v=5"></script>
+  <link rel="stylesheet" href="theme.css?v=5">
+  <script src="i18n.js?v=5"></script>
 
 </head>
 <body>
@@ -137,6 +137,10 @@ const TT_FALLBACK = {
 };
 function tt(key) { return window.I18N ? I18N.t(key) : (TT_FALLBACK[key] || key); }
 function esc(s) { return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function safeHttpUrl(value) {
+  try { const u = new URL(String(value || ''), location.href); return /^(https?):$/.test(u.protocol) ? u.href : ''; }
+  catch { return ''; }
+}
 function tx(key, vars) {
   return tt(key).replace(/\{(\w+)\}/g, (_, k) => vars && vars[k] != null ? vars[k] : '');
 }
@@ -300,7 +304,7 @@ function render() {
     const summ = isThai ? (f._summary_th || f._summary || f.summary || '') : (f._summary || f.summary || '');
     const safeSev = esc(sev);
     const safeTitle = esc(title);
-    const safeHref = href ? esc(href) : '';
+    const safeHref = esc(safeHttpUrl(href));
     const safeSumm = esc(summ);
     const safeTk = esc(f.tk || '');
     const safeRm = esc(t.rm || '');
@@ -363,7 +367,7 @@ window.addEventListener('i18n:change', () => {
   render();
 });
 </script>
-<script src="nav.js" defer></script>
-<script src="chat-dock.js" defer></script>
+<script src="nav.js?v=5" defer></script>
+<script src="chat-dock.js?v=5" defer></script>
 </body>
 </html>

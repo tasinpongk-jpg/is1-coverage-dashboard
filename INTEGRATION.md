@@ -36,12 +36,11 @@ repo → live Worker → local clone). Key snapshots and their consumers:
 If a snapshot's field names change, both the producer (here) and `is1_tools.py`
 must change together.
 
-## 2. SET PDF-resolution recipe (the duplicated logic)
+## 2. SET PDF-resolution recipe
 
-Both systems turn a filing into a readable document the same way. **This is the
-canonical recipe** — `filing_tools.py:read_filing` (CLI) and
-[`worker.js`](worker.js) (`resolvePdfUrl` / `summarizeFiling`) are two
-implementations of it:
+The private CLI turns a filing into a readable document with this canonical
+recipe. The dashboard Worker does not download or summarize binary PDFs; Hermes
+uses the deployed filing metadata and must not claim to have read the document.
 
 1. Each filing's `url` is a SET **newsdetails** page
    (`www.set.or.th/.../newsdetails?id=…&symbol=…`).
@@ -54,21 +53,21 @@ implementations of it:
    — take the first match (there is normally one).
 4. Download the PDF (no cookies needed) → summarize.
 
-Runtime-specific tails (intentionally different, **not** drift):
+Runtime-specific behavior:
 
 | | CLI (`filing_tools.py`) | Worker (`worker.js`) |
 |---|---|---|
-| Extract | `pypdf` → raw text, then a Groq summary | hand the PDF bytes to **Gemini** (`inline_data`, reads PDFs natively — no JS parser) |
-| Gotcha | scanned PDFs yield no text | `gemini-2.5-flash` is a **thinking model**: set `thinkingConfig.thinkingBudget=0` and a real `maxOutputTokens`, or thinking eats the budget and the summary truncates |
-| Cache / store | auto-archives full text to local SQLite (`notes/agent.db`) | Cache API, key `…/v2/{lang}/{newsId}` |
+| Extract | `pypdf` → raw text, then a Groq summary | none; filing title, date and classification only |
+| Gotcha | scanned PDFs yield no text | a request for document detail can only be answered to metadata depth |
+| Cache / store | auto-archives full text to local SQLite (`notes/agent.db`) | daily JSON snapshots deployed as static assets |
 
 ## 3. Agents — cloud cousins, not clones
 
-| Concept | Dashboard (deployed, MiniMax M3 + optional Gemini PDF reader) | CLI (`agents/*.json`, tool-calling) |
+| Concept | Dashboard (MiniMax M3 + verified calculators) | CLI (`agents/*.json`, tool-calling) |
 |---|---|---|
-| Hermes | snapshot-grounded; merges 📰 news + 📄 disclosures; on-demand PDF summary | live `web_search` + `read_filing`; news sweeps |
+| Hermes | snapshot-grounded; merges external news + SET disclosure metadata | live `web_search` + `read_filing`; news sweeps |
 | Atlas | snapshot prices; server-side threshold pre-filter | live `get_stock_quote` + `calculator` |
-| Pythia | sector aggregates + AI commentary | (no CLI cousin) |
+| Pythia | deterministic sector performance, breadth and ranking screens | (no CLI cousin) |
 | Lex | deterministic page retrieval over `lex-regulations.json`, then MiniMax M3 | (no CLI cousin) |
 | Clio | — (stays local for privacy) | private client-reply drafter, forced `local` |
 

@@ -359,21 +359,6 @@ jobs:
           fi
         continue-on-error: true
 
-      # Gemini is optional and only reads filed PDFs for Hermes summaries.
-      # Idempotent; skipped when the secret isn't configured.
-      - name: Sync Gemini key to Worker secret
-        if: github.ref == 'refs/heads/main'
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          GEMINI_KEY_VALUE: ${{ secrets.GEMINI_API_KEY }}
-        run: |
-          if [ -z "$GEMINI_KEY_VALUE" ]; then
-            echo "GEMINI_API_KEY secret not set — Hermes falls back to filing titles."
-          else
-            printf '%s' "$GEMINI_KEY_VALUE" | npx wrangler secret put GEMINI_API_KEY
-          fi
-        continue-on-error: true
-
       # Email-on-failure for the build job. Pairs with the equivalent step in
       # the surveillance job so we get notified regardless of which side broke.
       - name: Notify on failure (build)
