@@ -152,9 +152,9 @@ footer a{color:var(--muted);text-decoration:none}
   .dash-grid{grid-template-columns:1fr}
 }
 </style>
-  <script src="theme.js"></script>
-  <link rel="stylesheet" href="theme.css">
-  <script src="i18n.js"></script>
+  <script src="theme.js?v=5"></script>
+  <link rel="stylesheet" href="theme.css?v=5">
+  <script src="i18n.js?v=5"></script>
 
 </head>
 <body>
@@ -217,8 +217,8 @@ footer a{color:var(--muted);text-decoration:none}
     <button type="button" class="agent-card" style="--agc:#8b5cf6;--agc-bg:#8b5cf62e;--agc-bd:#8b5cf673" onclick="IS1Dock&&IS1Dock.open('pythia')">
       <div class="agent-avatar">🔮</div>
       <div><div class="agent-name">Pythia</div>
-        <div class="agent-role" data-i18n="index.pythiaRole">Macro &amp; sectors — breadth, daily AI commentary</div>
-        <div class="agent-eg" data-i18n="index.pythiaEg">Which sector leads and which lags?</div></div>
+        <div class="agent-role" data-i18n="index.pythiaRole">IS1 sector screens — performance, breadth and relative ranking</div>
+        <div class="agent-eg" data-i18n="index.pythiaEg">Rank all 6 IS1 sectors by return and breadth</div></div>
     </button>
     <button type="button" class="agent-card" style="--agc:#10b981;--agc-bg:#10b9812e;--agc-bd:#10b98173" onclick="IS1Dock&&IS1Dock.open('lex')">
       <div class="agent-avatar">⚖️</div>
@@ -914,7 +914,7 @@ init();
 })();
 window.addEventListener('i18n:change',()=>{if(window.I18N)I18N.apply();initToday();init();});
 </script>
-<script src="nav.js" defer></script>
-<script src="chat-dock.js" defer></script>
+<script src="nav.js?v=5" defer></script>
+<script src="chat-dock.js?v=5" defer></script>
 </body>
 </html>

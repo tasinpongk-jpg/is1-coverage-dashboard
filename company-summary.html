@@ -339,9 +339,9 @@ footer a{color:var(--muted);text-decoration:none}
   #drawer{width:100vw}
 }
 </style>
-  <script src="theme.js"></script>
-  <link rel="stylesheet" href="theme.css">
-  <script src="i18n.js"></script>
+  <script src="theme.js?v=5"></script>
+  <link rel="stylesheet" href="theme.css?v=5">
+  <script src="i18n.js?v=5"></script>
 
 </head>
 <body>
@@ -553,6 +553,10 @@ const fmb = v => v == null ? null : v >= 1000 ? (v/1000).toFixed(1)+'B' : v.toFi
 const pct = v => v == null ? null : (v>0?'+':'')+v.toFixed(2)+'%';
 const dash = v => v ?? '—';
 const esc = s => (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+const safeHttpUrl = value => {
+  try { const u = new URL(String(value || ''), location.href); return /^(https?):$/.test(u.protocol) ? u.href : ''; }
+  catch { return ''; }
+};
 const trimText = (s,n=220) => !s ? '' : (s.length>n?s.slice(0,n-1).trimEnd()+'…':s);
 
 const SCOL = {FOOD:'#3b82f6',AGRI:'#10b981',PROP:'#8b5cf6',CONS:'#f97316',CONMAT:'#ec4899',PFREIT:'#06b6d4','PF&REIT':'#06b6d4'};
@@ -1016,11 +1020,12 @@ function openDrawer(idx, tab='overview'){
 
   // footer
   const setUrl=`https://www.set.or.th/en/market/product/stock/quote/${encodeURIComponent(t.tk)}/factsheet`;
+  const websiteUrl=t.website?safeHttpUrl(t.website.startsWith('http')?t.website:'http://'+t.website):'';
   document.getElementById('dfooter').innerHTML = `
     <a class="dfoot-link" href="${setUrl}" target="_blank" rel="noopener">${tt('company.setFactsheet')}</a>
-    ${t.website?`<a class="dfoot-link" href="${esc(t.website.startsWith('http')?t.website:'http://'+t.website)}" target="_blank" rel="noopener">${tt('company.companySite')}</a>`:''}
-    <a class="dfoot-link" href="disclosure-pulse.html?ticker=${encodeURIComponent(t.tk)}" target="_blank">${tt('common.disclosures')} ↗</a>
-    <a class="dfoot-link" href="unusual-trading.html?ticker=${encodeURIComponent(t.tk)}" target="_blank">${tt('company.alerts')}</a>`;
+    ${websiteUrl?`<a class="dfoot-link" href="${esc(websiteUrl)}" target="_blank" rel="noopener">${tt('company.companySite')}</a>`:''}
+    <a class="dfoot-link" href="disclosure-pulse.html?ticker=${encodeURIComponent(t.tk)}" target="_blank" rel="noopener">${tt('common.disclosures')} ↗</a>
+    <a class="dfoot-link" href="unusual-trading.html?ticker=${encodeURIComponent(t.tk)}" target="_blank" rel="noopener">${tt('company.alerts')}</a>`;
 
   document.getElementById('overlay').classList.add('show');
   document.getElementById('drawer').classList.add('show');
@@ -1035,6 +1040,7 @@ function closeDrawer(){
 
 function renderTab(tab){
   const t=CURRENT; if(!t) return;
+  const websiteUrl=t.website?safeHttpUrl(t.website.startsWith('http')?t.website:'http://'+t.website):'';
   const hl=t.highlights||[];
   let html='';
 
@@ -1115,7 +1121,7 @@ function renderTab(tab){
   if(tab==='company'){
     html+=`<div class="ds"><div class="ds-title">${tt('company.business')}</div>
       ${t.businessType?`<div style="font-size:12px;line-height:1.65;color:var(--muted);margin-bottom:10px">${esc(t.businessType)}</div>`:''}
-      <div class="ds-row"><span class="ds-lbl">${tt('company.website')}</span><span class="ds-val">${t.website?`<a href="${esc(t.website.startsWith('http')?t.website:'http://'+t.website)}" target="_blank" rel="noopener">${esc(t.website)}</a>`:'—'}</span></div>
+      <div class="ds-row"><span class="ds-lbl">${tt('company.website')}</span><span class="ds-val">${websiteUrl?`<a href="${esc(websiteUrl)}" target="_blank" rel="noopener">${esc(t.website)}</a>`:'—'}</span></div>
       <div class="ds-row"><span class="ds-lbl">${tt('company.address')}</span><span class="ds-val" style="font-size:11px">${dash(t.address?esc(t.address):null)}</span></div>
       <div class="ds-row"><span class="ds-lbl">${tt('company.telephone')}</span><span class="ds-val">${dash(t.tel?esc(t.tel):null)}</span></div>
       <div class="ds-row"><span class="ds-lbl">${tt('company.established')}</span><span class="ds-val">${dash(t.established)}</span></div>
@@ -1163,7 +1169,8 @@ function renderTab(tab){
       filings.forEach(f=>{
         const sev=(f.severity||'low').toLowerCase();
         const title=esc(f.title||f.headline||'—');
-        const linked=f.url?`<a href="${esc(f.url)}" target="_blank" rel="noopener">${title}</a>`:title;
+        const filingUrl=safeHttpUrl(f.url);
+        const linked=filingUrl?`<a href="${esc(filingUrl)}" target="_blank" rel="noopener">${title}</a>`:title;
         const summ=f._summary||f.summary||'';
         html+=`<div class="disc-row">
           <div class="disc-row-left">
@@ -1453,7 +1460,7 @@ window.addEventListener('i18n:change',()=>{
   }
 });
 </script>
-<script src="nav.js" defer></script>
-<script src="chat-dock.js" defer></script>
+<script src="nav.js?v=5" defer></script>
+<script src="chat-dock.js?v=5" defer></script>
 </body>
 </html>

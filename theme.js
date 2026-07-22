@@ -90,15 +90,17 @@
   function placeControl() {
     if (document.querySelector(".theme-switch")) return;
     var control = themeControl();
-    var header = document.querySelector(".gtopbar") || document.querySelector("header");
+    var header = document.querySelector(".is1s-topbar") || document.querySelector(".gtopbar") || document.querySelector("header");
     if (!header) {
       control.classList.add("theme-floating");
       document.body.appendChild(control);
       updateControls();
       return;
     }
+    var shellControls = header.querySelector(".is1s-controls");
     var language = header.querySelector(".i18n-toggle,.langtoggle");
-    if (language) language.insertAdjacentElement("afterend", control);
+    if (shellControls) shellControls.appendChild(control);
+    else if (language) language.insertAdjacentElement("afterend", control);
     else header.appendChild(control);
     updateControls();
   }
@@ -122,6 +124,9 @@
     ".table-wrap",
     ".ticker-banner",
     "details.fold",
+    ".is1s-page-head",
+    ".is1-home-control",
+    ".is1-home-panel",
   ].join(",");
 
   var revealObserver = null;

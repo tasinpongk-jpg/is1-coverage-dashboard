@@ -64,9 +64,9 @@
   .desc { margin-top: 6px; font-size: 12px; color: var(--muted); line-height: 1.4; }
   .empty, .loading { text-align: center; padding: 60px; color: var(--muted); }
 </style>
-  <script src="theme.js"></script>
-  <link rel="stylesheet" href="theme.css">
-  <script src="i18n.js"></script>
+  <script src="theme.js?v=5"></script>
+  <link rel="stylesheet" href="theme.css?v=5">
+  <script src="i18n.js?v=5"></script>
 
 </head>
 <body>
@@ -187,6 +187,10 @@ function escapeHtml(s) {
   return String(s ?? '').replace(/[&<>"']/g, ch => ({
     '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
   })[ch]);
+}
+function safeHttpUrl(value) {
+  try { const u = new URL(String(value || ''), location.href); return /^(https?):$/.test(u.protocol) ? u.href : ''; }
+  catch { return ''; }
 }
 function truncate(s, n = 420) {
   const txt = decodeHtml(s);
@@ -352,6 +356,7 @@ function render() {
   }
   feed.innerHTML = rows.map(it => {
     const typeCls = TYPE_TAG_CLASS[it._typeGroup] || 'tag-type';
+    const detailUrl = safeHttpUrl(it.url);
     return `<div class="item ${it.matched_ticker ? 'matched' : ''}">
     <div class="item-top">
       <div class="item-date">${formatActionDate(it.action_date)}</div>
@@ -363,7 +368,7 @@ function render() {
           ${it.case_no ? `<span class="tag tag-case">${it.case_no}</span>` : ''}
           ${it._type ? `<span class="tag ${typeCls}">${escapeHtml(it._type)}</span>` : ''}
           ${it._law ? `<span class="tag tag-law">${escapeHtml(it._law)}</span>` : ''}
-          ${it.url ? `<a href="${it.url}" target="_blank" rel="noopener" style="font-size:11px;color:var(--accent)">${tt('sec.detail')}</a>` : ''}
+          ${detailUrl ? `<a href="${escapeHtml(detailUrl)}" target="_blank" rel="noopener" style="font-size:11px;color:var(--accent)">${tt('sec.detail')}</a>` : ''}
         </div>
         ${it._facts ? `<div class="desc">${escapeHtml(truncate(it._facts))}</div>` : ''}
         ${it._details ? `<div class="desc">${escapeHtml(truncate(it._details, 240))}</div>` : ''}
@@ -410,7 +415,7 @@ window.addEventListener('i18n:change', () => {
   render();
 });
 </script>
-<script src="nav.js" defer></script>
-<script src="chat-dock.js" defer></script>
+<script src="nav.js?v=5" defer></script>
+<script src="chat-dock.js?v=5" defer></script>
 </body>
 </html>

@@ -13,8 +13,8 @@ Every dashboard page carries a chat dock talking to four named agents
 | Agent | Job | Model |
 |---|---|---|
 | 🗺 **Atlas** | prices, % moves, movers, threshold checks | MiniMax M3 |
-| ⚡ **Hermes** | external news + SET disclosures, silent filers, filing summaries | MiniMax M3 (+ Gemini for PDFs) |
-| 🔮 **Pythia** | sector aggregates + daily AI commentary | MiniMax M3 |
+| ⚡ **Hermes** | external news + SET disclosure metadata, silent filers, Oppday | MiniMax M3 |
+| 🔮 **Pythia** | verified sector performance, breadth and relative screens | deterministic calculator |
 | ⚖️ **Lex** | SET/SEC rules, cited to the source PDF | MiniMax M3 + local page retrieval |
 
 Each is grounded in the same daily JSON snapshots the dashboard shows, so the
@@ -64,12 +64,13 @@ into a structured intent and filters the context server-side:
   title and page text deterministically, caps pages per document, then sends
   only the selected pages to MiniMax M3. A source list is appended in code.
 
-### 3.3 Route PDF tasks to a PDF-capable model
-- **Hermes filing summaries → Gemini.** A "summarize CPN's filing" request reads
-  the *actual filed PDF*: the worker resolves the SET newsdetails page → the
-  `weblink.set.or.th` PDF → hands the bytes to Gemini (which reads PDFs natively,
-  no JS parser) → returns the summary **directly, bypassing MiniMax** (the chat
-  path mangled injected summaries). Cached by news-id + language.
+### 3.3 Keep one provider contract and explicit capability boundaries
+- **All generative REX replies use MiniMax M3.** Hermes receives only deployed
+  news, filing metadata, Form 59 rows and Oppday summaries. It must not claim to
+  have read a filed PDF when no extracted document text is in its context.
+- **Pythia is calculator-backed.** Supported sector screens are computed in the
+  Worker. Questions requiring SET Index, fund flow, macro forecasts, target
+  prices or future data return the exact screens that current data supports.
 
 ### 3.4 Persona engineering + few-shot
 Each persona has explicit rules **plus one worked example** — few-shot locks in
@@ -115,12 +116,11 @@ Real bugs found by **live-testing the deployed model**, not assuming:
 | Range query output was a garbled table | model free-handing a 2-sided numeric filter | `range` mode in `parsePriceQuery` |
 | Atlas said company names, not tickers | data has **no** name field → model guessed from pretraining | "tickers-only, never names" rule + grounding check |
 | "News on CPN" showed J/TIF1/BLAND filings | model padded an empty section | ticker-focus filters context; empty ⇒ honest "none" |
-| Filing summaries were a generic half-sentence | The chat path did not faithfully reproduce injected text | bypass the chat model; serve Gemini's summary directly |
-| Gemini summaries truncated to "…filed" | `gemini-2.5-flash` is a **thinking model**; thinking tokens ate the `maxOutputTokens` budget | `thinkingConfig.thinkingBudget=0` + bigger cap |
-| Lex failed in production without a Gemini secret | its only retrieval/generation path depended on Gemini File Search | build a page-level corpus locally; retrieve in the Worker; answer through the existing MiniMax M3 secret |
+| Pythia answered broad market questions from coverage-only data | role implied macro data the snapshot does not contain | narrow role to IS1 sector screens and redirect unsupported questions |
+| Sector averages treated missing values as zero | null values passed a loose numeric check | include only finite, non-null observations per metric |
+| Lex depended on a second model provider | generation and retrieval had different deployment contracts | build a page-level corpus locally; retrieve in the Worker; answer through MiniMax M3 |
 | Lex returned an empty Thai free-float answer | MiniMax reasoning consumed the default 2,200-token output budget | use a Lex-specific 5,000-token budget and constrain the final answer to 350 words |
 | A normal Hermes sample intermittently returned an empty answer | MiniMax can spend the whole output budget on reasoning for any agent | retry empty-only responses once at 5,000 tokens; Lex retries at 8,000 |
-| Thai user got an English cached summary | cache key ignored language | key includes `lang` |
 | A passing test silently broke | persona text contained the literal string a test split on (`SET DISCLOSURES`, `FILED-DOCUMENT…`) | anchor tests on data-only markers |
 | Feedback verification looked broken for ~40 min | the deploy CLI's KV reads were an unreliable narrator (sandbox/consistency); data was always landing | confirmed in dashboard + via the worker's own export endpoint |
 
@@ -131,8 +131,8 @@ Real bugs found by **live-testing the deployed model**, not assuming:
 
 1. **Determinism beats prompting** for filtering/counting/sorting/dates — parse
    the intent, compute the answer, let the model narrate.
-2. **Route by capability** — use deterministic retrieval for static rulebooks;
-   send binary PDFs to a model that can read them natively.
+2. **Route by capability** — use deterministic retrieval for static rulebooks
+   and state plainly when deployed context does not contain document text.
 3. **Make "none" first-class** — scoping + honest empty sections kill the model's
    urge to pad/fabricate.
 4. **Verify the output, not just the input** — a grounding check catches the last
