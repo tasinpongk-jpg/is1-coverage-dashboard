@@ -65,9 +65,9 @@
   .summary { margin-top: 6px; font-size: 12px; color: var(--muted); line-height: 1.4; font-style: italic; }
   .empty, .loading { text-align: center; padding: 60px; color: var(--muted); }
 </style>
-  <script src="theme.js?v=5"></script>
-  <link rel="stylesheet" href="theme.css?v=5">
-  <script src="i18n.js?v=5"></script>
+  <script src="theme.js?v=6"></script>
+  <link rel="stylesheet" href="theme.css?v=6">
+  <script src="i18n.js?v=6"></script>
 
 </head>
 <body>
@@ -117,7 +117,7 @@
 
 <script>
 let TICKERS = {}, FILINGS = [];
-let activeRm = 'ALL', activeSev = 'ALL', activeSector = 'ALL';
+let activeRm = /^[CKOGPT]$/.test(localStorage.getItem('is1_rm') || '') ? localStorage.getItem('is1_rm') : 'ALL', activeSev = 'ALL', activeSector = 'ALL';
 let activeWindow = 1;   // days; 0 = ALL
 let activeTicker = new URLSearchParams(location.search).get('ticker') || null;
 let DATA_META = null;
@@ -225,6 +225,9 @@ function buildTabs() {
 }
 
 function setRm(r) { activeRm = r; document.querySelectorAll('[data-rm]').forEach(el => el.classList.toggle('active', el.dataset.rm === r)); render(); updateStats(); buildSectorTabs(); }
+window.addEventListener('is1:rm-change', e => {
+  if (/^[CKOGPT]$/.test(e.detail?.rm || '')) setRm(e.detail.rm);
+});
 function setSev(s) { activeSev = s; document.querySelectorAll('[data-sev]').forEach(el => el.classList.toggle('active', el.dataset.sev === s)); render(); }
 function setSector(s) { activeSector = s; document.querySelectorAll('[data-sector]').forEach(el => el.classList.toggle('active', el.dataset.sector === s)); render(); }
 function setWindow(d) { activeWindow = +d; document.querySelectorAll('[data-window]').forEach(el => el.classList.toggle('active', +el.dataset.window === activeWindow)); render(); updateStats(); buildSectorTabs(); buildRmTabs(); }
@@ -367,7 +370,7 @@ window.addEventListener('i18n:change', () => {
   render();
 });
 </script>
-<script src="nav.js?v=5" defer></script>
-<script src="chat-dock.js?v=5" defer></script>
+<script src="nav.js?v=6" defer></script>
+<script src="chat-dock.js?v=6" defer></script>
 </body>
 </html>

@@ -6,6 +6,8 @@
 (function () {
   "use strict";
 
+  if (new URLSearchParams(location.search).get("embedded") === "1") return;
+
   var AGENTS = {
     hermes: {
       label: "Hermes", color: "#f59e0b", icon: "news",
@@ -465,7 +467,17 @@ a.is1d-tk{display:inline-block;background:#3b82f61f;border:1px solid #3b82f64a;c
   };
   dock.querySelectorAll(".is1d-tab").forEach(function (tab) { tab.onclick = function () { setAgent(tab.dataset.agent); }; });
   $(".is1d-form").onsubmit = function (event) { event.preventDefault(); ask(input.value); };
-  rmSel.onchange = function () { localStorage.setItem("is1_rm", rmSel.value); renderChips(); };
+  rmSel.onchange = function () {
+    localStorage.setItem("is1_rm", rmSel.value);
+    if (window.IS1Shell) window.IS1Shell.setRm(rmSel.value);
+    renderChips();
+  };
+  window.addEventListener("is1:rm-change",function (event) {
+    var rm = event.detail && event.detail.rm;
+    if (RMS.indexOf(rm) < 0) return;
+    rmSel.value = rm;
+    renderChips();
+  });
   document.addEventListener("keydown", function (event) { if (event.key === "Escape" && state.open) closeDock(); });
   window.addEventListener("i18n:change", renderDockLabels);
 

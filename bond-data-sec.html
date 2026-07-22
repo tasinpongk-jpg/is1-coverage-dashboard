@@ -141,9 +141,9 @@ footer{border-top:1px solid var(--border);padding:14px 24px;display:flex;justify
 footer a{color:var(--muted)}
 @media(max-width:760px){.two-col{grid-template-columns:1fr}}
 </style>
-  <script src="theme.js?v=5"></script>
-  <link rel="stylesheet" href="theme.css?v=5">
-  <script src="i18n.js?v=5"></script>
+  <script src="theme.js?v=6"></script>
+  <link rel="stylesheet" href="theme.css?v=6">
+  <script src="i18n.js?v=6"></script>
 
 </head>
 <body>
@@ -253,7 +253,12 @@ const fmtBn=n=>n>=100?n.toFixed(0):n.toFixed(1);
 const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 
 let DATA=null;
-const state={sector:'all',rm:'all',esg:false,outOnly:false,q:'',sort:'thb'};
+const state={sector:'all',rm:/^[CKOGPT]$/.test(localStorage.getItem('is1_rm') || '') ? localStorage.getItem('is1_rm') : 'all',esg:false,outOnly:false,q:'',sort:'thb'};
+window.addEventListener('is1:rm-change',e=>{
+  if(!/^[CKOGPT]$/.test(e.detail?.rm||''))return;
+  state.rm=e.detail.rm;
+  if(DATA){buildControls(DATA);render();}
+});
 
 function ratingClass(r){if(!r||r==='No Rating')return'nr';return IG.has(r)?'ig':'hy';}
 
@@ -426,7 +431,7 @@ window.addEventListener('i18n:change',()=>{
   }
 });
 </script>
-<script src="nav.js?v=5" defer></script>
-<script src="chat-dock.js?v=5" defer></script>
+<script src="nav.js?v=6" defer></script>
+<script src="chat-dock.js?v=6" defer></script>
 </body>
 </html>

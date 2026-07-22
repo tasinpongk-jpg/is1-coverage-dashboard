@@ -339,9 +339,9 @@ footer a{color:var(--muted);text-decoration:none}
   #drawer{width:100vw}
 }
 </style>
-  <script src="theme.js?v=5"></script>
-  <link rel="stylesheet" href="theme.css?v=5">
-  <script src="i18n.js?v=5"></script>
+  <script src="theme.js?v=6"></script>
+  <link rel="stylesheet" href="theme.css?v=6">
+  <script src="i18n.js?v=6"></script>
 
 </head>
 <body>
@@ -1192,9 +1192,17 @@ function renderTab(tab){
 }
 
 // ── state & render ───────────────────────────────────────────────────────────
-let ALL=[], SECTOR_STATS={}, DISC_MAP={}, OPP_MAP={}, VAULT_MAP={}, REPORT_MAP={}, sectFilter='ALL', rmFilter='', sortKey='tk', searchQ='';
+let ALL=[], SECTOR_STATS={}, DISC_MAP={}, OPP_MAP={}, VAULT_MAP={}, REPORT_MAP={}, sectFilter='ALL', rmFilter=/^[CKOGPT]$/.test(localStorage.getItem('is1_rm') || '') ? localStorage.getItem('is1_rm') : '', sortKey='tk', searchQ='';
 let STARRED = new Set(JSON.parse(localStorage.getItem('is1_starred')||'[]'));
 let DATA_META = { asOf: '', source: '', sourceKey: false, built: '' };
+
+function applyShellRm(rm){
+  if(!/^[CKOGPT]$/.test(rm||'')) return;
+  rmFilter=rm;
+  document.querySelectorAll('#rmFilter [data-rm]').forEach(x=>x.classList.toggle('active',x.dataset.rm===rm));
+  render();
+}
+window.addEventListener('is1:rm-change',e=>applyShellRm(e.detail?.rm));
 
 function refreshOpenTab(){
   if(!CURRENT) return;
@@ -1460,7 +1468,7 @@ window.addEventListener('i18n:change',()=>{
   }
 });
 </script>
-<script src="nav.js?v=5" defer></script>
-<script src="chat-dock.js?v=5" defer></script>
+<script src="nav.js?v=6" defer></script>
+<script src="chat-dock.js?v=6" defer></script>
 </body>
 </html>

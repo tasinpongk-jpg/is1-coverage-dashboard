@@ -156,9 +156,9 @@ footer a{color:var(--muted);text-decoration:none}
   .grid{grid-template-columns:1fr}
 }
 </style>
-  <script src="theme.js?v=5"></script>
-  <link rel="stylesheet" href="theme.css?v=5">
-  <script src="i18n.js?v=5"></script>
+  <script src="theme.js?v=6"></script>
+  <link rel="stylesheet" href="theme.css?v=6">
+  <script src="i18n.js?v=6"></script>
 
 </head>
 <body>
@@ -524,7 +524,15 @@ function buildCard(issuer){
 }
 
 // ── STATE & RENDER ────────────────────────────────────────────────────────────
-let ALL=[], DE_MAP={}, sectFilter='ALL', rmFilter='', esgOnly=false, nearOnly=false, sortKey='out-d';
+let ALL=[], DE_MAP={}, sectFilter='ALL', rmFilter=/^[CKOGPT]$/.test(localStorage.getItem('is1_rm') || '') ? localStorage.getItem('is1_rm') : '', esgOnly=false, nearOnly=false, sortKey='out-d';
+
+function applyShellRm(rm){
+  if(!/^[CKOGPT]$/.test(rm||'')) return;
+  rmFilter=rm;
+  document.querySelectorAll('#rmFilter [data-rm]').forEach(x=>x.classList.toggle('active',x.dataset.rm===rm));
+  render();
+}
+window.addEventListener('is1:rm-change',e=>applyShellRm(e.detail?.rm));
 
 function applyFilters(){
   return ALL.filter(i=>{
@@ -637,7 +645,8 @@ function renderHero(summary,issuers){
     renderDonut(summ.bySector||{});
     renderTopIssuers(ALL);
     initControls(ALL);
-    render();
+    if(rmFilter) applyShellRm(rmFilter);
+    else render();
   }catch(err){
     document.getElementById('loading').innerHTML=`<div style="color:var(--red);max-width:500px;margin:0 auto">
       <div style="font-size:16px;font-weight:700;margin-bottom:8px">${tt('bond.dataUnavailable')}</div>
@@ -664,7 +673,7 @@ window.addEventListener('i18n:change',()=>{
   }
 });
 </script>
-<script src="nav.js?v=5" defer></script>
-<script src="chat-dock.js?v=5" defer></script>
+<script src="nav.js?v=6" defer></script>
+<script src="chat-dock.js?v=6" defer></script>
 </body>
 </html>

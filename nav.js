@@ -9,6 +9,11 @@
 (function () {
   "use strict";
 
+  if (new URLSearchParams(location.search).get("embedded") === "1") {
+    document.documentElement.classList.add("is1-embedded");
+    return;
+  }
+
   if (document.querySelector(".is1s-rail")) return;
 
   var GROUPS = [
@@ -61,6 +66,17 @@
       ],
     },
   ];
+
+  var EMBEDDED_WORKSPACES = {
+    "https://tradingview-daily-dashboard.tasinpong-k.workers.dev/": {
+      title:["Daily market board","กระดานตลาดรายวัน"],
+      description:["Live market dashboard","Dashboard ตลาดแบบ live"],
+    },
+    "https://macro-brief-buy.pages.dev": {
+      title:["Global-macro brief","สรุปมหภาคโลก"],
+      description:["Macro signals and global context","สัญญาณมหภาคและบริบทตลาดโลก"],
+    },
+  };
 
   var PAGE_META = {
     "price-movement":      ["Market","Daily price moves across coverage","ความเคลื่อนไหวราคารายวันใน coverage","#5d96ff","trending-up"],
@@ -178,6 +194,7 @@
   var legacyHeader = Array.prototype.find.call(document.body.children,function (node) { return node.tagName === "HEADER"; });
   if (legacyHeader) legacyHeader.classList.add("is1s-legacy-header");
   document.body.classList.add("is1-shell-ready");
+  document.body.classList.add("is1s-page-" + hereKey.replace(/[^a-z0-9-]/g,""));
 
   var rail = document.createElement("aside");
   rail.className = "is1s-rail";
@@ -205,10 +222,13 @@
         return '<section class="is1s-nav-section" data-module-section="' + group.id + '"><div class="is1s-nav-label">' + esc(L(group.label[0],group.label[1])) + "</div>" +
           group.pages.map(function (page) {
             var active = !/^https?:/.test(page[0]) && page[0].replace(/\.html$/,"") === hereKey;
-            return '<a class="is1s-module-link' + (active ? " active" : "") + '" href="' + esc(href(page[0])) + '">' +
+            var embedded = EMBEDDED_WORKSPACES[page[0]];
+            var tag = embedded ? "button" : "a";
+            var target = embedded ? ' type="button" data-shell-embed="' + esc(page[0]) + '"' : ' href="' + esc(href(page[0])) + '"';
+            return '<' + tag + ' class="is1s-module-link' + (active ? " active" : "") + '"' + target + '>' +
               icon(page[3]) + '<span>' + esc(L(page[1],page[2])) + '</span>' +
               (page[4] ? '<span class="is1s-count" data-count="' + page[4] + '">—</span>' : "") +
-              (/^https?:/.test(page[0]) ? icon("arrow-up-right","is1s-link-arrow") : "") + "</a>";
+              (embedded ? icon("panel-right-open","is1s-link-arrow") : "") + "</" + tag + ">";
           }).join("") + "</section>";
       }).join("") + '</div><div class="is1s-module-foot"><span class="is1s-live-dot"></span><span data-shell-freshness>' +
       esc(L("Loading snapshot","กำลังโหลด snapshot")) + "</span></div>";
@@ -255,6 +275,24 @@
 
   var scrim = document.createElement("div");
   scrim.className = "is1s-scrim";
+  var workspaceScrim = document.createElement("div");
+  workspaceScrim.className = "is1s-workspace-scrim";
+  workspaceScrim.setAttribute("data-shell-workspace-close","");
+  var workspace = document.createElement("section");
+  workspace.className = "is1s-workspace";
+  workspace.setAttribute("role","dialog");
+  workspace.setAttribute("aria-modal","true");
+  workspace.setAttribute("aria-hidden","true");
+  workspace.setAttribute("aria-label",L("Embedded workspace","พื้นที่ทำงานด้านขวา"));
+  workspace.innerHTML =
+    '<header class="is1s-workspace-head"><div><strong data-workspace-title></strong><span data-workspace-description></span></div>' +
+      '<div class="is1s-workspace-actions"><button class="is1s-icon-btn" type="button" data-shell-workspace-reload title="' +
+        esc(L("Reload workspace","โหลดพื้นที่ทำงานใหม่")) + '">' + icon("activity") + '</button>' +
+      '<button class="is1s-icon-btn" type="button" data-shell-workspace-close title="' + esc(L("Close workspace","ปิดพื้นที่ทำงาน")) + '">' +
+        icon("panel-right-close") + '</button></div></header>' +
+    '<div class="is1s-workspace-stage"><div class="is1s-workspace-loading"><span></span>' + esc(L("Loading workspace","กำลังโหลดพื้นที่ทำงาน")) +
+      '</div><iframe title="' + esc(L("Embedded dashboard","Dashboard ที่ฝังในหน้านี้")) + '" loading="eager" referrerpolicy="strict-origin-when-cross-origin" ' +
+      'sandbox="allow-forms allow-modals allow-popups allow-popups-to-escape-sandbox allow-same-origin allow-scripts allow-downloads"></iframe></div>';
   var insertPoint = legacyHeader || document.body.firstChild;
   document.body.insertBefore(topbar,insertPoint);
   if (pageHead) document.body.insertBefore(pageHead,insertPoint);
@@ -262,6 +300,8 @@
   document.body.appendChild(modulePanel);
   document.body.appendChild(contextPanel);
   document.body.appendChild(scrim);
+  document.body.appendChild(workspaceScrim);
+  document.body.appendChild(workspace);
 
   var staleNode = document.getElementById("staleBadge");
   if (staleNode) {
@@ -282,6 +322,39 @@
   function closeOverlays() {
     document.body.classList.remove("is1s-mobile-modules","is1s-mobile-context");
   }
+  function closeWorkspace() {
+    document.body.classList.remove("is1s-workspace-open");
+    workspace.setAttribute("aria-hidden","true");
+  }
+  function openWorkspace(url) {
+    var meta = EMBEDDED_WORKSPACES[url];
+    if (!meta) return;
+    closeOverlays();
+    if (window.IS1Dock) window.IS1Dock.close();
+    workspace.querySelector("[data-workspace-title]").textContent = L(meta.title[0],meta.title[1]);
+    workspace.querySelector("[data-workspace-description]").textContent = L(meta.description[0],meta.description[1]);
+    var frame = workspace.querySelector("iframe");
+    var embeddedUrl = new URL(url);
+    embeddedUrl.searchParams.set("embedded","1");
+    embeddedUrl = embeddedUrl.toString();
+    workspace.classList.add("loading");
+    if (frame.dataset.src !== embeddedUrl) {
+      frame.dataset.src = embeddedUrl;
+      frame.src = embeddedUrl;
+    }
+    document.body.classList.add("is1s-workspace-open");
+    workspace.removeAttribute("aria-hidden");
+    workspace.querySelector("[data-shell-workspace-close]").focus();
+  }
+  workspace.querySelector("iframe").addEventListener("load",function () { workspace.classList.remove("loading"); });
+  workspace.querySelector("[data-shell-workspace-reload]").addEventListener("click",function () {
+    var frame = workspace.querySelector("iframe");
+    if (!frame.dataset.src) return;
+    workspace.classList.add("loading");
+    frame.src = frame.dataset.src;
+  });
+  workspace.querySelector("[data-shell-workspace-close]").addEventListener("click",closeWorkspace);
+  workspaceScrim.addEventListener("click",closeWorkspace);
   function toggleContext(open) {
     if (innerWidth <= 1250) {
       document.body.classList.toggle("is1s-mobile-context",open == null ? !document.body.classList.contains("is1s-mobile-context") : open);
@@ -304,6 +377,9 @@
   rail.querySelectorAll("[data-module]").forEach(function (button) {
     button.addEventListener("click",function () { setModuleActive(button.dataset.module); });
   });
+  modulePanel.querySelectorAll("[data-shell-embed]").forEach(function (button) {
+    button.addEventListener("click",function () { openWorkspace(button.dataset.shellEmbed); });
+  });
   document.querySelectorAll("[data-shell-action]").forEach(function (button) {
     button.addEventListener("click",function () {
       var action = button.dataset.shellAction;
@@ -321,7 +397,8 @@
   });
   scrim.addEventListener("click",closeOverlays);
   document.addEventListener("keydown",function (event) {
-    if (event.key === "Escape") closeOverlays();
+    if (event.key === "Escape" && document.body.classList.contains("is1s-workspace-open")) closeWorkspace();
+    else if (event.key === "Escape") closeOverlays();
     if (event.key === "/" && !/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName)) {
       event.preventDefault();
       topbar.querySelector(".is1s-search input").focus();
@@ -329,12 +406,15 @@
   });
 
   var rmSelect = topbar.querySelector(".is1s-rm");
+  function dispatchRmChange() {
+    window.dispatchEvent(new CustomEvent("is1:rm-change",{ detail:{ rm:state.rm } }));
+  }
   rmSelect.addEventListener("change",function () {
     state.rm = rmSelect.value;
     state.selectedTicker = null;
     localStorage.setItem("is1_rm",state.rm);
     renderShellData();
-    window.dispatchEvent(new CustomEvent("is1:rm-change",{ detail:{ rm:state.rm } }));
+    dispatchRmChange();
   });
   topbar.querySelector("[data-shell-search]").addEventListener("submit",function (event) {
     event.preventDefault();
@@ -632,6 +712,10 @@
       rmSelect.value = rm;
       localStorage.setItem("is1_rm",rm);
       renderShellData();
+      dispatchRmChange();
     },
+    openWorkspace:openWorkspace,
+    closeWorkspace:closeWorkspace,
   };
+  setTimeout(dispatchRmChange,0);
 })();

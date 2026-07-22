@@ -65,9 +65,9 @@
   .summary-bar { display: flex; gap: 16px; padding: 8px 20px; border-bottom: 1px solid var(--border); font-size: 11px; color: var(--muted); }
   .summary-bar strong { color: var(--text); }
 </style>
-  <script src="theme.js?v=5"></script>
-  <link rel="stylesheet" href="theme.css?v=5">
-  <script src="i18n.js?v=5"></script>
+  <script src="theme.js?v=6"></script>
+  <link rel="stylesheet" href="theme.css?v=6">
+  <script src="i18n.js?v=6"></script>
 
 </head>
 <body>
@@ -131,7 +131,7 @@
 
 <script>
 let TICKERS = [], BRIEF_BY_TK = {};
-let activeRm = 'ALL', activeSector = 'ALL';
+let activeRm = /^[CKOGPT]$/.test(localStorage.getItem('is1_rm') || '') ? localStorage.getItem('is1_rm') : 'ALL', activeSector = 'ALL';
 let sortKey = null, sortDir = 1;
 let BRIEF_META = null;
 
@@ -207,6 +207,9 @@ function setRm(rm) {
   document.querySelectorAll('[data-rm]').forEach(el => el.classList.toggle('active', el.dataset.rm === rm));
   render();
 }
+window.addEventListener('is1:rm-change', e => {
+  if (/^[CKOGPT]$/.test(e.detail?.rm || '')) setRm(e.detail.rm);
+});
 function setSector(s) {
   activeSector = s;
   document.querySelectorAll('[data-sector]').forEach(el => el.classList.toggle('active', el.dataset.sector === s));
@@ -317,7 +320,7 @@ window.addEventListener('i18n:change', () => {
   }
 });
 </script>
-<script src="nav.js?v=5" defer></script>
-<script src="chat-dock.js?v=5" defer></script>
+<script src="nav.js?v=6" defer></script>
+<script src="chat-dock.js?v=6" defer></script>
 </body>
 </html>
