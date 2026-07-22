@@ -34,7 +34,7 @@ test("all shared assets use the current cache version", async () => {
   for (const file of htmlFiles) {
     const source = await readFile(file, "utf8");
     for (const asset of ["theme.js", "theme.css", "i18n.js", "nav.js"]) {
-      assert.match(source, new RegExp(`${asset.replace(".", "\\.")}\\?v=7`), `${file} must load ${asset} v7`);
+      assert.match(source, new RegExp(`${asset.replace(".", "\\.")}\\?v=8`), `${file} must load ${asset} v8`);
     }
   }
 });
@@ -46,6 +46,22 @@ test("module rail aligns the selected section to the top of its own scroller", a
   assert.match(nav, /target > available/);
   assert.match(nav, /scroller\.scrollTo\(\{ top:Math\.max\(0,target\)/);
   assert.doesNotMatch(nav, /section\.scrollIntoView/);
+});
+
+test("sidebar gives every module a distinct color and an accessible active state", async () => {
+  const nav = await readFile("nav.js", "utf8");
+  assert.match(nav, /aria-pressed=/);
+  assert.match(nav, /aria-current="page"/);
+  assert.match(nav, /is1s-nav-section.*is-selected/);
+  assert.match(nav, /candidate\.classList\.toggle\("is-selected"/);
+
+  const css = await readFile("theme.css", "utf8");
+  for (const module of ["home", "market", "companies", "news", "surveillance", "bonds"]) {
+    assert.match(css, new RegExp(`data-module-section="${module}"`), `${module} must define a module accent`);
+  }
+  assert.match(css, /\.is1s-rail-btn\.active\s*\{[^}]*var\(--module-accent\)/s);
+  assert.match(css, /\.is1s-module-link\.active\s*\{[^}]*box-shadow:inset 3px 0 0 var\(--module-accent\)/s);
+  assert.match(css, /:root\[data-theme="light"\] \.is1s-nav-section/);
 });
 
 test("homepage places RM-filtered disclosure and external-news feeds before dashboards", async () => {
