@@ -28,7 +28,7 @@
       chips: [
         { key: "chat.hermes.chip.news", text: "What news moved my names today? I'm {rm}." },
         { key: "chat.hermes.chip.silent", text: "Any overdue or silent filers in my coverage? I'm {rm}." },
-        { key: "chat.hermes.chip.cpn", text: "Summarize CPN's latest SET filing." },
+        { key: "chat.hermes.chip.cpn", text: "Show CPN's latest SET filings and filing dates." },
         { key: "chat.hermes.chip.food", text: "อัปเดตข่าวกลุ่ม FOOD วันนี้" },
       ],
     },

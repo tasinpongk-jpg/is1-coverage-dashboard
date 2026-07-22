@@ -120,8 +120,8 @@ const CASES = [
     checks: [["answers overdue status", hasRe(/overdue|silent|day|\d+d|ไม่มี|ไม่พบ|none/i)], ["uses a concrete ticker or says none", hasRe(/\b[A-Z][A-Z0-9]{1,7}\b|ไม่มี|ไม่พบ|none/i)]],
   },
   {
-    agent: "hermes", q: "Summarize CPN's latest SET filing.",
-    checks: [["focuses on CPN", hasRe(/\bCPN\b/)], ["identifies a filing or disclosure", hasRe(/filing|disclosure|filed|SET|เอกสาร|สารสนเทศ/i)], ["includes a date, figure or explicit PDF limitation", hasRe(/\d{4}-\d{2}-\d{2}|\d+(?:[.,]\d+)?\s*(?:%|baht|บาท|mn|bn)|could not|unable/i)]],
+    agent: "hermes", q: "Show CPN's latest SET filings and filing dates.", expectedModel: "MiniMax-M3",
+    checks: [["focuses on CPN", hasRe(/\bCPN\b/)], ["identifies a filing or disclosure", hasRe(/filing|disclosure|filed|SET|เอกสาร|สารสนเทศ/i)], ["includes a filing date", hasRe(/\d{4}-\d{2}-\d{2}/)]],
   },
   {
     agent: "hermes", q: "อัปเดตข่าวกลุ่ม FOOD วันนี้", expectedModel: "MiniMax-M3",
