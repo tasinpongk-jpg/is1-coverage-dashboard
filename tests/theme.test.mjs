@@ -34,9 +34,33 @@ test("all shared assets use the current cache version", async () => {
   for (const file of htmlFiles) {
     const source = await readFile(file, "utf8");
     for (const asset of ["theme.js", "theme.css", "i18n.js", "nav.js"]) {
-      assert.match(source, new RegExp(`${asset.replace(".", "\\.")}\\?v=6`), `${file} must load ${asset} v6`);
+      assert.match(source, new RegExp(`${asset.replace(".", "\\.")}\\?v=7`), `${file} must load ${asset} v7`);
     }
   }
+});
+
+test("module rail aligns the selected section to the top of its own scroller", async () => {
+  const nav = await readFile("nav.js", "utf8");
+  assert.match(nav, /modulePanel\.querySelector\("\.is1s-module-scroll"\)/);
+  assert.match(nav, /is1s-module-spacer/);
+  assert.match(nav, /target > available/);
+  assert.match(nav, /scroller\.scrollTo\(\{ top:Math\.max\(0,target\)/);
+  assert.doesNotMatch(nav, /section\.scrollIntoView/);
+});
+
+test("homepage places RM-filtered disclosure and external-news feeds before dashboards", async () => {
+  const nav = await readFile("nav.js", "utf8");
+  assert.match(nav, /className = "is1-home-news"/);
+  assert.match(nav, /data-home-disclosures/);
+  assert.match(nav, /data-home-external/);
+  assert.match(nav, /var disclosureRows = rmFilings\(\)/);
+  assert.match(nav, /var externalRows = rmNews\(\)/);
+  assert.match(nav, /data-home-news-rm/);
+  assert.match(nav, /safeHttpUrl/);
+
+  const css = await readFile("theme.css", "utf8");
+  assert.match(css, /\.is1-home-news-grid\s*\{[^}]*grid-template-columns:repeat\(2/s);
+  assert.match(css, /@media\(max-width:980px\)[\s\S]*\.is1-home-news-grid\s*\{\s*grid-template-columns:1fr/);
 });
 
 test("external dashboards open in the embedded right workspace", async () => {
