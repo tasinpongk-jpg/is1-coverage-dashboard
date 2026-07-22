@@ -141,7 +141,7 @@ const CASES = [
   },
   {
     agent: "pythia", q: "Rank all 6 IS1 sectors by 1-day return and breadth.", expectedModel: "deterministic",
-    checks: [["has sector table", hasRe(/\| Sector \| Avg 1d/)], ["has a % figure", hasRe(/-?\d+(?:\.\d+)?\s*%/)], ["includes breadth", hasRe(/Breadth|\d+\s*\/\s*\d+/i)], ["covers core sectors", hasRe(/FOOD[\s\S]*PROP[\s\S]*PF&REIT|PF&REIT[\s\S]*PROP[\s\S]*FOOD/i)]],
+    checks: [["has sector table", hasRe(/\| Sector \| Avg 1d/)], ["has a % figure", hasRe(/-?\d+(?:\.\d+)?\s*%/)], ["includes breadth", hasRe(/Breadth|\d+\s*\/\s*\d+/i)], ["covers FOOD", hasRe(/\bFOOD\b/)], ["covers PROP", hasRe(/\bPROP\b/)], ["covers PF&REIT", hasRe(/PF&REIT/)]],
   },
   {
     agent: "pythia", q: "Compare FOOD, PROP and PF&REIT on 1-day, 5-day and YTD performance.", expectedModel: "deterministic",
