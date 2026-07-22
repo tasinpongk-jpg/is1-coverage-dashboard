@@ -61,7 +61,8 @@ test("MiniMax-backed agents respond 200 and report grounded metadata", async () 
     assert.equal(r.status, 200);
     const d = await r.json();
     assert.equal(d.agent, agent);
-    assert.equal(d.reply, "stub-reply");
+    assert.match(d.reply, /^stub-reply/);
+    assert.match(d.reply, /Data as of \d{4}-\d{2}-\d{2}/);
     assert.equal(d.model, "MiniMax-M3");
     assert.ok(d.meta.asOf);
     assert.ok(d.meta.sources.length >= 2);
@@ -257,7 +258,7 @@ test("chat retries an empty MiniMax answer with a larger token budget", async ()
     },
   });
   assert.equal(r.status, 200);
-  assert.equal((await r.json()).reply, "recovered-reply");
+  assert.match((await r.json()).reply, /^recovered-reply/);
   assert.deepEqual(budgets, [2200, 5000]);
 });
 
@@ -445,6 +446,54 @@ test("Hermes news requests always use MiniMax M3", async () => {
   assert.deepEqual(d.meta.sources, ["external-news", "disclosure-pulse", "sec-form59", "oppday-minutes"]);
 });
 
+test("Hermes normalizes required news sections and always appends snapshot provenance", async () => {
+  let calls = 0;
+  const sectionEnv = {
+    ...env,
+    MINIMAX_FETCH: async () => {
+      calls += 1;
+      return new Response(JSON.stringify({
+        model: "MiniMax-M3",
+        choices: [{ message: { content: "External news\n• one item\n\nSET disclosures\n• one filing" } }],
+        base_resp: { status_code: 0 },
+      }), { headers: { "Content-Type": "application/json" } });
+    },
+  };
+  const r = await worker.fetch(chatReq({
+    agent: "hermes",
+    messages: [{ role: "user", content: "What news moved RM C coverage today?" }],
+  }), sectionEnv);
+  const d = await r.json();
+  assert.equal(calls, 1);
+  assert.match(d.reply, /📰 External news/);
+  assert.match(d.reply, /📄 SET disclosures/);
+  assert.match(d.reply, /Data as of \d{4}-\d{2}-\d{2}/);
+});
+
+test("Hermes falls back to grounded context when two model answers miss required sections", async () => {
+  let calls = 0;
+  const fallbackEnv = {
+    ...env,
+    MINIMAX_FETCH: async () => {
+      calls += 1;
+      return new Response(JSON.stringify({
+        model: "MiniMax-M3",
+        choices: [{ message: { content: "A paragraph without the required structure." } }],
+        base_resp: { status_code: 0 },
+      }), { headers: { "Content-Type": "application/json" } });
+    },
+  };
+  const r = await worker.fetch(chatReq({
+    agent: "hermes",
+    messages: [{ role: "user", content: "Update FOOD sector news today" }],
+  }), fallbackEnv);
+  const d = await r.json();
+  assert.equal(calls, 2);
+  assert.match(d.reply, /📰 External news/);
+  assert.match(d.reply, /📄 SET disclosures/);
+  assert.match(d.reply, /\d{4}-\d{2}-\d{2}/);
+});
+
 test("atlas 'beyond ±X%' query hard-filters prices to qualifying rows only", async () => {
   await worker.fetch(chatReq({ agent: "atlas", messages: [{ role: "user", content: "movers beyond +/-2% today" }] }), env);
   assert.ok(/PRE-FILTERED/.test(lastSystem), "expected the pre-filter note");
@@ -624,9 +673,10 @@ test("output verification does not treat MD&A as ticker A", async () => {
     }), { headers: { "Content-Type": "application/json" } });
   };
   try {
-    const r = await worker.fetch(chatReq({ agent: "hermes", messages: [{ role: "user", content: "news on CPN" }] }), env);
+    const r = await worker.fetch(chatReq({ agent: "hermes", messages: [{ role: "user", content: "summarize CPN filing" }] }), env);
     const d = await r.json();
-    assert.equal(d.reply, "Review the MD&A filing.");
+    assert.match(d.reply, /^Review the MD&A filing\./);
+    assert.doesNotMatch(d.reply, /Unverified.*\bA\b/);
   } finally { env.MINIMAX_FETCH = saved; }
 });
 

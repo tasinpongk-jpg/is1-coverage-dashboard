@@ -1164,6 +1164,58 @@ const AGENTS = {
   },
 };
 
+function needsHermesSections(text) {
+  return /\bnews\b|ข่าว/iu.test(String(text || ""));
+}
+
+function normalizeHermesSections(reply) {
+  let out = String(reply || "");
+  if (!out.includes("📰")) {
+    out = out.replace(
+      /(^|\n)(\s*(?:#{1,4}\s*)?)(?:external\s+news|ข่าวภายนอก|ข่าวจากภายนอก)(\s*[:：-]?)/iu,
+      "$1$2📰 External news$3",
+    );
+  }
+  if (!out.includes("📄")) {
+    out = out.replace(
+      /(^|\n)(\s*(?:#{1,4}\s*)?)(?:set\s+disclosures?|disclosures?|การเปิดเผยข้อมูล(?:ต่อตลาดหลักทรัพย์)?|ข่าว\s*SET)(\s*[:：-]?)/iu,
+      "$1$2📄 SET disclosures$3",
+    );
+  }
+  return out;
+}
+
+function hasHermesSections(reply) {
+  return String(reply || "").includes("📰") && String(reply || "").includes("📄");
+}
+
+function contextSectionRows(context, start, end) {
+  const source = String(context || "");
+  const from = source.indexOf(start);
+  if (from < 0) return [];
+  const tail = source.slice(from + start.length);
+  const to = end ? tail.indexOf(end) : -1;
+  return (to >= 0 ? tail.slice(0, to) : tail)
+    .split("\n")
+    .map((line) => line.trim().replace(/\s+rm=[A-Z]\b/g, ""))
+    .filter((line) => /^\d{4}-\d{2}-\d{2}\s/.test(line));
+}
+
+function hermesDeterministicFallback(context, question) {
+  const thai = /[฀-๿]/.test(String(question || ""));
+  const news = contextSectionRows(context, "EXTERNAL NEWS", "SET DISCLOSURES").slice(0, 8);
+  const filings = contextSectionRows(context, "SET DISCLOSURES", "SEC FORM 59").slice(0, 8);
+  const none = thai ? "• ไม่พบรายการใน snapshot ที่เลือก" : "• None in the selected snapshot";
+  const bullets = (rows) => rows.length ? rows.map((line) => `• ${line}`).join("\n") : none;
+  return `📰 External news\n${bullets(news)}\n\n📄 SET disclosures\n${bullets(filings)}`;
+}
+
+function ensureAsOf(reply, asOf, question) {
+  if (!asOf || String(reply || "").includes(asOf)) return reply;
+  const label = /[฀-๿]/.test(String(question || "")) ? "ข้อมูล ณ" : "Data as of";
+  return `${String(reply || "").trim()}\n\n${label} ${asOf}`;
+}
+
 // Lex retrieves the most relevant rulebook pages locally, then asks MiniMax M3
 // to answer only from those pages. The deterministic source list makes every
 // response auditable even when the model omits an inline citation.
@@ -1275,11 +1327,24 @@ async function handleChat(request, env, origin) {
     if (sym) { const lq = await fetchLiveQuote(sym); if (lq) context = liveQuoteBlock(lq) + "\n\n" + context; }
   }
 
-  const result = await runMiniMax(env, [
-    { role: "system", content: agent.persona + SHARED_RULES + rmLine + "\n\nDATA:\n" + context },
+  const baseSystem = agent.persona + SHARED_RULES + rmLine + "\n\nDATA:\n" + context;
+  let result = await runMiniMax(env, [
+    { role: "system", content: baseSystem },
     ...cleaned,
   ]);
-  let reply = result.reply;
+  let reply = agentName === "hermes" ? normalizeHermesSections(result.reply) : result.reply;
+  if (agentName === "hermes" && needsHermesSections(lastText) && !hasHermesSections(reply)) {
+    result = await runMiniMax(env, [
+      {
+        role: "system",
+        content: baseSystem + "\n\nOUTPUT CONTRACT: Return both labelled sections exactly: " +
+          "📰 External news and 📄 SET disclosures. Include a section even when it has no rows.",
+      },
+      ...cleaned,
+    ], { temperature: 0.1 });
+    reply = normalizeHermesSections(result.reply);
+    if (!hasHermesSections(reply)) reply = hermesDeterministicFallback(context, lastText);
+  }
   // Output verification: flag any covered ticker the model named that wasn't in
   // its data — catches hallucinated / pretraining-leaked names before the user
   // (and the dock's ticker-chip linkifier) treats them as real.
@@ -1288,10 +1353,12 @@ async function handleChat(request, env, origin) {
     reply += `\n\n⚠ Unverified: ${ungrounded.join(", ")} — not in the data I was ` +
       `given for this question. Treat with caution / re-ask naming the ticker.`;
   }
+  const meta = await chatResponseMeta(env, origin, agentName);
+  reply = ensureAsOf(reply, meta.asOf, lastText);
   return json({
     reply,
     agent: agentName,
     model: result.model,
-    meta: await chatResponseMeta(env, origin, agentName),
+    meta,
   });
 }
