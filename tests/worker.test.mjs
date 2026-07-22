@@ -6,7 +6,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
-import worker from "../worker.js";
+import worker, { resolveLexCitations, retrieveLexChunks } from "../worker.js";
 
 let lastSystem = "";
 let lastMiniMaxRequest = null;
@@ -42,6 +42,18 @@ function chatReq(body, token = "testtoken") {
   });
 }
 const userMsg = [{ role: "user", content: "hi" }];
+const lexCorpus = JSON.parse(await readFile("./data/lex-regulations.json", "utf-8"));
+
+test("Lex corpus records a complete page-level source set", () => {
+  assert.equal(lexCorpus.schemaVersion, 1);
+  assert.equal(lexCorpus.documentCount, 79);
+  assert.equal(lexCorpus.documents.length, 79);
+  assert.equal(lexCorpus.pageCount, 560);
+  assert.equal(lexCorpus.chunkCount, lexCorpus.chunks.length);
+  assert.ok(lexCorpus.documents.every((doc) => /^[a-f0-9]{64}$/.test(doc.sha256)));
+  assert.ok(lexCorpus.chunks.every((chunk) =>
+    chunk.document.endsWith(".pdf") && chunk.page > 0 && chunk.text.length > 0));
+});
 
 test("each agent responds 200 and reports its name", async () => {
   for (const agent of ["atlas", "hermes", "pythia"]) {
@@ -64,6 +76,81 @@ test("chat calls the MiniMax M3 server API with grounded messages", async () => 
   assert.equal(lastMiniMaxRequest.body.messages.at(-1).content, "hi");
   assert.match(lastMiniMaxRequest.body.messages[0].content, /DATA:/);
   assert.equal(lastMiniMaxRequest.body.max_tokens, 2200);
+});
+
+test("Lex retrieves page-level rules and answers through MiniMax M3", async () => {
+  const r = await worker.fetch(chatReq({
+    agent: "lex",
+    messages: [{ role: "user", content: "When is a connected transaction subject to shareholder approval?" }],
+  }), env);
+  assert.equal(r.status, 200);
+  const d = await r.json();
+  assert.equal(d.agent, "lex");
+  assert.equal(d.model, "MiniMax-M3");
+  assert.match(d.reply, /Sources retrieved:/);
+  assert.match(lastSystem, /REGULATION CORPUS: 79 documents/);
+  assert.match(lastSystem, /รายการที่เกี่ยวโยงกัน\.pdf \| p\.6/);
+  assert.doesNotMatch(lastMiniMaxRequest.url, /googleapis|gemini/i);
+  assert.equal(lastMiniMaxRequest.body.max_tokens, 5000);
+  assert.equal(lastMiniMaxRequest.body.temperature, 0.1);
+});
+
+test("Lex retrieval finds the intended documents for every sample question", () => {
+  const cases = [
+    ["When is a connected transaction subject to shareholder approval?", /รายการที่เกี่ยวโยงกัน\.pdf/],
+    ["What must a listed company disclose after a board resolution?", /การเปิดเผยข้อมูลตามเหตุการณ์\.pdf/],
+    ["อธิบายเกณฑ์ free float ของ SET", /Free_Float\.pdf/],
+  ];
+  for (const [question, expected] of cases) {
+    const rows = retrieveLexChunks(lexCorpus, question);
+    assert.equal(rows.length, 8);
+    assert.match(rows[0].document, expected);
+    assert.ok(rows.every((row) => row.page > 0 && row.text.length > 0));
+  }
+});
+
+test("Lex expands source IDs and removes non-retrieved citation labels", () => {
+  const chunks = [
+    { document: "กฎหนึ่ง.pdf", page: 2 },
+    { document: "rule-two.pdf", page: 7 },
+  ];
+  const reply = resolveLexCitations(
+    "Threshold [S1]. Condition [S2]. Unknown [S9]. Fake [short-name.pdf p.4].",
+    chunks,
+  );
+  assert.match(reply, /\[กฎหนึ่ง\.pdf p\.2\]/);
+  assert.match(reply, /\[rule-two\.pdf p\.7\]/);
+  assert.doesNotMatch(reply, /S9|short-name/);
+});
+
+test("Lex rejects off-topic questions without calling an LLM", async () => {
+  lastMiniMaxRequest = null;
+  const r = await worker.fetch(chatReq({
+    agent: "lex",
+    messages: [{ role: "user", content: "How do I cook pad thai?" }],
+  }), env);
+  assert.equal(r.status, 200);
+  const d = await r.json();
+  assert.equal(d.model, "MiniMax-M3");
+  assert.match(d.reply, /only answers SET\/SEC rules/i);
+  assert.equal(lastMiniMaxRequest, null);
+});
+
+test("Lex reports a missing regulation corpus as 503", async () => {
+  const missingCorpusEnv = {
+    ...env,
+    ASSETS: {
+      fetch: async (req) => new URL(req.url).pathname === "/data/lex-regulations.json"
+        ? new Response("not found", { status: 404 })
+        : env.ASSETS.fetch(req),
+    },
+  };
+  const r = await worker.fetch(chatReq({
+    agent: "lex",
+    messages: [{ role: "user", content: "Explain the free float rule" }],
+  }), missingCorpusEnv);
+  assert.equal(r.status, 503);
+  assert.match((await r.json()).error, /regulation corpus is missing/);
 });
 
 test("chat reports missing MiniMax configuration without calling an alternate model", async () => {
@@ -240,6 +327,19 @@ test("pythia persona ranks from aggregates + separates fact from AI view", async
   // both data blocks Pythia reasons over must be present
   assert.ok(/SECTOR AGGREGATES/.test(lastSystem), "expected SECTOR AGGREGATES block");
   assert.ok(/AI COMMENTARY/.test(lastSystem), "expected AI COMMENTARY reference");
+});
+
+test("every agent prompt includes a worked response sample", async () => {
+  const cases = [
+    ["atlas", "top movers", /EXAMPLE — user:/],
+    ["hermes", "news today", /EXAMPLE — user:/],
+    ["pythia", "which sector leads", /EXAMPLE — user:/],
+    ["lex", "Explain the free float rule", /SAMPLE FORMAT — user asks/],
+  ];
+  for (const [agent, question, marker] of cases) {
+    await worker.fetch(chatReq({ agent, messages: [{ role: "user", content: question }] }), env);
+    assert.match(lastSystem, marker, `expected a worked sample for ${agent}`);
+  }
 });
 
 test("naming a covered ticker filters Hermes context to that ticker", async () => {

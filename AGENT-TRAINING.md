@@ -15,7 +15,7 @@ Every dashboard page carries a chat dock talking to four named agents
 | 🗺 **Atlas** | prices, % moves, movers, threshold checks | MiniMax M3 |
 | ⚡ **Hermes** | external news + SET disclosures, silent filers, filing summaries | MiniMax M3 (+ Gemini for PDFs) |
 | 🔮 **Pythia** | sector aggregates + daily AI commentary | MiniMax M3 |
-| ⚖️ **Lex** | SET/SEC rules, cited to the source PDF | Gemini File Search |
+| ⚖️ **Lex** | SET/SEC rules, cited to the source PDF | MiniMax M3 + local page retrieval |
 
 Each is grounded in the same daily JSON snapshots the dashboard shows, so the
 chat never diverges from the pages.
@@ -58,9 +58,13 @@ into a structured intent and filters the context server-side:
 - **Rank-then-cap** (`relevanceRank`) — topical keywords re-rank news/filings so a
   relevant item *beyond* the recency cap still surfaces, instead of the model
   hunting through recency-ordered noise.
+- **Lex page retrieval** (`retrieveLexChunks`) — `build_lex_corpus.py` extracts
+  all rulebook PDFs page by page, records each source hash, and builds one
+  deployable JSON asset. The worker expands Thai/English rule aliases, scores
+  title and page text deterministically, caps pages per document, then sends
+  only the selected pages to MiniMax M3. A source list is appended in code.
 
-### 3.3 Route weak tasks away from the weak model
-- **Lex → Gemini File Search** over the regulation PDFs (page-cited answers).
+### 3.3 Route PDF tasks to a PDF-capable model
 - **Hermes filing summaries → Gemini.** A "summarize CPN's filing" request reads
   the *actual filed PDF*: the worker resolves the SET newsdetails page → the
   `weblink.set.or.th` PDF → hands the bytes to Gemini (which reads PDFs natively,
@@ -113,6 +117,8 @@ Real bugs found by **live-testing the deployed model**, not assuming:
 | "News on CPN" showed J/TIF1/BLAND filings | model padded an empty section | ticker-focus filters context; empty ⇒ honest "none" |
 | Filing summaries were a generic half-sentence | The chat path did not faithfully reproduce injected text | bypass the chat model; serve Gemini's summary directly |
 | Gemini summaries truncated to "…filed" | `gemini-2.5-flash` is a **thinking model**; thinking tokens ate the `maxOutputTokens` budget | `thinkingConfig.thinkingBudget=0` + bigger cap |
+| Lex failed in production without a Gemini secret | its only retrieval/generation path depended on Gemini File Search | build a page-level corpus locally; retrieve in the Worker; answer through the existing MiniMax M3 secret |
+| Lex returned an empty Thai free-float answer | MiniMax reasoning consumed the default 2,200-token output budget | use a Lex-specific 5,000-token budget and constrain the final answer to 350 words |
 | Thai user got an English cached summary | cache key ignored language | key includes `lang` |
 | A passing test silently broke | persona text contained the literal string a test split on (`SET DISCLOSURES`, `FILED-DOCUMENT…`) | anchor tests on data-only markers |
 | Feedback verification looked broken for ~40 min | the deploy CLI's KV reads were an unreliable narrator (sandbox/consistency); data was always landing | confirmed in dashboard + via the worker's own export endpoint |
@@ -124,8 +130,8 @@ Real bugs found by **live-testing the deployed model**, not assuming:
 
 1. **Determinism beats prompting** for filtering/counting/sorting/dates — parse
    the intent, compute the answer, let the model narrate.
-2. **Route by capability** — keep the cheap model for grounded lookups; send PDFs,
-   long context, and cited reasoning to a stronger/specialized model.
+2. **Route by capability** — use deterministic retrieval for static rulebooks;
+   send binary PDFs to a model that can read them natively.
 3. **Make "none" first-class** — scoping + honest empty sections kill the model's
    urge to pad/fabricate.
 4. **Verify the output, not just the input** — a grounding check catches the last
@@ -138,17 +144,21 @@ Real bugs found by **live-testing the deployed model**, not assuming:
 
 ## 6. Results
 
-- 4 agents live-validated end-to-end; eval harness **16/16** property checks pass;
-  LLM-judge sample **99/100** on Lex.
+- All 13 suggestion-chip questions across the 4 agents are covered by the live
+  eval harness; the latest MiniMax M3 run passed **49/49** property checks.
+- Lex indexes 79 source PDFs into 560 page records and 561 retrieval chunks;
+  all 3 Lex suggestion questions return page citations through MiniMax M3.
 - Atlas threshold/range/top-N now deterministically correct; intraday answered.
 - Hermes merges both news sources, scopes per-ticker, summarizes real PDFs
   (verified rich numeric output in EN + TH).
-- 25 unit tests (deterministic context logic), green throughout.
+- 41 unit tests cover theme assets, chat routing, source retrieval, citation
+  validation and deterministic context logic.
 - Measurement (eval + judge + gate) and feedback (votes + miner) loops in place.
 
 ## 7. Operating it
 
 ```bash
+python3 scripts/build_lex_corpus.py /path/to/regulations
 node scripts/eval_agents.mjs --judge --gate 80   # measure before/after a change
 node scripts/mine_feedback.mjs --themes          # see what real users downvoted
 ```

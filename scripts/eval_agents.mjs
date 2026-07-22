@@ -4,7 +4,7 @@
  * each agent's key behaviours with property checks (pass/fail), so a prompt or
  * context change can be measured instead of eyeballed.
  *
- * This hits the live worker (MiniMax M3 + Gemini cost real quota), so it is a
+ * This hits the live worker (MiniMax M3, plus optional Gemini PDF summaries), so it is a
  * MANUAL tool, not a CI gate. The committed unit tests (tests/worker.test.mjs)
  * cover the deterministic context logic with no network; this covers the model.
  *
@@ -47,7 +47,7 @@ async function ask(agent, content) {
   });
   const d = await r.json().catch(() => ({ error: `non-json ${r.status}` }));
   if (d.error) throw new Error(d.error);
-  return d.reply || "";
+  return { reply: d.reply || "", model: d.model || "unknown" };
 }
 
 // ---- LLM judge (optional, --judge) ---------------------------------------
@@ -97,7 +97,6 @@ async function judge(agent, question, reply) {
 // ---- reusable property checks (return {ok, detail}) -----------------------
 const has = (s) => (r) => ({ ok: r.includes(s), detail: `contains "${s}"` });
 const hasRe = (re, label) => (r) => ({ ok: re.test(r), detail: label || re.source });
-const notRe = (re, label) => (r) => ({ ok: !re.test(r), detail: "NOT " + (label || re.source) });
 // pull "1d%" column out of markdown table rows: | TK | last | 1d% | flag |
 function tableMoves(r) {
   return [...r.matchAll(/^\|\s*[A-Z][A-Z0-9]{1,7}\s*\|\s*[\d.]+\s*\|\s*(-?\d+(?:\.\d+)?)\s*\|/gm)].map((m) => +m[1]);
@@ -112,27 +111,58 @@ const hasFigure = (r) => ({ ok: /-?\d+(?:[.,]\d+)?\s*(%|baht|bn|mn|m\b|million|�
 
 // ---- the battery ----------------------------------------------------------
 const CASES = [
-  { agent: "atlas", q: "Top movers beyond +/-2% in my coverage. I'm Champ. Table.",
-    checks: [["only rows clearing ±2", allMovesClear(2)], ["states as-of", hasRe(/as[- ]?of/i)]] },
-  { agent: "atlas", q: "Names between -2% and -1.5% today. I'm Champ.",
-    checks: [["no row beyond the band", (r) => { const mv = tableMoves(r); const bad = mv.filter((v) => v < -2 || v > -1.5); return { ok: mv.length === 0 || bad.length === 0, detail: `offenders ${JSON.stringify(bad)}` }; }]] },
-  { agent: "atlas", q: "Top 5 names by YTD. I'm Champ.",
-    checks: [["mentions YTD", hasRe(/ytd|year/i)], ["has figures", hasFigure]] },
-  { agent: "atlas", q: "What's the live intraday price of PTT right now?",
-    checks: [["gives a price figure", hasRe(/\d+(?:\.\d+)?/)],
-             ["live or graceful prev-close", hasRe(/live|real[- ]?time|market|quote time|previous close/i)]] },
-  { agent: "pythia", q: "Which sector leads and which lags today? Figures and breadth.",
-    checks: [["has a % figure", hasRe(/-?\d+(?:\.\d+)?\s*%/)], ["mentions breadth", hasRe(/breadth|\d+\s*\/\s*\d+|up\b/i)]] },
-  { agent: "pythia", q: "Give me a specific catalyst explaining why FOOD outperformed today.",
-    checks: [["does not fabricate", hasRe(/no specific|don'?t see|not (?:in|available)|did not outperform|lagged|the daily ai|my read/i)]] },
-  { agent: "hermes", q: "Any news on CPN? I'm Champ.",
-    checks: [["shows external-news header", has("📰")], ["shows disclosures header", has("📄")]] },
-  { agent: "hermes", q: "Summarize CPN's latest SET filing. I'm Champ.",
-    checks: [["leads with a filing summary", has("📄")], ["has concrete figures", hasFigure]] },
-  { agent: "lex", q: "When is a connected transaction subject to shareholder approval?",
-    checks: [["gives a threshold/rule", hasRe(/\d|threshold|approval|three[- ]?quarter|3\/4/i)], ["cites a source", hasRe(/source|p\.\s*\d|page/i)]] },
-  { agent: "lex", q: "How do I cook pad thai?",
-    checks: [["declines off-topic", hasRe(/do not|don'?t|cannot|outside|only|regulat/i)]] },
+  {
+    agent: "hermes", q: `What news moved my names today? I'm ${RM}.`, expectedModel: "MiniMax-M3",
+    checks: [["shows external-news header", has("📰")], ["shows disclosures header", has("📄")], ["states today's scope", hasRe(/today|วันนี้|as[- ]?of/i)]],
+  },
+  {
+    agent: "hermes", q: `Any overdue or silent filers in my coverage? I'm ${RM}.`, expectedModel: "MiniMax-M3",
+    checks: [["answers overdue status", hasRe(/overdue|silent|day|\d+d|ไม่มี|ไม่พบ|none/i)], ["uses a concrete ticker or says none", hasRe(/\b[A-Z][A-Z0-9]{1,7}\b|ไม่มี|ไม่พบ|none/i)]],
+  },
+  {
+    agent: "hermes", q: "Summarize CPN's latest SET filing.",
+    checks: [["focuses on CPN", hasRe(/\bCPN\b/)], ["identifies a filing or disclosure", hasRe(/filing|disclosure|filed|SET|เอกสาร|สารสนเทศ/i)], ["includes a date, figure or explicit PDF limitation", hasRe(/\d{4}-\d{2}-\d{2}|\d+(?:[.,]\d+)?\s*(?:%|baht|บาท|mn|bn)|could not|unable/i)]],
+  },
+  {
+    agent: "hermes", q: "อัปเดตข่าวกลุ่ม FOOD วันนี้", expectedModel: "MiniMax-M3",
+    checks: [["shows external-news header", has("📰")], ["shows disclosures header", has("📄")], ["replies in Thai", hasRe(/[ก-๙]/)]],
+  },
+  {
+    agent: "atlas", q: `Top movers beyond ±2% in my coverage. I'm ${RM}.`, expectedModel: "MiniMax-M3",
+    checks: [["only rows clearing ±2", allMovesClear(2)], ["states as-of", hasRe(/as[- ]?of/i)]],
+  },
+  {
+    agent: "atlas", q: `Any high-severity alerts today? I'm ${RM}.`, expectedModel: "MiniMax-M3",
+    checks: [["answers alert severity", hasRe(/high|severity|alert|none|no .*alert|ไม่มี|ไม่พบ/i)], ["states timing", hasRe(/today|as[- ]?of|วันนี้|\d{4}-\d{2}-\d{2}/i)]],
+  },
+  {
+    agent: "atlas", q: "Which names hit a 52-week low?", expectedModel: "MiniMax-M3",
+    checks: [["answers the 52-week-low screen", hasRe(/52[- ]?week|52w|low|ไม่มี|ไม่พบ|none/i)], ["uses a ticker or says none", hasRe(/\b[A-Z][A-Z0-9]{1,7}\b|ไม่มี|ไม่พบ|none/i)]],
+  },
+  {
+    agent: "pythia", q: "Which sector leads and which lags today?", expectedModel: "MiniMax-M3",
+    checks: [["has a % figure", hasRe(/-?\d+(?:\.\d+)?\s*%/)], ["mentions breadth", hasRe(/breadth|\d+\s*\/\s*\d+|up\b/i)], ["names leader", hasRe(/lead/i)], ["names laggard", hasRe(/lag/i)]],
+  },
+  {
+    agent: "pythia", q: "What should I watch in PROP this week?", expectedModel: "MiniMax-M3",
+    checks: [["stays on PROP", hasRe(/\bPROP\b/)], ["grounds the view", hasRe(/daily AI|commentary|aggregate|data|breadth|my read/i)], ["gives a watch item", hasRe(/watch|monitor|focus|ติดตาม|จับตา/i)]],
+  },
+  {
+    agent: "pythia", q: "สรุปภาพรวมตลาดวันนี้", expectedModel: "MiniMax-M3",
+    checks: [["replies in Thai", hasRe(/[ก-๙]/)], ["includes market figures", hasFigure], ["covers sector direction", hasRe(/FOOD|PROP|PF&REIT|กลุ่ม|นำ|อ่อน/i)]],
+  },
+  {
+    agent: "lex", q: "What must a listed company disclose after a board resolution?", expectedModel: "MiniMax-M3",
+    checks: [["answers disclosure timing", hasRe(/immediate|trading session|business day|ทันที|วันทำการ/i)], ["cites a PDF page", hasRe(/\[[^\]]+\.pdf p\.\d+\]/i)], ["shows retrieved sources", hasRe(/Sources retrieved:/)]],
+  },
+  {
+    agent: "lex", q: "When is a connected transaction subject to shareholder approval?", expectedModel: "MiniMax-M3",
+    checks: [["gives thresholds or vote rule", hasRe(/\d|threshold|three[- ]?quarter|3\s*\/\s*4|NTA/i)], ["cites a PDF page", hasRe(/\[[^\]]+\.pdf p\.\d+\]/i)], ["shows retrieved sources", hasRe(/Sources retrieved:/)]],
+  },
+  {
+    agent: "lex", q: "อธิบายเกณฑ์ free float ของ SET", expectedModel: "MiniMax-M3",
+    checks: [["states 150 holders", hasRe(/150/)], ["states 15 percent", hasRe(/(?:15\s*(?:%|เปอร์เซ็นต์)|ร้อยละ\s*15)/i)], ["cites a PDF page", hasRe(/\[[^\]]+\.pdf p\.\d+\]/i)], ["replies in Thai", hasRe(/[ก-๙]/)]],
+  },
 ];
 
 // ---------------------------------------------------------------------------
@@ -147,10 +177,15 @@ const scores = [];
 console.log(`\nAgent eval — ${URL} (rm=${RM})${doJudge ? ` · judge=${JUDGE_MODEL}` : ""}\n`);
 if (doJudge && !GROQ_KEY) console.log("(--judge requested but no GROQ_API_KEY found — skipping scores)\n");
 for (const c of cases) {
-  let reply = "";
-  try { reply = await ask(c.agent, c.q); }
-  catch (e) { console.log(`✗ [${c.agent}] ${c.q}\n    request failed: ${e.message}`); fail += c.checks.length; continue; }
-  console.log(`[${c.agent}] ${c.q}`);
+  let result;
+  try { result = await ask(c.agent, c.q); }
+  catch (e) { console.log(`✗ [${c.agent}] ${c.q}\n    request failed: ${e.message}`); fail += c.checks.length + (c.expectedModel ? 1 : 0); continue; }
+  const reply = result.reply;
+  console.log(`[${c.agent}] ${c.q} [${result.model}]`);
+  if (c.expectedModel) {
+    if (result.model === c.expectedModel) { pass++; console.log(`  ✓ model ${c.expectedModel}`); }
+    else { fail++; console.log(`  ✗ model — expected ${c.expectedModel}, got ${result.model}`); }
+  }
   for (const [name, fn] of c.checks) {
     const { ok, detail } = fn(reply);
     if (ok) { pass++; console.log(`  ✓ ${name}`); }

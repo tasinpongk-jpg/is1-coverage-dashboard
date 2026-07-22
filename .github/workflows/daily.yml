@@ -344,7 +344,7 @@ jobs:
           fi
         continue-on-error: true
 
-      # Keep the MiniMax key used by Atlas, Hermes and Pythia in sync with the
+      # Keep the MiniMax key used by all four chat agents in sync with the
       # GitHub secret. The key is never shipped to the browser.
       - name: Sync MiniMax key to Worker secret
         if: github.ref == 'refs/heads/main'
@@ -353,14 +353,14 @@ jobs:
           MINIMAX_KEY_VALUE: ${{ secrets.MINIMAX_API_KEY }}
         run: |
           if [ -z "$MINIMAX_KEY_VALUE" ]; then
-            echo "MINIMAX_API_KEY secret not set; Atlas, Hermes and Pythia return a config error."
+            echo "MINIMAX_API_KEY secret not set; all four chat agents return a config error."
           else
             printf '%s' "$MINIMAX_KEY_VALUE" | npx wrangler secret put MINIMAX_API_KEY
           fi
         continue-on-error: true
 
-      # Keep the Gemini key (for the Lex regulations agent) in sync with the
-      # GitHub secret. Idempotent; skipped when the secret isn't configured.
+      # Gemini is optional and only reads filed PDFs for Hermes summaries.
+      # Idempotent; skipped when the secret isn't configured.
       - name: Sync Gemini key to Worker secret
         if: github.ref == 'refs/heads/main'
         env:
@@ -368,7 +368,7 @@ jobs:
           GEMINI_KEY_VALUE: ${{ secrets.GEMINI_API_KEY }}
         run: |
           if [ -z "$GEMINI_KEY_VALUE" ]; then
-            echo "GEMINI_API_KEY secret not set — Lex returns a config hint."
+            echo "GEMINI_API_KEY secret not set — Hermes falls back to filing titles."
           else
             printf '%s' "$GEMINI_KEY_VALUE" | npx wrangler secret put GEMINI_API_KEY
           fi

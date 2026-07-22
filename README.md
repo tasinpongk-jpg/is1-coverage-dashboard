@@ -43,16 +43,16 @@ for deploy steps and the per-cron routing table.
 ## Agent chat (✦ Ask the agents)
 
 Every page carries a floating chat dock (`chat-dock.js`) talking to four
-named agents served by `worker.js` — the first three via MiniMax M3,
-Lex via Gemini File Search over the regulation PDFs — each grounded in a
-different slice of the daily snapshots:
+named agents served by `worker.js`. All four answer through MiniMax M3; Lex
+first retrieves page-level text from the local regulation corpus. Each agent is
+grounded in a different data slice:
 
 | Agent | Specialty | Grounded in |
 |---|---|---|
 | ⚡ Hermes | News & catalysts, Form 59 trades, silent filers, Oppday | `external-news`, `disclosure-pulse`, `sec-form59`, `oppday-minutes` |
 | 🗺 Atlas | Prices, movers, alerts, threshold math | `morning-brief`, `tickers`, `unusual-trading` |
 | 🔮 Pythia | Macro & sector view | sector aggregates, `ai-insights` |
-| ⚖️ Lex | SET/SEC rules & disclosure obligations | regulation PDFs (page-cited) |
+| ⚖️ Lex | SET/SEC rules & disclosure obligations | `lex-regulations.json` built from regulation PDFs (page-cited) |
 
 This dashboard pairs with a private local CLI (`~/VSCoder/AI Agent`) that reads
 these same snapshots and hands back `data/visits.json`. They are separate repos
@@ -64,6 +64,8 @@ personalized suggestion chips, ticker chips in replies deep-linking to
 `company-summary.html?tk=X`, and select-any-text → "✦ ask". Token-gated by the
 `CHAT_TOKEN` worker secret (`localStorage is1_chat_token` client-side). The
 MiniMax credential stays server-side in the `MINIMAX_API_KEY` worker secret.
+Rebuild the Lex corpus after changing source PDFs with
+`python3 scripts/build_lex_corpus.py /path/to/regulations`.
 "Ask the agents" cards on `index.html` open the dock via `IS1Dock.open(name)`.
 
 ## Files
@@ -78,10 +80,13 @@ MiniMax credential stays server-side in the `MINIMAX_API_KEY` worker secret.
 | `unusual-trading.html` | Volume / price / 52W alerts |
 | `data/tickers.json` | Master ticker → RM + sector map (rebuild via Excel) |
 | `data/*.json` | Daily snapshot files, including SEC Form 59 rows in `sec-form59.json` |
+| `data/regulations-manifest.json` | Expected SET rulebook PDF source list |
+| `data/lex-regulations.json` | Page-level Lex corpus deployed with the Worker |
 | `data/build-status.json` | Last build timestamp + per-route status |
 | `data/company-reports.json` | Generated per-company analyst reports for the ticker drawer Report tab |
 | `scripts/build_daily.py` | Calls SETSMART proxy in-process for all 232 tickers |
 | `scripts/build_company_reports.py` | Local report agent; saves Markdown to Obsidian and dashboard JSON |
+| `scripts/build_lex_corpus.py` | Extracts the local regulation PDFs into the Lex corpus |
 | `scripts/setsmart_proxy.py` | Vendored FastAPI proxy used by `build_daily.py` |
 | `surveillance/` | Polling, classification, R2 sync, email routing |
 | `.github/workflows/daily.yml` | Consolidated CI: surveillance job + build job (09:50 BKK Mon–Fri) |
