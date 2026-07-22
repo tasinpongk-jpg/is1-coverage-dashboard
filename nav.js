@@ -160,6 +160,14 @@
       return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];
     });
   }
+  function safeHttpUrl(value) {
+    try {
+      var parsed = new URL(String(value || ""),location.href);
+      return parsed.protocol === "http:" || parsed.protocol === "https:" ? parsed.href : "";
+    } catch (e) {
+      return "";
+    }
+  }
   function href(path) {
     if (/^https?:\/\//.test(path)) return path;
     return base ? base + "/" + path : path;
@@ -230,7 +238,7 @@
               (page[4] ? '<span class="is1s-count" data-count="' + page[4] + '">—</span>' : "") +
               (embedded ? icon("panel-right-open","is1s-link-arrow") : "") + "</" + tag + ">";
           }).join("") + "</section>";
-      }).join("") + '</div><div class="is1s-module-foot"><span class="is1s-live-dot"></span><span data-shell-freshness>' +
+      }).join("") + '<div class="is1s-module-spacer" aria-hidden="true"></div></div><div class="is1s-module-foot"><span class="is1s-live-dot"></span><span data-shell-freshness>' +
       esc(L("Loading snapshot","กำลังโหลด snapshot")) + "</span></div>";
   }
   modulePanel.innerHTML = moduleMarkup();
@@ -369,7 +377,18 @@
       button.classList.toggle("active",button.dataset.module === id);
     });
     var section = modulePanel.querySelector('[data-module-section="' + id + '"]');
-    if (section) section.scrollIntoView({ behavior:"smooth", block:"center" });
+    var scroller = modulePanel.querySelector(".is1s-module-scroll");
+    if (section && scroller) {
+      var spacer = scroller.querySelector(".is1s-module-spacer");
+      if (spacer) spacer.style.height = "0px";
+      var target = section.getBoundingClientRect().top - scroller.getBoundingClientRect().top + scroller.scrollTop;
+      var available = Math.max(0,scroller.scrollHeight - scroller.clientHeight);
+      if (spacer && target > available) spacer.style.height = Math.ceil(target - available) + "px";
+      var reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      requestAnimationFrame(function () {
+        scroller.scrollTo({ top:Math.max(0,target), behavior:reduceMotion ? "auto" : "smooth" });
+      });
+    }
     if (innerWidth <= 840) document.body.classList.add("is1s-mobile-modules");
     else document.body.classList.remove("is1s-modules-collapsed");
   }
@@ -502,6 +521,14 @@
     if (!value) return "?";
     return new Intl.DateTimeFormat(I18N && I18N.lang === "th" ? "th-TH" : "en-GB",{ day:"numeric",month:"short",year:"numeric" }).format(new Date(value + "T00:00:00+07:00"));
   }
+  function feedTime(value) {
+    if (!value) return "";
+    var date = new Date(value);
+    if (!Number.isFinite(date.getTime())) return "";
+    return new Intl.DateTimeFormat(I18N && I18N.lang === "th" ? "th-TH" : "en-GB",{
+      day:"numeric",month:"short",hour:"2-digit",minute:"2-digit",
+    }).format(date);
+  }
   function severityDot(value) { return '<span class="is1s-severity ' + (value === "high" || value === "critical" ? "high" : "medium") + '"></span>'; }
 
   function renderContext() {
@@ -627,9 +654,30 @@
       }).join("") + "</tbody></table>";
 
     host.querySelector("[data-home-filing-list]").innerHTML = rmFilings().slice(0,12).map(function (filing) {
-      return '<a href="' + esc(filing.url_th || filing.url || "disclosure-pulse.html") + '">' + severityDot(filing.severity) + '<strong>' +
+      var filingUrl = safeHttpUrl(filing.url_th || filing.url) || href("disclosure-pulse.html");
+      return '<a href="' + esc(filingUrl) + '" target="_blank" rel="noopener">' + severityDot(filing.severity) + '<strong>' +
         esc(filing.tk) + '</strong><span>' + esc(filing.title_th || filing.title) + '<small>SET · ' + esc(canonicalSector(filing.sector)) + "</small></span></a>";
     }).join("") || '<p class="is1s-empty">' + esc(L("No filings","ไม่มี filing")) + "</p>";
+
+    var disclosureRows = rmFilings().slice().sort(function (a,b) { return String(b.ts || "").localeCompare(String(a.ts || "")); }).slice(0,6);
+    var externalRows = rmNews().slice().sort(function (a,b) { return String(b.ts || "").localeCompare(String(a.ts || "")); }).slice(0,6);
+    host.querySelector("[data-home-news-rm]").textContent = "RM " + state.rm;
+    host.querySelector("[data-home-disclosure-count]").textContent = disclosureRows.length;
+    host.querySelector("[data-home-external-count]").textContent = externalRows.length;
+    host.querySelector("[data-home-disclosures]").innerHTML = disclosureRows.map(function (filing) {
+      var filingUrl = safeHttpUrl(filing.url_th || filing.url) || href("disclosure-pulse.html");
+      return '<a class="is1-home-feed-row" data-home-feed="disclosure" data-home-feed-ticker="' + esc(filing.tk) + '" href="' + esc(filingUrl) +
+        '" target="_blank" rel="noopener">' + severityDot(filing.severity) + '<div><div class="is1-home-feed-meta"><strong>' +
+        esc(filing.tk) + '</strong><span>SET · ' + esc(canonicalSector(filing.sector)) + '</span><time>' + esc(feedTime(filing.ts)) +
+        '</time></div><p>' + esc(filing.title_th || filing.title) + "</p></div></a>";
+    }).join("") || '<p class="is1s-empty">' + esc(L("No disclosures for this RM","ไม่มีข่าวเปิดเผยข้อมูลของ RM นี้")) + "</p>";
+    host.querySelector("[data-home-external]").innerHTML = externalRows.map(function (item) {
+      var newsUrl = safeHttpUrl(item.url) || href("external-news.html");
+      return '<a class="is1-home-feed-row" data-home-feed="external" data-home-feed-ticker="' + esc(item.tk) + '" href="' + esc(newsUrl) +
+        '" target="_blank" rel="noopener"><span class="is1-home-source-dot"></span><div><div class="is1-home-feed-meta"><strong>' +
+        esc(item.tk) + '</strong><span>' + esc(item.source || L("External","ภายนอก")) + ' · ' + esc(canonicalSector(item.sector)) + '</span><time>' +
+        esc(feedTime(item.ts)) + '</time></div><p>' + esc(item.title) + "</p></div></a>";
+    }).join("") || '<p class="is1s-empty">' + esc(L("No external news for this RM","ไม่มีข่าวภายนอกของ RM นี้")) + "</p>";
 
     host.querySelectorAll("[data-home-ticker]").forEach(function (button) {
       button.addEventListener("click",function () {
@@ -678,6 +726,22 @@
         '<span>1 day · 5 days · YTD · breadth</span></div><a href="price-movement.html">Price movement</a></header><div class="is1-home-table" data-home-market-table></div></section></div>' +
       '<div class="is1-home-view" data-home-panel="filings"><section class="is1-home-panel"><header><div><strong>Latest SET disclosures</strong>' +
         '<span>Newest first · current RM</span></div><a href="disclosure-pulse.html">Disclosure pulse</a></header><div class="is1-home-filings" data-home-filing-list></div></section></div>';
+    var news = document.createElement("section");
+    news.className = "is1-home-news";
+    news.innerHTML =
+      '<header class="is1-home-news-head"><div><span>' + esc(L("RM coverage flow","ข่าวใน coverage ของ RM")) + '</span><h2>' +
+      esc(L("Latest disclosures and external news","ข่าวเปิดเผยข้อมูลและข่าวภายนอกล่าสุด")) + '</h2><p>' +
+      esc(L("The feed follows the RM selected in the top bar","รายการจะเปลี่ยนตาม RM ที่เลือกด้านบน")) +
+      '</p></div><b data-home-news-rm>RM ' + state.rm + '</b></header><div class="is1-home-news-grid">' +
+      '<section class="is1-home-news-panel"><header><div><span class="is1-home-news-icon disclosure">' + icon("radio-tower") + '</span><div><strong>' +
+      esc(L("SET disclosures","ข่าวเปิดเผยข้อมูล")) + '</strong><small>' + esc(L("Newest coverage filings","ข่าว coverage ล่าสุด")) +
+      '</small></div></div><div><span data-home-disclosure-count>0</span><a href="disclosure-pulse.html">' + esc(L("View all","ดูทั้งหมด")) +
+      '</a></div></header><div class="is1-home-feed" data-home-disclosures></div></section>' +
+      '<section class="is1-home-news-panel"><header><div><span class="is1-home-news-icon external">' + icon("rss") + '</span><div><strong>' +
+      esc(L("External news","ข่าวภายนอก")) + '</strong><small>' + esc(L("Ticker-matched sources","ข่าวที่จับคู่ ticker")) +
+      '</small></div></div><div><span data-home-external-count>0</span><a href="external-news.html">' + esc(L("View all","ดูทั้งหมด")) +
+      '</a></div></header><div class="is1-home-feed" data-home-external></div></section></div></section>';
+    control.appendChild(news);
     main.insertBefore(control,main.firstChild);
     control.querySelectorAll("[data-home-view]").forEach(function (button) {
       button.addEventListener("click",function () {
