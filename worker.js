@@ -4,16 +4,16 @@
  * Static assets are served by the assets pipeline (this code only runs for
  * paths that don't match an asset). One API route:
  *
- *   POST /api/chat   { agent: "atlas"|"hermes"|"pythia", messages: [...] }
+ *   POST /api/chat   { agent: "atlas"|"hermes"|"pythia"|"lex", messages: [...] }
  *     -> { reply: "...", agent: "...", model: "..." }
  *
- * Three named agents, each grounded in a different slice of the daily
- * snapshot JSONs (read back from the deployed assets, so they always answer
- * from the same data the dashboard shows):
+ * Four named agents, each grounded in the deployed JSON assets so they answer
+ * from the same data and rulebook pages the dashboard uses:
  *
  *   atlas  — market data: prices, movers, alerts, strict threshold math
  *   hermes — news messenger: external news, disclosures, oppday minutes
  *   pythia — macro/sector: AI commentary, sector aggregates
+ *   lex     — SET/SEC rules: deterministic retrieval over page-level PDF text
  *
  * Gated by a shared token: Authorization: Bearer <CHAT_TOKEN worker secret>.
  * Inference: MiniMax M3, called server-side with the MINIMAX_API_KEY secret.
@@ -28,12 +28,13 @@ const MAX_JSON_BODY_BYTES = 64 * 1024;
 const VALID_AGENTS = new Set(["atlas", "hermes", "pythia", "lex"]);
 const VALID_RMS = new Set(["C", "K", "O", "G", "P", "T"]);
 
-// Lex — the rules & regulations agent. Unlike the other three, it does NOT use
-// MiniMax: Gemini File Search does the retrieval AND generation over the
-// regulation PDFs indexed by scripts/index_regulations.py, returning page-level
-// citations. The store name is read from data/regulations-index.json (built by
-// that script); only the GEMINI_API_KEY is a worker secret.
-const LEX_MODEL = "gemini-2.5-flash"; // generation model; bump as newer flash ships
+// Lex uses the same MiniMax M3 endpoint as the other agents. Retrieval stays
+// deterministic inside the Worker over page-level text extracted from the SET
+// rulebook PDFs by scripts/build_lex_corpus.py.
+const LEX_CORPUS = "lex-regulations";
+const LEX_MAX_CHUNKS = 8;
+const LEX_MAX_CHUNKS_PER_DOCUMENT = 3;
+const GEMINI_PDF_MODEL = "gemini-2.5-flash";
 const LEX_SYSTEM =
   "You are Lex, the rules & regulations agent on the IS1 coverage dashboard. " +
   "You answer questions about SET/SEC listing rules, disclosure obligations and " +
@@ -41,6 +42,7 @@ const LEX_SYSTEM =
   "retrieved for you. If the documents do not cover the question, say so plainly " +
   "— never guess or cite outside knowledge. Be concise and quote the rule's own " +
   "wording where it matters. Reply in the user's language (Thai or English). " +
+  "Keep the final answer under 350 words and use no more than eight bullets. " +
   "You are not a lawyer; surface what the documents say, not legal advice.\n" +
   "ANSWER SHAPE: lead with the direct answer in one line, then the basis — the " +
   "rule's own wording (quoted) and any numeric trigger (thresholds, %, day " +
@@ -48,8 +50,17 @@ const LEX_SYSTEM =
   "apply, list them as short bullets. If two retrieved rules differ or the " +
   "documents are ambiguous, say so rather than smoothing it over. When the " +
   "answer hinges on a defined term (e.g. 'connected person', 'material'), give " +
-  "the document's definition before applying it. The page-level citations are " +
-  "appended automatically — do not fabricate rule or clause numbers.";
+  "the document's definition before applying it. Every material number, " +
+  "threshold, deadline and condition MUST cite one of the retrieved source " +
+  "IDs exactly as [S1], [S2], etc. Use only IDs shown in the context. Do not " +
+  "write or shorten document names yourself; the Worker expands valid source " +
+  "IDs after generation. Never fabricate a rule, clause, source or page.\n" +
+  "SAMPLE FORMAT — user asks when shareholder approval is required:\n" +
+  "Direct answer in one line.\n" +
+  "• Trigger or threshold, stated exactly [S1]\n" +
+  "• Approval condition or exemption [S2]\n" +
+  "If the retrieved pages do not establish the answer, state that the corpus " +
+  "does not establish it and name the missing rule topic.";
 
 export default {
   async fetch(request, env) {
@@ -298,7 +309,7 @@ class ChatServiceError extends Error {
   }
 }
 
-async function runMiniMax(env, messages) {
+async function runMiniMax(env, messages, options = {}) {
   if (!env.MINIMAX_API_KEY) {
     throw new ChatServiceError(
       "MiniMax M3 is not configured (missing MINIMAX_API_KEY worker secret)",
@@ -318,8 +329,8 @@ async function runMiniMax(env, messages) {
       body: JSON.stringify({
         model: CHAT_MODEL,
         messages,
-        max_tokens: 2200,
-        temperature: 0.2,
+        max_tokens: options.maxTokens || 2200,
+        temperature: options.temperature ?? 0.2,
       }),
       signal: AbortSignal.timeout(MINIMAX_TIMEOUT_MS),
     });
@@ -665,6 +676,203 @@ async function ctxSectorAgg(env, origin) {
   return lines.join("\n");
 }
 
+// ---------------------------------------------------------- Lex retrieval
+
+const LEX_STOPWORDS = new Set((
+  "a an and are as at be by do does for from how i in is it me of on or the " +
+  "this to what when which who why with company listed rule rules about after " +
+  "การ ของ ที่ ใน และ หรือ เป็น ให้ ได้ ต้อง มี เมื่อ กรณี บริษัท"
+).split(/\s+/));
+const LEX_CORPUS_CACHE = new WeakMap();
+const LEX_SEARCH_CACHE = new WeakMap();
+
+const LEX_QUERY_ALIASES = [
+  {
+    test: /connected|related[\s-]?party|connected person|รายการที่เกี่ยวโยง|บุคคลที่เกี่ยวโยง/iu,
+    terms: ["รายการที่เกี่ยวโยงกัน", "บุคคลที่เกี่ยวโยงกัน", "ผู้ถือหุ้น", "NTA", "3 ใน 4"],
+  },
+  {
+    test: /free[\s-]?float|ผู้ถือหุ้นรายย่อย|กระจายการถือหุ้น/iu,
+    terms: ["การกระจายการถือหุ้นโดยผู้ถือหุ้นรายย่อย", "free float", "ผู้ถือหุ้นรายย่อย"],
+  },
+  {
+    test: /board resolution|board meeting|มติคณะกรรมการ|ประชุมคณะกรรมการ/iu,
+    terms: ["การเปิดเผยข้อมูลตามเหตุการณ์", "มติคณะกรรมการ", "เปิดเผยสารสนเทศ", "ทันที"],
+  },
+  {
+    test: /acquisition|disposal|asset transaction|ได้มาหรือจำหน่าย|สินทรัพย์/iu,
+    terms: ["การได้มาหรือจำหน่ายไปซึ่งสินทรัพย์", "ขนาดรายการ", "ผู้ถือหุ้น"],
+  },
+  {
+    test: /dividend|ปันผล/iu,
+    terms: ["การจ่ายปันผล", "วันกำหนดรายชื่อผู้ถือหุ้น", "เปิดเผยสารสนเทศ"],
+  },
+  {
+    test: /share repurchase|treasury stock|ซื้อหุ้นคืน/iu,
+    terms: ["ซื้อหุ้นคืน", "จำหน่ายหุ้นที่ซื้อคืน", "เปิดเผยสารสนเทศ"],
+  },
+  {
+    test: /financial statement|งบการเงิน|annual report|รายงานประจำปี/iu,
+    terms: ["การจัดทำและส่งงบการเงิน", "เปิดเผยข้อมูลตามระยะเวลา", "กำหนดเวลา"],
+  },
+  {
+    test: /shareholder meeting|general meeting|ประชุมผู้ถือหุ้น/iu,
+    terms: ["การประชุมผู้ถือหุ้น", "หนังสือนัดประชุม", "มติผู้ถือหุ้น"],
+  },
+];
+
+function lexNormalize(value) {
+  return String(value || "").normalize("NFKC").toLowerCase().replace(/\s+/g, " ").trim();
+}
+
+function lexQueryParts(query) {
+  const phrases = [String(query || "")];
+  for (const alias of LEX_QUERY_ALIASES) {
+    if (alias.test.test(query)) phrases.push(...alias.terms);
+  }
+  const expanded = phrases.join(" ");
+  const tokens = new Set();
+  if (typeof Intl?.Segmenter === "function") {
+    const segmenter = new Intl.Segmenter("th", { granularity: "word" });
+    for (const part of segmenter.segment(lexNormalize(expanded))) {
+      const token = part.segment.replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}%]+$/gu, "");
+      if (part.isWordLike && token && !LEX_STOPWORDS.has(token) && (token.length > 1 || /^\d+$/.test(token))) {
+        tokens.add(token);
+      }
+    }
+  } else {
+    for (const match of lexNormalize(expanded).matchAll(/[\p{L}\p{N}][\p{L}\p{N}%.-]*/gu)) {
+      const token = match[0];
+      if (!LEX_STOPWORDS.has(token) && (token.length > 1 || /^\d+$/.test(token))) tokens.add(token);
+    }
+  }
+  for (const match of expanded.matchAll(/\d+(?:\.\d+)?%?/g)) tokens.add(match[0].toLowerCase());
+  return {
+    phrases: [...new Set(phrases.map(lexNormalize).filter((part) => part.length >= 3))],
+    tokens: [...tokens],
+  };
+}
+
+function countOccurrences(haystack, needle) {
+  if (!needle) return 0;
+  let count = 0;
+  let index = 0;
+  while (count < 4 && (index = haystack.indexOf(needle, index)) !== -1) {
+    count += 1;
+    index += needle.length;
+  }
+  return count;
+}
+
+export function retrieveLexChunks(corpus, query) {
+  const chunks = Array.isArray(corpus?.chunks) ? corpus.chunks : [];
+  const { phrases, tokens } = lexQueryParts(query);
+  const canCache = corpus !== null && (typeof corpus === "object" || typeof corpus === "function");
+  let searchable = canCache ? LEX_SEARCH_CACHE.get(corpus) : null;
+  if (!searchable) {
+    searchable = chunks.map((chunk, index) => ({
+      chunk,
+      index,
+      title: lexNormalize(chunk.title),
+      text: lexNormalize(chunk.text),
+    }));
+    if (canCache) LEX_SEARCH_CACHE.set(corpus, searchable);
+  }
+  const ranked = searchable.map(({ chunk, index, title, text }) => {
+    let score = 0;
+    for (const phrase of phrases) {
+      if (title.includes(phrase)) score += 48;
+      if (text.includes(phrase)) score += 20;
+    }
+    for (const token of tokens) {
+      const normalized = lexNormalize(token);
+      if (!normalized) continue;
+      if (title.includes(normalized)) score += 12;
+      score += countOccurrences(text, normalized) * 3;
+    }
+    return { ...chunk, score, index };
+  }).filter((chunk) => chunk.score > 0)
+    .sort((a, b) => b.score - a.score || a.document.localeCompare(b.document) || a.page - b.page || a.index - b.index);
+
+  const selected = [];
+  const perDocument = new Map();
+  for (const chunk of ranked) {
+    const count = perDocument.get(chunk.document) || 0;
+    if (count >= LEX_MAX_CHUNKS_PER_DOCUMENT) continue;
+    selected.push(chunk);
+    perDocument.set(chunk.document, count + 1);
+    if (selected.length >= LEX_MAX_CHUNKS) break;
+  }
+  return selected;
+}
+
+async function loadLexCorpus(env, origin) {
+  const assets = env?.ASSETS;
+  if (!assets || (typeof assets !== "object" && typeof assets !== "function")) {
+    return loadJson(env, origin, LEX_CORPUS);
+  }
+  let pending = LEX_CORPUS_CACHE.get(assets);
+  if (!pending) {
+    pending = loadJson(env, origin, LEX_CORPUS);
+    LEX_CORPUS_CACHE.set(assets, pending);
+  }
+  const corpus = await pending;
+  if (!corpus) LEX_CORPUS_CACHE.delete(assets);
+  return corpus;
+}
+
+function isLexDomainQuestion(text) {
+  return /\b(?:set|sec|rule|regulat|disclos|listed|shareholder|board|connected|related[\s-]?party|free[\s-]?float|dividend|capital|financial statement|acquisition|disposal|tender|audit|director)\b|กฎ|เกณฑ์|เปิดเผย|จดทะเบียน|ผู้ถือหุ้น|คณะกรรมการ|เกี่ยวโยง|รายการ|กระจายการถือหุ้น|ปันผล|ทุน|งบการเงิน|ได้มาหรือจำหน่าย|ประชุม|ตรวจสอบ|กรรมการ|ตลาดหลักทรัพย์|ก\.ล\.ต\.|มาตรา/iu.test(text);
+}
+
+function formatLexContext(chunks, corpus) {
+  const head = `REGULATION CORPUS: ${corpus?.documentCount || "?"} documents, ` +
+    `${corpus?.pageCount || "?"} pages, built ${corpus?.builtAt || "?"}.`;
+  const blocks = chunks.map((chunk, index) =>
+    `[SOURCE S${index + 1} | ${chunk.document} | p.${chunk.page}]\n${chunk.text}`);
+  return [head, ...blocks].join("\n\n");
+}
+
+export function resolveLexCitations(reply, chunks) {
+  const labels = chunks.map((chunk) => `${chunk.document} p.${chunk.page}`);
+  const allowed = new Set(labels);
+  let invalidCount = 0;
+  let output = String(reply || "").replace(/\[S(\d+)\]/gi, (_full, rawIndex) => {
+    const label = labels[Number(rawIndex) - 1];
+    if (!label) { invalidCount += 1; return ""; }
+    return `[${label}]`;
+  });
+
+  output = output.replace(/\[([^\]\n]+\.pdf\s+p\.\d+(?:\s*,\s*p\.\d+)*)\]/gi, (full, inner) => {
+    const match = inner.match(/^(.*\.pdf)\s+p\.(\d+(?:\s*,\s*p\.\d+)*)$/i);
+    if (!match) { invalidCount += 1; return ""; }
+    const document = match[1];
+    const pages = match[2].split(/\s*,\s*p\./).map((page) => Number(page));
+    const exact = pages.map((page) => `${document} p.${page}`);
+    if (!exact.every((label) => allowed.has(label))) {
+      invalidCount += 1;
+      return "";
+    }
+    return exact.map((label) => `[${label}]`).join(" ");
+  });
+
+  if (invalidCount) {
+    console.warn("Lex removed non-retrieved citation markers", { invalidCount });
+  }
+  return output.replace(/[ \t]+\n/g, "\n").replace(/ {2,}/g, " ").trim();
+}
+
+function appendLexSources(reply, chunks) {
+  const labels = [];
+  const seen = new Set();
+  for (const chunk of chunks) {
+    const label = `${chunk.document} p.${chunk.page}`;
+    if (!seen.has(label)) { seen.add(label); labels.push(label); }
+  }
+  if (!labels.length) return reply;
+  return `${reply.trim()}\n\nSources retrieved:\n${labels.map((label) => `• ${label}`).join("\n")}`;
+}
+
 // ---------------------------------------------------------------- agents
 
 const SHARED_RULES =
@@ -771,50 +979,42 @@ const AGENTS = {
   },
 };
 
-// Lex routes to Gemini File Search instead of MiniMax. Returns the same
-// { reply, ... } shape; citations are appended to the reply text so the dock
-// renders them with no client change.
+// Lex retrieves the most relevant rulebook pages locally, then asks MiniMax M3
+// to answer only from those pages. The deterministic source list makes every
+// response auditable even when the model omits an inline citation.
 async function handleLex(env, origin, cleaned, rm) {
-  if (!env.GEMINI_API_KEY) {
-    return "Lex is not configured yet (missing GEMINI_API_KEY worker secret).";
+  const question = cleaned[cleaned.length - 1]?.content || "";
+  if (!isLexDomainQuestion(question)) {
+    const thai = /[฀-๿]/.test(question);
+    return {
+      reply: thai
+        ? "Lex ตอบเฉพาะกฎเกณฑ์ SET/SEC การเปิดเผยข้อมูล และหน้าที่ของบริษัทจดทะเบียน"
+        : "Lex only answers SET/SEC rules, disclosure obligations and listed-company requirements.",
+      model: CHAT_MODEL,
+    };
   }
-  const index = await loadJson(env, origin, "regulations-index");
-  const store = index?.store;
-  if (!store) {
-    return "The regulations index is not built yet — run scripts/index_regulations.py.";
+  const corpus = await loadLexCorpus(env, origin);
+  if (!corpus?.chunks?.length) {
+    throw new ChatServiceError(
+      "Lex regulation corpus is missing; run scripts/build_lex_corpus.py",
+      503,
+    );
   }
+  const chunks = retrieveLexChunks(corpus, question);
+  if (!chunks.length) {
+    return {
+      reply: "The regulation corpus did not return a relevant source for this question.",
+      model: CHAT_MODEL,
+    };
+  }
+
   const sys = LEX_SYSTEM + (rm ? `\nThe user is RM ${rm}.` : "");
-  const body = {
-    contents: cleaned.map((m) => ({
-      role: m.role === "assistant" ? "model" : "user",
-      parts: [{ text: m.content }],
-    })),
-    systemInstruction: { parts: [{ text: sys }] },
-    tools: [{ file_search: { file_search_store_names: [store] } }],
-  };
-  const r = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${LEX_MODEL}:generateContent?key=${env.GEMINI_API_KEY}`,
-    { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
-  if (!r.ok) {
-    throw new Error(`Gemini ${r.status}: ${(await r.text()).slice(0, 200)}`);
-  }
-  const data = await r.json();
-  const cand = (data.candidates || [])[0] || {};
-  const reply = (cand.content?.parts || []).map((p) => p.text).filter(Boolean).join("");
-  // REST returns camelCase; tolerate snake_case defensively.
-  const meta = cand.groundingMetadata || cand.grounding_metadata || {};
-  const chunks = meta.groundingChunks || meta.grounding_chunks || [];
-  const seen = new Set(), cites = [];
-  for (const c of chunks) {
-    const rc = c.retrievedContext || c.retrieved_context;
-    if (!rc) continue;
-    const page = rc.pageNumber || rc.page_number;
-    const label = (rc.title || "source") + (page ? ` p.${page}` : "");
-    if (!seen.has(label)) { seen.add(label); cites.push(label); }
-  }
-  let out = reply || "No answer found in the regulation documents.";
-  if (cites.length) out += "\n\nSources:\n" + cites.map((c) => "• " + c).join("\n");
-  return out;
+  const result = await runMiniMax(env, [
+    { role: "system", content: `${sys}\n\n${formatLexContext(chunks, corpus)}` },
+    ...cleaned,
+  ], { maxTokens: 5000, temperature: 0.1 });
+  const citedReply = resolveLexCitations(result.reply, chunks);
+  return { reply: appendLexSources(citedReply, chunks), model: result.model };
 }
 
 // ---------------------------------------------------- on-demand PDF summaries
@@ -903,7 +1103,7 @@ async function summarizeFiling(env, filing, lang) {
       thinkingConfig: { thinkingBudget: 0 },
     },
   };
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${LEX_MODEL}:generateContent?key=${env.GEMINI_API_KEY}`;
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_PDF_MODEL}:generateContent?key=${env.GEMINI_API_KEY}`;
   const init = { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) };
   let txt = "";
   for (let attempt = 0; attempt < 2 && !txt; attempt++) { // one retry absorbs cold transients
@@ -977,8 +1177,8 @@ async function handleChat(request, env, origin) {
     : "";
 
   if (agentName === "lex") {
-    const reply = await handleLex(env, origin, cleaned, rm);
-    return json({ reply, agent: "lex", model: LEX_MODEL });
+    const result = await handleLex(env, origin, cleaned, rm);
+    return json({ reply: result.reply, agent: "lex", model: result.model });
   }
 
   const agent = AGENTS[agentName];
@@ -1014,7 +1214,7 @@ async function handleChat(request, env, origin) {
   if (agentName === "hermes" && focus.size && wantsDocSummary(lastText)) {
     const lang = /[฀-๿]/.test(lastText) ? "th" : "en";
     const direct = await buildDocSummaryReply(env, origin, focus, lang);
-    if (direct) return json({ reply: direct, agent: "hermes", model: LEX_MODEL });
+    if (direct) return json({ reply: direct, agent: "hermes", model: GEMINI_PDF_MODEL });
     // couldn't open any PDF → fall through to the normal model, with a note
     context += "\n\nNOTE: the user asked to summarize a filing but the PDF could " +
       "not be opened; say so plainly and fall back to the disclosure title.";

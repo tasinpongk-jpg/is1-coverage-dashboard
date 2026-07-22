@@ -64,12 +64,12 @@ Runtime-specific tails (intentionally different, **not** drift):
 
 ## 3. Agents — cloud cousins, not clones
 
-| Concept | Dashboard (deployed, MiniMax M3 / Gemini) | CLI (`agents/*.json`, tool-calling) |
+| Concept | Dashboard (deployed, MiniMax M3 + optional Gemini PDF reader) | CLI (`agents/*.json`, tool-calling) |
 |---|---|---|
 | Hermes | snapshot-grounded; merges 📰 news + 📄 disclosures; on-demand PDF summary | live `web_search` + `read_filing`; news sweeps |
 | Atlas | snapshot prices; server-side threshold pre-filter | live `get_stock_quote` + `calculator` |
 | Pythia | sector aggregates + AI commentary | (no CLI cousin) |
-| Lex | Gemini File Search over regulation PDFs | (no CLI cousin) |
+| Lex | deterministic page retrieval over `lex-regulations.json`, then MiniMax M3 | (no CLI cousin) |
 | Clio | — (stays local for privacy) | private client-reply drafter, forced `local` |
 
 **One genuinely shared rule** (keep identical in both): strict threshold math —
