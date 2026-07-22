@@ -39,9 +39,9 @@
   .foot { font-size: 11px; color: var(--muted); text-align: center; padding-bottom: 24px; }
 
 </style>
-  <script src="theme.js?v=5"></script>
-  <link rel="stylesheet" href="theme.css?v=5">
-  <script src="i18n.js?v=5"></script>
+  <script src="theme.js?v=6"></script>
+  <link rel="stylesheet" href="theme.css?v=6">
+  <script src="i18n.js?v=6"></script>
 
 </head>
 <body>
@@ -68,6 +68,7 @@
 
 <script>
 let AI_DATA = null, AI_ERROR = null;
+let ACTIVE_RM = /^[CKOGPT]$/.test(localStorage.getItem('is1_rm') || '') ? localStorage.getItem('is1_rm') : 'C';
 const TT_FALLBACK = {
   "common.updatedAgo": "updated {x} ago",
   "ai.notReady": "The AI commentary appears after the first daily build with GROQ_API_KEY configured.",
@@ -95,7 +96,7 @@ function render() {
     document.getElementById('wrap').innerHTML = `<div class="empty">${esc(AI_ERROR.message)}<br><br>${tt('ai.notReady')}</div>`;
     return;
   }
-  const d = AI_DATA;
+  const d = AI_DATA ? {...AI_DATA, watchlist:(AI_DATA.watchlist || []).filter(w=>w.rm===ACTIVE_RM)} : null;
   if (!d) return;
   const fresh = freshnessLabel(d._built_at);
   const badge = document.getElementById('staleBadge');
@@ -135,12 +136,15 @@ async function init() {
   }
 }
 init();
+window.addEventListener('is1:rm-change',e=>{
+  if(/^[CKOGPT]$/.test(e.detail?.rm||'')){ACTIVE_RM=e.detail.rm;render();}
+});
 window.addEventListener('i18n:change', () => {
   if (window.I18N) I18N.apply();
   render();
 });
 </script>
-<script src="nav.js?v=5" defer></script>
-<script src="chat-dock.js?v=5" defer></script>
+<script src="nav.js?v=6" defer></script>
+<script src="chat-dock.js?v=6" defer></script>
 </body>
 </html>

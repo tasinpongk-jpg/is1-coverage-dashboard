@@ -57,9 +57,9 @@
     .sign-stat { min-width: 74px; padding: 10px 12px; }
   }
 </style>
-  <script src="theme.js?v=5"></script>
-  <link rel="stylesheet" href="theme.css?v=5">
-  <script src="i18n.js?v=5"></script>
+  <script src="theme.js?v=6"></script>
+  <link rel="stylesheet" href="theme.css?v=6">
+  <script src="i18n.js?v=6"></script>
 
 </head>
 <body>
@@ -97,6 +97,7 @@
 <script>
 let TICKERS = {}, ITEMS = [];
 let DATA_META = null;
+let ACTIVE_RM = /^[CKOGPT]$/.test(localStorage.getItem('is1_rm') || '') ? localStorage.getItem('is1_rm') : 'C';
 
 function tt(key) { return window.I18N ? I18N.t(key) : key; }
 function esc(s) { return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
@@ -111,10 +112,23 @@ function freshnessLabel(builtAt) {
 
 function render() {
   const grid = document.getElementById('grid');
+  const scopedItems = ITEMS.filter(it => it.rm === ACTIVE_RM);
+  const scopedBySign = {};
+  scopedItems.forEach(it => { scopedBySign[it.sign] = (scopedBySign[it.sign] || 0) + 1; });
+  buildSummary(scopedBySign);
+  if (!scopedItems.length) {
+    grid.innerHTML = '';
+    const empty = document.createElement('div');
+    empty.className = 'empty';
+    empty.textContent = tt('trading.noActive');
+    grid.appendChild(empty);
+    updateMeta();
+    return;
+  }
   if (!ITEMS.length) { grid.innerHTML = `<div class="empty">${tt('trading.noActive')}</div>`; return; }
   // Group by ticker
   const byTk = {};
-  ITEMS.forEach(it => {
+  scopedItems.forEach(it => {
     if (!byTk[it.tk]) byTk[it.tk] = { tk: it.tk, sector: it.sector, rm: it.rm, signs: [], reasons: new Set(), dates: new Set() };
     byTk[it.tk].signs.push(it.sign);
     if (it.reason) byTk[it.tk].reasons.add(it.reason);
@@ -165,7 +179,6 @@ async function init() {
     badge.textContent = fresh.txt;
     if (fresh.warn) badge.classList.add('warn');
     updateMeta();
-    buildSummary(dj.bySign || {});
     render();
   } catch(e) {
     document.getElementById('grid').innerHTML = `<div class="empty">${tx('common.errorWithMsg', { msg: e.message })}</div>`;
@@ -174,12 +187,16 @@ async function init() {
 init();
 function updateMeta() {
   if (!DATA_META) return;
+  const scoped = ITEMS.filter(i=>i.rm===ACTIVE_RM);
   document.getElementById('meta').textContent = tx('trading.meta', {
-    rows: DATA_META.total || 0,
-    tickers: new Set(ITEMS.map(i=>i.tk)).size,
+    rows: scoped.length,
+    tickers: new Set(scoped.map(i=>i.tk)).size,
     asOf: DATA_META.asOf || ''
   });
 }
+window.addEventListener('is1:rm-change',e=>{
+  if(/^[CKOGPT]$/.test(e.detail?.rm||'')){ACTIVE_RM=e.detail.rm;render();}
+});
 window.addEventListener('i18n:change', () => {
   if (window.I18N) I18N.apply();
   updateMeta();
@@ -187,7 +204,7 @@ window.addEventListener('i18n:change', () => {
   render();
 });
 </script>
-<script src="nav.js?v=5" defer></script>
-<script src="chat-dock.js?v=5" defer></script>
+<script src="nav.js?v=6" defer></script>
+<script src="chat-dock.js?v=6" defer></script>
 </body>
 </html>

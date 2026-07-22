@@ -83,7 +83,7 @@
   .no-results { text-align: center; padding: 60px; color: var(--muted); }
 
   /* Drawer */
-  .drawer { width: 0; overflow: hidden; border-left: 1px solid var(--border); background: var(--card); transition: width 0.2s ease; flex-shrink: 0; display: flex; flex-direction: column; }
+  .drawer { width: 0; height: 100%; min-height: 0; overflow: hidden; border-left: 1px solid var(--border); background: var(--card); transition: width 0.2s ease; flex-shrink: 0; display: flex; flex-direction: column; }
   .drawer.open { width: 520px; }
   .drawer-header { padding: 14px 16px 12px; border-bottom: 1px solid var(--border); display: flex; align-items: flex-start; gap: 10px; flex-shrink: 0; }
   .drawer-title { flex: 1; min-width: 0; }
@@ -91,7 +91,7 @@
   .drawer-title .sub { font-size: 11px; color: var(--muted); margin-top: 4px; display: flex; gap: 6px; flex-wrap: wrap; }
   .drawer-close { background: none; border: 1px solid var(--border); color: var(--muted); cursor: pointer; border-radius: 6px; padding: 4px 8px; font-size: 14px; flex-shrink: 0; }
   .drawer-close:hover { color: var(--text); border-color: var(--text); }
-  .drawer-body { flex: 1; overflow-y: auto; padding: 16px; }
+  .drawer-body { min-height: 0; flex: 1; overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; -webkit-overflow-scrolling: touch; padding: 16px 16px 72px; }
 
   /* Data-quality banner */
   .dq-banner { border-radius: 8px; padding: 10px 12px; margin-bottom: 14px; font-size: 12px; line-height: 1.55; display: flex; gap: 8px; align-items: flex-start; }
@@ -127,13 +127,13 @@
   @keyframes spin { to { transform: rotate(360deg); } }
 
   @media (max-width: 900px) {
-    .drawer.open { width: 100%; position: fixed; top: 0; right: 0; bottom: 0; z-index: 100; }
+    .drawer.open { width: 100%; height: auto; position: fixed; top: 0; right: 0; bottom: 58px; z-index: 910; }
     .overview-col { display: none; }
   }
 </style>
-  <script src="theme.js?v=5"></script>
-  <link rel="stylesheet" href="theme.css?v=5">
-  <script src="i18n.js?v=5"></script>
+  <script src="theme.js?v=6"></script>
+  <link rel="stylesheet" href="theme.css?v=6">
+  <script src="i18n.js?v=6"></script>
 
 </head>
 <body>
@@ -236,7 +236,7 @@
 
 <script>
 let allData = [];
-let activeRM = 'All', activeSector = 'All', activeSrc = 'all', searchQ = '';
+let activeRM = /^[CKOGPT]$/.test(localStorage.getItem('is1_rm') || '') ? localStorage.getItem('is1_rm') : 'All', activeSector = 'All', activeSrc = 'all', searchQ = '';
 let selectedTicker = null;
 let DATA_META = null;
 
@@ -346,13 +346,18 @@ function openDrawer(d) {
     <span style="color:var(--muted)">${esc(period)}</span>
   `;
   document.getElementById('d-content').innerHTML = dqBanner(d.dataQuality) + marked.parse(String(d.content || ''));
+  document.querySelector('.drawer-body').scrollTop = 0;
   document.getElementById('drawer').classList.add('open');
+  document.body.classList.add('is1-detail-open');
+  document.body.classList.remove('is1s-mobile-context');
+  if (window.IS1Dock) window.IS1Dock.close();
   render();
 }
 
 function closeDrawer() {
   selectedTicker = null;
   document.getElementById('drawer').classList.remove('open');
+  document.body.classList.remove('is1-detail-open');
   render();
 }
 
@@ -388,13 +393,16 @@ function updateMeta(json){
 }
 
 // Tab clicks
+function setActiveRM(rm) {
+  activeRM = rm;
+  document.querySelectorAll('.tab[data-filter="rm"]').forEach(x => x.classList.toggle('active', x.dataset.val === rm));
+  render();
+}
 document.querySelectorAll('.tab[data-filter="rm"]').forEach(t => {
-  t.addEventListener('click', () => {
-    document.querySelectorAll('.tab[data-filter="rm"]').forEach(x => x.classList.remove('active'));
-    t.classList.add('active');
-    activeRM = t.dataset.val;
-    render();
-  });
+  t.addEventListener('click', () => setActiveRM(t.dataset.val));
+});
+window.addEventListener('is1:rm-change', e => {
+  if (/^[CKOGPT]$/.test(e.detail?.rm || '')) setActiveRM(e.detail.rm);
 });
 document.querySelectorAll('.tab[data-filter="sector"]').forEach(t => {
   t.addEventListener('click', () => {
@@ -444,7 +452,7 @@ window.addEventListener('i18n:change',()=>{
   render();
 });
 </script>
-<script src="nav.js?v=5" defer></script>
-<script src="chat-dock.js?v=5" defer></script>
+<script src="nav.js?v=6" defer></script>
+<script src="chat-dock.js?v=6" defer></script>
 </body>
 </html>

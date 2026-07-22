@@ -97,6 +97,9 @@ Rebuild the Lex corpus after changing source PDFs with
 > (`market.sec.or.th`) is behind an F5 bot-defense WAF — plain `httpx` gets a
 > JS challenge page, never the data table. `surveillance/external_sources.py`
 > therefore renders the Form 59 page with headless Chromium via Playwright.
+> It queries one transaction date at a time over a rolling window so the SEC
+> result cap cannot hide later tickers in the coverage universe. A stale or
+> empty snapshot triggers a 90-day backfill; subsequent runs refresh 7 days.
 > The daily workflow installs it with `python -m playwright install chromium`;
 > if the browser is missing the scrape logs a warning and skips (best-effort),
 > never breaking the rest of the pipeline.

@@ -64,9 +64,9 @@ footer a{color:var(--muted);text-decoration:none}
 
 @media(max-width:600px){main{padding:12px 12px 40px}header{padding:10px 12px}nav.nav a{font-size:10px;padding:4px 5px}}
 </style>
-  <script src="theme.js?v=5"></script>
-  <link rel="stylesheet" href="theme.css?v=5">
-  <script src="i18n.js?v=5"></script>
+  <script src="theme.js?v=6"></script>
+  <link rel="stylesheet" href="theme.css?v=6">
+  <script src="i18n.js?v=6"></script>
 
 </head>
 <body>
@@ -124,7 +124,8 @@ function esc(s){return String(s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;'
 const SCOL={FOOD:'#3b82f6',AGRI:'#10b981',PROP:'#8b5cf6',CONS:'#f97316',CONMAT:'#ec4899',PFREIT:'#06b6d4'};
 const SECT_ORDER=['FOOD','AGRI','PROP','CONS','CONMAT','PFREIT'];
 const ns=s=>s==='PF&REIT'?'PFREIT':(s||'');
-let LAST_STATS=null, LAST_ASOF=null, LAST_SOURCE='', LAST_TICKERS=[];
+let LAST_STATS=null, LAST_ASOF=null, LAST_SOURCE='', LAST_TICKERS=[], ALL_TICKERS=[];
+let ACTIVE_RM=/^[CKOGPT]$/.test(localStorage.getItem('is1_rm') || '') ? localStorage.getItem('is1_rm') : 'C';
 
 const METRICS=[
   {key:'pe',  labelKey:'band.peLabel',  descKey:'band.peDesc',  unit:'×', lowerBetter:true,  fmt:v=>v==null?null:v.toFixed(1)+'×'},
@@ -281,6 +282,17 @@ function renderSections(stats, asOf){
     </div>`).join('');
 }
 
+function applyShellRm(rm){
+  if(!/^[CKOGPT]$/.test(rm||''))return;
+  ACTIVE_RM=rm;
+  if(!ALL_TICKERS.length)return;
+  LAST_TICKERS=ALL_TICKERS.filter(t=>t.rm===ACTIVE_RM);
+  LAST_STATS=computeStats(LAST_TICKERS);
+  renderSections(LAST_STATS,LAST_ASOF);
+  updateMeta({asOf:LAST_ASOF,source:LAST_SOURCE});
+}
+window.addEventListener('is1:rm-change',e=>applyShellRm(e.detail?.rm));
+
 // ── boot ─────────────────────────────────────────────────────────────────────
 (async()=>{
   try{
@@ -288,8 +300,8 @@ function renderSections(stats, asOf){
     if(!r.ok) throw new Error('ticker-summary.json not found');
     const d=await r.json();
     const tickers=d.tickers||[];
-    const stats=computeStats(tickers);
-    LAST_STATS=stats; LAST_ASOF=d.asOf; LAST_SOURCE=d.source||''; LAST_TICKERS=tickers;
+    ALL_TICKERS=tickers; LAST_ASOF=d.asOf; LAST_SOURCE=d.source||'';
+    applyShellRm(ACTIVE_RM);
     document.getElementById('loading').style.display='none';
     updateMeta(d);
     const badge=document.getElementById('staleBadge');
@@ -298,7 +310,6 @@ function renderSections(stats, asOf){
       badge.textContent=`● ${d.asOf||'—'}`;
       badge.className=h>24?'stale warn':'stale';
     }
-    renderSections(stats, d.asOf);
   }catch(err){
     document.getElementById('loading').innerHTML=`<div style="color:var(--red)">${tx('common.failedToLoadMsg',{msg:err.message})}<br><small style="color:var(--dim)">${tt('band.runBuild')}</small></div>`;
   }
@@ -314,7 +325,7 @@ window.addEventListener('i18n:change',()=>{
   updateMeta({asOf:LAST_ASOF,source:LAST_SOURCE});
 });
 </script>
-<script src="nav.js?v=5" defer></script>
-<script src="chat-dock.js?v=5" defer></script>
+<script src="nav.js?v=6" defer></script>
+<script src="chat-dock.js?v=6" defer></script>
 </body>
 </html>

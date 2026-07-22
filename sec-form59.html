@@ -78,9 +78,9 @@
     .item-date { min-width: 0; }
   }
 </style>
-  <script src="theme.js?v=5"></script>
-  <link rel="stylesheet" href="theme.css?v=5">
-  <script src="i18n.js?v=5"></script>
+  <script src="theme.js?v=6"></script>
+  <link rel="stylesheet" href="theme.css?v=6">
+  <script src="i18n.js?v=6"></script>
 
 </head>
 <body>
@@ -139,7 +139,7 @@
 <div id="feed" class="feed"><div class="loading" data-i18n="common.fetchingForm59">Fetching Form 59 rows...</div></div>
 
 <script>
-let ITEMS = [], activeWindow = 30, activeSide = 'ALL', activeRm = 'ALL', activeSector = 'ALL', activeQuery = '', sortMode = 'latest';
+let ITEMS = [], activeWindow = 30, activeSide = 'ALL', activeRm = /^[CKOGPT]$/.test(localStorage.getItem('is1_rm') || '') ? localStorage.getItem('is1_rm') : 'ALL', activeSector = 'ALL', activeQuery = '', sortMode = 'latest';
 let DATA_META = null;
 const TT_FALLBACK = {
   "common.updatedAgo": "updated {x} ago",
@@ -285,11 +285,14 @@ function buildControls() {
 function setWindow(v) { activeWindow = +v; buildControls(); updateStats(); render(); }
 function setSide(v) { activeSide = v; buildControls(); updateStats(); render(); }
 function setRm(v) { activeRm = v; buildControls(); updateStats(); render(); }
+window.addEventListener('is1:rm-change', e => {
+  if (/^[CKOGPT]$/.test(e.detail?.rm || '')) setRm(e.detail.rm);
+});
 function setSector(v) { activeSector = v; buildControls(); updateStats(); render(); }
 function setQuery(v) { activeQuery = v; buildControls(); updateStats(); render(); }
 function setSort(v) { sortMode = v; render(); }
 function resetFilters() {
-  activeWindow = 30; activeSide = 'ALL'; activeRm = 'ALL'; activeSector = 'ALL'; activeQuery = ''; sortMode = 'latest';
+  activeWindow = 30; activeSide = 'ALL'; activeRm = /^[CKOGPT]$/.test(localStorage.getItem('is1_rm') || '') ? localStorage.getItem('is1_rm') : 'ALL'; activeSector = 'ALL'; activeQuery = ''; sortMode = 'latest';
   document.getElementById('searchBox').value = '';
   buildControls(); updateStats(); render();
 }
@@ -377,7 +380,7 @@ window.addEventListener('i18n:change', () => {
   render();
 });
 </script>
-<script src="nav.js?v=5" defer></script>
-<script src="chat-dock.js?v=5" defer></script>
+<script src="nav.js?v=6" defer></script>
+<script src="chat-dock.js?v=6" defer></script>
 </body>
 </html>
