@@ -318,46 +318,57 @@ async function runMiniMax(env, messages, options = {}) {
   }
 
   const fetcher = typeof env.MINIMAX_FETCH === "function" ? env.MINIMAX_FETCH : fetch;
-  let response;
-  try {
-    response = await fetcher(MINIMAX_CHAT_URL, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${env.MINIMAX_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: CHAT_MODEL,
-        messages,
-        max_tokens: options.maxTokens || 2200,
-        temperature: options.temperature ?? 0.2,
-      }),
-      signal: AbortSignal.timeout(MINIMAX_TIMEOUT_MS),
-    });
-  } catch (error) {
-    const timedOut = error?.name === "TimeoutError" || error?.name === "AbortError";
-    throw new ChatServiceError(
-      timedOut ? "MiniMax M3 timed out; retry the question" : "MiniMax M3 is temporarily unavailable",
-      timedOut ? 504 : 502,
-    );
-  }
+  const firstBudget = options.maxTokens || 2200;
+  const budgets = [firstBudget, Math.min(Math.max(firstBudget * 2, 5000), 8000)];
+  for (let attempt = 0; attempt < budgets.length; attempt += 1) {
+    let response;
+    try {
+      response = await fetcher(MINIMAX_CHAT_URL, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${env.MINIMAX_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: CHAT_MODEL,
+          messages,
+          max_tokens: budgets[attempt],
+          temperature: options.temperature ?? 0.2,
+        }),
+        signal: AbortSignal.timeout(MINIMAX_TIMEOUT_MS),
+      });
+    } catch (error) {
+      const timedOut = error?.name === "TimeoutError" || error?.name === "AbortError";
+      throw new ChatServiceError(
+        timedOut ? "MiniMax M3 timed out; retry the question" : "MiniMax M3 is temporarily unavailable",
+        timedOut ? 504 : 502,
+      );
+    }
 
-  const payload = await response.json().catch(() => null);
-  const apiStatus = payload?.base_resp?.status_code;
-  if (!response.ok || (apiStatus != null && apiStatus !== 0)) {
-    console.error("MiniMax M3 request failed", {
-      httpStatus: response.status,
-      apiStatus,
-      apiMessage: payload?.base_resp?.status_msg || "",
-    });
-    throw new ChatServiceError("MiniMax M3 rejected the request; retry shortly", 502);
-  }
+    const payload = await response.json().catch(() => null);
+    const apiStatus = payload?.base_resp?.status_code;
+    if (!response.ok || (apiStatus != null && apiStatus !== 0)) {
+      console.error("MiniMax M3 request failed", {
+        httpStatus: response.status,
+        apiStatus,
+        apiMessage: payload?.base_resp?.status_msg || "",
+      });
+      throw new ChatServiceError("MiniMax M3 rejected the request; retry shortly", 502);
+    }
 
-  const reply = payload?.choices?.[0]?.message?.content;
-  if (typeof reply !== "string" || !reply.trim()) {
-    throw new ChatServiceError("MiniMax M3 returned an empty answer; retry the question", 502);
+    const reply = payload?.choices?.[0]?.message?.content;
+    if (typeof reply === "string" && reply.trim()) {
+      return { reply: reply.trim(), model: payload.model || CHAT_MODEL };
+    }
+    if (attempt === 0) {
+      console.warn("MiniMax M3 returned an empty answer; retrying with a larger budget", {
+        firstBudget,
+        retryBudget: budgets[1],
+        finishReason: payload?.choices?.[0]?.finish_reason || "",
+      });
+    }
   }
-  return { reply: reply.trim(), model: payload.model || CHAT_MODEL };
+  throw new ChatServiceError("MiniMax M3 returned an empty answer; retry the question", 502);
 }
 
 // Keep items whose ts is within `days` of now (worker has real Date).
