@@ -199,6 +199,7 @@
   }
 
   var pageInfo = currentPage();
+  var selectedModuleId = pageInfo ? pageInfo.group.id : "home";
   var legacyHeader = Array.prototype.find.call(document.body.children,function (node) { return node.tagName === "HEADER"; });
   if (legacyHeader) legacyHeader.classList.add("is1s-legacy-header");
   document.body.classList.add("is1-shell-ready");
@@ -211,8 +212,10 @@
     '<a class="is1s-mark" href="' + href("index.html") + '" aria-label="IS1 Control Room">IS</a>' +
     '<nav class="is1s-rail-nav">' +
       GROUPS.map(function (group) {
-        return '<button class="is1s-rail-btn' + (pageInfo && pageInfo.group.id === group.id || isHome && group.id === "home" ? " active" : "") +
-          '" type="button" data-module="' + group.id + '" title="' + esc(L(group.label[0],group.label[1])) + '">' + icon(group.icon) + "</button>";
+        var active = selectedModuleId === group.id;
+        return '<button class="is1s-rail-btn' + (active ? " active" : "") +
+          '" type="button" data-module="' + group.id + '" aria-label="' + esc(L(group.label[0],group.label[1])) +
+          '" aria-pressed="' + (active ? "true" : "false") + '" title="' + esc(L(group.label[0],group.label[1])) + '">' + icon(group.icon) + "</button>";
       }).join("") +
     '</nav><div class="is1s-rail-bottom">' +
       '<button class="is1s-rail-btn" type="button" data-shell-action="context" title="' + esc(L("Open context","เปิด context")) + '">' + icon("panel-right-open") + "</button>" +
@@ -227,13 +230,16 @@
       '<button class="is1s-icon-btn" type="button" data-shell-action="collapse" title="' + esc(L("Collapse sidebar","ย่อ sidebar")) + '">' + icon("panel-left-close") + "</button></div>" +
       '<div class="is1s-module-scroll">' +
       GROUPS.map(function (group) {
-        return '<section class="is1s-nav-section" data-module-section="' + group.id + '"><div class="is1s-nav-label">' + esc(L(group.label[0],group.label[1])) + "</div>" +
+        return '<section class="is1s-nav-section' + (selectedModuleId === group.id ? " is-selected" : "") +
+          '" data-module-section="' + group.id + '" aria-label="' + esc(L(group.label[0],group.label[1])) +
+          '"><div class="is1s-nav-label">' + esc(L(group.label[0],group.label[1])) + "</div>" +
           group.pages.map(function (page) {
             var active = !/^https?:/.test(page[0]) && page[0].replace(/\.html$/,"") === hereKey;
             var embedded = EMBEDDED_WORKSPACES[page[0]];
             var tag = embedded ? "button" : "a";
             var target = embedded ? ' type="button" data-shell-embed="' + esc(page[0]) + '"' : ' href="' + esc(href(page[0])) + '"';
-            return '<' + tag + ' class="is1s-module-link' + (active ? " active" : "") + '"' + target + '>' +
+            return '<' + tag + ' class="is1s-module-link' + (active ? " active" : "") + '"' + target +
+              (active ? ' aria-current="page"' : "") + '>' +
               icon(page[3]) + '<span>' + esc(L(page[1],page[2])) + '</span>' +
               (page[4] ? '<span class="is1s-count" data-count="' + page[4] + '">—</span>' : "") +
               (embedded ? icon("panel-right-open","is1s-link-arrow") : "") + "</" + tag + ">";
@@ -373,8 +379,14 @@
     localStorage.setItem("is1_shell_context",next ? "open" : "closed");
   }
   function setModuleActive(id) {
+    selectedModuleId = id;
     rail.querySelectorAll("[data-module]").forEach(function (button) {
-      button.classList.toggle("active",button.dataset.module === id);
+      var active = button.dataset.module === id;
+      button.classList.toggle("active",active);
+      button.setAttribute("aria-pressed",active ? "true" : "false");
+    });
+    modulePanel.querySelectorAll("[data-module-section]").forEach(function (candidate) {
+      candidate.classList.toggle("is-selected",candidate.dataset.moduleSection === id);
     });
     var section = modulePanel.querySelector('[data-module-section="' + id + '"]');
     var scroller = modulePanel.querySelector(".is1s-module-scroll");
