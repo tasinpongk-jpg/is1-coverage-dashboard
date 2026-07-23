@@ -1,6 +1,6 @@
 {
-  "asOf": "2026-07-22",
-  "source": "SETSMART intraday API · 50 alerts across 42 tickers",
+  "asOf": "2026-07-23",
+  "source": "SETSMART intraday API · 52 alerts across 42 tickers",
   "thresholds": {
     "vol_spike": {
       "low": 2.0,
@@ -23,83 +23,65 @@
   },
   "alerts": [
     {
-      "tk": "MADAME",
+      "tk": "AQUA",
+      "sector": "FOOD",
+      "type": "Price gap",
+      "atype": "gap",
+      "severity": "high",
+      "value": 10.0,
+      "label": "+10.00% open gap",
+      "evidence": {
+        "open": 0.11,
+        "prevClose": 0.1
+      },
+      "filingsLinked": 0,
+      "filingsTitles": []
+    },
+    {
+      "tk": "XBIO",
+      "sector": "FOOD",
+      "type": "Price gap",
+      "atype": "gap",
+      "severity": "high",
+      "value": 12.5,
+      "label": "+12.50% open gap",
+      "evidence": {
+        "open": 0.09,
+        "prevClose": 0.08
+      },
+      "filingsLinked": 1,
+      "filingsTitles": [
+        "Change of company profile"
+      ]
+    },
+    {
+      "tk": "ASIAN",
       "sector": "FOOD",
       "type": "Volume spike",
       "atype": "vol_spike",
       "severity": "medium",
-      "value": 2.368,
-      "label": "2.4σ vs 20D avg",
+      "value": 2.641,
+      "label": "2.6σ vs 20D avg",
       "evidence": {
-        "vol": 2592631.0,
-        "vol20dAvg": 758249.45,
-        "vol20dStd": 774792.4226605133
+        "vol": 1694276.0,
+        "vol20dAvg": 686236.1,
+        "vol20dStd": 381655.71860420215
       },
       "filingsLinked": 0,
       "filingsTitles": []
     },
     {
-      "tk": "MADAME",
+      "tk": "PQS",
       "sector": "FOOD",
-      "type": "Intraday move",
-      "atype": "intraday",
-      "severity": "high",
-      "value": 6.452,
-      "label": "+6.45% intraday",
-      "evidence": {
-        "last": 0.66,
-        "open": 0.62,
-        "high": 0.67,
-        "low": 0.62
-      },
-      "filingsLinked": 0,
-      "filingsTitles": []
-    },
-    {
-      "tk": "TIF1",
-      "sector": "PFREIT",
       "type": "Volume spike",
       "atype": "vol_spike",
       "severity": "high",
-      "value": 16.73,
-      "label": "16.7σ vs 20D avg",
+      "value": 3.321,
+      "label": "3.3σ vs 20D avg",
       "evidence": {
-        "vol": 85000.0,
-        "vol20dAvg": 7330.4,
-        "vol20dStd": 4642.462529735701
-      },
-      "filingsLinked": 0,
-      "filingsTitles": []
-    },
-    {
-      "tk": "TTLPF",
-      "sector": "PFREIT",
-      "type": "Volume spike",
-      "atype": "vol_spike",
-      "severity": "high",
-      "value": 3.671,
-      "label": "3.7σ vs 20D avg",
-      "evidence": {
-        "vol": 441400.0,
-        "vol20dAvg": 144586.8,
-        "vol20dStd": 80859.5228520426
-      },
-      "filingsLinked": 0,
-      "filingsTitles": []
-    },
-    {
-      "tk": "BLAND",
-      "sector": "PROP",
-      "type": "Intraday move",
-      "atype": "intraday",
-      "severity": "high",
-      "value": 8.451,
-      "label": "-8.45% intraday",
-      "evidence": {
-        "last": 0.65,
-        "open": 0.71,
-        "high": 0.71,
-        "low": 0.63
+        "vol": 475500.0,
+        "vol20dAvg": 147420.85,
+        "vol20dStd": 98792.4816568928
       },
       "filingsLinked": 0,
       "filingsTitles": []
@@ -110,74 +92,76 @@
       "type": "Price gap",
       "atype": "gap",
       "severity": "high",
-      "value": 8.333,
-      "label": "+8.33% open gap",
+      "value": 7.692,
+      "label": "-7.69% open gap",
       "evidence": {
-        "open": 0.13,
-        "prevClose": 0.12
+        "open": 0.12,
+        "prevClose": 0.13
       },
       "filingsLinked": 0,
       "filingsTitles": []
     },
     {
-      "tk": "TEGH",
-      "sector": "AGRI",
-      "type": "Volume spike",
-      "atype": "vol_spike",
-      "severity": "high",
-      "value": 3.884,
-      "label": "3.9σ vs 20D avg",
-      "evidence": {
-        "vol": 3542621.0,
-        "vol20dAvg": 879550.2,
-        "vol20dStd": 685653.9681918717
-      },
-      "filingsLinked": 0,
-      "filingsTitles": []
-    },
-    {
-      "tk": "UVAN",
-      "sector": "AGRI",
-      "type": "Volume spike",
-      "atype": "vol_spike",
-      "severity": "high",
-      "value": 5.814,
-      "label": "5.8σ vs 20D avg",
-      "evidence": {
-        "vol": 1270325.0,
-        "vol20dAvg": 368243.8,
-        "vol20dStd": 155151.811860384
-      },
-      "filingsLinked": 0,
-      "filingsTitles": []
-    },
-    {
-      "tk": "VPO",
-      "sector": "AGRI",
-      "type": "Volume spike",
-      "atype": "vol_spike",
-      "severity": "medium",
-      "value": 2.661,
-      "label": "2.7σ vs 20D avg",
-      "evidence": {
-        "vol": 11758307.0,
-        "vol20dAvg": 2821397.6,
-        "vol20dStd": 3357890.51943744
-      },
-      "filingsLinked": 0,
-      "filingsTitles": []
-    },
-    {
-      "tk": "VPO",
-      "sector": "AGRI",
+      "tk": "WIN",
+      "sector": "PROP",
       "type": "Price gap",
       "atype": "gap",
-      "severity": "medium",
-      "value": 3.922,
-      "label": "+3.92% open gap",
+      "severity": "high",
+      "value": 6.667,
+      "label": "-6.67% open gap",
       "evidence": {
-        "open": 0.53,
-        "prevClose": 0.51
+        "open": 0.28,
+        "prevClose": 0.3
+      },
+      "filingsLinked": 0,
+      "filingsTitles": []
+    },
+    {
+      "tk": "WIN",
+      "sector": "PROP",
+      "type": "Intraday move",
+      "atype": "intraday",
+      "severity": "high",
+      "value": 7.143,
+      "label": "+7.14% intraday",
+      "evidence": {
+        "last": 0.3,
+        "open": 0.28,
+        "high": 0.3,
+        "low": 0.28
+      },
+      "filingsLinked": 0,
+      "filingsTitles": []
+    },
+    {
+      "tk": "J",
+      "sector": "PROP",
+      "type": "Intraday move",
+      "atype": "intraday",
+      "severity": "high",
+      "value": 9.091,
+      "label": "-9.09% intraday",
+      "evidence": {
+        "last": 0.9,
+        "open": 0.99,
+        "high": 0.99,
+        "low": 0.9
+      },
+      "filingsLinked": 0,
+      "filingsTitles": []
+    },
+    {
+      "tk": "STA",
+      "sector": "AGRI",
+      "type": "Volume spike",
+      "atype": "vol_spike",
+      "severity": "high",
+      "value": 4.184,
+      "label": "4.2σ vs 20D avg",
+      "evidence": {
+        "vol": 24439437.0,
+        "vol20dAvg": 8503969.5,
+        "vol20dStd": 3808441.843022675
       },
       "filingsLinked": 0,
       "filingsTitles": []
@@ -185,49 +169,16 @@
     {
       "tk": "PPPM",
       "sector": "AGRI",
-      "type": "Price gap",
-      "atype": "gap",
-      "severity": "low",
-      "value": 4.545,
-      "label": "-4.55% open gap",
-      "evidence": {
-        "open": 0.21,
-        "prevClose": 0.22
-      },
-      "filingsLinked": 1,
-      "filingsTitles": [
-        "New shares of PPPM to be traded on July 23, 2026"
-      ]
-    },
-    {
-      "tk": "SMO",
-      "sector": "AGRI",
-      "type": "Volume spike",
-      "atype": "vol_spike",
-      "severity": "high",
-      "value": 5.363,
-      "label": "5.4σ vs 20D avg",
-      "evidence": {
-        "vol": 5610044.0,
-        "vol20dAvg": 1202211.0,
-        "vol20dStd": 821946.4183062057
-      },
-      "filingsLinked": 0,
-      "filingsTitles": []
-    },
-    {
-      "tk": "STPI",
-      "sector": "CONS",
       "type": "Intraday move",
       "atype": "intraday",
       "severity": "medium",
-      "value": 5.303,
-      "label": "+5.30% intraday",
+      "value": 4.762,
+      "label": "+4.76% intraday",
       "evidence": {
-        "last": 6.95,
-        "open": 6.6,
-        "high": 7.0,
-        "low": 6.5
+        "last": 0.22,
+        "open": 0.21,
+        "high": 0.22,
+        "low": 0.21
       },
       "filingsLinked": 0,
       "filingsTitles": []
@@ -237,27 +188,12 @@
       "sector": "CONS",
       "type": "Price gap",
       "atype": "gap",
-      "severity": "high",
-      "value": 5.344,
-      "label": "+5.34% open gap",
-      "evidence": {
-        "open": 1.38,
-        "prevClose": 1.31
-      },
-      "filingsLinked": 0,
-      "filingsTitles": []
-    },
-    {
-      "tk": "RT",
-      "sector": "CONS",
-      "type": "Price gap",
-      "atype": "gap",
       "severity": "medium",
-      "value": 3.571,
-      "label": "+3.57% open gap",
+      "value": 4.348,
+      "label": "-4.35% open gap",
       "evidence": {
-        "open": 0.29,
-        "prevClose": 0.28
+        "open": 1.32,
+        "prevClose": 1.38
       },
       "filingsLinked": 0,
       "filingsTitles": []
@@ -268,11 +204,11 @@
       "type": "Price gap",
       "atype": "gap",
       "severity": "high",
-      "value": 14.286,
-      "label": "+14.29% open gap",
+      "value": 11.111,
+      "label": "-11.11% open gap",
       "evidence": {
         "open": 0.08,
-        "prevClose": 0.07
+        "prevClose": 0.09
       },
       "filingsLinked": 0,
       "filingsTitles": []
@@ -289,7 +225,7 @@
         "last": 0.09,
         "open": 0.08,
         "high": 0.09,
-        "low": 0.07
+        "low": 0.08
       },
       "filingsLinked": 0,
       "filingsTitles": []
@@ -300,27 +236,12 @@
       "type": "Volume spike",
       "atype": "vol_spike",
       "severity": "medium",
-      "value": 2.863,
-      "label": "2.9σ vs 20D avg",
+      "value": 2.536,
+      "label": "2.5σ vs 20D avg",
       "evidence": {
-        "vol": 11900863.0,
-        "vol20dAvg": 3967001.05,
-        "vol20dStd": 2771345.6455859756
-      },
-      "filingsLinked": 0,
-      "filingsTitles": []
-    },
-    {
-      "tk": "SOLAR",
-      "sector": "CONS",
-      "type": "Price gap",
-      "atype": "gap",
-      "severity": "medium",
-      "value": 4.348,
-      "label": "-4.35% open gap",
-      "evidence": {
-        "open": 0.22,
-        "prevClose": 0.23
+        "vol": 12605166.0,
+        "vol20dAvg": 4321747.4,
+        "vol20dStd": 3265980.617523065
       },
       "filingsLinked": 0,
       "filingsTitles": []
@@ -331,13 +252,60 @@
       "type": "Intraday move",
       "atype": "intraday",
       "severity": "medium",
-      "value": 4.545,
-      "label": "+4.55% intraday",
+      "value": 4.348,
+      "label": "-4.35% intraday",
       "evidence": {
-        "last": 0.23,
-        "open": 0.22,
+        "last": 0.22,
+        "open": 0.23,
         "high": 0.23,
         "low": 0.22
+      },
+      "filingsLinked": 0,
+      "filingsTitles": []
+    },
+    {
+      "tk": "TRITN",
+      "sector": "CONS",
+      "type": "Price gap",
+      "atype": "gap",
+      "severity": "high",
+      "value": 50.0,
+      "label": "+50.00% open gap",
+      "evidence": {
+        "open": 0.03,
+        "prevClose": 0.02
+      },
+      "filingsLinked": 0,
+      "filingsTitles": []
+    },
+    {
+      "tk": "TRITN",
+      "sector": "CONS",
+      "type": "Intraday move",
+      "atype": "intraday",
+      "severity": "high",
+      "value": 33.333,
+      "label": "-33.33% intraday",
+      "evidence": {
+        "last": 0.02,
+        "open": 0.03,
+        "high": 0.03,
+        "low": 0.02
+      },
+      "filingsLinked": 0,
+      "filingsTitles": []
+    },
+    {
+      "tk": "EMC",
+      "sector": "CONS",
+      "type": "Price gap",
+      "atype": "gap",
+      "severity": "high",
+      "value": 100.0,
+      "label": "+100.00% open gap",
+      "evidence": {
+        "open": 0.02,
+        "prevClose": 0.01
       },
       "filingsLinked": 0,
       "filingsTitles": []
@@ -360,68 +328,34 @@
       "filingsTitles": []
     },
     {
-      "tk": "CTARAF",
-      "sector": "PFREIT",
-      "type": "Volume spike",
-      "atype": "vol_spike",
-      "severity": "high",
-      "value": 8.018,
-      "label": "8.0σ vs 20D avg",
-      "evidence": {
-        "vol": 730300.0,
-        "vol20dAvg": 115102.15,
-        "vol20dStd": 76731.68725127513
-      },
-      "filingsLinked": 0,
-      "filingsTitles": []
-    },
-    {
-      "tk": "PREB",
-      "sector": "CONS",
-      "type": "Volume spike",
-      "atype": "vol_spike",
-      "severity": "high",
-      "value": 5.666,
-      "label": "5.7σ vs 20D avg",
-      "evidence": {
-        "vol": 343000.0,
-        "vol20dAvg": 58837.85,
-        "vol20dStd": 50153.684620648746
-      },
-      "filingsLinked": 0,
-      "filingsTitles": []
-    },
-    {
-      "tk": "TPOLY",
+      "tk": "CIVIL",
       "sector": "CONS",
       "type": "Intraday move",
       "atype": "intraday",
-      "severity": "high",
-      "value": 10.0,
-      "label": "+10.00% intraday",
+      "severity": "medium",
+      "value": 5.6,
+      "label": "-5.60% intraday",
       "evidence": {
-        "last": 0.11,
-        "open": 0.1,
-        "high": 0.11,
-        "low": 0.1
+        "last": 1.18,
+        "open": 1.25,
+        "high": 1.25,
+        "low": 1.18
       },
-      "filingsLinked": 1,
-      "filingsTitles": [
-        "Notification of the date and agenda for the Bondholders' Meeting of Thai Polycons Public Company Limited No.4/2026 for t"
-      ]
+      "filingsLinked": 0,
+      "filingsTitles": []
     },
     {
-      "tk": "STECON",
+      "tk": "NL",
       "sector": "CONS",
       "type": "Volume spike",
       "atype": "vol_spike",
-      "severity": "high",
-      "value": 5.206,
-      "label": "5.2σ vs 20D avg",
+      "severity": "medium",
+      "value": 2.177,
+      "label": "2.2σ vs 20D avg",
       "evidence": {
-        "vol": 66196851.0,
-        "vol20dAvg": 19058651.6,
-        "vol20dStd": 9054896.333253095
+        "vol": 228000.0,
+        "vol20dAvg": 65194.1,
+        "vol20dStd": 74801.15936527989
       },
       "filingsLinked": 0,
       "filingsTitles": []
@@ -432,28 +366,47 @@
       "type": "Intraday move",
       "atype": "intraday",
       "severity": "medium",
-      "value": 5.882,
-      "label": "+5.88% intraday",
+      "value": 4.569,
+      "label": "-4.57% intraday",
       "evidence": {
-        "last": 19.8,
-        "open": 18.7,
-        "high": 19.8,
-        "low": 18.6
+        "last": 18.8,
+        "open": 19.7,
+        "high": 19.7,
+        "low": 18.8
       },
       "filingsLinked": 0,
       "filingsTitles": []
     },
     {
-      "tk": "MK",
+      "tk": "A",
       "sector": "PROP",
       "type": "Price gap",
       "atype": "gap",
-      "severity": "medium",
-      "value": 3.226,
-      "label": "-3.23% open gap",
+      "severity": "high",
+      "value": 100.0,
+      "label": "-100.00% open gap",
       "evidence": {
-        "open": 0.6,
-        "prevClose": 0.62
+        "open": 0.0,
+        "prevClose": 2.78
+      },
+      "filingsLinked": 1,
+      "filingsTitles": [
+        "Notification of the Resolution of the Board of Directors' Meeting Regarding the Related PartyTransaction"
+      ]
+    },
+    {
+      "tk": "NCH",
+      "sector": "PROP",
+      "type": "Intraday move",
+      "atype": "intraday",
+      "severity": "medium",
+      "value": 4.444,
+      "label": "-4.44% intraday",
+      "evidence": {
+        "last": 0.43,
+        "open": 0.45,
+        "high": 0.45,
+        "low": 0.43
       },
       "filingsLinked": 0,
       "filingsTitles": []
@@ -461,16 +414,30 @@
     {
       "tk": "PF",
       "sector": "PROP",
-      "type": "Intraday move",
-      "atype": "intraday",
+      "type": "Price gap",
+      "atype": "gap",
       "severity": "high",
-      "value": 25.0,
-      "label": "+25.00% intraday",
+      "value": 20.0,
+      "label": "-20.00% open gap",
       "evidence": {
-        "last": 0.05,
         "open": 0.04,
-        "high": 0.05,
-        "low": 0.04
+        "prevClose": 0.05
+      },
+      "filingsLinked": 0,
+      "filingsTitles": []
+    },
+    {
+      "tk": "KCG",
+      "sector": "FOOD",
+      "type": "Volume spike",
+      "atype": "vol_spike",
+      "severity": "medium",
+      "value": 2.114,
+      "label": "2.1σ vs 20D avg",
+      "evidence": {
+        "vol": 1384240.0,
+        "vol20dAvg": 620128.85,
+        "vol20dStd": 361425.4053523735
       },
       "filingsLinked": 0,
       "filingsTitles": []
@@ -501,7 +468,7 @@
       "evidence": {
         "last": 0.25,
         "open": 0.24,
-        "high": 0.26,
+        "high": 0.25,
         "low": 0.24
       },
       "filingsLinked": 0,
@@ -510,21 +477,22 @@
     {
       "tk": "SAPPE",
       "sector": "FOOD",
-      "type": "Volume spike",
-      "atype": "vol_spike",
+      "type": "Intraday move",
+      "atype": "intraday",
       "severity": "medium",
-      "value": 2.547,
-      "label": "2.5σ vs 20D avg",
+      "value": 4.348,
+      "label": "-4.35% intraday",
       "evidence": {
-        "vol": 1964224.0,
-        "vol20dAvg": 808009.5,
-        "vol20dStd": 453934.40460054355
+        "last": 33.0,
+        "open": 34.5,
+        "high": 34.75,
+        "low": 32.75
       },
       "filingsLinked": 0,
       "filingsTitles": []
     },
     {
-      "tk": "TU-PF",
+      "tk": "MNIT2",
       "sector": "PFREIT",
       "type": "Price gap",
       "atype": "gap",
@@ -533,22 +501,7 @@
       "label": "-100.00% open gap",
       "evidence": {
         "open": 0.0,
-        "prevClose": 1.13
-      },
-      "filingsLinked": 0,
-      "filingsTitles": []
-    },
-    {
-      "tk": "CCP",
-      "sector": "CONMAT",
-      "type": "Price gap",
-      "atype": "gap",
-      "severity": "medium",
-      "value": 3.448,
-      "label": "-3.45% open gap",
-      "evidence": {
-        "open": 0.28,
-        "prevClose": 0.29
+        "prevClose": 4.96
       },
       "filingsLinked": 0,
       "filingsTitles": []
@@ -556,30 +509,47 @@
     {
       "tk": "GEL",
       "sector": "CONMAT",
-      "type": "Price gap",
-      "atype": "gap",
+      "type": "Intraday move",
+      "atype": "intraday",
       "severity": "high",
-      "value": 25.0,
-      "label": "-25.00% open gap",
+      "value": 33.333,
+      "label": "+33.33% intraday",
       "evidence": {
+        "last": 0.04,
         "open": 0.03,
-        "prevClose": 0.04
+        "high": 0.04,
+        "low": 0.03
       },
       "filingsLinked": 0,
       "filingsTitles": []
     },
     {
-      "tk": "TPIPL",
+      "tk": "UMI",
       "sector": "CONMAT",
       "type": "Volume spike",
       "atype": "vol_spike",
-      "severity": "high",
-      "value": 3.247,
-      "label": "3.2σ vs 20D avg",
+      "severity": "medium",
+      "value": 2.259,
+      "label": "2.3σ vs 20D avg",
       "evidence": {
-        "vol": 164257642.0,
-        "vol20dAvg": 28104297.6,
-        "vol20dStd": 41937425.327303715
+        "vol": 883400.0,
+        "vol20dAvg": 369143.05,
+        "vol20dStd": 227659.98604200847
+      },
+      "filingsLinked": 0,
+      "filingsTitles": []
+    },
+    {
+      "tk": "DCON",
+      "sector": "CONMAT",
+      "type": "Price gap",
+      "atype": "gap",
+      "severity": "high",
+      "value": 5.556,
+      "label": "+5.56% open gap",
+      "evidence": {
+        "open": 0.19,
+        "prevClose": 0.18
       },
       "filingsLinked": 0,
       "filingsTitles": []
@@ -607,12 +577,28 @@
       "type": "Volume spike",
       "atype": "vol_spike",
       "severity": "medium",
-      "value": 2.374,
-      "label": "2.4σ vs 20D avg",
+      "value": 2.617,
+      "label": "2.6σ vs 20D avg",
       "evidence": {
-        "vol": 530967.0,
-        "vol20dAvg": 229203.1,
-        "vol20dStd": 127098.31673074982
+        "vol": 619433.0,
+        "vol20dAvg": 246874.1,
+        "vol20dStd": 142342.4490747226
+      },
+      "filingsLinked": 0,
+      "filingsTitles": []
+    },
+    {
+      "tk": "KBS",
+      "sector": "FOOD",
+      "type": "Volume spike",
+      "atype": "vol_spike",
+      "severity": "medium",
+      "value": 2.948,
+      "label": "2.9σ vs 20D avg",
+      "evidence": {
+        "vol": 430129.0,
+        "vol20dAvg": 151660.75,
+        "vol20dStd": 94445.09632578866
       },
       "filingsLinked": 0,
       "filingsTitles": []
@@ -622,13 +608,13 @@
       "sector": "FOOD",
       "type": "Volume spike",
       "atype": "vol_spike",
-      "severity": "high",
-      "value": 6.519,
-      "label": "6.5σ vs 20D avg",
+      "severity": "medium",
+      "value": 2.208,
+      "label": "2.2σ vs 20D avg",
       "evidence": {
-        "vol": 10415647.0,
-        "vol20dAvg": 1931134.7,
-        "vol20dStd": 1301480.423996692
+        "vol": 7137715.0,
+        "vol20dAvg": 2238181.25,
+        "vol20dStd": 2219076.9461955996
       },
       "filingsLinked": 0,
       "filingsTitles": []
@@ -639,13 +625,44 @@
       "type": "Intraday move",
       "atype": "intraday",
       "severity": "medium",
-      "value": 5.696,
-      "label": "+5.70% intraday",
+      "value": 4.192,
+      "label": "-4.19% intraday",
       "evidence": {
-        "last": 1.67,
-        "open": 1.58,
+        "last": 1.6,
+        "open": 1.67,
         "high": 1.67,
-        "low": 1.57
+        "low": 1.59
+      },
+      "filingsLinked": 0,
+      "filingsTitles": []
+    },
+    {
+      "tk": "SSPF",
+      "sector": "PFREIT",
+      "type": "Volume spike",
+      "atype": "vol_spike",
+      "severity": "high",
+      "value": 4.477,
+      "label": "4.5σ vs 20D avg",
+      "evidence": {
+        "vol": 10929.0,
+        "vol20dAvg": 1304.05,
+        "vol20dStd": 2149.7358785441534
+      },
+      "filingsLinked": 0,
+      "filingsTitles": []
+    },
+    {
+      "tk": "SSPF",
+      "sector": "PFREIT",
+      "type": "Price gap",
+      "atype": "gap",
+      "severity": "high",
+      "value": 15.484,
+      "label": "+15.48% open gap",
+      "evidence": {
+        "open": 3.58,
+        "prevClose": 3.1
       },
       "filingsLinked": 0,
       "filingsTitles": []
@@ -655,20 +672,36 @@
       "sector": "PFREIT",
       "type": "Intraday move",
       "atype": "intraday",
-      "severity": "high",
-      "value": 8.284,
-      "label": "-8.28% intraday",
+      "severity": "medium",
+      "value": 4.469,
+      "label": "-4.47% intraday",
       "evidence": {
-        "last": 3.1,
-        "open": 3.38,
-        "high": 3.4,
-        "low": 3.1
+        "last": 3.42,
+        "open": 3.58,
+        "high": 3.58,
+        "low": 3.12
       },
       "filingsLinked": 0,
       "filingsTitles": []
     },
     {
-      "tk": "MIPF",
+      "tk": "GVREIT",
+      "sector": "PFREIT",
+      "type": "Volume spike",
+      "atype": "vol_spike",
+      "severity": "medium",
+      "value": 2.246,
+      "label": "2.2σ vs 20D avg",
+      "evidence": {
+        "vol": 1563970.0,
+        "vol20dAvg": 597892.35,
+        "vol20dStd": 430044.6932444666
+      },
+      "filingsLinked": 0,
+      "filingsTitles": []
+    },
+    {
+      "tk": "TPRIME",
       "sector": "PFREIT",
       "type": "Price gap",
       "atype": "gap",
@@ -677,41 +710,7 @@
       "label": "-100.00% open gap",
       "evidence": {
         "open": 0.0,
-        "prevClose": 9.5
-      },
-      "filingsLinked": 0,
-      "filingsTitles": []
-    },
-    {
-      "tk": "KPNREIT",
-      "sector": "PFREIT",
-      "type": "Volume spike",
-      "atype": "vol_spike",
-      "severity": "medium",
-      "value": 3.376,
-      "label": "3.4σ vs 20D avg",
-      "evidence": {
-        "vol": 104500.0,
-        "vol20dAvg": 19535.5,
-        "vol20dStd": 25170.874912287018
-      },
-      "filingsLinked": 1,
-      "filingsTitles": [
-        "Notification of the change of name of KPN Real Estate Investment Trust"
-      ]
-    },
-    {
-      "tk": "CPTREIT",
-      "sector": "PFREIT",
-      "type": "Volume spike",
-      "atype": "vol_spike",
-      "severity": "high",
-      "value": 3.285,
-      "label": "3.3σ vs 20D avg",
-      "evidence": {
-        "vol": 334410.0,
-        "vol20dAvg": 97326.95,
-        "vol20dStd": 72178.53421445673
+        "prevClose": 7.75
       },
       "filingsLinked": 0,
       "filingsTitles": []
@@ -719,45 +718,30 @@
     {
       "tk": "CMC",
       "sector": "PROP",
-      "type": "Price gap",
-      "atype": "gap",
-      "severity": "medium",
-      "value": 4.082,
-      "label": "-4.08% open gap",
-      "evidence": {
-        "open": 0.47,
-        "prevClose": 0.49
-      },
-      "filingsLinked": 0,
-      "filingsTitles": []
-    },
-    {
-      "tk": "UV",
-      "sector": "PROP",
       "type": "Intraday move",
       "atype": "intraday",
-      "severity": "medium",
-      "value": 4.505,
-      "label": "-4.50% intraday",
+      "severity": "high",
+      "value": 6.383,
+      "label": "-6.38% intraday",
       "evidence": {
-        "last": 1.06,
-        "open": 1.11,
-        "high": 1.12,
-        "low": 1.05
+        "last": 0.44,
+        "open": 0.47,
+        "high": 0.48,
+        "low": 0.43
       },
       "filingsLinked": 0,
       "filingsTitles": []
     },
     {
-      "tk": "RML",
+      "tk": "EVER",
       "sector": "PROP",
       "type": "Price gap",
       "atype": "gap",
       "severity": "high",
       "value": 12.5,
-      "label": "+12.50% open gap",
+      "label": "-12.50% open gap",
       "evidence": {
-        "open": 0.09,
+        "open": 0.07,
         "prevClose": 0.08
       },
       "filingsLinked": 0,
@@ -769,13 +753,13 @@
       "type": "Intraday move",
       "atype": "intraday",
       "severity": "high",
-      "value": 11.111,
-      "label": "+11.11% intraday",
+      "value": 10.0,
+      "label": "-10.00% intraday",
       "evidence": {
-        "last": 0.1,
-        "open": 0.09,
+        "last": 0.09,
+        "open": 0.1,
         "high": 0.1,
-        "low": 0.09
+        "low": 0.08
       },
       "filingsLinked": 0,
       "filingsTitles": []
@@ -786,11 +770,11 @@
       "type": "Intraday move",
       "atype": "intraday",
       "severity": "high",
-      "value": 10.0,
-      "label": "+10.00% intraday",
+      "value": 9.091,
+      "label": "-9.09% intraday",
       "evidence": {
-        "last": 0.11,
-        "open": 0.1,
+        "last": 0.1,
+        "open": 0.11,
         "high": 0.11,
         "low": 0.1
       },
@@ -798,16 +782,50 @@
       "filingsTitles": []
     },
     {
-      "tk": "BROCK",
+      "tk": "ORI",
+      "sector": "PROP",
+      "type": "Intraday move",
+      "atype": "intraday",
+      "severity": "medium",
+      "value": 4.327,
+      "label": "-4.33% intraday",
+      "evidence": {
+        "last": 1.99,
+        "open": 2.08,
+        "high": 2.08,
+        "low": 1.98
+      },
+      "filingsLinked": 0,
+      "filingsTitles": []
+    },
+    {
+      "tk": "RICHY",
+      "sector": "PROP",
+      "type": "Intraday move",
+      "atype": "intraday",
+      "severity": "medium",
+      "value": 5.882,
+      "label": "-5.88% intraday",
+      "evidence": {
+        "last": 0.16,
+        "open": 0.17,
+        "high": 0.17,
+        "low": 0.16
+      },
+      "filingsLinked": 0,
+      "filingsTitles": []
+    },
+    {
+      "tk": "PRECHA",
       "sector": "PROP",
       "type": "Price gap",
       "atype": "gap",
-      "severity": "high",
-      "value": 100.0,
-      "label": "-100.00% open gap",
+      "severity": "medium",
+      "value": 4.545,
+      "label": "+4.55% open gap",
       "evidence": {
-        "open": 0.0,
-        "prevClose": 1.21
+        "open": 0.46,
+        "prevClose": 0.44
       },
       "filingsLinked": 0,
       "filingsTitles": []
@@ -828,13 +846,32 @@
       },
       "filingsLinked": 0,
       "filingsTitles": []
+    },
+    {
+      "tk": "KC",
+      "sector": "PROP",
+      "type": "Intraday move",
+      "atype": "intraday",
+      "severity": "high",
+      "value": 33.333,
+      "label": "-33.33% intraday",
+      "evidence": {
+        "last": 0.02,
+        "open": 0.03,
+        "high": 0.03,
+        "low": 0.02
+      },
+      "filingsLinked": 1,
+      "filingsTitles": [
+        "Progress Update on the Second Installment Payment under the New Debt Restructuring Agreement and Redemption of Mortgaged"
+      ]
     }
   ],
   "byTicker": [
     {
-      "tk": "KSL",
-      "sector": "FOOD",
-      "alertCount": 2,
+      "tk": "SSPF",
+      "sector": "PFREIT",
+      "alertCount": 3,
       "highestSeverity": "high",
       "filingsLinked": 0,
       "alertTypes": [
@@ -844,27 +881,56 @@
           "severity": "high"
         },
         {
+          "atype": "gap",
+          "type": "Price gap",
+          "severity": "high"
+        },
+        {
           "atype": "intraday",
           "type": "Intraday move",
           "severity": "medium"
         }
       ],
       "summary": [
-        "Volume spike: 6.5σ vs 20D avg",
-        "Intraday move: +5.70% intraday"
+        "Volume spike: 4.5σ vs 20D avg",
+        "Price gap: +15.48% open gap",
+        "Intraday move: -4.47% intraday"
       ]
     },
     {
-      "tk": "MADAME",
-      "sector": "FOOD",
+      "tk": "DCON",
+      "sector": "CONMAT",
       "alertCount": 2,
       "highestSeverity": "high",
       "filingsLinked": 0,
       "alertTypes": [
         {
-          "atype": "vol_spike",
-          "type": "Volume spike",
+          "atype": "gap",
+          "type": "Price gap",
+          "severity": "high"
+        },
+        {
+          "atype": "intraday",
+          "type": "Intraday move",
           "severity": "medium"
+        }
+      ],
+      "summary": [
+        "Price gap: +5.56% open gap",
+        "Intraday move: -5.26% intraday"
+      ]
+    },
+    {
+      "tk": "EMC",
+      "sector": "CONS",
+      "alertCount": 2,
+      "highestSeverity": "high",
+      "filingsLinked": 0,
+      "alertTypes": [
+        {
+          "atype": "gap",
+          "type": "Price gap",
+          "severity": "high"
         },
         {
           "atype": "intraday",
@@ -873,8 +939,8 @@
         }
       ],
       "summary": [
-        "Volume spike: 2.4σ vs 20D avg",
-        "Intraday move: +6.45% intraday"
+        "Price gap: +100.00% open gap",
+        "Intraday move: -50.00% intraday"
       ]
     },
     {
@@ -896,12 +962,35 @@
         }
       ],
       "summary": [
-        "Price gap: +14.29% open gap",
+        "Price gap: -11.11% open gap",
         "Intraday move: +12.50% intraday"
       ]
     },
     {
-      "tk": "RML",
+      "tk": "TRITN",
+      "sector": "CONS",
+      "alertCount": 2,
+      "highestSeverity": "high",
+      "filingsLinked": 0,
+      "alertTypes": [
+        {
+          "atype": "gap",
+          "type": "Price gap",
+          "severity": "high"
+        },
+        {
+          "atype": "intraday",
+          "type": "Intraday move",
+          "severity": "high"
+        }
+      ],
+      "summary": [
+        "Price gap: +50.00% open gap",
+        "Intraday move: -33.33% intraday"
+      ]
+    },
+    {
+      "tk": "WIN",
       "sector": "PROP",
       "alertCount": 2,
       "highestSeverity": "high",
@@ -919,36 +1008,13 @@
         }
       ],
       "summary": [
-        "Price gap: +12.50% open gap",
-        "Intraday move: +11.11% intraday"
+        "Price gap: -6.67% open gap",
+        "Intraday move: +7.14% intraday"
       ]
     },
     {
-      "tk": "STECON",
-      "sector": "CONS",
-      "alertCount": 2,
-      "highestSeverity": "high",
-      "filingsLinked": 0,
-      "alertTypes": [
-        {
-          "atype": "vol_spike",
-          "type": "Volume spike",
-          "severity": "high"
-        },
-        {
-          "atype": "intraday",
-          "type": "Intraday move",
-          "severity": "medium"
-        }
-      ],
-      "summary": [
-        "Volume spike: 5.2σ vs 20D avg",
-        "Intraday move: +5.88% intraday"
-      ]
-    },
-    {
-      "tk": "APCS",
-      "sector": "CONS",
+      "tk": "AQUA",
+      "sector": "FOOD",
       "alertCount": 1,
       "highestSeverity": "high",
       "filingsLinked": 0,
@@ -960,41 +1026,7 @@
         }
       ],
       "summary": [
-        "Price gap: +5.34% open gap"
-      ]
-    },
-    {
-      "tk": "BLAND",
-      "sector": "PROP",
-      "alertCount": 1,
-      "highestSeverity": "high",
-      "filingsLinked": 0,
-      "alertTypes": [
-        {
-          "atype": "intraday",
-          "type": "Intraday move",
-          "severity": "high"
-        }
-      ],
-      "summary": [
-        "Intraday move: -8.45% intraday"
-      ]
-    },
-    {
-      "tk": "BROCK",
-      "sector": "PROP",
-      "alertCount": 1,
-      "highestSeverity": "high",
-      "filingsLinked": 0,
-      "alertTypes": [
-        {
-          "atype": "gap",
-          "type": "Price gap",
-          "severity": "high"
-        }
-      ],
-      "summary": [
-        "Price gap: -100.00% open gap"
+        "Price gap: +10.00% open gap"
       ]
     },
     {
@@ -1011,46 +1043,12 @@
         }
       ],
       "summary": [
-        "Intraday move: +10.00% intraday"
+        "Intraday move: -9.09% intraday"
       ]
     },
     {
-      "tk": "CPTREIT",
-      "sector": "PFREIT",
-      "alertCount": 1,
-      "highestSeverity": "high",
-      "filingsLinked": 0,
-      "alertTypes": [
-        {
-          "atype": "vol_spike",
-          "type": "Volume spike",
-          "severity": "high"
-        }
-      ],
-      "summary": [
-        "Volume spike: 3.3σ vs 20D avg"
-      ]
-    },
-    {
-      "tk": "CTARAF",
-      "sector": "PFREIT",
-      "alertCount": 1,
-      "highestSeverity": "high",
-      "filingsLinked": 0,
-      "alertTypes": [
-        {
-          "atype": "vol_spike",
-          "type": "Volume spike",
-          "severity": "high"
-        }
-      ],
-      "summary": [
-        "Volume spike: 8.0σ vs 20D avg"
-      ]
-    },
-    {
-      "tk": "EMC",
-      "sector": "CONS",
+      "tk": "CMC",
+      "sector": "PROP",
       "alertCount": 1,
       "highestSeverity": "high",
       "filingsLinked": 0,
@@ -1062,12 +1060,12 @@
         }
       ],
       "summary": [
-        "Intraday move: -50.00% intraday"
+        "Intraday move: -6.38% intraday"
       ]
     },
     {
-      "tk": "GEL",
-      "sector": "CONMAT",
+      "tk": "EVER",
+      "sector": "PROP",
       "alertCount": 1,
       "highestSeverity": "high",
       "filingsLinked": 0,
@@ -1079,7 +1077,41 @@
         }
       ],
       "summary": [
-        "Price gap: -25.00% open gap"
+        "Price gap: -12.50% open gap"
+      ]
+    },
+    {
+      "tk": "GEL",
+      "sector": "CONMAT",
+      "alertCount": 1,
+      "highestSeverity": "high",
+      "filingsLinked": 0,
+      "alertTypes": [
+        {
+          "atype": "intraday",
+          "type": "Intraday move",
+          "severity": "high"
+        }
+      ],
+      "summary": [
+        "Intraday move: +33.33% intraday"
+      ]
+    },
+    {
+      "tk": "J",
+      "sector": "PROP",
+      "alertCount": 1,
+      "highestSeverity": "high",
+      "filingsLinked": 0,
+      "alertTypes": [
+        {
+          "atype": "intraday",
+          "type": "Intraday move",
+          "severity": "high"
+        }
+      ],
+      "summary": [
+        "Intraday move: -9.09% intraday"
       ]
     },
     {
@@ -1096,11 +1128,11 @@
         }
       ],
       "summary": [
-        "Price gap: +8.33% open gap"
+        "Price gap: -7.69% open gap"
       ]
     },
     {
-      "tk": "MIPF",
+      "tk": "MNIT2",
       "sector": "PFREIT",
       "alertCount": 1,
       "highestSeverity": "high",
@@ -1124,18 +1156,18 @@
       "filingsLinked": 0,
       "alertTypes": [
         {
-          "atype": "intraday",
-          "type": "Intraday move",
+          "atype": "gap",
+          "type": "Price gap",
           "severity": "high"
         }
       ],
       "summary": [
-        "Intraday move: +25.00% intraday"
+        "Price gap: -20.00% open gap"
       ]
     },
     {
-      "tk": "PREB",
-      "sector": "CONS",
+      "tk": "PQS",
+      "sector": "FOOD",
       "alertCount": 1,
       "highestSeverity": "high",
       "filingsLinked": 0,
@@ -1147,11 +1179,28 @@
         }
       ],
       "summary": [
-        "Volume spike: 5.7σ vs 20D avg"
+        "Volume spike: 3.3σ vs 20D avg"
       ]
     },
     {
-      "tk": "SMO",
+      "tk": "RML",
+      "sector": "PROP",
+      "alertCount": 1,
+      "highestSeverity": "high",
+      "filingsLinked": 0,
+      "alertTypes": [
+        {
+          "atype": "intraday",
+          "type": "Intraday move",
+          "severity": "high"
+        }
+      ],
+      "summary": [
+        "Intraday move: -10.00% intraday"
+      ]
+    },
+    {
+      "tk": "STA",
       "sector": "AGRI",
       "alertCount": 1,
       "highestSeverity": "high",
@@ -1164,96 +1213,11 @@
         }
       ],
       "summary": [
-        "Volume spike: 5.4σ vs 20D avg"
+        "Volume spike: 4.2σ vs 20D avg"
       ]
     },
     {
-      "tk": "SSPF",
-      "sector": "PFREIT",
-      "alertCount": 1,
-      "highestSeverity": "high",
-      "filingsLinked": 0,
-      "alertTypes": [
-        {
-          "atype": "intraday",
-          "type": "Intraday move",
-          "severity": "high"
-        }
-      ],
-      "summary": [
-        "Intraday move: -8.28% intraday"
-      ]
-    },
-    {
-      "tk": "TEGH",
-      "sector": "AGRI",
-      "alertCount": 1,
-      "highestSeverity": "high",
-      "filingsLinked": 0,
-      "alertTypes": [
-        {
-          "atype": "vol_spike",
-          "type": "Volume spike",
-          "severity": "high"
-        }
-      ],
-      "summary": [
-        "Volume spike: 3.9σ vs 20D avg"
-      ]
-    },
-    {
-      "tk": "TIF1",
-      "sector": "PFREIT",
-      "alertCount": 1,
-      "highestSeverity": "high",
-      "filingsLinked": 0,
-      "alertTypes": [
-        {
-          "atype": "vol_spike",
-          "type": "Volume spike",
-          "severity": "high"
-        }
-      ],
-      "summary": [
-        "Volume spike: 16.7σ vs 20D avg"
-      ]
-    },
-    {
-      "tk": "TPIPL",
-      "sector": "CONMAT",
-      "alertCount": 1,
-      "highestSeverity": "high",
-      "filingsLinked": 0,
-      "alertTypes": [
-        {
-          "atype": "vol_spike",
-          "type": "Volume spike",
-          "severity": "high"
-        }
-      ],
-      "summary": [
-        "Volume spike: 3.2σ vs 20D avg"
-      ]
-    },
-    {
-      "tk": "TTLPF",
-      "sector": "PFREIT",
-      "alertCount": 1,
-      "highestSeverity": "high",
-      "filingsLinked": 0,
-      "alertTypes": [
-        {
-          "atype": "vol_spike",
-          "type": "Volume spike",
-          "severity": "high"
-        }
-      ],
-      "summary": [
-        "Volume spike: 3.7σ vs 20D avg"
-      ]
-    },
-    {
-      "tk": "TU-PF",
+      "tk": "TPRIME",
       "sector": "PFREIT",
       "alertCount": 1,
       "highestSeverity": "high",
@@ -1270,25 +1234,25 @@
       ]
     },
     {
-      "tk": "UVAN",
-      "sector": "AGRI",
+      "tk": "A",
+      "sector": "PROP",
       "alertCount": 1,
       "highestSeverity": "high",
-      "filingsLinked": 0,
+      "filingsLinked": 1,
       "alertTypes": [
         {
-          "atype": "vol_spike",
-          "type": "Volume spike",
+          "atype": "gap",
+          "type": "Price gap",
           "severity": "high"
         }
       ],
       "summary": [
-        "Volume spike: 5.8σ vs 20D avg"
+        "Price gap: -100.00% open gap"
       ]
     },
     {
-      "tk": "TPOLY",
-      "sector": "CONS",
+      "tk": "KC",
+      "sector": "PROP",
       "alertCount": 1,
       "highestSeverity": "high",
       "filingsLinked": 1,
@@ -1300,7 +1264,47 @@
         }
       ],
       "summary": [
-        "Intraday move: +10.00% intraday"
+        "Intraday move: -33.33% intraday"
+      ]
+    },
+    {
+      "tk": "XBIO",
+      "sector": "FOOD",
+      "alertCount": 1,
+      "highestSeverity": "high",
+      "filingsLinked": 1,
+      "alertTypes": [
+        {
+          "atype": "gap",
+          "type": "Price gap",
+          "severity": "high"
+        }
+      ],
+      "summary": [
+        "Price gap: +12.50% open gap"
+      ]
+    },
+    {
+      "tk": "KSL",
+      "sector": "FOOD",
+      "alertCount": 2,
+      "highestSeverity": "medium",
+      "filingsLinked": 0,
+      "alertTypes": [
+        {
+          "atype": "vol_spike",
+          "type": "Volume spike",
+          "severity": "medium"
+        },
+        {
+          "atype": "intraday",
+          "type": "Intraday move",
+          "severity": "medium"
+        }
+      ],
+      "summary": [
+        "Volume spike: 2.2σ vs 20D avg",
+        "Intraday move: -4.19% intraday"
       ]
     },
     {
@@ -1327,8 +1331,8 @@
       ]
     },
     {
-      "tk": "SOLAR",
-      "sector": "CONS",
+      "tk": "PRECHA",
+      "sector": "PROP",
       "alertCount": 2,
       "highestSeverity": "medium",
       "filingsLinked": 0,
@@ -1345,14 +1349,31 @@
         }
       ],
       "summary": [
-        "Price gap: -4.35% open gap",
-        "Intraday move: +4.55% intraday"
+        "Price gap: +4.55% open gap",
+        "Intraday move: -4.35% intraday"
       ]
     },
     {
-      "tk": "VPO",
-      "sector": "AGRI",
-      "alertCount": 2,
+      "tk": "APCS",
+      "sector": "CONS",
+      "alertCount": 1,
+      "highestSeverity": "medium",
+      "filingsLinked": 0,
+      "alertTypes": [
+        {
+          "atype": "gap",
+          "type": "Price gap",
+          "severity": "medium"
+        }
+      ],
+      "summary": [
+        "Price gap: -4.35% open gap"
+      ]
+    },
+    {
+      "tk": "ASIAN",
+      "sector": "FOOD",
+      "alertCount": 1,
       "highestSeverity": "medium",
       "filingsLinked": 0,
       "alertTypes": [
@@ -1360,50 +1381,27 @@
           "atype": "vol_spike",
           "type": "Volume spike",
           "severity": "medium"
-        },
-        {
-          "atype": "gap",
-          "type": "Price gap",
-          "severity": "medium"
         }
       ],
       "summary": [
-        "Volume spike: 2.7σ vs 20D avg",
-        "Price gap: +3.92% open gap"
+        "Volume spike: 2.6σ vs 20D avg"
       ]
     },
     {
-      "tk": "CCP",
-      "sector": "CONMAT",
+      "tk": "CIVIL",
+      "sector": "CONS",
       "alertCount": 1,
       "highestSeverity": "medium",
       "filingsLinked": 0,
       "alertTypes": [
         {
-          "atype": "gap",
-          "type": "Price gap",
+          "atype": "intraday",
+          "type": "Intraday move",
           "severity": "medium"
         }
       ],
       "summary": [
-        "Price gap: -3.45% open gap"
-      ]
-    },
-    {
-      "tk": "CMC",
-      "sector": "PROP",
-      "alertCount": 1,
-      "highestSeverity": "medium",
-      "filingsLinked": 0,
-      "alertTypes": [
-        {
-          "atype": "gap",
-          "type": "Price gap",
-          "severity": "medium"
-        }
-      ],
-      "summary": [
-        "Price gap: -4.08% open gap"
+        "Intraday move: -5.60% intraday"
       ]
     },
     {
@@ -1420,12 +1418,63 @@
         }
       ],
       "summary": [
-        "Volume spike: 2.4σ vs 20D avg"
+        "Volume spike: 2.6σ vs 20D avg"
       ]
     },
     {
-      "tk": "DCON",
-      "sector": "CONMAT",
+      "tk": "GVREIT",
+      "sector": "PFREIT",
+      "alertCount": 1,
+      "highestSeverity": "medium",
+      "filingsLinked": 0,
+      "alertTypes": [
+        {
+          "atype": "vol_spike",
+          "type": "Volume spike",
+          "severity": "medium"
+        }
+      ],
+      "summary": [
+        "Volume spike: 2.2σ vs 20D avg"
+      ]
+    },
+    {
+      "tk": "KBS",
+      "sector": "FOOD",
+      "alertCount": 1,
+      "highestSeverity": "medium",
+      "filingsLinked": 0,
+      "alertTypes": [
+        {
+          "atype": "vol_spike",
+          "type": "Volume spike",
+          "severity": "medium"
+        }
+      ],
+      "summary": [
+        "Volume spike: 2.9σ vs 20D avg"
+      ]
+    },
+    {
+      "tk": "KCG",
+      "sector": "FOOD",
+      "alertCount": 1,
+      "highestSeverity": "medium",
+      "filingsLinked": 0,
+      "alertTypes": [
+        {
+          "atype": "vol_spike",
+          "type": "Volume spike",
+          "severity": "medium"
+        }
+      ],
+      "summary": [
+        "Volume spike: 2.1σ vs 20D avg"
+      ]
+    },
+    {
+      "tk": "NCH",
+      "sector": "PROP",
       "alertCount": 1,
       "highestSeverity": "medium",
       "filingsLinked": 0,
@@ -1437,29 +1486,80 @@
         }
       ],
       "summary": [
-        "Intraday move: -5.26% intraday"
+        "Intraday move: -4.44% intraday"
       ]
     },
     {
-      "tk": "MK",
+      "tk": "NL",
+      "sector": "CONS",
+      "alertCount": 1,
+      "highestSeverity": "medium",
+      "filingsLinked": 0,
+      "alertTypes": [
+        {
+          "atype": "vol_spike",
+          "type": "Volume spike",
+          "severity": "medium"
+        }
+      ],
+      "summary": [
+        "Volume spike: 2.2σ vs 20D avg"
+      ]
+    },
+    {
+      "tk": "ORI",
       "sector": "PROP",
       "alertCount": 1,
       "highestSeverity": "medium",
       "filingsLinked": 0,
       "alertTypes": [
         {
-          "atype": "gap",
-          "type": "Price gap",
+          "atype": "intraday",
+          "type": "Intraday move",
           "severity": "medium"
         }
       ],
       "summary": [
-        "Price gap: -3.23% open gap"
+        "Intraday move: -4.33% intraday"
       ]
     },
     {
-      "tk": "PRECHA",
+      "tk": "PPPM",
+      "sector": "AGRI",
+      "alertCount": 1,
+      "highestSeverity": "medium",
+      "filingsLinked": 0,
+      "alertTypes": [
+        {
+          "atype": "intraday",
+          "type": "Intraday move",
+          "severity": "medium"
+        }
+      ],
+      "summary": [
+        "Intraday move: +4.76% intraday"
+      ]
+    },
+    {
+      "tk": "RICHY",
       "sector": "PROP",
+      "alertCount": 1,
+      "highestSeverity": "medium",
+      "filingsLinked": 0,
+      "alertTypes": [
+        {
+          "atype": "intraday",
+          "type": "Intraday move",
+          "severity": "medium"
+        }
+      ],
+      "summary": [
+        "Intraday move: -5.88% intraday"
+      ]
+    },
+    {
+      "tk": "SAPPE",
+      "sector": "FOOD",
       "alertCount": 1,
       "highestSeverity": "medium",
       "filingsLinked": 0,
@@ -1475,41 +1575,7 @@
       ]
     },
     {
-      "tk": "RT",
-      "sector": "CONS",
-      "alertCount": 1,
-      "highestSeverity": "medium",
-      "filingsLinked": 0,
-      "alertTypes": [
-        {
-          "atype": "gap",
-          "type": "Price gap",
-          "severity": "medium"
-        }
-      ],
-      "summary": [
-        "Price gap: +3.57% open gap"
-      ]
-    },
-    {
-      "tk": "SAPPE",
-      "sector": "FOOD",
-      "alertCount": 1,
-      "highestSeverity": "medium",
-      "filingsLinked": 0,
-      "alertTypes": [
-        {
-          "atype": "vol_spike",
-          "type": "Volume spike",
-          "severity": "medium"
-        }
-      ],
-      "summary": [
-        "Volume spike: 2.5σ vs 20D avg"
-      ]
-    },
-    {
-      "tk": "STPI",
+      "tk": "SOLAR",
       "sector": "CONS",
       "alertCount": 1,
       "highestSeverity": "medium",
@@ -1522,7 +1588,24 @@
         }
       ],
       "summary": [
-        "Intraday move: +5.30% intraday"
+        "Intraday move: -4.35% intraday"
+      ]
+    },
+    {
+      "tk": "STECON",
+      "sector": "CONS",
+      "alertCount": 1,
+      "highestSeverity": "medium",
+      "filingsLinked": 0,
+      "alertTypes": [
+        {
+          "atype": "intraday",
+          "type": "Intraday move",
+          "severity": "medium"
+        }
+      ],
+      "summary": [
+        "Intraday move: -4.57% intraday"
       ]
     },
     {
@@ -1539,32 +1622,15 @@
         }
       ],
       "summary": [
-        "Volume spike: 2.9σ vs 20D avg"
+        "Volume spike: 2.5σ vs 20D avg"
       ]
     },
     {
-      "tk": "UV",
-      "sector": "PROP",
+      "tk": "UMI",
+      "sector": "CONMAT",
       "alertCount": 1,
       "highestSeverity": "medium",
       "filingsLinked": 0,
-      "alertTypes": [
-        {
-          "atype": "intraday",
-          "type": "Intraday move",
-          "severity": "medium"
-        }
-      ],
-      "summary": [
-        "Intraday move: -4.50% intraday"
-      ]
-    },
-    {
-      "tk": "KPNREIT",
-      "sector": "PFREIT",
-      "alertCount": 1,
-      "highestSeverity": "medium",
-      "filingsLinked": 1,
       "alertTypes": [
         {
           "atype": "vol_spike",
@@ -1573,27 +1639,10 @@
         }
       ],
       "summary": [
-        "Volume spike: 3.4σ vs 20D avg"
-      ]
-    },
-    {
-      "tk": "PPPM",
-      "sector": "AGRI",
-      "alertCount": 1,
-      "highestSeverity": "low",
-      "filingsLinked": 1,
-      "alertTypes": [
-        {
-          "atype": "gap",
-          "type": "Price gap",
-          "severity": "low"
-        }
-      ],
-      "summary": [
-        "Price gap: -4.55% open gap"
+        "Volume spike: 2.3σ vs 20D avg"
       ]
     }
   ],
-  "_built_at": "2026-07-22T05:49:36.785751+00:00",
+  "_built_at": "2026-07-23T02:36:30.636210+00:00",
   "_coverage_size": 232
 }
