@@ -1,5 +1,5 @@
 {
-  "asOf": "2026-07-26",
+  "asOf": "2026-07-27",
   "source": "SETSMART intraday API · 46 alerts across 40 tickers",
   "thresholds": {
     "vol_spike": {
@@ -42,7 +42,7 @@
       "sector": "FOOD",
       "type": "Volume spike",
       "atype": "vol_spike",
-      "severity": "medium",
+      "severity": "low",
       "value": 2.339,
       "label": "2.3σ vs 20D avg",
       "evidence": {
@@ -50,8 +50,10 @@
         "vol20dAvg": 146308.0,
         "vol20dStd": 129653.737917578
       },
-      "filingsLinked": 0,
-      "filingsTitles": []
+      "filingsLinked": 1,
+      "filingsTitles": [
+        "Additional  special  holidays"
+      ]
     },
     {
       "tk": "SST",
@@ -1438,23 +1440,6 @@
       ]
     },
     {
-      "tk": "TC",
-      "sector": "FOOD",
-      "alertCount": 1,
-      "highestSeverity": "medium",
-      "filingsLinked": 0,
-      "alertTypes": [
-        {
-          "atype": "vol_spike",
-          "type": "Volume spike",
-          "severity": "medium"
-        }
-      ],
-      "summary": [
-        "Volume spike: 2.3σ vs 20D avg"
-      ]
-    },
-    {
       "tk": "WHA",
       "sector": "PROP",
       "alertCount": 1,
@@ -1470,8 +1455,25 @@
       "summary": [
         "Volume spike: 2.3σ vs 20D avg"
       ]
+    },
+    {
+      "tk": "TC",
+      "sector": "FOOD",
+      "alertCount": 1,
+      "highestSeverity": "low",
+      "filingsLinked": 1,
+      "alertTypes": [
+        {
+          "atype": "vol_spike",
+          "type": "Volume spike",
+          "severity": "low"
+        }
+      ],
+      "summary": [
+        "Volume spike: 2.3σ vs 20D avg"
+      ]
     }
   ],
-  "_built_at": "2026-07-26T02:35:50.460372+00:00",
+  "_built_at": "2026-07-27T02:36:29.304523+00:00",
   "_coverage_size": 232
 }
