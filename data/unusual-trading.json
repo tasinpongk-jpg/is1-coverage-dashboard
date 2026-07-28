@@ -122,7 +122,7 @@
       "sector": "PFREIT",
       "type": "Volume spike",
       "atype": "vol_spike",
-      "severity": "low",
+      "severity": "medium",
       "value": 2.426,
       "label": "2.4σ vs 20D avg",
       "evidence": {
@@ -130,10 +130,8 @@
         "vol20dAvg": 531147.55,
         "vol20dStd": 303343.0431990282
       },
-      "filingsLinked": 1,
-      "filingsTitles": [
-        "Notification of summary of significant matters of the disclosure of information of IMPACT Growth Real Estate Investment "
-      ]
+      "filingsLinked": 0,
+      "filingsTitles": []
     },
     {
       "tk": "WIN",
@@ -272,24 +270,22 @@
       "sector": "CONS",
       "type": "Price gap",
       "atype": "gap",
-      "severity": "medium",
+      "severity": "high",
       "value": 5.469,
       "label": "+5.47% open gap",
       "evidence": {
         "open": 6.75,
         "prevClose": 6.4
       },
-      "filingsLinked": 1,
-      "filingsTitles": [
-        "The Capital Reduction, Capital Increase, Allocation of Newly Issued Ordinary Shares to Existing Shareholders (RO) and to"
-      ]
+      "filingsLinked": 0,
+      "filingsTitles": []
     },
     {
       "tk": "STPI",
       "sector": "CONS",
       "type": "Intraday move",
       "atype": "intraday",
-      "severity": "low",
+      "severity": "medium",
       "value": 4.444,
       "label": "-4.44% intraday",
       "evidence": {
@@ -298,10 +294,8 @@
         "high": 6.9,
         "low": 6.45
       },
-      "filingsLinked": 1,
-      "filingsTitles": [
-        "The Capital Reduction, Capital Increase, Allocation of Newly Issued Ordinary Shares to Existing Shareholders (RO) and to"
-      ]
+      "filingsLinked": 0,
+      "filingsTitles": []
     },
     {
       "tk": "APCS",
@@ -879,6 +873,29 @@
       ]
     },
     {
+      "tk": "STPI",
+      "sector": "CONS",
+      "alertCount": 2,
+      "highestSeverity": "high",
+      "filingsLinked": 0,
+      "alertTypes": [
+        {
+          "atype": "gap",
+          "type": "Price gap",
+          "severity": "high"
+        },
+        {
+          "atype": "intraday",
+          "type": "Intraday move",
+          "severity": "medium"
+        }
+      ],
+      "summary": [
+        "Price gap: +5.47% open gap",
+        "Intraday move: -4.44% intraday"
+      ]
+    },
+    {
       "tk": "BROCK",
       "sector": "PROP",
       "alertCount": 1,
@@ -1186,29 +1203,6 @@
       ]
     },
     {
-      "tk": "STPI",
-      "sector": "CONS",
-      "alertCount": 2,
-      "highestSeverity": "medium",
-      "filingsLinked": 1,
-      "alertTypes": [
-        {
-          "atype": "gap",
-          "type": "Price gap",
-          "severity": "medium"
-        },
-        {
-          "atype": "intraday",
-          "type": "Intraday move",
-          "severity": "low"
-        }
-      ],
-      "summary": [
-        "Price gap: +5.47% open gap",
-        "Intraday move: -4.44% intraday"
-      ]
-    },
-    {
       "tk": "APCS",
       "sector": "CONS",
       "alertCount": 1,
@@ -1274,6 +1268,23 @@
       ],
       "summary": [
         "Intraday move: +4.35% intraday"
+      ]
+    },
+    {
+      "tk": "IMPACT",
+      "sector": "PFREIT",
+      "alertCount": 1,
+      "highestSeverity": "medium",
+      "filingsLinked": 0,
+      "alertTypes": [
+        {
+          "atype": "vol_spike",
+          "type": "Volume spike",
+          "severity": "medium"
+        }
+      ],
+      "summary": [
+        "Volume spike: 2.4σ vs 20D avg"
       ]
     },
     {
@@ -1411,25 +1422,8 @@
       "summary": [
         "Volume spike: 2.0σ vs 20D avg"
       ]
-    },
-    {
-      "tk": "IMPACT",
-      "sector": "PFREIT",
-      "alertCount": 1,
-      "highestSeverity": "low",
-      "filingsLinked": 1,
-      "alertTypes": [
-        {
-          "atype": "vol_spike",
-          "type": "Volume spike",
-          "severity": "low"
-        }
-      ],
-      "summary": [
-        "Volume spike: 2.4σ vs 20D avg"
-      ]
     }
   ],
-  "_built_at": "2026-07-28T02:36:18.703494+00:00",
+  "_built_at": "2026-07-28T05:45:26.089467+00:00",
   "_coverage_size": 232
 }
