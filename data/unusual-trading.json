@@ -1,5 +1,5 @@
 {
-  "asOf": "2026-07-28",
+  "asOf": "2026-07-29",
   "source": "SETSMART intraday API · 45 alerts across 36 tickers",
   "thresholds": {
     "vol_spike": {
@@ -219,7 +219,7 @@
       "sector": "PROP",
       "type": "Volume spike",
       "atype": "vol_spike",
-      "severity": "low",
+      "severity": "medium",
       "value": 2.013,
       "label": "2.0σ vs 20D avg",
       "evidence": {
@@ -227,10 +227,8 @@
         "vol20dAvg": 7337386.5,
         "vol20dStd": 2928477.0310610686
       },
-      "filingsLinked": 1,
-      "filingsTitles": [
-        "Notification convening date of the Earnings Call for Quarter 2/ 2026"
-      ]
+      "filingsLinked": 0,
+      "filingsTitles": []
     },
     {
       "tk": "AWC",
@@ -471,10 +469,8 @@
         "open": 0.0,
         "prevClose": 1.45
       },
-      "filingsLinked": 1,
-      "filingsTitles": [
-        "Shareholders meeting's resolution (Disapproved as proposed)"
-      ]
+      "filingsLinked": 0,
+      "filingsTitles": []
     },
     {
       "tk": "NRF",
@@ -1015,6 +1011,23 @@
       ]
     },
     {
+      "tk": "PRIN",
+      "sector": "PROP",
+      "alertCount": 1,
+      "highestSeverity": "high",
+      "filingsLinked": 0,
+      "alertTypes": [
+        {
+          "atype": "gap",
+          "type": "Price gap",
+          "severity": "high"
+        }
+      ],
+      "summary": [
+        "Price gap: -100.00% open gap"
+      ]
+    },
+    {
       "tk": "RICHY",
       "sector": "PROP",
       "alertCount": 1,
@@ -1114,23 +1127,6 @@
       ],
       "summary": [
         "Price gap: -11.11% open gap"
-      ]
-    },
-    {
-      "tk": "PRIN",
-      "sector": "PROP",
-      "alertCount": 1,
-      "highestSeverity": "high",
-      "filingsLinked": 1,
-      "alertTypes": [
-        {
-          "atype": "gap",
-          "type": "Price gap",
-          "severity": "high"
-        }
-      ],
-      "summary": [
-        "Price gap: -100.00% open gap"
       ]
     },
     {
@@ -1234,6 +1230,23 @@
       ],
       "summary": [
         "Price gap: -3.57% open gap"
+      ]
+    },
+    {
+      "tk": "CPN",
+      "sector": "PROP",
+      "alertCount": 1,
+      "highestSeverity": "medium",
+      "filingsLinked": 0,
+      "alertTypes": [
+        {
+          "atype": "vol_spike",
+          "type": "Volume spike",
+          "severity": "medium"
+        }
+      ],
+      "summary": [
+        "Volume spike: 2.0σ vs 20D avg"
       ]
     },
     {
@@ -1405,25 +1418,8 @@
       "summary": [
         "Price gap: +3.45% open gap"
       ]
-    },
-    {
-      "tk": "CPN",
-      "sector": "PROP",
-      "alertCount": 1,
-      "highestSeverity": "low",
-      "filingsLinked": 1,
-      "alertTypes": [
-        {
-          "atype": "vol_spike",
-          "type": "Volume spike",
-          "severity": "low"
-        }
-      ],
-      "summary": [
-        "Volume spike: 2.0σ vs 20D avg"
-      ]
     }
   ],
-  "_built_at": "2026-07-28T05:45:26.089467+00:00",
+  "_built_at": "2026-07-29T02:35:35.195999+00:00",
   "_coverage_size": 232
 }
