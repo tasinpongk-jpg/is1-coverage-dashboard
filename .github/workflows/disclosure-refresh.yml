@@ -57,6 +57,10 @@ jobs:
       AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
       AWS_DEFAULT_REGION: auto
       AWS_EC2_METADATA_DISABLED: 'true'
+      # Discord RM digest switch — flip to 'true' in repo variables
+      # AFTER setting the DISCORD_PUSH_WEBHOOK secret. Leaving as 'false'
+      # keeps the step skipped (and the script never runs).
+      DISCORD_PUSH_ENABLED: ${{ vars.DISCORD_PUSH_ENABLED || 'false' }}
       R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
       R2_BUCKET: ${{ secrets.R2_BUCKET }}
     steps:
@@ -159,3 +163,18 @@ jobs:
           EMAIL_TO: ${{ secrets.EMAIL_TO }}
         run: python scripts/notify_failure.py
         continue-on-error: true
+
+      # Discord digest for the IS1 user (RM C / Champ). Runs BEFORE the
+      # failure step so a webhook failure is caught by notify_failure. The
+      # `rm_c_push_state.json` file is committed by the regen step above,
+      # so the push sees the same data the dashboard ships.
+      # Set DISCORD_PUSH_WEBHOOK in repo secrets to enable; unset → dry run.
+      # Override RM_NAME for any future user; severity filter via SEVERITY_MIN.
+      - name: Push RM disclosures digest to Discord
+        if: env.DISCORD_PUSH_ENABLED == 'true'
+        env:
+          DISCORD_PUSH_WEBHOOK: ${{ secrets.DISCORD_PUSH_WEBHOOK }}
+          RM_NAME: ${{ vars.RM_NAME || 'ฑศินพงศ์' }}
+          SEVERITY_MIN: ${{ vars.SEVERITY_MIN || 'low' }}
+        run: python scripts/push_rm_c_digest.py
+        continue-on-error: false
