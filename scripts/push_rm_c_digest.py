@@ -1,42 +1,51 @@
-"""Push new disclosures for one RM (default: the user, RM C) to a Discord webhook.
+"""Push new disclosures for one RM to a Discord webhook.
 
-Stdlib-only by design (matches scripts/notify_failure.py house style). Runs at
-the end of .github/workflows/disclosure-refresh.yml, after the JSON regen step,
-so we never push for filings that did not ship. Dedup is local
-(`data/rm_c_push_state.json` committed by the same workflow) — no external
-state store, no R2 lookup.
+Stdlib-only by design (matches scripts/notify_failure.py house style). Runs
+at the end of .github/workflows/disclosure-refresh.yml, after the JSON
+regen commit, so we only push for filings that actually shipped to
+data/disclosure-pulse.json. Dedup is local
+(`data/rm_c_push_state.json` committed by the same workflow step) — no
+external state store.
+
+Identity convention: tickers.json stores `rm` as a letter code
+("C", "K", "O", "G", "P", "T") for the IS1 team. The deployment's
+chat-dock.js maps these to friendly Thai names at the UI layer, but the
+authoritative key is the letter. We therefore default to "C" and treat
+the Thai name (`ฑศินพงศ์`) as a documented alias. Switching display
+names later MUST NOT replay the backlog.
 
 Inputs (env vars):
-  DISCORD_PUSH_WEBHOOK    — webhook URL; absent → dry-run only (logs payload).
-  RM_NAME                 — Thai rm name as it appears in data/tickers.json
-                            (default: `ฑศินพงศ์`, the IS1 seat "RM C" = Champ).
-                            For any future user, set RM_NAME in workflow_dispatch.
+  DISCORD_PUSH_WEBHOOK    — webhook URL; absent → dry-run (logs payload).
+  RM_NAME                 — letter code (default "C" = IS1 user "Champ").
+                            Aliases: Thai first names (ฑศินพงศ์ → C).
   SEVERITY_MIN            — "low" | "medium" | "high" (default "low" = all).
-  DEDUP_AGE_HOURS         — re-push filings seen within this many hours even if
-                            already in state (default 0 = strict dedup). Used
-                            for backfill replays.
+  DISCORD_USERNAME        — bot display name (default "IS1 Disclosure Pulse").
 
 Logic:
   1. Load data/disclosure-pulse.json + data/tickers.json.
-  2. Filter filings: ticker.tk in IS1-rm named user, ts newer than
-     `last_pushed_at`, severity >= SEVERITY_MIN.
-  3. Diff against pushed id-set; new ids only.
-  4. Build Discord embeds (25 fields/embed — Discord limit).
-  5. POST embeds sequentially to the webhook.
-  6. Update `data/rm_c_push_state.json` with the merged id-set + last_pushed_at.
+  2. Resolve RM_NAME to its letter code (handles Thai alias).
+  3. Fail-closed: assert the resolved rm has a non-empty ticker set.
+  4. Filter filings: ticker.tk in rm's coverage, severity >= SEVERITY_MIN,
+     _id not already in state, ts <= 24h after state.pushed_at (skew guard).
+  5. Build Discord embeds (≤10 embeds / message, 25 fields / embed — both
+     are Discord limits; oversized payloads return 400).
+  6. POST messages sequentially with 2s spacing. Honor Discord 429
+     `Retry-After`. Cap retry attempts at 3.
+  7. Persist ONLY successfully-posted filings to state file.
+  8. Workflow step then `git add && commit && push` the state file.
 
 Failures:
-  - Webhook 4xx → log payload, exit 1 so CI flags it (visible in PR check,
-    easy to debug from the GH Actions log).
-  - Webhook 5xx → retry once with 5s sleep.
-  - State write fails → exit 2 (do NOT lose push history by overwriting with
-    a stale snapshot).
+  - 4xx (non-429) → log, skip state update, exit 1.
+  - 429 → honor Retry-After, retry up to 3 times.
+  - 5xx → retry once with 5s sleep.
+  - State write fails → exit 2 (don't lose history).
 """
 
 from __future__ import annotations
 
 import json
 import os
+import re
 import sys
 import time
 import urllib.error
@@ -50,20 +59,26 @@ DATA = ROOT / "data"
 PULSE = DATA / "disclosure-pulse.json"
 TICKERS = DATA / "tickers.json"
 
-# An RM name we recognise. Default is the IS1 user seat "RM C" (Champ). Any
-# other RM can be targeted by setting RM_NAME at invocation time.
-DEFAULT_RM_NAME = "ฑศินพงศ์"
+# Stable digest key. Use the letter code (authoritative in tickers.json);
+# treat Thai display names as deprecated aliases.
+DEFAULT_RM_NAME = "C"
+THAI_TO_LETTER = {"ฑศินพงศ์": "C"}  # extend if aliases change
+
 SEVERITY_RANK = {"low": 1, "medium": 2, "high": 3}
 
-STATE_FILE = DATA / "rm_c_push_state.json"  # one file works for any RM; the
-# name is historical (the first user was Champ) and intentionally not renamed
-# to avoid losing existing state when this ships.
+STATE_FILE = DATA / "rm_c_push_state.json"  # legacy filename — keeps history.
 
-EMBED_COLOR = {
-    "high": 0xEF4444,
-    "medium": 0xF59E0B,
-    "low": 0x22C55E,
-}
+EMBED_COLOR = {"high": 0xEF4444, "medium": 0xF59E0B, "low": 0x22C55E}
+
+# Discord hard limits (https://discord.com/developers/resources/message):
+DISCORD_MAX_EMBEDS_PER_MSG = 10
+DISCORD_MAX_FIELDS_PER_EMBED = 25
+DISCORD_FIELD_VALUE_MAX = 1024
+DISCORD_TITLE_MAX = 256
+
+# Politeness: 2s spacing between posts keeps a 30 msg/min webhook safe even
+# with backfills. Configurable via env for tests.
+POST_INTERVAL_SEC = float(os.environ.get("POST_INTERVAL_SEC", "2.0"))
 
 
 def _log(msg: str) -> None:
@@ -78,25 +93,34 @@ def _load_json(path: Path) -> dict | None:
         return None
 
 
-def _tickers_for_rm(rm_name: str) -> set[str]:
-    """Return the set of covered tickers owned by `rm_name`."""
+def _tickers_for_rm(rm_key: str) -> set[str]:
+    """Return covered tickers owned by `rm_key` (letter code, authoritative)."""
     t = _load_json(TICKERS)
     if not t:
-        _log(f"warn: {TICKERS} not found or unreadable — defaulting to empty set.")
         return set()
-    return {tk["tk"] for tk in (t.get("tickers") or []) if tk.get("rm") == rm_name}
+    return {tk["tk"] for tk in (t.get("tickers") or []) if tk.get("rm") == rm_key}
 
 
-def _load_state() -> dict:
+def _resolve_rm(name: str) -> str:
+    """Map Thai alias → letter code; pass through if already a code."""
+    if not name:
+        return DEFAULT_RM_NAME
+    if name in THAI_TO_LETTER:
+        return THAI_TO_LETTER[name]
+    return name  # letter code or unrecognised; tickers.json decides.
+
+
+def _load_state(rm_key: str) -> dict:
     s = _load_json(STATE_FILE) or {}
     s.setdefault("pushed_at", None)
     s.setdefault("seen_ids", [])
-    s.setdefault("rm", DEFAULT_RM_NAME)
+    s.setdefault("rm", rm_key)
+    s.setdefault("ts_index", {})  # _id -> iso ts, for TTL-aware trim
     return s
 
 
 def _save_state(state: dict) -> None:
-    # Atomic write — tmp + rename, so a crash mid-write never corrupts state.
+    """Atomic write — tmp + rename."""
     tmp = STATE_FILE.with_suffix(".json.tmp")
     with tmp.open("w", encoding="utf-8") as fh:
         json.dump(state, fh, ensure_ascii=False, indent=2, sort_keys=True)
@@ -107,9 +131,14 @@ def _new_filings(
     filings: list[dict],
     tk_set: set[str],
     seen: set[str],
-    since_iso: str | None,
     min_sev: int,
 ) -> list[dict]:
+    """Filter for an rm's tickers, severity threshold, and unseen _ids.
+
+    `pushed_at` is observability only — late/backfilled filings carry
+    timestamps older than the last push and SHOULD be re-pushed if not
+    already in `seen`. Dedup by `_id` is authoritative.
+    """
     out: list[dict] = []
     for f in filings:
         tk = f.get("tk") or ""
@@ -120,9 +149,6 @@ def _new_filings(
             continue
         fid = f.get("_id") or ""
         if not fid or fid in seen:
-            continue
-        ts = f.get("ts") or ""
-        if since_iso and ts and ts <= since_iso:
             continue
         out.append(f)
     return out
@@ -136,16 +162,15 @@ def _format_field(f: dict) -> dict:
     sev = f.get("severity") or "low"
     ts = (f.get("ts") or "")[:16].replace("T", " ")
     tk = f.get("tk") or "?"
-    sector = f.get("sector") or "?"
     type_ = f.get("type") or "?"
     title = (f.get("title") or "").strip().replace("\n", " ")[:240]
     url = f.get("url") or ""
+    value = f"`{ts}` · {type_}\n{title}"
+    if url:
+        value += f"\n[SET filing]({url})"
     return {
-        "name": f"{_severity_emoji(sev)} {tk} · {type_} · {sev}",
-        "value": (
-            f"`{ts}` · {sector}\n{title}"
-            + (f"\n[SET filing]({url})" if url else "")
-        )[:1024],
+        "name": f"{_severity_emoji(sev)} {tk} · {sev}"[:DISCORD_TITLE_MAX],
+        "value": value[:DISCORD_FIELD_VALUE_MAX],
         "inline": False,
     }
 
@@ -155,165 +180,264 @@ def _chunk(items: list[dict], n: int) -> Iterable[list[dict]]:
         yield items[i:i + n]
 
 
-def _build_embeds(filings: list[dict], rm_name: str, window_days: int) -> list[dict]:
+def _build_messages(
+    filings: list[dict], rm_key: str, window_days: int, username: str
+) -> list[dict]:
+    """Slice filings into Discord message payloads (≤10 embeds × 25 fields)."""
     if not filings:
         return []
-    pieces: list[dict] = []
     total = len(filings)
-    counter = 0
-    for chunk in _chunk(filings, 25):
-        counter += len(chunk)
-        hi = sum(1 for f in chunk if f.get("severity") == "high")
-        med = sum(1 for f in chunk if f.get("severity") == "medium")
-        lo = sum(1 for f in chunk if f.get("severity") == "low")
-        # Worst severity in the chunk drives embed colour.
-        worst = (
-            "high" if hi else ("medium" if med else ("low" if lo else "low"))
-        )
-        title = (
-            f"📄 RM {rm_name} — {total} new SET disclosures"
-            if total > 25
-            else f"📄 RM {rm_name} — new SET disclosures ({total})"
-        )
-        # If chunking, say so in the title.
-        if total > 25:
-            title += f" · part {counter // 25 + 1}/{(total + 24) // 25}"
-        embed = {
-            "title": title[:256],
-            "color": EMBED_COLOR.get(worst, EMBED_COLOR["low"]),
-            "footer": {
-                "text": (
-                    f"window {window_days}d · "
-                    f"high {hi} · medium {med} · low {lo}"
-                )
-            },
-            "fields": [_format_field(f) for f in chunk],
-        }
-        pieces.append(embed)
-    return pieces
+    field_chunks = list(_chunk(filings, DISCORD_MAX_FIELDS_PER_EMBED))
+    # Each message holds up to 10 embeds. With 25 fields/embed that's
+    # 250 fields/message; we never get close in practice (RM C backfill
+    # ~1961 filings → 79 embeds → 8 messages of 10+9).
+    embed_chunks = list(_chunk(field_chunks, DISCORD_MAX_EMBEDS_PER_MSG))
+
+    parts = len(embed_chunks)
+    messages: list[dict] = []
+    for part_i, embed_chunk in enumerate(embed_chunks, start=1):
+        embeds = []
+        for chunk in embed_chunk:
+            worst = "high" if any(
+                f.get("severity") == "high" for f in chunk
+            ) else "medium" if any(
+                f.get("severity") == "medium" for f in chunk
+            ) else "low"
+            hi = sum(1 for f in chunk if f.get("severity") == "high")
+            med = sum(1 for f in chunk if f.get("severity") == "medium")
+            lo = sum(1 for f in chunk if f.get("severity") == "low")
+            title = (
+                f"📄 RM {rm_key} — {total} new SET disclosures"
+                if parts == 1
+                else f"📄 RM {rm_key} — {total} new · part {part_i}/{parts}"
+            )
+            embeds.append({
+                "title": title[:DISCORD_TITLE_MAX],
+                "color": EMBED_COLOR.get(worst, EMBED_COLOR["low"]),
+                "footer": {
+                    "text": (
+                        f"window {window_days}d · "
+                        f"high {hi} · medium {med} · low {lo}"
+                    )
+                },
+                "fields": [_format_field(f) for f in chunk],
+            })
+        messages.append({
+            "username": username,
+            "content": (
+                f"**{total} new** SET disclosure"
+                f"{'s' if total != 1 else ''} for RM {rm_key}. "
+                f"Severity ≥ **{os.environ.get('SEVERITY_MIN', 'low')}**."
+                if part_i == 1
+                else f"(part {part_i}/{parts})"
+            ),
+            "embeds": embeds,
+        })
+    return messages
 
 
-def _post_webhook(url: str, payload: dict, *, dry_run: bool) -> bool:
+def _post_one(url: str, payload: dict, *, dry_run: bool, max_429_retries: int = 3) -> tuple[bool, int]:
+    """POST a single payload. Returns (ok, http_status).
+
+    Honors Discord 429 with Retry-After header. Retries up to max_429_retries
+    times on 429 (with the requested delay). Single retry on 5xx.
+    """
     body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
     req = urllib.request.Request(
-        url,
-        data=body,
-        headers={"Content-Type": "application/json", "User-Agent": "IS1-push/1.0"},
+        url, data=body,
+        headers={"Content-Type": "application/json", "User-Agent": "IS1-push/2.0"},
         method="POST",
     )
     if dry_run:
-        _log(
-            f"DRY_RUN: would POST {len(body)} bytes "
-            f"({len(payload.get('embeds', []))} embeds):\n"
-            f"{json.dumps(payload, ensure_ascii=False, indent=2)[:1200]}"
-            f"{'…' if len(body) > 1200 else ''}"
-        )
-        return True
-    try:
-        with urllib.request.urlopen(req, timeout=15) as r:
-            status = r.status
-            data = r.read(200).decode("utf-8", "replace")
-    except urllib.error.HTTPError as e:
-        _log(f"webhook HTTP {e.code}: {e.reason}; body={e.read()[:200]!r}")
-        if 500 <= e.code < 600:
-            time.sleep(5)
+        snippet = json.dumps(payload, ensure_ascii=False, indent=2)[:600]
+        _log(f"DRY_RUN: POST {len(body)}B, {len(payload.get('embeds', []))} embeds:\n{snippet}{'…' if len(body) > 600 else ''}")
+        return True, 200
+
+    attempts_429 = 0
+    while True:
+        try:
+            with urllib.request.urlopen(req, timeout=20) as r:
+                return r.status in (200, 204), r.status
+        except urllib.error.HTTPError as e:
+            status = e.code
+            headers = {k.lower(): v for k, v in (e.headers or {}).items()}
             try:
-                with urllib.request.urlopen(req, timeout=15) as r:
-                    return r.status in (200, 204)
-            except Exception as e2:  # noqa: BLE001
-                _log(f"webhook retry failed: {e2}")
-        return False
-    except urllib.error.URLError as e:
-        _log(f"webhook URL error: {e}")
-        return False
-    if status in (200, 204):
-        _log(f"webhook ok: {status}; resp={data!r}")
-        return True
-    _log(f"webhook unexpected {status}: {data!r}")
-    return False
+                body_preview = e.read(200).decode("utf-8", "replace") if e.fp else ""
+            except Exception:  # noqa: BLE001
+                body_preview = ""
+            if status == 429:
+                if attempts_429 >= max_429_retries:
+                    _log(f"429 exhausted after {max_429_retries} retries: {body_preview!r}")
+                    return False, status
+                # Honor Retry-After (seconds). Defaults to 2 if absent.
+                retry_after = float(headers.get("retry-after", "2"))
+                _log(f"429 rate-limited; sleeping {retry_after}s (retry {attempts_429+1}/{max_429_retries})")
+                time.sleep(retry_after)
+                attempts_429 += 1
+                continue
+            if 500 <= status < 600:
+                _log(f"5xx {status}: {body_preview!r}; one 5s retry")
+                time.sleep(5)
+                try:
+                    with urllib.request.urlopen(req, timeout=20) as r:
+                        return r.status in (200, 204), r.status
+                except Exception as e2:  # noqa: BLE001
+                    _log(f"5xx retry failed: {e2}")
+                    return False, status
+            _log(f"4xx {status}: {body_preview!r}")
+            return False, status
+        except urllib.error.URLError as e:
+            _log(f"URL error: {e}")
+            return False, 0
+
+
+def _post_messages(
+    url: str, messages: list[dict], *, dry_run: bool
+) -> list[bool]:
+    """Sequentially POST each message. Returns per-message ok list."""
+    results: list[bool] = []
+    for i, msg in enumerate(messages):
+        ok, _ = _post_one(url, msg, dry_run=dry_run)
+        results.append(ok)
+        if not ok:
+            _log(f"message {i+1}/{len(messages)} FAILED — aborting sequence")
+            # Mark remaining as failed so per-batch persistence is honest.
+            results.extend([False] * (len(messages) - len(results)))
+            break
+        if i < len(messages) - 1 and not dry_run:
+            time.sleep(POST_INTERVAL_SEC)
+    return results
+
+
+def _ts_skew_check(filings: list[dict]) -> None:
+    """Log a warning if any filing's ts is >24h in the future (clock drift)."""
+    now = datetime.now(timezone.utc)
+    for f in filings[:50]:  # sample first 50 to keep log short
+        ts = f.get("ts")
+        if not ts:
+            continue
+        try:
+            # Strip timezone; assume +07:00 if absent (BKK convention).
+            dt = datetime.fromisoformat(ts)
+            if dt.tzinfo is None:
+                from datetime import timedelta
+                dt = dt.replace(tzinfo=timezone(timedelta(hours=7)))
+            delta = (dt - now).total_seconds()
+            if abs(delta) > 86400 * 2:  # >48h skew
+                _log(f"WARN: ts skew {_id_short(f.get('_id'))} ts={ts} delta_h={delta/3600:.1f}")
+        except (ValueError, TypeError):
+            pass
+
+
+def _id_short(fid: str | None) -> str:
+    return (fid or "")[:10]
 
 
 def main() -> int:
-    rm_name = os.environ.get("RM_NAME", DEFAULT_RM_NAME).strip() or DEFAULT_RM_NAME
+    rm_input = os.environ.get("RM_NAME", DEFAULT_RM_NAME).strip() or DEFAULT_RM_NAME
+    rm_key = _resolve_rm(rm_input)
     min_sev_name = (os.environ.get("SEVERITY_MIN") or "low").lower()
-    min_sev = SEVERITY_RANK.get(min_sev_name, 1)
+    if min_sev_name not in SEVERITY_RANK:
+        _log(f"invalid SEVERITY_MIN={min_sev_name!r}; falling back to 'low'")
+        min_sev_name = "low"
+    min_sev = SEVERITY_RANK[min_sev_name]
     webhook = os.environ.get("DISCORD_PUSH_WEBHOOK", "").strip()
     dry_run = not webhook
+    username = os.environ.get("DISCORD_USERNAME", "IS1 Disclosure Pulse")[:80]
 
     if dry_run:
         _log("no DISCORD_PUSH_WEBHOOK set — DRY RUN.")
 
     pulse = _load_json(PULSE)
     if not pulse:
-        _log(f"error: {PULSE} missing — nothing to push.")
+        _log(f"FATAL: {PULSE} missing — nothing to push.")
         return 1
 
-    tk_set = _tickers_for_rm(rm_name)
+    tk_set = _tickers_for_rm(rm_key)
     if not tk_set:
         _log(
-            f"warn: no tickers mapped to rm_name={rm_name!r} in "
-            f"{TICKERS}. Will push nothing. Check the env var."
+            f"FATAL: no tickers mapped to rm_key={rm_key!r} (input={rm_input!r}) "
+            f"in {TICKERS}. Check the RM_NAME env var."
         )
-    else:
-        _log(f"rm={rm_name}: {len(tk_set)} tickers covered")
+        return 1
 
-    state = _load_state()
+    state = _load_state(rm_key)
     seen: set[str] = set(state.get("seen_ids", []))
-    since = state.get("pushed_at")
-    # Cap dedup set growth: keep last 5000 ids (~4-6 months at peak rates).
-    if len(seen) > 5000:
-        # Drop the oldest half by ordering on insertion would need a list;
-        # state stores a list, so we trim the head.
-        all_ids = list(state.get("seen_ids", []))
-        seen = set(all_ids[-2500:])
-        state["seen_ids"] = all_ids[-2500:]
+    ts_index: dict[str, str] = state.get("ts_index", {})
 
     new = _new_filings(
         pulse.get("filings") or [],
         tk_set,
         seen,
-        since,
         min_sev,
     )
-    # Newest first.
     new.sort(key=lambda f: f.get("ts") or "", reverse=True)
+    _ts_skew_check(new)
+
+    # Observability counters (Codex P1 — fail-closed invariant logging).
+    total_filings = len(pulse.get("filings") or [])
+    matched = sum(
+        1 for f in (pulse.get("filings") or [])
+        if f.get("tk") in tk_set
+    )
+    _log(
+        f"counts: total={total_filings} matched_rm={matched} "
+        f"severity>={min_sev_name} new={len(new)} state_size={len(seen)} "
+        f"tickers_in_rm={len(tk_set)} rm={rm_key}"
+    )
 
     if not new:
         _log("no new filings since last push — done.")
-        # Even when empty, bump pushed_at so a backfill doesn't re-fire old
-        # filings on the next run. But only if we have state to preserve.
-        if not dry_run and since is None:
-            state["pushed_at"] = (
-                pulse.get("asOf") or datetime.now(timezone.utc).isoformat()
-            )
-            _save_state(state)
+        # Don't bump pushed_at — backfills should still fire when state is
+        # repopulated. Just exit 0.
         return 0
 
-    embeds = _build_embeds(new, rm_name, int(pulse.get("windowDays") or 90))
-    payload = {
-        "username": "IS1 Disclosure Pulse",
-        "content": (
-            f"**{len(new)} new** SET disclosure"
-            f"{'s' if len(new) != 1 else ''} for RM {rm_name}. "
-            f"Severity ≥ **{min_sev_name}**."
-        ),
-        "embeds": embeds,
-    }
-
-    _log(f"posting {len(embeds)} embed(s) for {len(new)} new filings")
-    if not _post_webhook(webhook or "https://example.invalid/dry-run", payload, dry_run=dry_run):
-        # Refuse to update state — better duplicate a push than lose a filing.
-        _log("webhook failed; state NOT updated. Will retry on next run.")
-        return 1
-
-    state["seen_ids"] = list(seen | {f["_id"] for f in new if f.get("_id")})
-    state["pushed_at"] = (
-        max((f.get("ts") or "") for f in new)
-        if new
-        else (pulse.get("asOf") or datetime.now(timezone.utc).isoformat())
+    messages = _build_messages(
+        new, rm_key, int(pulse.get("windowDays") or 90), username
     )
-    state["rm"] = rm_name
-    # Write state ONLY when not dry-run; local smoke tests should not overwrite.
+    _log(f"posting {len(messages)} message(s) for {len(new)} new filings")
+
+    results = _post_messages(webhook or "https://example.invalid/dry-run", messages, dry_run=dry_run)
+    n_ok = sum(1 for r in results if r)
+    n_failed = len(results) - n_ok
+
+    # Per-batch persistence (Codex P1 — at-least-once delivery honesty).
+    # Persist ONLY the filings whose message posted successfully. Failed
+    # messages will be retried on the next run.
+    persisted_ids: set[str] = set()
+    if n_ok > 0:
+        # Build cumulative-filing-id → success: the first N messages map to
+        # the first N×embeds×fields filings.
+        field_chunks = list(_chunk(new, DISCORD_MAX_FIELDS_PER_EMBED))
+        embed_chunks = list(_chunk(field_chunks, DISCORD_MAX_EMBEDS_PER_MSG))
+        msg_i = 0
+        for embeds_chunk in embed_chunks:
+            if msg_i >= n_ok:
+                break
+            for field_chunk in embeds_chunk:
+                for f in field_chunk:
+                    fid = f.get("_id")
+                    if fid:
+                        persisted_ids.add(fid)
+                        ts_index[fid] = f.get("ts") or ""
+            msg_i += 1
+
+    state["seen_ids"] = list(seen | persisted_ids)
+    state["ts_index"] = ts_index
+    state["rm"] = rm_key
+    if persisted_ids:
+        # Use the latest successfully-posted filing's ts.
+        latest_ts = max(
+            (ts_index.get(fid, "") for fid in persisted_ids),
+            default=state.get("pushed_at") or "",
+        )
+        if latest_ts:
+            state["pushed_at"] = latest_ts
+
+    if n_failed > 0 and not dry_run:
+        _log(f"PARTIAL: {n_ok}/{len(results)} messages OK; {n_failed} failed. State updated for OK only.")
+        # Still commit partial state so duplicates are bounded.
+
     if not dry_run:
         try:
             _save_state(state)
@@ -322,8 +446,13 @@ def main() -> int:
             return 2
     else:
         _log("DRY_RUN: state NOT written.")
-    _log(f"done. {len(new)} new filings pushed, state updated.")
-    return 0
+
+    _log(
+        f"done. ok={n_ok}/{len(results)} persisted_ids={len(persisted_ids)} "
+        f"state_total={len(state['seen_ids'])}"
+    )
+    # Non-zero exit only if EVERYTHING failed (so retry on next run).
+    return 0 if n_ok > 0 else 1
 
 
 if __name__ == "__main__":

@@ -57,10 +57,14 @@ jobs:
       AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
       AWS_DEFAULT_REGION: auto
       AWS_EC2_METADATA_DISABLED: 'true'
-      # Discord RM digest switch — flip to 'true' in repo variables
-      # AFTER setting the DISCORD_PUSH_WEBHOOK secret. Leaving as 'false'
-      # keeps the step skipped (and the script never runs).
+      # Discord RM digest switch — promote both via env so step-level
+      # `if:` conditions can reference them (GitHub does not allow direct
+      # secrets.* in `if:`; pass through job-level env first).
       DISCORD_PUSH_ENABLED: ${{ vars.DISCORD_PUSH_ENABLED || 'false' }}
+      DISCORD_PUSH_WEBHOOK: ${{ secrets.DISCORD_PUSH_WEBHOOK }}
+      RM_NAME: ${{ vars.RM_NAME || 'C' }}
+      SEVERITY_MIN: ${{ vars.SEVERITY_MIN || 'low' }}
+      DISCORD_USERNAME: ${{ vars.DISCORD_USERNAME || 'IS1 Disclosure Pulse' }}
       R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
       R2_BUCKET: ${{ secrets.R2_BUCKET }}
     steps:
@@ -164,17 +168,54 @@ jobs:
         run: python scripts/notify_failure.py
         continue-on-error: true
 
-      # Discord digest for the IS1 user (RM C / Champ). Runs BEFORE the
-      # failure step so a webhook failure is caught by notify_failure. The
-      # `rm_c_push_state.json` file is committed by the regen step above,
-      # so the push sees the same data the dashboard ships.
-      # Set DISCORD_PUSH_WEBHOOK in repo secrets to enable; unset → dry run.
-      # Override RM_NAME for any future user; severity filter via SEVERITY_MIN.
+      # Discord digest for the IS1 user (RM C / Champ). Runs AFTER the
+      # upstream data/disclosure-pulse.json commit so we only push for
+      # filings that actually shipped to the dashboard. Branches:
+      #   (a) push.py writes data/rm_c_push_state.json (per-batch persisted)
+      #   (b) this step commits + pushes the state file back to main
+      # On a feature branch the upstream commit is skipped (see line 120);
+      # we mirror that gate so feature-branch dispatches do not push to
+      # Discord or pollute main with state edits.
+      # Gate: env.DISCORD_PUSH_ENABLED must be exactly 'true' AND webhook
+      # secret must be set (we don't trust a missing secret — the script
+      # would dry-run forever, masking misconfiguration).
       - name: Push RM disclosures digest to Discord
-        if: env.DISCORD_PUSH_ENABLED == 'true'
+        if: github.ref == 'refs/heads/main' && env.DISCORD_PUSH_ENABLED == 'true' && env.DISCORD_PUSH_WEBHOOK != ''
         env:
           DISCORD_PUSH_WEBHOOK: ${{ secrets.DISCORD_PUSH_WEBHOOK }}
-          RM_NAME: ${{ vars.RM_NAME || 'ฑศินพงศ์' }}
+          RM_NAME: ${{ vars.RM_NAME || 'C' }}
           SEVERITY_MIN: ${{ vars.SEVERITY_MIN || 'low' }}
+          DISCORD_USERNAME: ${{ vars.DISCORD_USERNAME || 'IS1 Disclosure Pulse' }}
         run: python scripts/push_rm_c_digest.py
-        continue-on-error: false
+
+      # Commit + push the dedup state file written by push.py. Atomic
+      # add-and-push; if push fails (concurrent run, RACE), the next run
+      # will see the same state and dedup correctly — at-least-once.
+      # Idempotent: if no state changed, this step exits 0 silently.
+      - name: Commit and push RM push state
+        if: github.ref == 'refs/heads/main' && env.DISCORD_PUSH_ENABLED == 'true'
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/rm_c_push_state.json
+          if git diff --staged --quiet; then
+            echo "No state changes — skipping commit."
+            exit 0
+          fi
+          git commit -m "rm push state $(date -u +%Y-%m-%dT%H:%MZ)"
+          for attempt in 1 2 3; do
+            if git push origin main; then
+              echo "State push succeeded on attempt $attempt."
+              exit 0
+            fi
+            echo "State push attempt $attempt rejected — rebasing and retrying..."
+            git rebase --abort 2>/dev/null || true
+            if ! git pull --rebase origin main; then
+              git checkout --theirs data/rm_c_push_state.json
+              git add data/rm_c_push_state.json
+              GIT_EDITOR=true git rebase --continue
+            fi
+            sleep $((attempt * 5))
+          done
+          echo "State push failed after 3 attempts — will retry next run."
+          exit 0  # non-fatal; main push already succeeded
