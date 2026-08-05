@@ -32,5 +32,11 @@ data/synthesis/
 # Playwright MCP scratch (browser snapshots/console logs from headless runs)
 .playwright-mcp/
 
+# Daily brief test fixtures — small ones (ai_insights, morning_brief,
+# tickers, dry_run_payload) are committed for fast offline tests.
+# disclosure_pulse.json is gitignored (2.1 MB, 1961 filings) — tests
+# fall back to a synthetic empty pulse if missing.
+tests/fixtures/disclosure_pulse_*.json
+
 # Build artifacts that ARE committed (do not ignore):
 # data/*.json — these are the daily snapshots that drive the dashboards
