@@ -526,10 +526,40 @@ def _build_filings_today_embed(pulse: dict, rm_tickers: set[str], asof: str) -> 
 
 # ---------------------------------------------------------------- main
 
+def _load_webhook_from_secret_file() -> str | None:
+    """Last-resort lookup: read webhook URL from a secret file at
+    ~/.hermes/secrets/daily_brief.env. Used when DAILY_BRIEF_WEBHOOK env
+    var is unset (i.e. when the script is invoked by a Hermes cron that
+    doesn't pass env vars). The file format is one KEY=VALUE per line,
+    shell-style quoting allowed."""
+    secret = Path.home() / ".hermes" / "secrets" / "daily_brief.env"
+    if not secret.exists():
+        return None
+    try:
+        for line in secret.read_text(encoding="utf-8").splitlines():
+            line = line.strip()
+            if not line or line.startswith("#"):
+                continue
+            if "=" not in line:
+                continue
+            k, v = line.split("=", 1)
+            if k.strip() == "DAILY_BRIEF_WEBHOOK":
+                # Strip optional surrounding quotes
+                return v.strip().strip('"').strip("'")
+    except OSError as e:
+        _log(f"WARN: reading {secret}: {e}")
+    return None
+
+
 def main() -> int:
+    # Resolve webhook: env var first, then secret file fallback.
+    # This ordering lets cron pass env directly (test/dev) while still
+    # working when cron doesn't (production).
     webhook = os.environ.get("DAILY_BRIEF_WEBHOOK", "").strip()
     if not webhook:
-        _log("FATAL: DAILY_BRIEF_WEBHOOK not set — fail closed (no silent dry-run).")
+        webhook = _load_webhook_from_secret_file() or ""
+    if not webhook:
+        _log("FATAL: DAILY_BRIEF_WEBHOOK not set in env or secret file — fail closed (no silent dry-run).")
         return 1
     dry_run = os.environ.get("DAILY_BRIEF_DRY_RUN") == "1"
     if dry_run:
