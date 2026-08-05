@@ -15,11 +15,14 @@ REPO = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO / "scripts"))
 
 # Load the live fixture files instead of re-fetching (faster, deterministic).
+# disclosure_pulse.json is gitignored (2.1 MB) — fall back to a synthetic
+# minimal pulse if missing so this script still runs on a clean checkout.
 FIX = REPO / "tests" / "fixtures"
 ai = json.loads((FIX / "ai_insights_2026-08-04.json").read_text(encoding="utf-8"))
 brief = json.loads((FIX / "morning_brief_2026-08-04.json").read_text(encoding="utf-8"))
 tickers = json.loads((FIX / "tickers_2026-08-04.json").read_text(encoding="utf-8"))
-pulse = json.loads((FIX / "disclosure_pulse_2026-08-04.json").read_text(encoding="utf-8"))
+_pulse_path = FIX / "disclosure_pulse_2026-08-04.json"
+pulse = json.loads(_pulse_path.read_text(encoding="utf-8")) if _pulse_path.exists() else {"filings": []}
 
 import build_daily_brief as b  # noqa: E402
 

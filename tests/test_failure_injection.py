@@ -146,8 +146,34 @@ def fake_400(req, timeout):
     raise Fake400()
 b.urllib.request.urlopen = fake_400
 ok, status = b._post_one("http://x", {"embeds": []}, dry_run=False)
-check("4xx fails immediately (no retry)",
+check("4xx fails immediately, no retry",
       not ok and attempts[0] == 1,
+      f"ok={ok} attempts={attempts[0]}")
+
+# Codex P0 #3 finding: 429 with HTTP-date Retry-After (not delta-seconds)
+# must not crash. The old code did float("Wed, 05 Aug 2026 03:00:00 GMT")
+# → ValueError. New code uses _parse_retry_after which handles both forms.
+class FakeHTTPDate429(b.urllib.error.HTTPError):
+    def __init__(self):
+        # Use a near-past date so clamp yields ~0s sleep; tests must finish fast.
+        super().__init__("http://x", 429, "Too Many", {}, b"")
+        self.headers = {"Retry-After": "Thu, 01 Jan 1970 00:00:00 GMT"}
+        self._body = b""
+    def read(self, n=200): return self._body[:n]
+
+attempts[0] = 0
+sleeps.clear()
+# Zero out POST_INTERVAL_SEC so the (clamped-to-0) sleep doesn't stall CI.
+orig_interval = b.POST_INTERVAL_SEC
+b.POST_INTERVAL_SEC = 0.0
+def fake_http_date_429(req, timeout):
+    attempts[0] += 1
+    raise FakeHTTPDate429()
+b.urllib.request.urlopen = fake_http_date_429
+ok, status = b._post_one("http://x", {"embeds": []}, dry_run=False, max_429_retries=1)
+b.POST_INTERVAL_SEC = orig_interval
+check("429 with HTTP-date Retry-After → exhausts retries cleanly",
+      not ok and attempts[0] == 2,
       f"ok={ok} attempts={attempts[0]}")
 
 

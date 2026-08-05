@@ -226,8 +226,64 @@ class TestIdempotency(unittest.TestCase):
             state_path.write_text(json.dumps(state), encoding="utf-8")
             with b._FileLock(state_path.parent / ".lock") as held:
                 self.assertTrue(held)
-                s = b._load_json_file(state_path)
+                s = b._load_json(state_path)
                 self.assertEqual(s["last_posted_date"], b._bkk_today())
+
+    def test_tampered_state_list_does_not_crash(self):
+        # Codex P0 #2 finding: state.json = '["tampered"]' used to crash
+        # with AttributeError. Should now log a warning and return {}.
+        with tempfile.TemporaryDirectory() as tmp:
+            state_path = Path(tmp) / "state.json"
+            state_path.write_text('["tampered"]', encoding="utf-8")
+            s = b._load_state("C")
+            self.assertIsInstance(s, dict)
+            self.assertEqual(s["last_posted_date"], None)
+            self.assertEqual(s["seen_ids"], [])
+
+    def test_tampered_state_string_does_not_crash(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            state_path = Path(tmp) / "state.json"
+            state_path.write_text('"just a string"', encoding="utf-8")
+            s = b._load_state("C")
+            self.assertIsInstance(s, dict)
+            self.assertEqual(s["rm"], "C")  # default filled by setdefault
+
+
+class TestParseRetryAfter(unittest.TestCase):
+    def test_delta_seconds(self):
+        self.assertEqual(b._parse_retry_after("120"), 120.0)
+
+    def test_empty_defaults_to_2(self):
+        self.assertEqual(b._parse_retry_after(""), 2.0)
+        self.assertEqual(b._parse_retry_after(None), 2.0)
+
+    def test_http_date_imf_fixdate(self):
+        # Future date — should return positive seconds
+        from datetime import datetime, timedelta, timezone
+        future = datetime.now(timezone.utc) + timedelta(seconds=300)
+        date_str = future.strftime("%a, %d %b %Y %H:%M:%S GMT")
+        result = b._parse_retry_after(date_str)
+        # Should be ~300s (clamped to [0, 300])
+        self.assertGreater(result, 200)
+        self.assertLessEqual(result, 300)
+
+    def test_http_date_in_past_returns_zero(self):
+        from datetime import datetime, timedelta, timezone
+        past = datetime.now(timezone.utc) - timedelta(hours=1)
+        date_str = past.strftime("%a, %d %b %Y %H:%M:%S GMT")
+        result = b._parse_retry_after(date_str)
+        self.assertEqual(result, 0.0)
+
+    def test_unparseable_falls_back_to_2(self):
+        self.assertEqual(b._parse_retry_after("garbage"), 2.0)
+
+    def test_clamped_to_max_300(self):
+        # Far-future date → clamp to 300
+        from datetime import datetime, timedelta, timezone
+        far_future = datetime.now(timezone.utc) + timedelta(days=365)
+        date_str = far_future.strftime("%a, %d %b %Y %H:%M:%S GMT")
+        result = b._parse_retry_after(date_str)
+        self.assertEqual(result, 300.0)
 
 
 # ---------------------------------------------------------------- main entry

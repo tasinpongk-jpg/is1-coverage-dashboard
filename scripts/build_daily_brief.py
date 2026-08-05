@@ -46,6 +46,8 @@ from typing import Iterable
 DEFAULT_BASE_URL = "https://is1-coverage-dashboard.tasinpong-k.workers.dev"
 DEFAULT_RM = "C"
 STATE_FILE_DEFAULT = Path.home() / ".hermes" / "cron" / "daily_brief_state.json"
+# State filename in cron job state dir (legacy filename kept for history).
+STATE_FILE = Path(os.environ.get("DAILY_BRIEF_STATE_DIR", str(STATE_FILE_DEFAULT))) / "state.json"
 
 # Letter code is authoritative. Thai display names are deprecated aliases.
 THAI_TO_LETTER = {"ฑศินพงศ์": "C"}
@@ -73,23 +75,33 @@ def _log(msg: str) -> None:
 
 # ---------------------------------------------------------------- helpers
 
-def _load_json_file(path: Path) -> dict | None:
+def _load_json(path: Path) -> dict | None:
     try:
         with path.open(encoding="utf-8") as fh:
             return json.load(fh)
     except FileNotFoundError:
         return None
     except (json.JSONDecodeError, OSError) as e:
-        _log(f"WARN: state file {path} corrupt: {e}")
+        _log(f"WARN: json file {path} corrupt: {e}")
         return None
 
 
-def _atomic_write_json(path: Path, obj: dict) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    tmp = path.with_suffix(path.suffix + ".tmp")
-    with tmp.open("w", encoding="utf-8") as fh:
-        json.dump(obj, fh, ensure_ascii=False, indent=2, sort_keys=True)
-    os.replace(tmp, path)
+def _load_state(rm_key: str) -> dict:
+    """Load state file. Defensive against tampering — returns empty dict
+    if the file is corrupt or not a JSON object at top level."""
+    s = _load_json(STATE_FILE)
+    # Tamper defense: state must be a dict. If it's a list/string/etc,
+    # treat as corrupt and start fresh. (Codex P0 #2 finding.)
+    if not isinstance(s, dict):
+        if s is not None:
+            _log(f"WARN: state file {STATE_FILE} is not a dict (got {type(s).__name__}); ignoring")
+        s = {}
+    s.setdefault("last_posted_date", None)
+    s.setdefault("last_posted_at", None)
+    s.setdefault("seen_ids", [])
+    s.setdefault("rm", rm_key)
+    s.setdefault("ts_index", {})  # _id -> iso ts, for TTL-aware trim
+    return s
 
 
 def _resolve_rm(name: str) -> str:
@@ -99,6 +111,13 @@ def _resolve_rm(name: str) -> str:
         return THAI_TO_LETTER[name]
     return name
 
+
+def _atomic_write_json(path: Path, obj: dict) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_suffix(path.suffix + ".tmp")
+    with tmp.open("w", encoding="utf-8") as fh:
+        json.dump(obj, fh, ensure_ascii=False, indent=2, sort_keys=True)
+    os.replace(tmp, path)
 
 def _bkk_today() -> str:
     """Return today's date in BKK as ISO date string."""
@@ -177,6 +196,41 @@ def _fetch_json(url: str, timeout: int = 30) -> dict | None:
         return None
 
 
+def _parse_retry_after(value: str | None) -> float:
+    """Parse Retry-After header per RFC 7231 §7.1.3.
+
+    Accepts either:
+      - delta-seconds: e.g. "120"
+      - HTTP-date:     e.g. "Wed, 05 Aug 2026 03:00:00 GMT"
+
+    Returns seconds-to-wait. Falls back to 2s if the value is unparseable.
+    """
+    if not value:
+        return 2.0
+    s = value.strip()
+    # Try delta-seconds first (cheap)
+    try:
+        return float(s)
+    except ValueError:
+        pass
+    # Try HTTP-date (RFC 7231 §7.1.1.1 — IMF-fixdate preferred)
+    from datetime import datetime, timezone
+    for fmt in (
+        "%a, %d %b %Y %H:%M:%S GMT",      # IMF-fixdate
+        "%A, %d-%b-%y %H:%M:%S GMT",      # RFC 850 (obsolete)
+        "%a %b %d %H:%M:%S %Y",            # asctime (C locale)
+    ):
+        try:
+            target = datetime.strptime(s, fmt).replace(tzinfo=timezone.utc)
+            now = datetime.now(timezone.utc)
+            delta = (target - now).total_seconds()
+            return max(0.0, min(delta, 300.0))  # clamp [0, 300s]
+        except ValueError:
+            continue
+    # Unparseable — Discord specs delta-seconds only in practice, but be safe
+    return 2.0
+
+
 def _post_one(url: str, payload: dict, *, dry_run: bool, max_429_retries: int = 3) -> tuple[bool, int]:
     """Copy of push_rm_c_digest._post_one — kept here intentionally rather
     than imported, so this script is self-contained and CI-runnable from
@@ -208,7 +262,7 @@ def _post_one(url: str, payload: dict, *, dry_run: bool, max_429_retries: int = 
                 if attempts_429 >= max_429_retries:
                     _log(f"429 exhausted: {body_preview!r}")
                     return False, status
-                retry_after = float(headers.get("retry-after", "2"))
+                retry_after = _parse_retry_after(headers.get("retry-after"))
                 _log(f"429; sleep {retry_after}s (retry {attempts_429+1}/{max_429_retries})")
                 time.sleep(retry_after)
                 attempts_429 += 1
@@ -492,8 +546,8 @@ def main() -> int:
         _log("another instance is already running — exiting 0.")
         return 0
     try:
-        # ---- idempotency check
-        state = _load_json_file(state_path) or {}
+        # ---- idempotency check (uses _load_state for tamper defense)
+        state = _load_state(rm_key)
         last_posted_date = state.get("last_posted_date")
         last_posted_at = state.get("last_posted_at")
         today_bkk = _bkk_today()
