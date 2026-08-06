@@ -197,6 +197,68 @@ test("GET /api/efinance-news/summaries returns and caches three Thai bullets", a
   assert.equal(detailFetches, 1, "second request must reuse the KV summary");
 });
 
+test("GET /api/efinance-news/summaries responds before background enrichment finishes", { timeout: 2000 }, async () => {
+  const upstream = {
+    TotalPage: 1,
+    PageSize: 15,
+    Data: [{
+      id: 7628623,
+      LastUpdate: "2026-08-06 10:01:00",
+      title: "CPN เปิดโครงการใหม่มูลค่า 5,000 ล้านบาท",
+      security: "CPN",
+      full_path_link: "https://www.efinancethai.com/LastestNews/LatestNewsMain.aspx?id=abc",
+    }],
+  };
+  const detail = {
+    title: "CPN เปิดโครงการใหม่",
+    description: "CPN เปิดโครงการมูลค่า 5,000 ล้านบาท",
+    content: "<p>เริ่มเปิดบริการเดือนกันยายน</p><p>บริษัทคาดว่าจะช่วยเพิ่มรายได้ประจำ</p>",
+  };
+  const cache = new Map();
+  let releaseDetail;
+  let background;
+  const summaryEnv = {
+    ...env,
+    MINIMAX_API_KEY: "",
+    FEEDBACK: {
+      get: async (key) => cache.get(key) || null,
+      put: async (key, value) => { cache.set(key, value); },
+    },
+    EFINANCE_FETCH: async (url) => {
+      if (String(url).includes("AllLatestNews")) {
+        return new Response('<script>var jsonscript = ' + JSON.stringify(upstream) + ';jQuery("ok");</script>');
+      }
+      return new Promise((resolve) => {
+        releaseDetail = () => resolve(
+          new Response('<script>var jsonscript = ' + JSON.stringify(detail) + ';var colTypeID = 21;</script>'),
+        );
+      });
+    },
+  };
+  const ctx = {
+    waitUntil(promise) {
+      background = promise;
+    },
+  };
+
+  const response = await worker.fetch(
+    new Request("https://x.test/api/efinance-news/summaries"),
+    summaryEnv,
+    ctx,
+  );
+  assert.equal(response.status, 200);
+  const data = await response.json();
+  assert.equal(data.count, 1);
+  assert.equal(data.summaries[0].generatedBy, "headline");
+  assert.equal(data.summaries[0].bullets.length, 3);
+  assert.ok(background, "article enrichment must continue in the background");
+
+  releaseDetail();
+  await background;
+  const cachedRecord = JSON.parse([...cache.values()][0]);
+  assert.equal(cachedRecord.generatedBy, "extractive");
+  assert.equal(cachedRecord.bullets.length, 3);
+});
 test("/api/efinance-news rejects non-GET methods", async () => {
   for (const path of ["/api/efinance-news", "/api/efinance-news/summaries"]) {
     const response = await worker.fetch(new Request("https://x.test" + path, { method: "POST" }), env);

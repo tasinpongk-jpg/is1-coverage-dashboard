@@ -36,6 +36,8 @@ const EFINANCE_MAX_HTML_BYTES = 2 * 1024 * 1024;
 const EFINANCE_SUMMARY_VERSION = 2;
 const EFINANCE_SUMMARY_BODY_CHARS = 1100;
 const EFINANCE_SUMMARY_CONCURRENCY = 5;
+const EFINANCE_SUMMARY_HYDRATE_LIMIT = 5;
+const EFINANCE_SUMMARY_TIMEOUT_MS = 15_000;
 const EFINANCE_SUMMARY_TTL_SECONDS = 60 * 60 * 24 * 7;
 const EFINANCE_FALLBACK_TTL_SECONDS = 60 * 60 * 6;
 
@@ -73,14 +75,14 @@ const LEX_SYSTEM =
   "does not establish it and name the missing rule topic.";
 
 export default {
-  async fetch(request, env) {
+  async fetch(request, env, ctx) {
     const url = new URL(request.url);
     if (url.pathname === "/api/efinance-news/summaries") {
       if (request.method !== "GET") {
         return json({ error: "GET only" }, 405, { Allow: "GET" });
       }
       try {
-        return await handleEfinanceSummaries(env);
+        return await handleEfinanceSummaries(env, ctx);
       } catch (e) {
         console.error("eFinanceThai summaries failed", e);
         const timedOut = e?.name === "AbortError" || e?.name === "TimeoutError";
@@ -529,7 +531,7 @@ async function generateThaiSummaryRecords(env, articles) {
     const result = await runMiniMax(env, [
       { role: "system", content: system },
       { role: "user", content: articleText },
-    ], { maxTokens: 3500, temperature: 0.1 });
+    ], { maxTokens: 3500, temperature: 0.1, maxAttempts: 1, timeoutMs: EFINANCE_SUMMARY_TIMEOUT_MS });
     const parsed = parseEfinanceSummaryReply(result.reply, articles.map((article) => article.id));
     for (const article of articles) {
       const bullets = parsed[String(article.id)];
@@ -547,7 +549,26 @@ async function generateThaiSummaryRecords(env, articles) {
   return fallbackRecords;
 }
 
-async function handleEfinanceSummaries(env) {
+async function hydrateEfinanceSummaries(env, items) {
+  const articles = await mapWithConcurrency(
+    items,
+    EFINANCE_SUMMARY_CONCURRENCY,
+    async (item) => {
+      try {
+        const detail = parseEfinanceArticleHtml(await fetchEfinanceArticleHtml(env, item.url));
+        return { id: item.id, title: item.title, ...detail };
+      } catch (error) {
+        console.warn("eFinanceThai article fallback", { id: item.id, message: error?.message || String(error) });
+        return { id: item.id, title: item.title, description: item.title, body: item.title };
+      }
+    },
+  );
+  const generated = await generateThaiSummaryRecords(env, articles);
+  await Promise.all(Object.values(generated).map((record) => writeEfinanceSummary(env, record)));
+  return generated;
+}
+
+async function handleEfinanceSummaries(env, ctx) {
   const feedResponse = await handleEfinanceNews(env);
   if (!feedResponse.ok) throw new Error("eFinanceThai feed unavailable");
   const feed = await feedResponse.json();
@@ -560,22 +581,33 @@ async function handleEfinanceSummaries(env) {
   });
 
   if (missing.length) {
-    const articles = await mapWithConcurrency(
-      missing,
-      EFINANCE_SUMMARY_CONCURRENCY,
-      async (item) => {
-        try {
-          const detail = parseEfinanceArticleHtml(await fetchEfinanceArticleHtml(env, item.url));
-          return { id: item.id, title: item.title, ...detail };
-        } catch (error) {
-          console.warn("eFinanceThai article fallback", { id: item.id, message: error?.message || String(error) });
-          return { id: item.id, title: item.title, description: item.title, body: item.title };
-        }
+    const immediate = Object.fromEntries(missing.map((item) => [
+      String(item.id),
+      {
+        id: item.id,
+        bullets: fallbackThaiSummary({
+          title: item.title,
+          description: item.title,
+          body: item.title,
+        }),
+        generatedBy: "headline",
       },
+    ]));
+    Object.assign(records, immediate);
+
+    const hydrate = hydrateEfinanceSummaries(
+      env,
+      missing.slice(0, EFINANCE_SUMMARY_HYDRATE_LIMIT),
     );
-    const generated = await generateThaiSummaryRecords(env, articles);
-    await Promise.all(Object.values(generated).map((record) => writeEfinanceSummary(env, record)));
-    Object.assign(records, generated);
+    if (ctx && typeof ctx.waitUntil === "function") {
+      ctx.waitUntil(hydrate.catch((error) => {
+        console.warn("eFinanceThai background summaries failed", {
+          message: error?.message || String(error),
+        });
+      }));
+    } else {
+      Object.assign(records, await hydrate);
+    }
   }
 
   const summaries = feed.items
@@ -793,7 +825,9 @@ async function runMiniMax(env, messages, options = {}) {
   const fetcher = typeof env.MINIMAX_FETCH === "function" ? env.MINIMAX_FETCH : fetch;
   const firstBudget = options.maxTokens || 2200;
   const budgets = [firstBudget, Math.min(Math.max(firstBudget * 2, 5000), 8000)];
-  for (let attempt = 0; attempt < budgets.length; attempt += 1) {
+  const maxAttempts = Math.min(Math.max(Number(options.maxAttempts) || budgets.length, 1), budgets.length);
+  const timeoutMs = Number.isFinite(options.timeoutMs) ? Math.max(1, options.timeoutMs) : MINIMAX_TIMEOUT_MS;
+  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
     let response;
     try {
       response = await fetcher(MINIMAX_CHAT_URL, {
@@ -808,7 +842,7 @@ async function runMiniMax(env, messages, options = {}) {
           max_tokens: budgets[attempt],
           temperature: options.temperature ?? 0.2,
         }),
-        signal: AbortSignal.timeout(MINIMAX_TIMEOUT_MS),
+        signal: AbortSignal.timeout(timeoutMs),
       });
     } catch (error) {
       const timedOut = error?.name === "TimeoutError" || error?.name === "AbortError";
@@ -833,7 +867,7 @@ async function runMiniMax(env, messages, options = {}) {
     if (typeof reply === "string" && reply.trim()) {
       return { reply: reply.trim(), model: payload.model || CHAT_MODEL };
     }
-    if (attempt === 0) {
+    if (attempt === 0 && maxAttempts > 1) {
       console.warn("MiniMax M3 returned an empty answer; retrying with a larger budget", {
         firstBudget,
         retryBudget: budgets[1],
