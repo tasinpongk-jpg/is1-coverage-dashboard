@@ -94,6 +94,10 @@ MAX_DOCUMENTS = 8
 # is on the assembled string, not the raw ZIP entry.
 MAX_DOCX_TEXT_BYTES = 5 * 1024 * 1024
 MAX_XLSX_TEXT_BYTES = 5 * 1024 * 1024
+# Loop 4 v5: PDF text extraction via pypdf (no stdlib alternative).
+MAX_PDF_TEXT_BYTES = 5 * 1024 * 1024
+# Loop 4 v5: max raw_markdown stored per cache entry (text only, ~40KB/filing).
+MAX_RAW_MARKDOWN_PER_DOC_BYTES = 2 * 1024 * 1024
 
 # Severity filter for auto-alert.
 AUTO_ALERT_SEVERITY = "high"
@@ -203,8 +207,9 @@ def _cache_get(cache: dict, filing_id: str) -> dict | None:
 
 def _cache_put(cache: dict, filing_id: str, bullets: list[str],
               model: str, in_tokens: int, out_tokens: int,
-              pdf_sha256: str) -> None:
-    cache["summaries"][filing_id] = {
+              pdf_sha256: str,
+              raw_markdown: dict | None = None) -> None:
+    entry: dict = {
         "ts": datetime.now(timezone.utc).isoformat(),
         "bullets_th": bullets,
         "model": model,
@@ -212,6 +217,85 @@ def _cache_put(cache: dict, filing_id: str, bullets: list[str],
         "pdf_sha256": pdf_sha256,
         "prompt_version": PROMPT_VERSION,
     }
+    if raw_markdown:
+        entry["raw_markdown"] = raw_markdown
+    cache["summaries"][filing_id] = entry
+
+
+def _build_raw_markdown(attachment: bytes, attachment_url: str,
+                       filing: dict) -> dict:
+    """Build raw_markdown dict for cache from downloaded attachment.
+
+    Handles three shapes:
+      1. PDF attachment → 1 entry under 'MDA' (or doctype from filing.type)
+      2. ZIP with DOCX/XLSX/PDF members → 1 entry per supported member
+      3. ZIP with unknown members → 0 entries (fall through)
+
+    Returns {doctype: {text, sha256, member_filename, raw_bytes_len,
+                       extractor, extraction_status, page_count?, ...}}
+    Empty dict if no extractable docs.
+    """
+    raw: dict = {}
+    filing_id = filing.get("id") or filing.get("_id") or ""
+    payload_sha = hashlib.sha256(attachment).hexdigest()
+    if attachment.startswith(b"%PDF-"):
+        doctype = _classify_doctype(attachment_url.rsplit("/", 1)[-1] or "MDA",
+                                    filing)
+        text = _extract_pdf_text(attachment)
+        if text:
+            raw[doctype] = {
+                "text": text[:MAX_RAW_MARKDOWN_PER_DOC_BYTES],
+                "sha256": payload_sha,
+                "member_filename": attachment_url.rsplit("/", 1)[-1] or "MDA.pdf",
+                "raw_bytes_len": len(attachment),
+                "extractor": "pypdf-v1",
+                "extraction_status": "ok",
+                "page_count": _safe_pdf_pages(attachment),
+            }
+        return raw
+    if not attachment.startswith(b"PK\x03\x04"):
+        return raw
+    try:
+        with zipfile.ZipFile(io.BytesIO(attachment)) as archive:
+            members = [info for info in archive.infolist() if not info.is_dir()]
+            for info in members:
+                name = info.filename
+                lower = name.lower()
+                with archive.open(info) as m:
+                    raw_bytes = m.read()
+                doctype = _classify_doctype(name, filing)
+                text = ""
+                extractor = ""
+                if lower.endswith(".pdf"):
+                    text = _extract_pdf_text(raw_bytes) or ""
+                    extractor = "pypdf-v1"
+                elif lower.endswith(".docx"):
+                    text = _extract_docx_text(raw_bytes) or ""
+                    extractor = "stdlib-docx-v1"
+                elif lower.endswith(".xlsx"):
+                    text = _extract_xlsx_text(raw_bytes) or ""
+                    extractor = "stdlib-xlsx-v1"
+                if not text:
+                    continue
+                raw[doctype] = {
+                    "text": text[:MAX_RAW_MARKDOWN_PER_DOC_BYTES],
+                    "sha256": hashlib.sha256(raw_bytes).hexdigest(),
+                    "member_filename": name,
+                    "raw_bytes_len": len(raw_bytes),
+                    "extractor": extractor,
+                    "extraction_status": "ok",
+                }
+    except (zipfile.BadZipFile, OSError) as e:
+        _log(f"raw_markdown ZIP parse failed: {e}")
+    return raw
+
+
+def _safe_pdf_pages(attachment: bytes) -> int:
+    try:
+        from pypdf import PdfReader
+        return len(PdfReader(io.BytesIO(attachment)).pages)
+    except Exception:
+        return 0
 
 
 # ---------------------------------------------------------------- data loading
@@ -449,6 +533,86 @@ def _extract_xlsx_text(payload: bytes) -> str | None:
         return None
 
 
+def _extract_pdf_text(payload: bytes) -> str | None:
+    """Extract plain text from a PDF byte payload via pypdf.
+
+    Scanned PDFs (image-only) return empty string → caller marks
+    extraction_status="no_text". Failures return None and the caller
+    falls back to bytes-only m3 path.
+    """
+    try:
+        from pypdf import PdfReader
+    except ImportError:
+        _log("pypdf not installed; PDF text extraction skipped")
+        return None
+    try:
+        reader = PdfReader(io.BytesIO(payload))
+    except Exception as e:
+        _log(f"PDF rejected: {e}")
+        return None
+    parts: list[str] = []
+    for page in reader.pages:
+        try:
+            t = page.extract_text() or ""
+        except Exception as e:
+            _log(f"PDF page extract error: {e}")
+            t = ""
+        if t:
+            parts.append(t)
+    text = "\n\n".join(parts)
+    if not text.strip():
+        return None  # scanned PDF or empty
+    if len(text.encode("utf-8")) > MAX_PDF_TEXT_BYTES:
+        _log(f"PDF text exceeds {MAX_PDF_TEXT_BYTES} bytes after extraction")
+        return None
+    return text
+
+
+# Loop 4 v5: doctype classification for raw markdown files.
+# Precedence matters — "NOTES_TO_FINANCIAL_STATEMENTS.docx" must be
+# classified as NOTES, not FS. FS only matches as a complete token.
+_DOCTYPE_KEYWORDS: list[tuple[str, tuple[str, ...]]] = [
+    ("AUDITOR", ("auditor", "ผู้สอบบัญชี", "รายงานผู้สอบบัญชี")),
+    ("NOTES",   ("note", "notes", "หมายเหตุ")),
+    ("MDA",     ("mda", "md&a", "คำอธิบายและวิเคราะห์",
+                 "การวิเคราะห์และคำอธิบาย")),
+    ("FS",      ("financial_statement", "financialstatements",
+                 "งบการเงิน")),
+]
+_DOCTYPE_BY_FILING_TYPE = {
+    "financial_statement": "FS",
+    "audit":               "AUDITOR",
+    "earnings":            "MDA",
+    "management_discussion": "MDA",
+    "notes":               "NOTES",
+    "financial_statements_and_notes": "NOTES",
+}
+_VALID_DOCTYPES = {"MDA", "AUDITOR", "FS", "NOTES"}
+
+
+def _classify_doctype(member_filename: str, filing: dict) -> str:
+    """Classify a ZIP member or PDF attachment into MDA/AUDITOR/FS/NOTES.
+
+    Filename match wins (highest precedence) — handles Thai + English
+    SET conventions. Falls back to filing_type from disclosure-pulse.
+    Returns 'NOTES' as safe default if nothing matches (least destructive
+    placement = FS-NOTES folder is the largest bucket).
+    """
+    name = (member_filename or "").casefold()
+    # Normalize: drop extension, replace - and _ with space, collapse.
+    stem = re.sub(r"\.(docx?|xlsx?|pdf)$", "", name, flags=re.IGNORECASE)
+    stem_norm = re.sub(r"[\s\-_]+", " ", stem).strip()
+    tokens = set(stem_norm.split())
+    for doctype, kws in _DOCTYPE_KEYWORDS:
+        for kw in kws:
+            if kw in tokens or kw in stem_norm:
+                return doctype
+    ft = (filing.get("type") or filing.get("filing_type") or "").strip().lower()
+    if ft in _DOCTYPE_BY_FILING_TYPE:
+        return _DOCTYPE_BY_FILING_TYPE[ft]
+    return "NOTES"  # safe default
+
+
 def _documents_from_payload(payload: bytes) -> list[bytes | str] | None:
     """Resolve a PDF or ZIP payload into m3-ready documents.
 
@@ -458,6 +622,12 @@ def _documents_from_payload(payload: bytes) -> list[bytes | str] | None:
     branches on element type.
     """
     if payload.startswith(b"%PDF-"):
+        # Loop 4 v5: prefer text extraction (smaller m3 payload, also
+        # feeds raw_markdown persistence). Fall back to bytes if pypdf
+        # is missing or PDF is scanned/empty.
+        text = _extract_pdf_text(payload)
+        if text:
+            return [text]
         return [payload]
     if not payload.startswith(b"PK\x03\x04"):
         return None
@@ -713,10 +883,18 @@ def _enrich_one(filing: dict, *, force: bool = False) -> tuple[list[str], dict]:
     out_tok = usage.get("output_tokens", 0)
     cost = (in_tok / 1e6) * 3.0 + (out_tok / 1e6) * 15.0
 
+    # Loop 4 v5: build raw_markdown from the same attachment bytes we
+    # already downloaded. Text only (no binary), ~40KB/filing — safe to
+    # store in cache. vault_raw_writer.py reads this on next cron tick
+    # even if the live vault write failed here.
+    attachment_url = pdf_url  # already resolved above
+    raw_markdown = _build_raw_markdown(attachment, attachment_url, filing)
+
     # Persist to cache atomically.
     try:
         cache = _load_cache()  # re-read in case of races
-        _cache_put(cache, fid, bullets, M3_MODEL, in_tok, out_tok, payload_sha)
+        _cache_put(cache, fid, bullets, M3_MODEL, in_tok, out_tok,
+                   payload_sha, raw_markdown=raw_markdown)
         _atomic_write_cache(cache)
     except OSError as e:
         _log(f"WARN: cache write failed: {e}")
