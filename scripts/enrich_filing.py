@@ -61,9 +61,17 @@ CACHE_TTL_DAYS = 30
 PROMPT_VERSION = 1
 
 # Discord webhook resolution: same env convention as
-# build_daily_brief.py — env var first, secret file second.
+# build_daily_brief.py — env var first, secret file second. The
+# secret file is named daily_brief.env historically (Phase 1/2 use
+# it for the daily brief; auto-alert reuses the same channel).
 DISCORD_WEBHOOK_ENV = "DISCORD_WEBHOOK_URL"
-DISCORD_SECRET_FILE = Path.home() / ".hermes" / "secrets" / "discord_webhook.env"
+# Try the Phase 1/2 secret-file location first (most likely to exist
+# since the user already wired the daily brief). Fall back to the
+# auto-alert-specific name if needed.
+DISCORD_SECRET_FILE_CANDIDATES = [
+    Path.home() / ".hermes" / "secrets" / "discord_webhook.env",
+    Path.home() / ".hermes" / "secrets" / "daily_brief.env",
+]
 
 # Auto-alert: max number of embeds per run (avoid flood on data
 # backfill or vendor dump).
@@ -485,23 +493,24 @@ def _enrich_one(filing: dict, *, force: bool = False) -> tuple[list[str], dict]:
 # ---------------------------------------------------------------- Discord webhook
 
 def _load_webhook() -> str | None:
-    """Resolve Discord webhook: env first, then secret file."""
+    """Resolve Discord webhook: env first, then any candidate secret file."""
     v = os.environ.get(DISCORD_WEBHOOK_ENV, "").strip()
     if v:
         return v
-    if not DISCORD_SECRET_FILE.exists():
-        return None
-    try:
-        for line in DISCORD_SECRET_FILE.read_text(encoding="utf-8").splitlines():
-            line = line.strip()
-            if not line or line.startswith("#"):
-                continue
-            if "=" in line:
-                k, vv = line.split("=", 1)
-                if k.strip() == DISCORD_WEBHOOK_ENV:
-                    return vv.strip().strip('"').strip("'")
-    except OSError:
-        pass
+    for secret_path in DISCORD_SECRET_FILE_CANDIDATES:
+        if not secret_path.exists():
+            continue
+        try:
+            for line in secret_path.read_text(encoding="utf-8").splitlines():
+                line = line.strip()
+                if not line or line.startswith("#"):
+                    continue
+                if "=" in line:
+                    k, vv = line.split("=", 1)
+                    if k.strip() == DISCORD_WEBHOOK_ENV:
+                        return vv.strip().strip('"').strip("'")
+        except OSError:
+            pass
     return None
 
 
