@@ -12,6 +12,10 @@ test("eFinanceThai news page is wired through the safe Worker proxy", async () =
     readFile("worker.js", "utf8"),
   ]);
   assert.match(page, /fetch\('\.\/api\/efinance-news'/);
+  assert.match(page, /fetch\('\.\/api\/efinance-news\/summaries'/);
+  assert.match(page, /class="summary-list"/);
+  assert.match(page, /class="headline-index"/);
+  assert.match(page, /record\.bullets\.length===3/);
   assert.match(page, /safeUrl\(item\.url\)/);
   assert.match(page, /rel="noopener noreferrer"/);
   assert.match(page, /data-filter="ticker"/);

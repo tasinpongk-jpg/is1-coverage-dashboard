@@ -6,7 +6,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
-import worker, { buildSectorMetrics, parseEfinanceNewsHtml, resolveLexCitations, retrieveLexChunks } from "../worker.js";
+import worker, { buildSectorMetrics, fallbackThaiSummary, parseEfinanceArticleHtml, parseEfinanceNewsHtml, parseEfinanceSummaryReply, resolveLexCitations, retrieveLexChunks } from "../worker.js";
 
 let lastSystem = "";
 let lastMiniMaxRequest = null;
@@ -86,6 +86,35 @@ test("eFinanceThai parser extracts safe headline links from embedded JSON", () =
   assert.match(parsed.items[0].url, /^https:\/\/www\.efinancethai\.com\/LastestNews\/LatestNewsMain\.aspx\?id=abc$/);
 });
 
+test("eFinanceThai article parser extracts clean body text and three fallback bullets", () => {
+  const detail = {
+    title: "CPN เปิดโครงการใหม่",
+    description: "สำนักข่าวอีไฟแนนซ์ไทย- -6 ส.ค. 69 10:18 น. CPN เปิดโครงการมูลค่า 5,000 ล้านบาท",
+    content: "<article><p>CPN เปิดโครงการมูลค่า 5,000 ล้านบาท</p><p>เริ่มเปิดบริการเดือนกันยายน</p><p>บริษัทคาดว่าจะช่วยเพิ่มรายได้ประจำ</p></article>",
+  };
+  const parsed = parseEfinanceArticleHtml(`<script>var jsonscript = ${JSON.stringify(detail)};var colTypeID = 21;</script>`);
+  assert.equal(parsed.title, "CPN เปิดโครงการใหม่");
+  assert.doesNotMatch(parsed.description, /สำนักข่าวอีไฟแนนซ์ไทย/);
+  assert.match(parsed.body, /5,000 ล้านบาท/);
+  const bullets = fallbackThaiSummary(parsed);
+  assert.equal(bullets.length, 3);
+  assert.ok(bullets.every((bullet) => bullet.length >= 12));
+  assert.ok(bullets.every((bullet) => !bullet.includes("สำนักข่าวอีไฟแนนซ์ไทย")));
+});
+
+test("eFinanceThai summary parser accepts only three-bullet records for requested IDs", () => {
+  const parsed = parseEfinanceSummaryReply(`\`\`\`json
+  {"7628623":["ประเด็นหนึ่งจากข่าว","ประเด็นสองพร้อมตัวเลข","ประเด็นสามที่ยืนยันแล้ว"],"999":["ไม่อนุญาต","ไม่อนุญาต","ไม่อนุญาต"]}
+  \`\`\``, [7628623]);
+  assert.deepEqual(parsed["7628623"], [
+    "ประเด็นหนึ่งจากข่าว",
+    "ประเด็นสองพร้อมตัวเลข",
+    "ประเด็นสามที่ยืนยันแล้ว",
+  ]);
+  assert.equal(parsed["999"], undefined);
+  assert.deepEqual(parseEfinanceSummaryReply('{"7628623":["มีเพียงข้อเดียว"]}', [7628623]), {});
+});
+
 test("GET /api/efinance-news returns cached headline-link JSON", async () => {
   const upstream = {
     TotalPage: 1,
@@ -119,10 +148,61 @@ test("GET /api/efinance-news returns cached headline-link JSON", async () => {
   assert.ok(data.fetchedAt);
 });
 
+test("GET /api/efinance-news/summaries returns and caches three Thai bullets", async () => {
+  const upstream = {
+    TotalPage: 1,
+    PageSize: 15,
+    Data: [{
+      id: 7628623,
+      LastUpdate: "2026-08-06 10:01:00",
+      title: "CPN เปิดโครงการใหม่",
+      security: "CPN",
+      full_path_link: "https://www.efinancethai.com/LastestNews/LatestNewsMain.aspx?id=abc",
+    }],
+  };
+  const detail = {
+    title: "CPN เปิดโครงการใหม่",
+    description: "CPN เปิดโครงการมูลค่า 5,000 ล้านบาท",
+    content: "<p>CPN เปิดโครงการมูลค่า 5,000 ล้านบาท</p><p>เริ่มเปิดบริการเดือนกันยายน</p><p>บริษัทคาดว่าจะช่วยเพิ่มรายได้ประจำ</p>",
+  };
+  const cache = new Map();
+  let detailFetches = 0;
+  const summaryEnv = {
+    ...env,
+    MINIMAX_API_KEY: "",
+    FEEDBACK: {
+      get: async (key) => cache.get(key) || null,
+      put: async (key, value) => { cache.set(key, value); },
+    },
+    EFINANCE_FETCH: async (url) => {
+      if (String(url).includes("AllLatestNews")) {
+        return new Response(`<script>var jsonscript = ${JSON.stringify(upstream)};jQuery("ok");</script>`);
+      }
+      detailFetches += 1;
+      return new Response(`<script>var jsonscript = ${JSON.stringify(detail)};var colTypeID = 21;</script>`);
+    },
+  };
+  let response = await worker.fetch(new Request("https://x.test/api/efinance-news/summaries"), summaryEnv);
+  assert.equal(response.status, 200);
+  assert.match(response.headers.get("Cache-Control"), /s-maxage=300/);
+  let data = await response.json();
+  assert.equal(data.count, 1);
+  assert.equal(data.summaries[0].id, 7628623);
+  assert.equal(data.summaries[0].bullets.length, 3);
+  assert.equal(data.summaries[0].generatedBy, "extractive");
+
+  response = await worker.fetch(new Request("https://x.test/api/efinance-news/summaries"), summaryEnv);
+  data = await response.json();
+  assert.equal(data.summaries[0].bullets.length, 3);
+  assert.equal(detailFetches, 1, "second request must reuse the KV summary");
+});
+
 test("/api/efinance-news rejects non-GET methods", async () => {
-  const response = await worker.fetch(new Request("https://x.test/api/efinance-news", { method: "POST" }), env);
-  assert.equal(response.status, 405);
-  assert.equal(response.headers.get("Allow"), "GET");
+  for (const path of ["/api/efinance-news", "/api/efinance-news/summaries"]) {
+    const response = await worker.fetch(new Request("https://x.test" + path, { method: "POST" }), env);
+    assert.equal(response.status, 405);
+    assert.equal(response.headers.get("Allow"), "GET");
+  }
 });
 
 test("MiniMax-backed agents respond 200 and report grounded metadata", async () => {

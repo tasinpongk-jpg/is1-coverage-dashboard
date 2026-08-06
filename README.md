@@ -70,11 +70,12 @@ Rebuild the Lex corpus after changing source PDFs with
 
 ## Live eFinanceThai headlines
 
-`efinance-news.html` calls `GET /api/efinance-news`. The Worker fetches the
-public latest-news page, extracts its embedded structured headline metadata,
-allows only canonical eFinanceThai article URLs, and caches the result for five
-minutes. The dashboard republishes only headlines, ticker tags, timestamps, and
-links; article bodies and images remain on the source site.
+`efinance-news.html` calls `GET /api/efinance-news` for the fast headline list,
+then `GET /api/efinance-news/summaries` for three Thai bullet points per story.
+The Worker extracts public structured data, allows only canonical eFinanceThai
+article URLs, summarizes article text with MiniMax M3, and stores results by
+article ID in KV. If the model is unavailable, an honest extractive fallback is
+used. Article bodies and images remain on the source site.
 
 ## Files
 
@@ -83,7 +84,7 @@ links; article bodies and images remain on the source site.
 | `index.html` | Landing page with links to the 4 dashboards |
 | `price-movement.html` | EOD prices + sparklines, RM/sector tabs |
 | `disclosure-pulse.html` | Recent SET filings, severity-tagged |
-| `efinance-news.html` | Live eFinanceThai headlines with search, ticker filter, and source links |
+| `efinance-news.html` | Live eFinanceThai headlines with Thai summaries, search, filters, and quick navigation |
 | `sec-form59.html` | SEC Form 59 management/related-person buy/sell reports |
 | `multiples-comparison.html` | PE/PBV/DY/EV-EBITDA/NPM heatmap |
 | `unusual-trading.html` | Volume / price / 52W alerts |

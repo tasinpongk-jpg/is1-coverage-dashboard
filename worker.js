@@ -7,6 +7,7 @@
  *   POST /api/chat   { agent: "atlas"|"hermes"|"pythia"|"lex", messages: [...] }
  *     -> { reply: "...", agent: "...", model: "..." }
  *   GET /api/efinance-news
+ *   GET /api/efinance-news/summaries
  *     -> latest public eFinanceThai headlines and canonical article links
  *
  * Four named agents, each grounded in the deployed JSON assets so they answer
@@ -32,6 +33,11 @@ const VALID_RMS = new Set(["C", "K", "O", "G", "P", "T"]);
 const EFINANCE_NEWS_URL = "https://www.efinancethai.com/LastestNews/AllLatestNews.aspx";
 const EFINANCE_TIMEOUT_MS = 10_000;
 const EFINANCE_MAX_HTML_BYTES = 2 * 1024 * 1024;
+const EFINANCE_SUMMARY_VERSION = 2;
+const EFINANCE_SUMMARY_BODY_CHARS = 1100;
+const EFINANCE_SUMMARY_CONCURRENCY = 5;
+const EFINANCE_SUMMARY_TTL_SECONDS = 60 * 60 * 24 * 7;
+const EFINANCE_FALLBACK_TTL_SECONDS = 60 * 60 * 6;
 
 // Lex uses the same MiniMax M3 endpoint as the other agents. Retrieval stays
 // deterministic inside the Worker over page-level text extracted from the SET
@@ -69,6 +75,22 @@ const LEX_SYSTEM =
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
+    if (url.pathname === "/api/efinance-news/summaries") {
+      if (request.method !== "GET") {
+        return json({ error: "GET only" }, 405, { Allow: "GET" });
+      }
+      try {
+        return await handleEfinanceSummaries(env);
+      } catch (e) {
+        console.error("eFinanceThai summaries failed", e);
+        const timedOut = e?.name === "AbortError" || e?.name === "TimeoutError";
+        return json(
+          { error: timedOut ? "eFinanceThai summaries timed out" : "eFinanceThai summaries unavailable" },
+          timedOut ? 504 : (e?.status || 502),
+          { "Cache-Control": "no-store" },
+        );
+      }
+    }
     if (url.pathname === "/api/efinance-news") {
       if (request.method !== "GET") {
         return json({ error: "GET only" }, 405, { Allow: "GET" });
@@ -224,7 +246,7 @@ export function parseEfinanceNewsHtml(html) {
     ticker: cleanHeadline(item?.security, 40).toUpperCase(),
     publishedAt: efinancePublishedAt(item?.LastUpdate),
     url: safeEfinanceUrl(item?.full_path_link || item?.path_link),
-  })).filter((item) => item.title && item.url);
+  })).filter((item) => item.id !== null && item.title && item.url);
 
   if (!items.length) throw new Error("no valid eFinanceThai headlines found");
   return {
@@ -247,7 +269,7 @@ async function handleEfinanceNews(env) {
       headers: {
         Accept: "text/html,application/xhtml+xml",
         "Accept-Language": "th-TH,th;q=0.9,en;q=0.7",
-        "User-Agent": "IS1-Coverage-News/1.0 (+headline links only)",
+        "User-Agent": "IS1-Coverage-News/2.0 (+headlines and Thai summaries)",
       },
       signal: controller.signal,
       cf: { cacheEverything: true, cacheTtl: 300 },
@@ -268,6 +290,308 @@ async function handleEfinanceNews(env) {
   );
 }
 
+
+function decodeHtmlEntities(value) {
+  const named = {
+    amp: "&", apos: "'", gt: ">", lt: "<", nbsp: " ", quot: '"',
+  };
+  return String(value || "")
+    .replace(/&#x([0-9a-f]+);?/gi, (_all, hex) => {
+      const code = Number.parseInt(hex, 16);
+      return Number.isFinite(code) && code <= 0x10ffff ? String.fromCodePoint(code) : " ";
+    })
+    .replace(/&#(\d+);?/g, (_all, digits) => {
+      const code = Number.parseInt(digits, 10);
+      return Number.isFinite(code) && code <= 0x10ffff ? String.fromCodePoint(code) : " ";
+    })
+    .replace(/&([a-z]+);/gi, (all, name) => named[name.toLowerCase()] ?? all);
+}
+
+function stripEfinanceBoilerplate(value, maxLength = 500) {
+  return cleanHeadline(
+    String(value || "")
+      .replace(/^\s*สำนักข่าวอีไฟแนนซ์ไทย\s*(?:[-–—]\s*)*\d{1,2}\s+\S+\s+\d{2,4}\s+\d{1,2}:\d{2}:?\s*น\.?\s*/i, "")
+      .replace(/^\s*สำนักข่าวอีไฟแนนซ์ไทย\s*\([^)]*\)\s*[-–—]*/i, ""),
+    maxLength,
+  );
+}
+
+function efinanceHtmlBlocks(value) {
+  const text = String(value || "")
+    .replace(/<script\b[\s\S]*?<\/script>/gi, " ")
+    .replace(/<style\b[\s\S]*?<\/style>/gi, " ")
+    .replace(/<(?:br|hr)\b[^>]*>/gi, "\n")
+    .replace(/<\/(?:p|li|tr|div|section|article|h[1-6])>/gi, "\n")
+    .replace(/<[^>]+>/g, " ");
+  const seen = new Set();
+  const blocks = [];
+  for (const part of decodeHtmlEntities(text).split(/\n+/)) {
+    const cleaned = stripEfinanceBoilerplate(part, 4000);
+    const key = cleaned.toLocaleLowerCase();
+    if (cleaned.length < 12 || seen.has(key)) continue;
+    seen.add(key);
+    blocks.push(cleaned);
+  }
+  return blocks;
+}
+
+export function parseEfinanceArticleHtml(html) {
+  const payload = extractAssignedJson(String(html || ""), "jsonscript");
+  const title = cleanHeadline(payload?.title);
+  const description = stripEfinanceBoilerplate(payload?.description, 1200);
+  const blocks = efinanceHtmlBlocks(payload?.content);
+  const parts = [];
+  const seen = new Set();
+  for (const value of [description, ...blocks]) {
+    const cleaned = cleanHeadline(value, 4000);
+    const key = cleaned.toLocaleLowerCase();
+    if (!cleaned || seen.has(key)) continue;
+    seen.add(key);
+    parts.push(cleaned);
+  }
+  const body = parts.join("\n").slice(0, 16_000);
+  if (!title || !body) throw new Error("eFinanceThai article content not found");
+  return { title, description, body };
+}
+
+function conciseSummaryBullet(value) {
+  const text = cleanHeadline(String(value || "").replace(/^[•·\-–—]+\s*/, ""), 500);
+  if (text.length <= 180) return text;
+  const clipped = text.slice(0, 177).replace(/\s+\S*$/, "").trim();
+  return `${clipped || text.slice(0, 177).trim()}…`;
+}
+
+function importantFigures(text) {
+  return [...new Set(
+    (String(text || "").match(/[+-]?\d[\d,.]*(?:%|\s*(?:แสนล้านบาท|ล้านบาท|บาท|จุด|เมกะวัตต์|โครงการ|เท่า|ราย|ปี|เดือน))/g) || [])
+      .map((value) => cleanHeadline(value, 60)),
+  )].filter(Boolean).slice(0, 6);
+}
+
+export function fallbackThaiSummary(article) {
+  const primary = [];
+  const secondary = [];
+  const combined = [...(String(article?.body || "").split(/\n+/)), article?.description, article?.title];
+  for (const block of combined) {
+    const bullet = conciseSummaryBullet(block);
+    if (bullet.length < 20 || /\.{3}$/.test(bullet)) continue;
+    const target = /เปิดเผย(?:กับ|ต่อ)\s*["“]?สำนักข่าว/i.test(bullet) || /^(?:นาย|นาง|นางสาว|น\.ส\.).{0,180}เปิดเผย/u.test(bullet) ? secondary : primary;
+    target.push(bullet);
+  }
+  const candidates = [...primary, ...secondary];
+
+  const bullets = [];
+  for (const candidate of candidates) {
+    const normalized = candidate.toLocaleLowerCase().replace(/\s+/g, " ");
+    const duplicate = bullets.some((bullet) => {
+      const existing = bullet.toLocaleLowerCase().replace(/\s+/g, " ");
+      return existing === normalized || existing.includes(normalized) || normalized.includes(existing);
+    });
+    if (!duplicate) bullets.push(candidate);
+    if (bullets.length === 3) break;
+  }
+
+  if (bullets.length < 3) {
+    const figures = importantFigures(`${article?.description || ""} ${article?.body || ""}`);
+    if (figures.length) {
+      const figureBullet = `ตัวเลขสำคัญจากต้นทาง: ${figures.join(", ")}`;
+      if (!bullets.some((bullet) => bullet.includes("ตัวเลขสำคัญ"))) {
+        bullets.push(conciseSummaryBullet(figureBullet));
+      }
+    }
+  }
+  if (bullets.length < 3) {
+    bullets.push("ต้นทางเผยแพร่เป็นข่าวสั้นและไม่ได้ให้รายละเอียดเพิ่มเติม");
+  }
+  if (bullets.length < 3) {
+    bullets.push("ควรเปิดอ่านข่าวต้นฉบับเพื่อดูบริบทและเงื่อนไขทั้งหมด");
+  }
+  return bullets.slice(0, 3);
+}
+
+function validSummaryBullets(value) {
+  if (!Array.isArray(value)) return null;
+  const bullets = value.map(conciseSummaryBullet).filter((item) => item.length >= 12);
+  return bullets.length === 3 ? bullets : null;
+}
+
+export function parseEfinanceSummaryReply(reply, articleIds) {
+  const source = String(reply || "").replace(/^\s*```(?:json)?/i, "").replace(/```\s*$/i, "").trim();
+  const start = source.indexOf("{");
+  const end = source.lastIndexOf("}");
+  if (start < 0 || end <= start) return {};
+  let parsed;
+  try {
+    parsed = JSON.parse(source.slice(start, end + 1));
+  } catch {
+    return {};
+  }
+  const allowed = new Set(articleIds.map(String));
+  const summaries = {};
+  for (const [id, bullets] of Object.entries(parsed || {})) {
+    if (!allowed.has(String(id))) continue;
+    const valid = validSummaryBullets(bullets);
+    if (valid) summaries[String(id)] = valid;
+  }
+  return summaries;
+}
+
+async function fetchEfinanceArticleHtml(env, url) {
+  if (!safeEfinanceUrl(url)) throw new Error("invalid eFinanceThai article URL");
+  const fetcher = typeof env.EFINANCE_FETCH === "function" ? env.EFINANCE_FETCH : fetch;
+  const response = await fetcher(url, {
+    headers: {
+      Accept: "text/html,application/xhtml+xml",
+      "Accept-Language": "th-TH,th;q=0.9,en;q=0.7",
+      "User-Agent": "IS1-Coverage-News/2.0 (+headline summaries and links)",
+    },
+    signal: AbortSignal.timeout(EFINANCE_TIMEOUT_MS),
+    cf: { cacheEverything: true, cacheTtl: 86_400 },
+  });
+  if (!response.ok) throw new Error(`article returned ${response.status}`);
+  const html = await response.text();
+  if (new TextEncoder().encode(html).length > EFINANCE_MAX_HTML_BYTES) {
+    throw new Error("eFinanceThai article response too large");
+  }
+  return html;
+}
+
+function efinanceSummaryStore(env) {
+  return env.NEWS_CACHE || env.FEEDBACK || null;
+}
+
+function efinanceSummaryCacheKey(id) {
+  return `efin-summary:v${EFINANCE_SUMMARY_VERSION}:${id}`;
+}
+
+async function readEfinanceSummary(env, id) {
+  const store = efinanceSummaryStore(env);
+  if (!store) return null;
+  try {
+    const raw = await store.get(efinanceSummaryCacheKey(id));
+    const record = typeof raw === "string" ? JSON.parse(raw) : raw;
+    const bullets = validSummaryBullets(record?.bullets);
+    return bullets ? { id: Number(id), bullets, generatedBy: record.generatedBy || "cache" } : null;
+  } catch {
+    return null;
+  }
+}
+
+async function writeEfinanceSummary(env, record) {
+  const store = efinanceSummaryStore(env);
+  if (!store) return;
+  const expirationTtl = record.generatedBy !== "extractive"
+    ? EFINANCE_SUMMARY_TTL_SECONDS
+    : EFINANCE_FALLBACK_TTL_SECONDS;
+  await store.put(
+    efinanceSummaryCacheKey(record.id),
+    JSON.stringify(record),
+    { expirationTtl },
+  );
+}
+
+async function mapWithConcurrency(items, limit, mapper) {
+  const output = new Array(items.length);
+  let cursor = 0;
+  async function worker() {
+    while (cursor < items.length) {
+      const index = cursor;
+      cursor += 1;
+      output[index] = await mapper(items[index], index);
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, () => worker()));
+  return output;
+}
+
+async function generateThaiSummaryRecords(env, articles) {
+  const fallbackRecords = Object.fromEntries(articles.map((article) => [
+    String(article.id),
+    {
+      id: article.id,
+      bullets: fallbackThaiSummary(article),
+      generatedBy: "extractive",
+    },
+  ]));
+  if (!env.MINIMAX_API_KEY || !articles.length) return fallbackRecords;
+
+  const articleText = articles.map((article) =>
+    `ID: ${article.id}\nหัวข้อ: ${article.title}\nเนื้อหา: ${cleanHeadline(article.body, EFINANCE_SUMMARY_BODY_CHARS)}`,
+  ).join("\n\n---\n\n");
+  const system =
+    "คุณเป็นบรรณาธิการข่าวการเงินภาษาไทย สรุปข่าวแต่ละชิ้นจากข้อความที่ให้เท่านั้น " +
+    "ห้ามเติมข้อเท็จจริง ความเห็น คำแนะนำลงทุน หรือคาดการณ์ที่ต้นทางไม่ได้ระบุ " +
+    "คงตัวเลข หน่วย ชื่อบริษัท และทิศทางการเปลี่ยนแปลงให้ถูกต้อง " +
+    "ตอบเป็น JSON object เท่านั้น โดย key คือ ID ข่าว และ value คือ array ที่มีข้อความภาษาไทย 3 ข้อพอดี " +
+    "แต่ละข้อเป็นประโยคสั้นไม่เกิน 150 ตัวอักษร ไม่มีเครื่องหมาย bullet นำหน้า " +
+    "ถ้าข้อมูลสั้นมาก ให้แยกข้อเท็จจริงและตัวเลขที่มีอยู่ ห้ามแต่งข้อมูลเพื่อให้ครบ";
+  try {
+    const result = await runMiniMax(env, [
+      { role: "system", content: system },
+      { role: "user", content: articleText },
+    ], { maxTokens: 3500, temperature: 0.1 });
+    const parsed = parseEfinanceSummaryReply(result.reply, articles.map((article) => article.id));
+    for (const article of articles) {
+      const bullets = parsed[String(article.id)];
+      if (bullets) {
+        fallbackRecords[String(article.id)] = {
+          id: article.id,
+          bullets,
+          generatedBy: result.model || CHAT_MODEL,
+        };
+      }
+    }
+  } catch (error) {
+    console.warn("MiniMax news summary fallback", { message: error?.message || String(error) });
+  }
+  return fallbackRecords;
+}
+
+async function handleEfinanceSummaries(env) {
+  const feedResponse = await handleEfinanceNews(env);
+  if (!feedResponse.ok) throw new Error("eFinanceThai feed unavailable");
+  const feed = await feedResponse.json();
+  const cached = await Promise.all(feed.items.map((item) => readEfinanceSummary(env, item.id)));
+  const records = {};
+  const missing = [];
+  feed.items.forEach((item, index) => {
+    if (cached[index]) records[String(item.id)] = cached[index];
+    else missing.push(item);
+  });
+
+  if (missing.length) {
+    const articles = await mapWithConcurrency(
+      missing,
+      EFINANCE_SUMMARY_CONCURRENCY,
+      async (item) => {
+        try {
+          const detail = parseEfinanceArticleHtml(await fetchEfinanceArticleHtml(env, item.url));
+          return { id: item.id, title: item.title, ...detail };
+        } catch (error) {
+          console.warn("eFinanceThai article fallback", { id: item.id, message: error?.message || String(error) });
+          return { id: item.id, title: item.title, description: item.title, body: item.title };
+        }
+      },
+    );
+    const generated = await generateThaiSummaryRecords(env, articles);
+    await Promise.all(Object.values(generated).map((record) => writeEfinanceSummary(env, record)));
+    Object.assign(records, generated);
+  }
+
+  const summaries = feed.items
+    .map((item) => records[String(item.id)])
+    .filter(Boolean);
+  return json(
+    {
+      source: "eFinanceThai",
+      generatedAt: new Date().toISOString(),
+      count: summaries.length,
+      summaries,
+    },
+    200,
+    { "Cache-Control": "public, max-age=60, s-maxage=300, stale-while-revalidate=900" },
+  );
+}
 function authorized(request, env) {
   const header = request.headers.get("Authorization") || "";
   const token = header.replace(/^Bearer\s+/i, "").trim();
