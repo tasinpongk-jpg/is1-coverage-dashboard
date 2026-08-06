@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import json
 import os
+import subprocess
 import sys
 import tempfile
 import urllib.error
@@ -40,16 +41,29 @@ def check(name: str, ok: bool, detail: str = "") -> None:
 # ---------------------------------------------------------------- tests
 
 print("\n=== Failure: missing webhook URL ===")
-env = {k: v for k, v in os.environ.items() if k != "DAILY_BRIEF_WEBHOOK"}
-env["DAILY_BRIEF_DRY_RUN"] = "0"
+# Override HOME so the secret-file fallback returns None
+# (the dev host has ~/.hermes/secrets/daily_brief.env which would
+# otherwise mask the fail-closed behavior we're testing).
+fake_home = tempfile.mkdtemp(prefix="hermes-no-secret-fi-")
+os.environ["USERPROFILE"] = fake_home
+os.environ["HOME"] = fake_home
+env = {k: v for k, v in os.environ.items() if k not in ("USERPROFILE", "HOME")}
+# Set USERPROFILE in the subprocess env too — Windows Path.home()
+# resolves from USERPROFILE, not HOME. If we only set HOME in
+# the parent, subprocess inherits the real USERPROFILE from parent
+# and finds the real secret file, masking the fail-closed test.
+env["USERPROFILE"] = fake_home
+env["HOME"] = fake_home
+env["DAILY_BRIEF_WEBHOOK"] = ""
 env["DAILY_BRIEF_STATE_DIR"] = tempfile.mkdtemp()
 # Run as subprocess so env really doesn't have the var
-import subprocess
 proc = subprocess.run(
     [sys.executable, str(REPO / "scripts" / "build_daily_brief.py")],
     env=env,
     capture_output=True, text=True, timeout=30,
 )
+import shutil
+shutil.rmtree(fake_home, ignore_errors=True)
 check("missing webhook → exit 1 (fail closed)",
       proc.returncode == 1 and "FATAL" in (proc.stdout + proc.stderr))
 

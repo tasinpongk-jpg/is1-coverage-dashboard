@@ -293,6 +293,14 @@ class TestMainFailClosed(unittest.TestCase):
         # Clear env and ensure fail-closed (NOT silent dry-run like Phase 1).
         env_save = os.environ.copy()
         os.environ.pop("DAILY_BRIEF_WEBHOOK", None)
+        # Also override HOME so the secret-file fallback returns None
+        # (otherwise ~/.hermes/secrets/daily_brief.env on this dev host
+        # would mask the fail-closed behavior we're testing).
+        # Path.home() on Windows resolves from USERPROFILE, so we need
+        # USERPROFILE set too — HOME alone is not enough.
+        fake_home = tempfile.mkdtemp(prefix="hermes-no-secret-home-")
+        os.environ["USERPROFILE"] = fake_home
+        os.environ["HOME"] = fake_home
         os.environ["DAILY_BRIEF_STATE_DIR"] = str(tempfile.mkdtemp())
         try:
             rc = b.main()
@@ -300,6 +308,8 @@ class TestMainFailClosed(unittest.TestCase):
         finally:
             os.environ.clear()
             os.environ.update(env_save)
+            import shutil
+            shutil.rmtree(fake_home, ignore_errors=True)
 
 
 if __name__ == "__main__":
