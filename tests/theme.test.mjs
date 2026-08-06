@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFile, readdir } from "node:fs/promises";
+import vm from "node:vm";
 
 const htmlFiles = (await readdir(".")).filter((name) => name.endsWith(".html"));
 
@@ -22,6 +23,69 @@ test("eFinanceThai news page is wired through the safe Worker proxy", async () =
   assert.match(nav, /\["efinance-news\.html","eFinanceThai live"/);
   assert.match(home, /href="efinance-news\.html"/);
   assert.match(worker, /url\.pathname === "\/api\/efinance-news"/);
+});
+
+test("eFinanceThai page keeps headlines visible when summaries are unavailable", async () => {
+  const page = await readFile("efinance-news.html", "utf8");
+  const script = page.match(/<script>\s*(\(\(\)=>\{'use strict';[\s\S]*?\}\)\(\);)\s*<\/script>/)?.[1];
+  assert.ok(script, "expected the inline eFinanceThai page runtime");
+
+  const elements = new Map();
+  const element = (id) => {
+    if (!elements.has(id)) {
+      elements.set(id, {
+        id,
+        disabled: false,
+        innerHTML: "",
+        textContent: "",
+        dataset: {},
+        classList: { toggle() {} },
+        addEventListener() {},
+        setAttribute() {},
+      });
+    }
+    return elements.get(id);
+  };
+  const errors = [];
+  const responses = [
+    {
+      ok: true,
+      json: async () => ({
+        items: [{
+          id: 1,
+          title: "ADVANC reports quarterly results",
+          ticker: "ADVANC",
+          publishedAt: "2026-08-06T06:50:00.000Z",
+          url: "https://www.efinancethai.com/LastestNews/LatestNewsMain.aspx?id=test",
+        }],
+        fetchedAt: "2026-08-06T07:00:00.000Z",
+      }),
+    },
+    {
+      ok: false,
+      status: 502,
+      json: async () => ({ error: "summaries unavailable" }),
+    },
+  ];
+  const window = { I18N: null, addEventListener() {} };
+  const document = {
+    documentElement: { lang: "th" },
+    getElementById: element,
+    querySelectorAll: () => [],
+  };
+
+  vm.runInNewContext(script, {
+    URL,
+    console: { error: (...args) => errors.push(args), warn() {}, log() {} },
+    document,
+    fetch: async () => responses.shift(),
+    window,
+  });
+  await new Promise((resolve) => setImmediate(resolve));
+
+  assert.match(element("feed").innerHTML, /ADVANC reports quarterly results/);
+  assert.doesNotMatch(element("feed").innerHTML, /Could not load the live feed/);
+  assert.equal(errors.some(([message]) => message === "eFinanceThai feed failed"), false);
 });
 
 test("every page loads the appearance runtime before the shared theme", async () => {
