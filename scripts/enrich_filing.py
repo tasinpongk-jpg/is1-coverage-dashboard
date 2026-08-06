@@ -24,6 +24,7 @@ from __future__ import annotations
 import argparse
 import base64
 import hashlib
+import io
 import json
 import os
 import re
@@ -31,6 +32,7 @@ import sys
 import time
 import urllib.error
 import urllib.request
+import zipfile
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -50,7 +52,7 @@ CACHE_DEFAULT = Path.home() / ".hermes" / "cache" / "filing_summary.json"
 # default model per `~/.hermes/config.yaml`).
 M3_BASE_URL = "https://api.minimax.io/anthropic"
 M3_MODEL = "MiniMax-M3"
-M3_MAX_TOKENS = 800
+M3_MAX_TOKENS = 2000  # raised from 1000 — FS ZIPs with DOCX+XLSX+notes need ~1600 tokens of paraphrased output
 M3_TIMEOUT_S = 120
 
 # Filing cache TTL (entries older than this get re-enriched).
@@ -76,6 +78,22 @@ DISCORD_SECRET_FILE_CANDIDATES = [
 # Auto-alert: max number of embeds per run (avoid flood on data
 # backfill or vendor dump).
 MAX_ALERTS_PER_RUN = 5
+
+# Attachment safety limits. ZIPs stay in memory and are never extracted
+# to disk; the count and expanded-size limits bound decompression.
+MAX_ATTACHMENT_BYTES = 20_000_000
+MAX_ZIP_EXPANDED_BYTES = 20_000_000
+MAX_ZIP_MEMBERS = 50
+# Maximum number of documents (PDF + extracted DOCX + extracted XLSX)
+# that can be forwarded to m3 from a single ZIP. SET FS ZIPs typically
+# have ≤ 4 members (auditor docx + FS xlsx + notes docx); 8 covers the
+# largest issuers.
+MAX_DOCUMENTS = 8
+# Per-DOCX / per-XLSX text budget after extraction. Plain text is sent
+# to m3 as a separate text block (not a base64 document), so the ceiling
+# is on the assembled string, not the raw ZIP entry.
+MAX_DOCX_TEXT_BYTES = 5 * 1024 * 1024
+MAX_XLSX_TEXT_BYTES = 5 * 1024 * 1024
 
 # Severity filter for auto-alert.
 AUTO_ALERT_SEVERITY = "high"
@@ -248,13 +266,15 @@ def _fetch(url: str, headers: dict | None = None,
         return r.read(), dict(r.headers)
 
 
-# Regex lifted from worker.js; matches the weblink.set.or.th PDF URL
-# inside the newsdetails HTML page.
-_PDF_URL_RE = re.compile(rb"https?://weblink\.set\.or\.th/[^\"'<> ]+\.pdf")
+# Regex lifted from worker.js; matches the weblink.set.or.th PDF or ZIP
+# URL inside the newsdetails HTML page. SET FS ZIPs contain Office
+# documents (DOCX/XLSX) instead of PDFs, so we must support both.
+_PDF_URL_RE = re.compile(rb"https?://weblink\.set\.or\.th/[^\"'<> ]+\.(?:pdf|zip)",
+                         re.IGNORECASE)
 
 
 def _resolve_pdf_url(news_url: str) -> str | None:
-    """Fetch newsdetails page, extract weblink PDF URL via regex."""
+    """Fetch newsdetails page, extract weblink PDF/ZIP URL via regex."""
     try:
         html, _ = _fetch(news_url, headers={
             "Referer": "https://www.set.or.th/en/market/news-and-alert/news",
@@ -267,27 +287,230 @@ def _resolve_pdf_url(news_url: str) -> str | None:
     return m.group(0).decode("ascii") if m else None
 
 
-def _fetch_pdf(pdf_url: str, referer: str) -> bytes | None:
-    """Fetch the actual PDF. Returns None on failure (Incapsula block,
-    network error, etc.). Caller should fall back to _summary_th."""
+def _fetch_attachment(attachment_url: str, referer: str) -> bytes | None:
+    """Fetch the underlying PDF or ZIP attachment.
+
+    Validates by magic bytes (``%PDF-`` or ``PK\x03\x04``) — Content-Type
+    is unreliable because weblink.set.or.th serves PDFs/ZIPs as
+    application/octet-stream. Size capped at ``MAX_ATTACHMENT_BYTES``.
+    """
     try:
-        body, hdrs = _fetch(pdf_url, headers={
+        body, _ = _fetch(attachment_url, headers={
             "Referer": referer,
-            "Accept": "application/pdf,*/*",
+            "Accept": "application/pdf,application/zip,*/*",
         })
     except (urllib.error.URLError, TimeoutError) as e:
-        _log(f"PDF fetch failed: {e}")
+        _log(f"attachment fetch failed: {e}")
         return None
-    if not body.startswith(b"%PDF-"):
-        _log(f"PDF fetch returned {len(body)} bytes; first 5: {body[:5]!r} — likely Incapsula")
+    if not (body.startswith(b"%PDF-") or body.startswith(b"PK\x03\x04")):
+        _log(f"attachment returned {len(body)} bytes; first 5: {body[:5]!r} — likely Incapsula")
         return None
-    if "application/pdf" not in hdrs.get("Content-Type", "").lower():
-        _log(f"PDF Content-Type wrong: {hdrs.get('Content-Type')!r}")
-        return None
-    if len(body) > 20_000_000:  # 20 MB — m3 inline limit
-        _log(f"PDF too large: {len(body)} bytes")
+    if len(body) > MAX_ATTACHMENT_BYTES:
+        _log(f"attachment too large: {len(body)} bytes")
         return None
     return body
+
+
+# Backwards-compatible alias. Pre-Phase-3 tests still patch the old name.
+_fetch_pdf = _fetch_attachment
+
+
+# ---------------------------------------------------------------- DOCX / XLSX extraction
+
+def _extract_docx_text(payload: bytes) -> str | None:
+    """Extract plain text from a DOCX (Office Open XML) byte payload.
+
+    DOCX is a ZIP archive whose main content lives in word/document.xml.
+    We walk every <w:t> element and join the runs with spaces — that is
+    enough for m3 to paraphrase the auditor report and notes. Stdlib only.
+    """
+    from xml.etree import ElementTree as ET
+    try:
+        with zipfile.ZipFile(io.BytesIO(payload)) as archive:
+            xml_bytes = archive.read("word/document.xml", MAX_DOCX_TEXT_BYTES + 1)
+    except (zipfile.BadZipFile, zipfile.LargeZipFile, RuntimeError,
+            OSError, NotImplementedError, ValueError, KeyError) as e:
+        _log(f"DOCX rejected: {e}")
+        return None
+    if len(xml_bytes) > MAX_DOCX_TEXT_BYTES:
+        _log(f"DOCX document.xml exceeds {MAX_DOCX_TEXT_BYTES} bytes")
+        return None
+    try:
+        root = ET.fromstring(xml_bytes)
+    except ET.ParseError as e:
+        _log(f"DOCX XML parse error: {e}")
+        return None
+    ns = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}"
+    parts: list[str] = []
+    for elem in root.iter(f"{ns}t"):
+        if elem.text:
+            parts.append(elem.text.strip())
+    text = " ".join(p for p in parts if p)
+    text = re.sub(r"\s+", " ", text).strip()
+    if not text:
+        _log("DOCX yielded no text")
+        return None
+    if len(text.encode("utf-8")) > MAX_DOCX_TEXT_BYTES:
+        _log(f"DOCX text exceeds {MAX_DOCX_TEXT_BYTES} bytes after extraction")
+        return None
+    return text
+
+
+def _extract_xlsx_text(payload: bytes) -> str | None:
+    """Extract plain text from an XLSX (Office Open XML) byte payload.
+
+    XLSX is a ZIP archive containing xl/sharedStrings.xml and one
+    xl/worksheets/sheetN.xml per sheet. We resolve shared-string indices
+    and emit each sheet as a row of tab-separated cells, blank lines
+    between sheets. Stdlib only.
+    """
+    from xml.etree import ElementTree as ET
+    ns = "{http://schemas.openxmlformats.org/spreadsheetml/2006/main}"
+
+    try:
+        with zipfile.ZipFile(io.BytesIO(payload)) as archive:
+            shared: list[str] = []
+            try:
+                ss_xml = archive.read("xl/sharedStrings.xml",
+                                       MAX_XLSX_TEXT_BYTES + 1)
+                ss_root = ET.fromstring(ss_xml)
+                for si in ss_root.findall(f"{ns}si"):
+                    parts = [t.text or "" for t in si.iter(f"{ns}t")]
+                    shared.append("".join(parts).strip())
+            except KeyError:
+                shared = []
+            except ET.ParseError as e:
+                _log(f"XLSX sharedStrings parse error: {e}")
+                return None
+
+            sheet_names = sorted(
+                name for name in archive.namelist()
+                if name.startswith("xl/worksheets/sheet")
+                and name.endswith(".xml"))
+            if not sheet_names:
+                _log("XLSX has no worksheets")
+                return None
+
+            output_parts: list[str] = []
+            for sheet_path in sheet_names:
+                try:
+                    sheet_xml = archive.read(sheet_path,
+                                              MAX_XLSX_TEXT_BYTES + 1)
+                except (KeyError, OSError):
+                    continue
+                if len(sheet_xml) > MAX_XLSX_TEXT_BYTES:
+                    _log(f"XLSX sheet too large: {sheet_path}")
+                    return None
+                try:
+                    sheet_root = ET.fromstring(sheet_xml)
+                except ET.ParseError:
+                    continue
+                row_count = 0
+                sheet_lines: list[str] = []
+                for row in sheet_root.iter(f"{ns}row"):
+                    cells: list[str] = []
+                    for c in row.findall(f"{ns}c"):
+                        t_attr = c.get("t")
+                        v_elem = c.find(f"{ns}v")
+                        inline = c.find(f"{ns}is")
+                        raw_value: str = ""
+                        if v_elem is not None and v_elem.text is not None:
+                            raw_value = v_elem.text
+                        elif inline is not None:
+                            parts = [tt.text or "" for tt in inline.iter(f"{ns}t")]
+                            raw_value = "".join(parts)
+                        if t_attr == "s":
+                            try:
+                                cells.append(shared[int(raw_value)])
+                            except (ValueError, IndexError):
+                                cells.append(raw_value)
+                        elif t_attr == "inlineStr" or t_attr == "str":
+                            cells.append(raw_value)
+                        else:
+                            cells.append(raw_value)
+                    line = "\t".join(cells).rstrip()
+                    if line:
+                        sheet_lines.append(line)
+                        row_count += 1
+                if row_count:
+                    output_parts.append(
+                        f"[{sheet_path}]\n" + "\n".join(sheet_lines))
+            text = "\n\n".join(output_parts).strip()
+            if not text:
+                _log("XLSX yielded no text")
+                return None
+            if len(text.encode("utf-8")) > MAX_XLSX_TEXT_BYTES:
+                _log(f"XLSX text exceeds {MAX_XLSX_TEXT_BYTES} bytes after extraction")
+                return None
+            return text
+    except (zipfile.BadZipFile, zipfile.LargeZipFile, RuntimeError,
+            OSError, NotImplementedError, ValueError) as e:
+        _log(f"XLSX rejected: {e}")
+        return None
+
+
+def _documents_from_payload(payload: bytes) -> list[bytes | str] | None:
+    """Resolve a PDF or ZIP payload into m3-ready documents.
+
+    Mixed-type result: PDF bytes stay as ``bytes`` (uploaded to m3 as
+    ``application/pdf`` documents); DOCX/XLSX entries are extracted to
+    plain text strings (sent to m3 as ``text`` blocks). The caller
+    branches on element type.
+    """
+    if payload.startswith(b"%PDF-"):
+        return [payload]
+    if not payload.startswith(b"PK\x03\x04"):
+        return None
+    try:
+        with zipfile.ZipFile(io.BytesIO(payload)) as archive:
+            members = [info for info in archive.infolist() if not info.is_dir()]
+            if not members:
+                _log("ZIP is empty")
+                return None
+            if len(members) > MAX_ZIP_MEMBERS:
+                _log(f"ZIP has too many members: {len(members)}")
+                return None
+            if any(info.flag_bits & 0x1 for info in members):
+                _log("ZIP contains encrypted members")
+                return None
+            expanded = sum(info.file_size for info in members)
+            if expanded > MAX_ZIP_EXPANDED_BYTES:
+                _log(f"ZIP expanded size too large: {expanded} bytes")
+                return None
+
+            documents: list[bytes | str] = []
+            for info in members:
+                name = info.filename.lower()
+                with archive.open(info) as member:
+                    raw = member.read()
+                if name.endswith(".pdf"):
+                    if not raw.startswith(b"%PDF-"):
+                        _log(f"ZIP member {info.filename} has no PDF magic; skipped")
+                        continue
+                    if len(raw) > MAX_ZIP_EXPANDED_BYTES:
+                        _log(f"ZIP PDF member too large: {info.filename}")
+                        return None
+                    documents.append(raw)
+                elif name.endswith(".docx"):
+                    text = _extract_docx_text(raw)
+                    if text:
+                        documents.append(text)
+                elif name.endswith(".xlsx"):
+                    text = _extract_xlsx_text(raw)
+                    if text:
+                        documents.append(text)
+                # ignore other members (.txt, .rels, [Content_Types].xml, etc.)
+                if len(documents) >= MAX_DOCUMENTS:
+                    _log(f"ZIP yielded too many documents: {len(documents)}")
+                    return None
+            if not documents:
+                _log("ZIP contains no PDF/DOCX/XLSX documents")
+                return None
+            return documents
+    except (zipfile.BadZipFile, zipfile.LargeZipFile, RuntimeError,
+            OSError, NotImplementedError, ValueError) as e:
+        _log(f"ZIP rejected: {e}")
+        return None
 
 
 # ---------------------------------------------------------------- m3
@@ -314,17 +537,21 @@ def _load_api_key() -> str | None:
     return None
 
 
-def _call_m3(pdf_bytes: bytes, filing: dict) -> tuple[list[str] | None, dict]:
-    """Call m3 with PDF + Thai-bullet prompt.
+def _call_m3(documents: list[bytes | str] | bytes | str,
+             filing: dict) -> tuple[list[str] | None, dict]:
+    """Call m3 with PDF bytes and/or extracted text blocks.
 
-    Returns (bullets, usage_meta). bullets is None on any failure
-    (caller falls back to _summary_th).
+    Accepts mixed input:
+      * ``bytes`` — uploaded as ``application/pdf`` document block
+      * ``str``   — sent as a ``text`` block (extracted DOCX/XLSX content)
+    Falls back to None on any failure (caller uses _summary_th).
     """
     api_key = _load_api_key()
     if not api_key:
         _log("MINIMAX_API_KEY not set")
         return None, {}
-    b64 = base64.standard_b64encode(pdf_bytes).decode("ascii")
+    if isinstance(documents, (bytes, bytearray, str)):
+        documents = [documents]
     user = USER_PROMPT_TEMPLATE.format(
         tk=filing.get("tk", "?"),
         title=filing.get("title") or filing.get("title_th") or "?",
@@ -333,18 +560,24 @@ def _call_m3(pdf_bytes: bytes, filing: dict) -> tuple[list[str] | None, dict]:
         ts=filing.get("ts", "?"),
         url=filing.get("url", "?"),
     )
+    content = []
+    for doc in documents:
+        if isinstance(doc, (bytes, bytearray)):
+            b64 = base64.standard_b64encode(doc).decode("ascii")
+            content.append({
+                "type": "document",
+                "source": {"type": "base64",
+                           "media_type": "application/pdf",
+                           "data": b64},
+            })
+        elif isinstance(doc, str):
+            content.append({"type": "text", "text": doc})
+    content.append({"type": "text", "text": user})
     body = {
         "model": M3_MODEL,
         "max_tokens": M3_MAX_TOKENS,
         "system": SYSTEM_PROMPT,
-        "messages": [{
-            "role": "user",
-            "content": [
-                {"type": "document",
-                 "source": {"type": "base64", "media_type": "application/pdf", "data": b64}},
-                {"type": "text", "text": user},
-            ],
-        }],
+        "messages": [{"role": "user", "content": content}],
     }
     req = urllib.request.Request(
         f"{M3_BASE_URL}/v1/messages",
@@ -452,16 +685,24 @@ def _enrich_one(filing: dict, *, force: bool = False) -> tuple[list[str], dict]:
             "cost_usd": 0.0, "cache_hit": False, "errors": ["no_pdf_url_in_page"],
         }
 
-    pdf_bytes = _fetch_pdf(pdf_url, referer=news_url)
-    if pdf_bytes is None:
+    attachment = _fetch_pdf(pdf_url, referer=news_url)
+    if attachment is None:
         return _fallback_bullets(filing), {
             "source": "fallback_pdf_fetch", "in_tokens": 0, "out_tokens": 0,
             "cost_usd": 0.0, "cache_hit": False, "errors": ["pdf_fetch_failed"],
         }
 
-    pdf_sha = hashlib.sha256(pdf_bytes).hexdigest()
+    documents = _documents_from_payload(attachment)
+    if documents is None:
+        return _fallback_bullets(filing), {
+            "source": "fallback_pdf_fetch", "in_tokens": 0, "out_tokens": 0,
+            "cost_usd": 0.0, "cache_hit": False, "errors": ["no_supported_documents"],
+        }
 
-    bullets, usage = _call_m3(pdf_bytes, filing)
+    payload_sha = hashlib.sha256(attachment).hexdigest()
+    document_count = len(documents)
+
+    bullets, usage = _call_m3(documents, filing)
     if bullets is None:
         return _fallback_bullets(filing), {
             "source": "fallback_m3_failed", "in_tokens": 0, "out_tokens": 0,
@@ -475,7 +716,7 @@ def _enrich_one(filing: dict, *, force: bool = False) -> tuple[list[str], dict]:
     # Persist to cache atomically.
     try:
         cache = _load_cache()  # re-read in case of races
-        _cache_put(cache, fid, bullets, M3_MODEL, in_tok, out_tok, pdf_sha)
+        _cache_put(cache, fid, bullets, M3_MODEL, in_tok, out_tok, payload_sha)
         _atomic_write_cache(cache)
     except OSError as e:
         _log(f"WARN: cache write failed: {e}")

@@ -64,8 +64,17 @@ class TestEnrichOneCachePath(unittest.TestCase):
     def setUp(self):
         self.tmpdir = Path(tempfile.mkdtemp(prefix="hermes-enrich-test-"))
         _patched_cache_path(self.tmpdir)
+        # When tests patch only _fetch_pdf (legacy name = _fetch_attachment),
+        # _enrich_one still calls the real _documents_from_payload which
+        # expects PDF/ZIP bytes. Provide a default passthrough so tests
+        # don't need to chain patches for the new function.
+        self._docs_patcher = mock.patch.object(
+            e, "_documents_from_payload",
+            side_effect=lambda payload: [payload] if payload else None)
+        self._docs_patcher.start()
 
     def tearDown(self):
+        self._docs_patcher.stop()
         import shutil
         shutil.rmtree(self.tmpdir, ignore_errors=True)
         os.environ.pop("ENRICH_CACHE_PATH", None)
@@ -441,6 +450,326 @@ class TestBuildEmbed(unittest.TestCase):
         emb = e._build_embed(VALID_FILING, [long], {"source": "m3"}, "auto-alert")
         # 1024 char limit on field value
         self.assertLessEqual(len(emb["fields"][0]["value"]), 1024)
+
+
+# ---------------------------------------------------------------- DOCX / XLSX extractors
+
+DOCX_NS = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
+SS_NS = "http://schemas.openxmlformats.org/spreadsheetml/2006/main"
+
+
+def _wrap_in_zip(members: dict) -> bytes:
+    """Helper: build an in-memory ZIP archive."""
+    import io as _io
+    import zipfile as _zf
+    buf = _io.BytesIO()
+    with _zf.ZipFile(buf, "w", _zf.ZIP_DEFLATED) as z:
+        for name, content in members.items():
+            z.writestr(name, content)
+    return buf.getvalue()
+
+
+def _make_minimal_docx(text: str = "docx content") -> bytes:
+    """Build a minimal valid DOCX in memory (no binary fixtures)."""
+    from xml.sax.saxutils import escape as _esc
+    ct_xml = ('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+              '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
+              '<Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>'
+              '</Types>')
+    rels = ('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+            '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+            '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>'
+            '</Relationships>')
+    doc = ('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+           f'<w:document xmlns:w="{DOCX_NS}">'
+           f'<w:body><w:p><w:r><w:t xml:space="preserve">{_esc(text)}</w:t></w:r></w:p>'
+           '</w:body></w:document>')
+    return _wrap_in_zip({
+        "[Content_Types].xml": ct_xml,
+        "_rels/.rels": rels,
+        "word/document.xml": doc,
+    })
+
+
+def _make_minimal_xlsx(text: str = "xlsx content") -> bytes:
+    """Build a minimal valid XLSX in memory (no binary fixtures)."""
+    from xml.sax.saxutils import escape as _esc
+    ct_xml = ('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+              '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
+              '<Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>'
+              '</Types>')
+    rels = ('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+            '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+            '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>'
+            '</Relationships>')
+    wb = ('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+          f'<workbook xmlns="{SS_NS}"><sheets><sheet name="S1" sheetId="1" r:id="rId1"/></sheets></workbook>')
+    wb_rels = ('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+               '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+               '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>'
+               '</Relationships>')
+    sheet = ('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+             f'<worksheet xmlns="{SS_NS}"><sheetData>'
+             f'<row r="1"><c r="A1" t="inlineStr"><is><t xml:space="preserve">{_esc(text)}</t></is></c></row>'
+             '</sheetData></worksheet>')
+    return _wrap_in_zip({
+        "[Content_Types].xml": ct_xml,
+        "_rels/.rels": rels,
+        "xl/workbook.xml": wb,
+        "xl/_rels/workbook.xml.rels": wb_rels,
+        "xl/worksheets/sheet1.xml": sheet,
+    })
+
+
+class TestExtractDocx(unittest.TestCase):
+    """Stdlib DOCX text extraction."""
+
+    def test_basic_extraction(self):
+        docx = _make_minimal_docx("Hello world auditor")
+        out = e._extract_docx_text(docx)
+        self.assertIsNotNone(out)
+        self.assertIn("Hello world auditor", out)
+
+    def test_empty_returns_none(self):
+        from xml.sax.saxutils import escape as _esc
+        ct = '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"/>'
+        doc = ('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+               f'<w:document xmlns:w="{DOCX_NS}"><w:body/></w:document>')
+        rels = '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"/>'
+        docx = _wrap_in_zip({
+            "[Content_Types].xml": ct, "_rels/.rels": rels,
+            "word/document.xml": doc})
+        self.assertIsNone(e._extract_docx_text(docx))
+
+    def test_not_a_zip_returns_none(self):
+        self.assertIsNone(e._extract_docx_text(b"not a zip"))
+
+    def test_corrupt_zip_returns_none(self):
+        self.assertIsNone(e._extract_docx_text(b"PK\x03\x04\x00\x00garbage"))
+
+
+class TestExtractXlsx(unittest.TestCase):
+    """Stdlib XLSX text extraction."""
+
+    def test_inline_string_cell(self):
+        xlsx = _make_minimal_xlsx("Revenue Q2")
+        out = e._extract_xlsx_text(xlsx)
+        self.assertIsNotNone(out)
+        self.assertIn("Revenue Q2", out)
+
+    def test_shared_strings(self):
+        from xml.sax.saxutils import escape as _esc
+        ss_items = "".join(f'<si><t xml:space="preserve">{_esc(s)}</t></si>'
+                           for s in ["Revenue", "Net Profit"])
+        ss_xml = ('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+                  f'<sst xmlns="{SS_NS}" count="2" uniqueCount="2">{ss_items}</sst>')
+        # Cell with t="s" referencing index 0 = "Revenue"
+        sheet = ('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+                 f'<worksheet xmlns="{SS_NS}"><sheetData>'
+                 '<row r="1"><c r="A1" t="s"><v>0</v></c></row>'
+                 '</sheetData></worksheet>')
+        ct_xml = ('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+                  '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
+                  '<Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>'
+                  '<Override PartName="/xl/sharedStrings.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sharedStrings+xml"/>'
+                  '</Types>')
+        rels = ('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+                '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+                '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>'
+                '</Relationships>')
+        wb = ('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+              f'<workbook xmlns="{SS_NS}"><sheets><sheet name="S1" sheetId="1" r:id="rId1"/></sheets></workbook>')
+        wb_rels = ('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+                   '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+                   '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>'
+                   '</Relationships>')
+        xlsx = _wrap_in_zip({
+            "[Content_Types].xml": ct_xml,
+            "_rels/.rels": rels,
+            "xl/workbook.xml": wb,
+            "xl/_rels/workbook.xml.rels": wb_rels,
+            "xl/sharedStrings.xml": ss_xml,
+            "xl/worksheets/sheet1.xml": sheet,
+        })
+        out = e._extract_xlsx_text(xlsx)
+        self.assertIsNotNone(out)
+        self.assertIn("Revenue", out)
+
+    def test_empty_returns_none(self):
+        # Minimal xlsx with empty sheetData
+        from xml.sax.saxutils import escape as _esc
+        ct_xml = ('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+                  '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
+                  '<Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>'
+                  '</Types>')
+        rels = '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"/>'
+        wb = ('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+              f'<workbook xmlns="{SS_NS}"><sheets><sheet name="S1" sheetId="1" r:id="rId1"/></sheets></workbook>')
+        wb_rels = ('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+                   '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+                   '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>'
+                   '</Relationships>')
+        sheet = ('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+                 f'<worksheet xmlns="{SS_NS}"><sheetData/></worksheet>')
+        xlsx = _wrap_in_zip({
+            "[Content_Types].xml": ct_xml, "_rels/.rels": rels,
+            "xl/workbook.xml": wb, "xl/_rels/workbook.xml.rels": wb_rels,
+            "xl/worksheets/sheet1.xml": sheet})
+        self.assertIsNone(e._extract_xlsx_text(xlsx))
+
+    def test_not_a_zip_returns_none(self):
+        self.assertIsNone(e._extract_xlsx_text(b"not a zip"))
+
+
+class TestDocumentsFromPayload(unittest.TestCase):
+    """End-to-end payload → list[bytes | str] routing."""
+
+    def test_pdf_payload_passes_through(self):
+        pdf = b"%PDF-1.7\n%content\n%%EOF\n" + b"x" * 100
+        docs = e._documents_from_payload(pdf)
+        self.assertEqual(docs, [pdf])
+
+    def test_non_pdf_non_zip_returns_none(self):
+        self.assertIsNone(e._documents_from_payload(b"<html></html>"))
+
+    def test_zip_with_only_docx(self):
+        docx = _make_minimal_docx("audit report content")
+        payload = _wrap_in_zip({"AUDITOR_REPORT.DOCX": docx})
+        docs = e._documents_from_payload(payload)
+        self.assertEqual(len(docs), 1)
+        self.assertIsInstance(docs[0], str)
+        self.assertIn("audit report content", docs[0])
+
+    def test_zip_with_only_xlsx(self):
+        xlsx = _make_minimal_xlsx("1234 financial data")
+        payload = _wrap_in_zip({"FINANCIAL_STATEMENTS.XLSX": xlsx})
+        docs = e._documents_from_payload(payload)
+        self.assertEqual(len(docs), 1)
+        self.assertIsInstance(docs[0], str)
+        self.assertIn("1234 financial data", docs[0])
+
+    def test_zip_with_mixed_pdf_docx_xlsx(self):
+        pdf = b"%PDF-1.7\nfake\n%%EOF\n"
+        docx = _make_minimal_docx("notes content")
+        xlsx = _make_minimal_xlsx("fs content")
+        payload = _wrap_in_zip({
+            "MD_A.PDF": pdf,
+            "AUDITOR_REPORT.DOCX": docx,
+            "FINANCIAL_STATEMENTS.XLSX": xlsx,
+        })
+        docs = e._documents_from_payload(payload)
+        self.assertEqual(len(docs), 3)
+        self.assertIsInstance(docs[0], bytes)   # PDF first
+        self.assertTrue(docs[0].startswith(b"%PDF"))
+        self.assertIsInstance(docs[1], str)
+        self.assertIsInstance(docs[2], str)
+        self.assertIn("notes content", docs[1])
+        self.assertIn("fs content", docs[2])
+
+    def test_zip_with_unsupported_member_only(self):
+        # Only .txt → no recognized documents → None
+        payload = _wrap_in_zip({"README.txt": b"some notes"})
+        self.assertIsNone(e._documents_from_payload(payload))
+
+    def test_zip_pdf_member_without_magic_bytes(self):
+        bad = b"this is not actually a pdf"
+        payload = _wrap_in_zip({"fake.pdf": bad})
+        self.assertIsNone(e._documents_from_payload(payload))
+
+
+class TestCallM3MixedDocuments(unittest.TestCase):
+    """_call_m3 accepts mixed bytes/str documents and sends each correctly."""
+
+    def test_call_m3_handles_str_only_documents(self):
+        with mock.patch.object(e, "_load_api_key", return_value="test-key"), \
+             mock.patch("urllib.request.urlopen") as mock_urlopen:
+            mock_resp = mock.MagicMock()
+            mock_resp.__enter__ = mock.Mock(return_value=mock_resp)
+            mock_resp.__exit__ = mock.Mock(return_value=False)
+            mock_resp.read.return_value = json.dumps({
+                "content": [{"type": "text",
+                             "text": '{"summary_md_a":"x","summary_performance":"y","key_notes":[]}'}],
+                "usage": {"input_tokens": 100, "output_tokens": 50},
+            }).encode("utf-8")
+            mock_urlopen.return_value = mock_resp
+
+            docs = ["text from docx", "text from xlsx"]
+            summary, usage = e._call_m3(docs, {"tk": "TEST"})
+            self.assertIsNotNone(summary)
+            # Verify request body: 2 text blocks + 1 user prompt = 3 text blocks,
+            # 0 PDF documents.
+            sent = json.loads(mock_urlopen.call_args[0][0].data.decode("utf-8"))
+            content_blocks = sent["messages"][0]["content"]
+            text_blocks = [c for c in content_blocks if c.get("type") == "text"]
+            doc_blocks = [c for c in content_blocks if c.get("type") == "document"]
+            self.assertGreaterEqual(len(text_blocks), 3)  # 2 docs + 1 prompt
+            self.assertEqual(len(doc_blocks), 0)
+
+    def test_call_m3_handles_mixed_bytes_and_str(self):
+        with mock.patch.object(e, "_load_api_key", return_value="test-key"), \
+             mock.patch("urllib.request.urlopen") as mock_urlopen:
+            mock_resp = mock.MagicMock()
+            mock_resp.__enter__ = mock.Mock(return_value=mock_resp)
+            mock_resp.__exit__ = mock.Mock(return_value=False)
+            mock_resp.read.return_value = json.dumps({
+                "content": [{"type": "text",
+                             "text": '{"summary_md_a":"m","summary_performance":"p","key_notes":[]}'}],
+                "usage": {"input_tokens": 100, "output_tokens": 50},
+            }).encode("utf-8")
+            mock_urlopen.return_value = mock_resp
+
+            docs = [b"%PDF-1.4\nfake", "extracted docx text"]
+            e._call_m3(docs, {"tk": "TEST"})
+            sent = json.loads(mock_urlopen.call_args[0][0].data.decode("utf-8"))
+            content_blocks = sent["messages"][0]["content"]
+            doc_blocks = [c for c in content_blocks if c.get("type") == "document"]
+            self.assertEqual(len(doc_blocks), 1)
+
+
+class TestFetchAttachmentMagicBytes(unittest.TestCase):
+    """_fetch_attachment accepts both PDF and ZIP magic bytes."""
+
+    def test_pdf_magic_passes(self):
+        body = b"%PDF-1.7\nfake\n%%EOF\n"
+        with mock.patch.object(e, "_fetch", return_value=(body, {})):
+            result = e._fetch_attachment("https://x/y.pdf", "referer")
+            self.assertEqual(result, body)
+
+    def test_zip_magic_passes(self):
+        body = b"PK\x03\x04\x14\x00fakezip"
+        with mock.patch.object(e, "_fetch", return_value=(body, {})):
+            result = e._fetch_attachment("https://x/y.zip", "referer")
+            self.assertEqual(result, body)
+
+    def test_html_response_rejected(self):
+        body = b"<html><body>blocked</body></html>"
+        with mock.patch.object(e, "_fetch", return_value=(body, {})):
+            result = e._fetch_attachment("https://x/y.pdf", "referer")
+            self.assertIsNone(result)
+
+    def test_alias_backwards_compatible(self):
+        self.assertIs(e._fetch_pdf, e._fetch_attachment)
+
+
+class TestResolvePdfUrlRegex(unittest.TestCase):
+    """URL regex now matches both PDF and ZIP."""
+
+    def test_finds_pdf_url(self):
+        html = b'<a href="https://weblink.set.or.th/dat/news/x/y.pdf">x</a>'
+        with mock.patch.object(e, "_fetch", return_value=(html, {})):
+            result = e._resolve_pdf_url("https://www.set.or.th/newsdetails?id=1")
+            self.assertEqual(result, "https://weblink.set.or.th/dat/news/x/y.pdf")
+
+    def test_finds_zip_url(self):
+        html = b'<a href="https://weblink.set.or.th/dat/news/x/y.zip">x</a>'
+        with mock.patch.object(e, "_fetch", return_value=(html, {})):
+            result = e._resolve_pdf_url("https://www.set.or.th/newsdetails?id=1")
+            self.assertEqual(result, "https://weblink.set.or.th/dat/news/x/y.zip")
+
+    def test_no_url_returns_none(self):
+        html = b"<html>no attachment link here</html>"
+        with mock.patch.object(e, "_fetch", return_value=(html, {})):
+            self.assertIsNone(e._resolve_pdf_url("https://x"))
 
 
 class TestDiscordPost(unittest.TestCase):
