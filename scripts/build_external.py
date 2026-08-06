@@ -56,6 +56,16 @@ def _write(path: Path, payload: dict) -> None:
     print(f"  -> wrote {path.name}  ({len(json.dumps(payload, default=str))} bytes)")
 
 
+def _preserve_nonempty_snapshot(path: Path, payload: dict) -> bool:
+    """Keep the last good external snapshot when a best-effort scrape is empty."""
+    if payload.get("total") != 0 or not path.exists():
+        return False
+    try:
+        existing = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return False
+    return bool(existing.get("total", 0) > 0 and existing.get("items"))
+
 def build_external_news(con: duckdb.DuckDBPyConnection, tickers: dict) -> None:
     rows = con.execute("""
         SELECT id, source, symbol, sector, datetime_iso, headline, url, body_excerpt, lang
@@ -274,7 +284,8 @@ def build_sec_form59(con: duckdb.DuckDBPyConnection, tickers: dict) -> None:
         aggregates.append(agg)
     aggregates.sort(key=lambda a: (abs(a["net_value"]), a["buy_count"] + a["sell_count"]), reverse=True)
 
-    _write(DATA_DIR / "sec-form59.json", {
+    target = DATA_DIR / "sec-form59.json"
+    payload = {
         "asOf": datetime.now(BKK).date().isoformat(),
         "windowDays": 90,
         "total": len(items),
@@ -282,7 +293,11 @@ def build_sec_form59(con: duckdb.DuckDBPyConnection, tickers: dict) -> None:
         "netNotional": round(net_value, 2),
         "tickers": aggregates,
         "items": items,
-    })
+    }
+    if _preserve_nonempty_snapshot(target, payload):
+        print("  -> kept previous non-empty sec-form59.json (current SEC scrape returned 0 rows)")
+        return
+    _write(target, payload)
 
 
 def build_diagnostics(con: duckdb.DuckDBPyConnection, tickers: dict) -> None:

@@ -1,4 +1,6 @@
+import json
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -9,6 +11,8 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "surveillance"))
 
 import external_sources as sources  # noqa: E402
+sys.path.insert(0, str(ROOT / "scripts"))
+import build_external as builder  # noqa: E402
 
 
 def form59_html(updated: str) -> str:
@@ -40,6 +44,21 @@ def form59_html(updated: str) -> str:
 
 
 class Form59ParsingTests(unittest.TestCase):
+    def test_preserves_last_nonempty_snapshot_when_scrape_is_empty(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "sec-form59.json"
+            path.write_text(
+                json.dumps({"total": 1, "items": [{"id": "old"}]}),
+                encoding="utf-8",
+            )
+            self.assertTrue(
+                builder._preserve_nonempty_snapshot(path, {"total": 0, "items": []})
+            )
+            self.assertFalse(
+                builder._preserve_nonempty_snapshot(
+                    path, {"total": 2, "items": [{}, {}]}
+                )
+            )
     def test_parses_ad_and_be_dates(self):
         self.assertEqual(sources._parse_form59_date("21/07/2026"), "2026-07-21")
         self.assertEqual(sources._parse_form59_date("21/07/2569"), "2026-07-21")

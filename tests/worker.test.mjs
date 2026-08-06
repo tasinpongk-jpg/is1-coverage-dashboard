@@ -266,7 +266,8 @@ test("Pythia answers supported sector screens deterministically", async () => {
   assert.equal(r.status, 200);
   const d = await r.json();
   assert.equal(d.model, "deterministic");
-  assert.equal(d.meta.asOf, "2026-07-22");
+  const brief = JSON.parse(await readFile("./data/morning-brief.json", "utf-8"));
+  assert.equal(d.meta.asOf, brief.asOf);
   assert.match(d.reply, /Median 1d/);
   assert.match(d.reply, /Avg 5d/);
   assert.match(d.reply, /PF&REIT/);

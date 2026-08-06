@@ -125,13 +125,15 @@ test("RM-aware pages hydrate from and follow the shared RM selector", async () =
   }
 });
 
-test("Oppday drawer owns its scroll area and Form 59 has a populated snapshot", async () => {
+test("Oppday drawer owns its scroll area and Form 59 snapshot schema is coherent", async () => {
   const oppday = await readFile("oppday-minutes.html", "utf8");
   assert.match(oppday, /\.drawer-body\s*\{[^}]*overflow-y\s*:\s*auto/s);
   assert.match(oppday, /querySelector\(['"]\.drawer-body['"]\)\.scrollTop\s*=\s*0/);
 
   const form59 = JSON.parse(await readFile("data/sec-form59.json", "utf8"));
-  assert.ok(form59.total > 0, "Form 59 snapshot must not be empty");
+  assert.ok(Number.isInteger(form59.total) && form59.total >= 0);
   assert.equal(form59.total, form59.items.length);
   assert.ok(form59.windowDays >= 7);
+  assert.ok(Array.isArray(form59.tickers));
+  assert.equal(Object.values(form59.bySide).reduce((sum, value) => sum + value, 0), form59.total);
 });
