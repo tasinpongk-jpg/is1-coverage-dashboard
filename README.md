@@ -68,6 +68,14 @@ Rebuild the Lex corpus after changing source PDFs with
 `python3 scripts/build_lex_corpus.py /path/to/regulations`.
 "Ask the agents" cards on `index.html` open the dock via `IS1Dock.open(name)`.
 
+## Live eFinanceThai headlines
+
+`efinance-news.html` calls `GET /api/efinance-news`. The Worker fetches the
+public latest-news page, extracts its embedded structured headline metadata,
+allows only canonical eFinanceThai article URLs, and caches the result for five
+minutes. The dashboard republishes only headlines, ticker tags, timestamps, and
+links; article bodies and images remain on the source site.
+
 ## Files
 
 | Path | Purpose |
@@ -75,6 +83,7 @@ Rebuild the Lex corpus after changing source PDFs with
 | `index.html` | Landing page with links to the 4 dashboards |
 | `price-movement.html` | EOD prices + sparklines, RM/sector tabs |
 | `disclosure-pulse.html` | Recent SET filings, severity-tagged |
+| `efinance-news.html` | Live eFinanceThai headlines with search, ticker filter, and source links |
 | `sec-form59.html` | SEC Form 59 management/related-person buy/sell reports |
 | `multiples-comparison.html` | PE/PBV/DY/EV-EBITDA/NPM heatmap |
 | `unusual-trading.html` | Volume / price / 52W alerts |

@@ -47,6 +47,7 @@
       pages:[
         ["disclosure-pulse.html","SET disclosures","ข่าวเปิดเผยข้อมูล","radio-tower","filings"],
         ["external-news.html","External news","ข่าวภายนอก","rss","news"],
+        ["efinance-news.html","eFinanceThai live","ข่าว eFinanceThai","newspaper"],
         ["https://macro-brief-buy.pages.dev","Global-macro brief","สรุปมหภาคโลก","globe-2"],
       ],
     },
@@ -85,6 +86,7 @@
     "multiples-band":      ["Market","Valuation ranges across all sectors","ช่วง valuation ของทุก sector","#5d96ff","chart-spline"],
     "disclosure-pulse":    ["News flow","Live SET filings ranked by importance","ข่าว SET ล่าสุดเรียงตามความสำคัญ","#31c77b","radio-tower"],
     "external-news":       ["News flow","Ticker-matched external headlines","ข่าวภายนอกที่จับคู่กับ ticker","#31c77b","rss"],
+    "efinance-news":       ["News flow","Live headlines from eFinanceThai","พาดหัวข่าวล่าสุดจาก eFinanceThai","#31c77b","newspaper"],
     "oppday-minutes":      ["Companies","Earnings-call notes and takeaways","สรุปประเด็นจาก Oppday","#35bdd0","presentation"],
     "ai-insights":         ["Workspace","Validated commentary from daily snapshots","บทวิเคราะห์จาก daily snapshots","#f2aa1f","sparkles"],
     "unusual-trading":     ["Surveillance","Volume and price anomalies","ความผิดปกติด้านราคาและปริมาณซื้อขาย","#ef6464","siren"],

@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>eFinanceThai News — IS1 Team</title>
+<script src="theme.js?v=8"></script>
+<link rel="stylesheet" href="theme.css?v=8">
+<script src="i18n.js?v=8"></script>
+<style>
+  * { box-sizing:border-box; }
+  body { margin:0; min-height:100vh; background:var(--bg); color:var(--text); }
+  button,input { font:inherit; }
+  .page { width:min(1160px,calc(100% - 40px)); margin:0 auto; padding:36px 0 64px; }
+  .hero {
+    position:relative; overflow:hidden; padding:30px;
+    background:linear-gradient(135deg,var(--card) 0%,var(--card2) 100%);
+    border:1px solid var(--border); border-radius:20px; box-shadow:var(--shadow-md);
+  }
+  .hero::after {
+    content:""; position:absolute; width:260px; height:260px; right:-90px; top:-130px;
+    border-radius:50%; background:radial-gradient(circle,rgba(49,199,123,.20),transparent 68%);
+    pointer-events:none;
+  }
+  .eyebrow { display:flex; align-items:center; gap:9px; color:var(--green); font:700 11px/1 'JetBrains Mono',monospace; letter-spacing:.11em; text-transform:uppercase; }
+  .pulse { width:8px; height:8px; border-radius:50%; background:var(--green); box-shadow:0 0 0 5px rgba(53,201,121,.11); }
+  .hero-row { position:relative; z-index:1; display:flex; align-items:flex-end; justify-content:space-between; gap:28px; margin-top:18px; }
+  h1 { margin:0; font-size:clamp(30px,5vw,52px); line-height:1.05; font-weight:700; }
+  .lead { max-width:660px; margin:14px 0 0; color:var(--muted); font-size:15px; line-height:1.7; }
+  .hero-actions { display:flex; gap:10px; flex:0 0 auto; }
+  .button {
+    display:inline-flex; min-height:42px; align-items:center; justify-content:center; gap:8px;
+    padding:0 16px; color:var(--text); background:var(--card2); border:1px solid var(--border2);
+    border-radius:10px; text-decoration:none; font-weight:600; cursor:pointer; transition:.18s ease;
+  }
+  .button:hover { transform:translateY(-1px); border-color:var(--accent-border); background:var(--surface-hover); }
+  .button.primary { color:#07140d; background:var(--green); border-color:var(--green); }
+  .button:disabled { cursor:wait; opacity:.55; transform:none; }
+
+  .toolbar {
+    display:grid; grid-template-columns:minmax(240px,1fr) auto; gap:14px; align-items:center;
+    margin:22px 0 14px; padding:14px; background:var(--card); border:1px solid var(--border); border-radius:14px;
+  }
+  .search-wrap { position:relative; }
+  .search-icon { position:absolute; left:14px; top:50%; transform:translateY(-50%); color:var(--dim); pointer-events:none; }
+  .search {
+    width:100%; min-height:44px; padding:0 14px 0 42px; color:var(--text); background:var(--panel2);
+    border:1px solid var(--border); border-radius:10px; outline:none;
+  }
+  .search:focus { border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-soft); }
+  .filter-group { display:flex; gap:6px; padding:4px; background:var(--panel2); border:1px solid var(--border); border-radius:11px; }
+  .filter {
+    min-height:34px; padding:0 12px; border:0; border-radius:8px; color:var(--muted); background:transparent;
+    cursor:pointer; font-size:12px; font-weight:600;
+  }
+  .filter:hover { color:var(--text); }
+  .filter.active { color:var(--text); background:var(--card2); box-shadow:var(--shadow-sm); }
+
+  .summary { display:flex; align-items:center; justify-content:space-between; gap:16px; min-height:32px; margin-bottom:12px; color:var(--muted); font-size:12px; }
+  .summary strong { color:var(--text); }
+  .source-note { display:flex; align-items:center; gap:7px; }
+  .source-note svg { flex:0 0 auto; color:var(--green); }
+
+  .feed { display:flex; flex-direction:column; gap:9px; }
+  .story {
+    display:grid; grid-template-columns:54px minmax(0,1fr) auto; gap:16px; align-items:center;
+    min-height:96px; padding:18px 20px; background:var(--card); border:1px solid var(--border);
+    border-radius:14px; transition:border-color .18s ease,transform .18s ease,background .18s ease;
+  }
+  .story:hover { transform:translateY(-1px); border-color:rgba(53,201,121,.42); background:var(--card2); }
+  .rank { color:var(--dim); font:600 13px/1 'JetBrains Mono',monospace; }
+  .story-title { margin:0; font-size:16px; line-height:1.55; font-weight:600; }
+  .story-title a { color:var(--text); text-decoration:none; }
+  .story-title a::after { content:""; position:absolute; inset:0; }
+  .story-main { position:relative; min-width:0; }
+  .story-meta { display:flex; flex-wrap:wrap; align-items:center; gap:9px; margin-top:9px; color:var(--muted); font-size:11px; }
+  .ticker {
+    display:inline-flex; align-items:center; min-height:23px; padding:0 8px; color:#07140d; background:var(--green);
+    border-radius:6px; font:700 10px/1 'JetBrains Mono',monospace; letter-spacing:.04em;
+  }
+  .source-badge { color:var(--green); font-weight:600; }
+  .open-icon {
+    position:relative; z-index:1; display:grid; place-items:center; width:36px; height:36px; color:var(--green);
+    border:1px solid var(--border2); border-radius:10px; text-decoration:none;
+  }
+  .open-icon:hover { color:var(--text); border-color:var(--green); background:rgba(53,201,121,.08); }
+  .state {
+    display:grid; place-items:center; min-height:270px; padding:36px; color:var(--muted); text-align:center;
+    background:var(--card); border:1px dashed var(--border2); border-radius:14px;
+  }
+  .state strong { display:block; margin-bottom:7px; color:var(--text); font-size:16px; }
+  .loader { width:28px; height:28px; margin:0 auto 14px; border:3px solid var(--border2); border-top-color:var(--green); border-radius:50%; animation:spin .8s linear infinite; }
+  @keyframes spin { to { transform:rotate(360deg); } }
+  @media (prefers-reduced-motion:reduce) { .loader { animation-duration:1.8s; } .story,.button { transition:none; } }
+  @media (max-width:760px) {
+    .page { width:min(100% - 24px,1160px); padding-top:18px; }
+    .hero { padding:22px; border-radius:16px; }
+    .hero-row { display:block; }
+    .hero-actions { margin-top:20px; }
+    .toolbar { grid-template-columns:1fr; }
+    .filter-group { overflow-x:auto; }
+    .filter { flex:1 0 auto; }
+    .summary { align-items:flex-start; flex-direction:column; gap:5px; }
+    .story { grid-template-columns:32px minmax(0,1fr); gap:10px; padding:16px 14px; }
+    .open-icon { display:none; }
+    .story-title { font-size:15px; }
+  }
+</style>
+</head>
+<body>
+<main class="page">
+  <section class="hero">
+    <div class="eyebrow"><span class="pulse"></span><span data-i18n="efin.liveSource">Live source</span> · eFinanceThai</div>
+    <div class="hero-row">
+      <div>
+        <h1 data-i18n="page.efinanceNews">eFinanceThai News</h1>
+        <p class="lead" data-i18n="meta.efinanceNews">Latest Thai market headlines with direct links to the original stories. Headlines refresh from the public source every five minutes.</p>
+      </div>
+      <div class="hero-actions">
+        <button class="button primary" id="refreshBtn" type="button" data-i18n="efin.refresh">Refresh</button>
+        <a class="button" href="https://www.efinancethai.com/LastestNews/AllLatestNews.aspx" target="_blank" rel="noopener noreferrer"><span data-i18n="efin.openSource">Open source</span> ↗</a>
+      </div>
+    </div>
+  </section>
+
+  <section class="toolbar" aria-label="News filters">
+    <label class="search-wrap">
+      <span class="search-icon" aria-hidden="true">⌕</span>
+      <span class="sr-only" data-i18n="common.search">Search</span>
+      <input class="search" id="searchInput" type="search" autocomplete="off" data-i18n-placeholder="efin.searchPlaceholder" placeholder="Search headline or ticker…">
+    </label>
+    <div class="filter-group" role="group" aria-label="Headline type">
+      <button class="filter active" type="button" data-filter="all" aria-pressed="true" data-i18n="efin.allNews">All news</button>
+      <button class="filter" type="button" data-filter="ticker" aria-pressed="false" data-i18n="efin.tickerNews">Ticker-tagged</button>
+    </div>
+  </section>
+
+  <div class="summary" id="summary" aria-live="polite">
+    <span data-i18n="common.loading">Loading…</span>
+  </div>
+  <section class="feed" id="feed" aria-live="polite" aria-busy="true">
+    <div class="state"><div><div class="loader"></div><span data-i18n="efin.fetching">Fetching latest headlines…</span></div></div>
+  </section>
+</main>
+
+<script>
+(() => {
+  'use strict';
+  let items = [];
+  let payload = null;
+  let activeFilter = 'all';
+  let query = '';
+
+  const feed = document.getElementById('feed');
+  const summary = document.getElementById('summary');
+  const refreshBtn = document.getElementById('refreshBtn');
+  const searchInput = document.getElementById('searchInput');
+  const filters = [...document.querySelectorAll('[data-filter]')];
+
+  const fallback = {
+    'common.loading': 'Loading…',
+    'efin.fetching': 'Fetching latest headlines…',
+    'efin.headlines': '{n} headlines',
+    'efin.tickerTagged': '{n} ticker-tagged',
+    'efin.lastFetched': 'Fetched {time}',
+    'efin.noMatches': 'No headlines match these filters.',
+    'efin.tryAgain': 'Could not load the live feed. Try again.',
+    'efin.sourceNote': 'Headlines and links only · articles remain on eFinanceThai',
+    'efin.openArticle': 'Open article',
+  };
+  const tt = key => window.I18N ? I18N.t(key) : (fallback[key] || key);
+  const tx = (key, vars) => tt(key).replace(/\{(\w+)\}/g, (_, k) => vars?.[k] ?? '');
+  const esc = value => String(value ?? '').replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
+
+  function safeUrl(value) {
+    try {
+      const url = new URL(String(value || ''));
+      const validHost = url.hostname === 'www.efinancethai.com' || url.hostname === 'efinancethai.com';
+      return url.protocol === 'https:' && validHost && /^\/LastestNews\/LatestNewsMain\.aspx$/i.test(url.pathname) ? url.href : '';
+    } catch {
+      return '';
+    }
+  }
+
+  function locale() {
+    return document.documentElement.lang === 'th' ? 'th-TH' : 'en-GB';
+  }
+
+  function formatTime(value) {
+    if (!value) return '';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return '';
+    return new Intl.DateTimeFormat(locale(), { dateStyle:'medium', timeStyle:'short', timeZone:'Asia/Bangkok' }).format(date);
+  }
+
+  function visibleItems() {
+    const needle = query.trim().toLocaleLowerCase();
+    return items.filter(item => {
+      if (activeFilter === 'ticker' && !item.ticker) return false;
+      if (!needle) return true;
+      return String(item.title || '').toLocaleLowerCase().includes(needle) ||
+        String(item.ticker || '').toLocaleLowerCase().includes(needle);
+    });
+  }
+
+  function updateSummary(rows) {
+    const tagged = items.filter(item => item.ticker).length;
+    summary.innerHTML = `<span><strong>${esc(tx('efin.headlines', { n: rows.length }))}</strong> · ${esc(tx('efin.tickerTagged', { n: tagged }))}</span>
+      <span class="source-note">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m9 12 2 2 4-4"/><circle cx="12" cy="12" r="9"/></svg>
+        ${esc(tt('efin.sourceNote'))}${payload?.fetchedAt ? ` · ${esc(tx('efin.lastFetched', { time: formatTime(payload.fetchedAt) }))}` : ''}
+      </span>`;
+  }
+
+  function render() {
+    const rows = visibleItems();
+    updateSummary(rows);
+    if (!rows.length) {
+      feed.innerHTML = `<div class="state"><div><strong>${esc(tt('efin.noMatches'))}</strong></div></div>`;
+      feed.setAttribute('aria-busy', 'false');
+      return;
+    }
+
+    feed.innerHTML = rows.map((item, index) => {
+      const url = safeUrl(item.url);
+      if (!url) return '';
+      const ticker = item.ticker ? `<span class="ticker">${esc(item.ticker)}</span>` : '';
+      const time = formatTime(item.publishedAt);
+      return `<article class="story">
+        <div class="rank">${String(index + 1).padStart(2, '0')}</div>
+        <div class="story-main">
+          <h2 class="story-title"><a href="${esc(url)}" target="_blank" rel="noopener noreferrer">${esc(item.title)}</a></h2>
+          <div class="story-meta">${ticker}<span class="source-badge">eFinanceThai</span>${time ? `<time datetime="${esc(item.publishedAt)}">${esc(time)}</time>` : ''}</div>
+        </div>
+        <a class="open-icon" href="${esc(url)}" target="_blank" rel="noopener noreferrer" title="${esc(tt('efin.openArticle'))}" aria-label="${esc(tt('efin.openArticle'))}">↗</a>
+      </article>`;
+    }).join('');
+    feed.setAttribute('aria-busy', 'false');
+  }
+
+  async function loadNews() {
+    refreshBtn.disabled = true;
+    feed.setAttribute('aria-busy', 'true');
+    if (!items.length) {
+      feed.innerHTML = `<div class="state"><div><div class="loader"></div>${esc(tt('efin.fetching'))}</div></div>`;
+    }
+    try {
+      const response = await fetch('./api/efinance-news', { headers:{ Accept:'application/json' } });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || `HTTP ${response.status}`);
+      payload = data;
+      items = Array.isArray(data.items) ? data.items : [];
+      render();
+    } catch (error) {
+      console.error('eFinanceThai feed failed', error);
+      feed.innerHTML = `<div class="state"><div><strong>${esc(tt('efin.tryAgain'))}</strong><button class="button" id="retryBtn" type="button">${esc(tt('efin.refresh'))}</button></div></div>`;
+      feed.setAttribute('aria-busy', 'false');
+      document.getElementById('retryBtn')?.addEventListener('click', loadNews);
+      updateSummary([]);
+    } finally {
+      refreshBtn.disabled = false;
+    }
+  }
+
+  searchInput.addEventListener('input', event => {
+    query = event.target.value;
+    render();
+  });
+  filters.forEach(button => button.addEventListener('click', () => {
+    activeFilter = button.dataset.filter;
+    filters.forEach(candidate => {
+      const active = candidate === button;
+      candidate.classList.toggle('active', active);
+      candidate.setAttribute('aria-pressed', String(active));
+    });
+    render();
+  }));
+  refreshBtn.addEventListener('click', loadNews);
+  window.addEventListener('i18n:change', () => {
+    if (window.I18N) I18N.apply();
+    render();
+  });
+
+  loadNews();
+})();
+</script>
+<script src="nav.js?v=8" defer></script>
+<script src="chat-dock.js?v=8" defer></script>
+</body>
+</html>

@@ -6,7 +6,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
-import worker, { buildSectorMetrics, resolveLexCitations, retrieveLexChunks } from "../worker.js";
+import worker, { buildSectorMetrics, parseEfinanceNewsHtml, resolveLexCitations, retrieveLexChunks } from "../worker.js";
 
 let lastSystem = "";
 let lastMiniMaxRequest = null;
@@ -53,6 +53,76 @@ test("Lex corpus records a complete page-level source set", () => {
   assert.ok(lexCorpus.documents.every((doc) => /^[a-f0-9]{64}$/.test(doc.sha256)));
   assert.ok(lexCorpus.chunks.every((chunk) =>
     chunk.document.endsWith(".pdf") && chunk.page > 0 && chunk.text.length > 0));
+});
+
+test("eFinanceThai parser extracts safe headline links from embedded JSON", () => {
+  const upstream = {
+    TotalPage: 36,
+    PageSize: 15,
+    Data: [
+      {
+        id: 7628623,
+        LastUpdate: "2026-08-06 10:01:00",
+        title: "CPN reports {growth} and says \"outlook strong\"",
+        security: "cpn",
+        full_path_link: "https://www.efinancethai.com/LastestNews/LatestNewsMain.aspx?id=abc",
+      },
+      {
+        id: 2,
+        LastUpdate: "2026-08-06 09:00:00",
+        title: "Unsafe host",
+        security: "BAD",
+        full_path_link: "https://example.com/LastestNews/LatestNewsMain.aspx?id=bad",
+      },
+    ],
+  };
+  const parsed = parseEfinanceNewsHtml(`<script>var jsonscript = ${JSON.stringify(upstream)};jQuery("ignored");</script>`);
+  assert.equal(parsed.totalPages, 36);
+  assert.equal(parsed.pageSize, 15);
+  assert.equal(parsed.count, 1);
+  assert.equal(parsed.items[0].id, 7628623);
+  assert.equal(parsed.items[0].ticker, "CPN");
+  assert.equal(parsed.items[0].publishedAt, "2026-08-06T03:01:00.000Z");
+  assert.match(parsed.items[0].url, /^https:\/\/www\.efinancethai\.com\/LastestNews\/LatestNewsMain\.aspx\?id=abc$/);
+});
+
+test("GET /api/efinance-news returns cached headline-link JSON", async () => {
+  const upstream = {
+    TotalPage: 1,
+    PageSize: 15,
+    Data: [{
+      id: 7628623,
+      LastUpdate: "2026-08-06 10:01:00",
+      title: "Latest SET headline",
+      security: "CPN",
+      full_path_link: "https://www.efinancethai.com/LastestNews/LatestNewsMain.aspx?id=abc",
+    }],
+  };
+  let upstreamRequest = null;
+  const newsEnv = {
+    ...env,
+    EFINANCE_FETCH: async (url, options) => {
+      upstreamRequest = { url, options };
+      return new Response(`<script>var jsonscript = ${JSON.stringify(upstream)};jQuery("ok");</script>`);
+    },
+  };
+  const response = await worker.fetch(new Request("https://x.test/api/efinance-news"), newsEnv);
+  assert.equal(response.status, 200);
+  assert.match(response.headers.get("Cache-Control"), /s-maxage=300/);
+  assert.equal(response.headers.get("X-Content-Type-Options"), "nosniff");
+  assert.equal(upstreamRequest.url, "https://www.efinancethai.com/LastestNews/AllLatestNews.aspx");
+  assert.equal(upstreamRequest.options.cf.cacheTtl, 300);
+  const data = await response.json();
+  assert.equal(data.source, "eFinanceThai");
+  assert.equal(data.count, 1);
+  assert.equal(data.items[0].title, "Latest SET headline");
+  assert.ok(data.fetchedAt);
+});
+
+test("/api/efinance-news rejects non-GET methods", async () => {
+  const response = await worker.fetch(new Request("https://x.test/api/efinance-news", { method: "POST" }), env);
+  assert.equal(response.status, 405);
+  assert.equal(response.headers.get("Allow"), "GET");
 });
 
 test("MiniMax-backed agents respond 200 and report grounded metadata", async () => {

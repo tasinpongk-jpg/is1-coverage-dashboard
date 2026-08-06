@@ -1,7 +1,8 @@
 {
   // Cloudflare Workers deploy for the IS1 coverage dashboard.
-  // Static assets (*.html + data/*.json) plus one server route:
+  // Static assets (*.html + data/*.json) plus server routes:
   // POST /api/chat — MiniMax M3 chatbot grounded in the daily snapshots.
+  // GET /api/efinance-news — cached public eFinanceThai headline links.
   // CHAT_TOKEN and MINIMAX_API_KEY are Worker secrets synced from GitHub.
   // Keeps the existing *.workers.dev URL stable across deploys.
   "$schema": "https://json.schemastore.org/wrangler.json",

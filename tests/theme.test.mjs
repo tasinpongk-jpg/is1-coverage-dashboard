@@ -4,6 +4,22 @@ import { readFile, readdir } from "node:fs/promises";
 
 const htmlFiles = (await readdir(".")).filter((name) => name.endsWith(".html"));
 
+test("eFinanceThai news page is wired through the safe Worker proxy", async () => {
+  const [page, nav, home, worker] = await Promise.all([
+    readFile("efinance-news.html", "utf8"),
+    readFile("nav.js", "utf8"),
+    readFile("index.html", "utf8"),
+    readFile("worker.js", "utf8"),
+  ]);
+  assert.match(page, /fetch\('\.\/api\/efinance-news'/);
+  assert.match(page, /safeUrl\(item\.url\)/);
+  assert.match(page, /rel="noopener noreferrer"/);
+  assert.match(page, /data-filter="ticker"/);
+  assert.match(nav, /\["efinance-news\.html","eFinanceThai live"/);
+  assert.match(home, /href="efinance-news\.html"/);
+  assert.match(worker, /url\.pathname === "\/api\/efinance-news"/);
+});
+
 test("every page loads the appearance runtime before the shared theme", async () => {
   assert.ok(htmlFiles.length >= 17, "expected the full dashboard page set");
   for (const file of htmlFiles) {

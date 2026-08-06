@@ -2,10 +2,12 @@
  * IS1 coverage dashboard worker.
  *
  * Static assets are served by the assets pipeline (this code only runs for
- * paths that don't match an asset). One API route:
+ * paths that don't match an asset). API routes:
  *
  *   POST /api/chat   { agent: "atlas"|"hermes"|"pythia"|"lex", messages: [...] }
  *     -> { reply: "...", agent: "...", model: "..." }
+ *   GET /api/efinance-news
+ *     -> latest public eFinanceThai headlines and canonical article links
  *
  * Four named agents, each grounded in the deployed JSON assets so they answer
  * from the same data and rulebook pages the dashboard uses:
@@ -27,6 +29,9 @@ const MAX_USER_CHARS = 2000;
 const MAX_JSON_BODY_BYTES = 64 * 1024;
 const VALID_AGENTS = new Set(["atlas", "hermes", "pythia", "lex"]);
 const VALID_RMS = new Set(["C", "K", "O", "G", "P", "T"]);
+const EFINANCE_NEWS_URL = "https://www.efinancethai.com/LastestNews/AllLatestNews.aspx";
+const EFINANCE_TIMEOUT_MS = 10_000;
+const EFINANCE_MAX_HTML_BYTES = 2 * 1024 * 1024;
 
 // Lex uses the same MiniMax M3 endpoint as the other agents. Retrieval stays
 // deterministic inside the Worker over page-level text extracted from the SET
@@ -64,6 +69,22 @@ const LEX_SYSTEM =
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
+    if (url.pathname === "/api/efinance-news") {
+      if (request.method !== "GET") {
+        return json({ error: "GET only" }, 405, { Allow: "GET" });
+      }
+      try {
+        return await handleEfinanceNews(env);
+      } catch (e) {
+        console.error("eFinanceThai news fetch failed", e);
+        const timedOut = e?.name === "AbortError";
+        return json(
+          { error: timedOut ? "eFinanceThai timed out" : "eFinanceThai feed unavailable" },
+          timedOut ? 504 : 502,
+          { "Cache-Control": "no-store" },
+        );
+      }
+    }
     if (url.pathname === "/api/chat") {
       if (request.method !== "POST") {
         return json({ error: "POST only" }, 405);
@@ -132,11 +153,119 @@ async function handleFeedbackExport(request, env) {
   return json({ count: out.length, votes: out });
 }
 
-function json(obj, status = 200) {
+function json(obj, status = 200, extraHeaders = {}) {
   return new Response(JSON.stringify(obj), {
     status,
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json; charset=utf-8",
+      "X-Content-Type-Options": "nosniff",
+      ...extraHeaders,
+    },
   });
+}
+
+function extractAssignedJson(html, variableName) {
+  const marker = new RegExp(`\\bvar\\s+${variableName}\\s*=\\s*`, "i").exec(html);
+  if (!marker) throw new Error(`${variableName} assignment not found`);
+
+  const start = marker.index + marker[0].length;
+  const opening = html[start];
+  if (opening !== "{" && opening !== "[") throw new Error(`${variableName} is not JSON`);
+
+  let depth = 0;
+  let inString = false;
+  let escaped = false;
+  for (let index = start; index < html.length; index += 1) {
+    const char = html[index];
+    if (inString) {
+      if (escaped) escaped = false;
+      else if (char === "\\") escaped = true;
+      else if (char === '"') inString = false;
+      continue;
+    }
+    if (char === '"') {
+      inString = true;
+      continue;
+    }
+    if (char === "{" || char === "[") depth += 1;
+    if (char === "}" || char === "]") depth -= 1;
+    if (depth === 0) return JSON.parse(html.slice(start, index + 1));
+  }
+  throw new Error(`${variableName} JSON is incomplete`);
+}
+
+function cleanHeadline(value, maxLength = 500) {
+  return String(value || "").replace(/[\u0000-\u001f\u007f]+/g, " ").replace(/\s+/g, " ").trim().slice(0, maxLength);
+}
+
+function safeEfinanceUrl(value) {
+  try {
+    const url = new URL(String(value || ""), EFINANCE_NEWS_URL);
+    const validHost = url.hostname === "www.efinancethai.com" || url.hostname === "efinancethai.com";
+    const validPath = /^\/LastestNews\/LatestNewsMain\.aspx$/i.test(url.pathname);
+    return url.protocol === "https:" && validHost && validPath ? url.href : "";
+  } catch {
+    return "";
+  }
+}
+
+function efinancePublishedAt(value) {
+  const match = String(value || "").match(/^(\d{4}-\d{2}-\d{2})[ T](\d{2}:\d{2}:\d{2})$/);
+  if (!match) return "";
+  const date = new Date(`${match[1]}T${match[2]}+07:00`);
+  return Number.isNaN(date.getTime()) ? "" : date.toISOString();
+}
+
+export function parseEfinanceNewsHtml(html) {
+  const payload = extractAssignedJson(String(html || ""), "jsonscript");
+  const items = (Array.isArray(payload?.Data) ? payload.Data : []).map((item) => ({
+    id: Number.isFinite(Number(item?.id)) ? Number(item.id) : null,
+    title: cleanHeadline(item?.title),
+    ticker: cleanHeadline(item?.security, 40).toUpperCase(),
+    publishedAt: efinancePublishedAt(item?.LastUpdate),
+    url: safeEfinanceUrl(item?.full_path_link || item?.path_link),
+  })).filter((item) => item.title && item.url);
+
+  if (!items.length) throw new Error("no valid eFinanceThai headlines found");
+  return {
+    source: "eFinanceThai",
+    sourceUrl: EFINANCE_NEWS_URL,
+    totalPages: Number(payload?.TotalPage) || null,
+    pageSize: Number(payload?.PageSize) || items.length,
+    count: items.length,
+    items,
+  };
+}
+
+async function handleEfinanceNews(env) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), EFINANCE_TIMEOUT_MS);
+  const fetcher = typeof env.EFINANCE_FETCH === "function" ? env.EFINANCE_FETCH : fetch;
+  let response;
+  try {
+    response = await fetcher(EFINANCE_NEWS_URL, {
+      headers: {
+        Accept: "text/html,application/xhtml+xml",
+        "Accept-Language": "th-TH,th;q=0.9,en;q=0.7",
+        "User-Agent": "IS1-Coverage-News/1.0 (+headline links only)",
+      },
+      signal: controller.signal,
+      cf: { cacheEverything: true, cacheTtl: 300 },
+    });
+  } finally {
+    clearTimeout(timer);
+  }
+  if (!response.ok) throw new Error(`upstream returned ${response.status}`);
+
+  const html = await response.text();
+  if (new TextEncoder().encode(html).length > EFINANCE_MAX_HTML_BYTES) {
+    throw new Error("eFinanceThai response too large");
+  }
+  return json(
+    { ...parseEfinanceNewsHtml(html), fetchedAt: new Date().toISOString() },
+    200,
+    { "Cache-Control": "public, max-age=60, s-maxage=300, stale-while-revalidate=600" },
+  );
 }
 
 function authorized(request, env) {
