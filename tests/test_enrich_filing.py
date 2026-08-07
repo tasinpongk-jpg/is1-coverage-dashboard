@@ -625,9 +625,13 @@ class TestDocumentsFromPayload(unittest.TestCase):
     """End-to-end payload → list[bytes | str] routing."""
 
     def test_pdf_payload_passes_through(self):
+        # Loop 4 v5: PDF text extracted via pypdf if available, else
+        # passed as raw bytes. Either result is a 1-element list.
         pdf = b"%PDF-1.7\n%content\n%%EOF\n" + b"x" * 100
         docs = e._documents_from_payload(pdf)
-        self.assertEqual(docs, [pdf])
+        self.assertEqual(len(docs), 1)
+        # Either text (pypdf path) or bytes (fallback path).
+        self.assertIsInstance(docs[0], (str, bytes))
 
     def test_non_pdf_non_zip_returns_none(self):
         self.assertIsNone(e._documents_from_payload(b"<html></html>"))

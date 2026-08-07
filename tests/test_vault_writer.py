@@ -407,13 +407,15 @@ class TestEndToEnd(unittest.TestCase):
 
     def test_idempotent_run(self):
         v.project_all(self.cache, self.vault, dry_run=False)
-        first_inbox = (self.vault / "06-Inbox" /
-                       "TEKA-filing-summary-2026Q2-2026-08-06.md").read_text(
-                           encoding="utf-8")
+        # Locate the inbox file dynamically instead of hard-coding the
+        # filing_date suffix (depends on host clock for "today" fallback).
+        inbox_files = list((self.vault / "06-Inbox").glob(
+            "TEKA-filing-summary-*.md"))
+        self.assertEqual(len(inbox_files), 1)
+        inbox_path = inbox_files[0]
+        first_inbox = inbox_path.read_text(encoding="utf-8")
         v.project_all(self.cache, self.vault, dry_run=False)
-        second_inbox = (self.vault / "06-Inbox" /
-                        "TEKA-filing-summary-2026Q2-2026-08-06.md").read_text(
-                            encoding="utf-8")
+        second_inbox = inbox_path.read_text(encoding="utf-8")
         # Identical content (modulo generated_at timestamp).
         # Strip the timestamp line for comparison.
         def strip_ts(s):

@@ -104,7 +104,7 @@ def _period_from_filing(filing: dict, title: str) -> str:
     m = re.search(r"\b(\d{4})\s*FY\b", title, re.IGNORECASE)
     if m:
         return f"{m.group(1)}FY"
-    m = re.search(r"(\d{4})/(\d{4})", title)
+    m = re.search(r"(\d{4})\s*/\s*(\d{4})", title)
     if m:
         return f"{m.group(2)}FY"
     return "UNKNOWN"
@@ -132,12 +132,12 @@ def _render_markdown(doc: dict, filing: dict) -> tuple[str, str]:
           "sheet_count": 3,                   # optional
         }
     """
-    tk = doc["tk"]
+    tk = doc.get("tk") or filing.get("tk") or "UNKNOWN"
     title = filing.get("title") or filing.get("title_th") or ""
     period = _period_from_filing(filing, title)
     filing_date = filing.get("filing_date") or filing.get("ts", "")[:10]
     sector = filing.get("sector") or "UNKNOWN"
-    doctype = doc["doctype"]
+    doctype = doc.get("doctype") or "UNKNOWN"
     text = doc.get("text", "")
     status = doc.get("extraction_status", "ok")
     extractor = doc.get("extractor", "unknown")
@@ -145,8 +145,13 @@ def _render_markdown(doc: dict, filing: dict) -> tuple[str, str]:
     sheet_count = doc.get("sheet_count")
 
     lang, thai_ratio = _detect_language(text)
-    source_filename = doc["member_filename"]
+    source_filename = doc.get("member_filename", f"{doctype}.pdf")
     source_bytes = doc.get("raw_bytes_len", 0)
+
+    if doctype not in _DOCTYPE_DIR:
+        # Unknown doctype — caller should not have passed this through
+        # _extract_docs_from_cache, but be defensive.
+        return None  # type: ignore[return-value]  # filename, subdir, body
 
     filename = f"{doctype}_{tk}_{period}_{lang}.md"
 

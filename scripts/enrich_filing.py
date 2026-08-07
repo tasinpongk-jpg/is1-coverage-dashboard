@@ -577,7 +577,8 @@ _DOCTYPE_KEYWORDS: list[tuple[str, tuple[str, ...]]] = [
     ("MDA",     ("mda", "md&a", "คำอธิบายและวิเคราะห์",
                  "การวิเคราะห์และคำอธิบาย")),
     ("FS",      ("financial_statement", "financialstatements",
-                 "งบการเงิน")),
+                 "financial statements", "financial-statement",
+                 "financial-statement", "งบการเงิน")),
 ]
 _DOCTYPE_BY_FILING_TYPE = {
     "financial_statement": "FS",
@@ -599,13 +600,22 @@ def _classify_doctype(member_filename: str, filing: dict) -> str:
     placement = FS-NOTES folder is the largest bucket).
     """
     name = (member_filename or "").casefold()
-    # Normalize: drop extension, replace - and _ with space, collapse.
+    # Normalize: drop extension, replace - with space, collapse whitespace,
+    # **keep underscores** so "financial_statement" stays as one token.
     stem = re.sub(r"\.(docx?|xlsx?|pdf)$", "", name, flags=re.IGNORECASE)
-    stem_norm = re.sub(r"[\s\-_]+", " ", stem).strip()
-    tokens = set(stem_norm.split())
+    stem_space = re.sub(r"[\s\-]+", " ", stem).strip()
+    # Two parallel forms: with spaces and with underscores, so we match
+    # both "financial statement" and "financial_statement" naming.
+    tokens = set(stem_space.split())
     for doctype, kws in _DOCTYPE_KEYWORDS:
         for kw in kws:
-            if kw in tokens or kw in stem_norm:
+            k = kw.replace("_", " ")
+            # The keyword and stem may have either form (underscored
+            # or space-separated). Test against both.
+            if (k in tokens
+                    or kw in tokens
+                    or k in stem_space
+                    or kw in stem_space):
                 return doctype
     ft = (filing.get("type") or filing.get("filing_type") or "").strip().lower()
     if ft in _DOCTYPE_BY_FILING_TYPE:

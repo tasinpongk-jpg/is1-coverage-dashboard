@@ -7,4 +7,6 @@ httpx==0.27.2
 duckdb==1.5.2
 # pypdf — Loop 4 v5 raw markdown extraction (PDF text from MD&A / Auditor reports).
 # No stdlib alternative for PDF text. ~3MB. Used by scripts/enrich_filing.py.
-pypdf==5.1.0
+# Pinned to 6.x — 5.x fails with AttributeError on PIL.__version__ when
+# Pillow is installed alongside.
+pypdf==6.15.0
