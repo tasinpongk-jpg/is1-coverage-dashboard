@@ -269,10 +269,15 @@ def _m3_vision_ocr(pdf_bytes: bytes) -> str:
 def _tesseract_ocr(pdf_bytes: bytes) -> str:
     """OCR a scanned PDF using tesseract (fallback if m3 unavailable).
 
-    Requires tesseract binary installed. Renders each page to PNG via
-    pypdfium2, runs tesseract on each, concatenates text.
+    Requires tesseract binary installed. Renders each page via pypdfium2
+    and writes a BMP file (no PIL dependency — works even when the venv's
+    Pillow is broken). Tesseract accepts BMP input natively.
+
+    Set TESSERACT_CMD env var to override the binary path; otherwise
+    the binary must be on PATH.
     """
     import shutil
+    import struct
     import subprocess
     import tempfile
 
@@ -288,23 +293,61 @@ def _tesseract_ocr(pdf_bytes: bytes) -> str:
     try:
         pdf = pdfium.PdfDocument(pdf_bytes)
         for page_idx in range(len(pdf)):
-            tmp_png = None
+            tmp_bmp = None
             try:
                 page = pdf[page_idx]
-                pil_image = page.render(scale=2).to_pil()
-                with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmp:
-                    pil_image.save(tmp.name, format="PNG")
-                    tmp_png = tmp.name
+                bm = page.render(scale=2)
+                width, height = bm.width, bm.height
+                stride = bm.stride
+                # Write a 24-bit BMP from the bitmap buffer. pypdfium2 may
+                # return BGR (3 bytes/pixel) or BGRA (4 bytes/pixel) — we
+                # detect via the stride and read the right number of bytes.
+                # We avoid PIL entirely because the user's venv may have a
+                # broken Pillow install (cp311 .pyd in cp314 venv). BMP is
+                # trivially encoded and tesseract reads it natively.
+                row_size = (width * 3 + 3) & ~3
+                pixel_data_size = row_size * height
+                file_size = 54 + pixel_data_size
+                bmp = bytearray()
+                bmp += b'BM'
+                bmp += struct.pack('<I', file_size)
+                bmp += struct.pack('<HH', 0, 0)
+                bmp += struct.pack('<I', 54)
+                bmp += struct.pack('<I', 40)
+                bmp += struct.pack('<i', width)
+                bmp += struct.pack('<i', height)
+                bmp += struct.pack('<HH', 1, 24)
+                bmp += struct.pack('<I', 0)
+                bmp += struct.pack('<I', pixel_data_size)
+                bmp += struct.pack('<ii', 2835, 2835)
+                bmp += struct.pack('<II', 0, 0)
+                # Convert BGR/BGRA -> BGR rows, BMP is bottom-up.
+                buf = bytes(bm.buffer)
+                bytes_per_pixel = stride // width if width > 0 else 3
+                for y in range(height - 1, -1, -1):
+                    row_start = y * stride
+                    for x in range(width):
+                        px = row_start + x * bytes_per_pixel
+                        b = buf[px + 0]
+                        g = buf[px + 1]
+                        r = buf[px + 2]
+                        bmp += bytes([b, g, r])
+                    pad = row_size - width * 3
+                    bmp += b'\x00' * pad
+                with tempfile.NamedTemporaryFile(suffix=".bmp", delete=False) as tmp:
+                    tmp.write(bytes(bmp))
+                    tmp_bmp = tmp.name
+                # Tesseract supports both eng and tha languages.
                 result = subprocess.run(
-                    [tesseract_cmd, tmp_png, "-", "-l", "eng+tha"],
+                    [tesseract_cmd, tmp_bmp, "-", "-l", "eng+tha"],
                     capture_output=True, text=True, timeout=60,
                 )
                 if result.returncode == 0 and result.stdout.strip():
                     text_chunks.append(result.stdout)
             finally:
-                if tmp_png:
+                if tmp_bmp:
                     try:
-                        os.unlink(tmp_png)
+                        os.unlink(tmp_bmp)
                     except OSError:
                         pass
     except Exception as exc:  # noqa: BLE001
