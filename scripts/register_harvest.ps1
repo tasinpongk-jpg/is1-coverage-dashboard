@@ -40,12 +40,21 @@ if ($existing) {
 # Chain the two scripts in a single cmd wrapper so the task only fires once.
 # We redirect stdout+stderr to a daily-rotated log; the wrapper ensures the
 # download step runs only if discovery produced new items.
+# Env loading: harvest_download.py reads MINIMAX_API_KEY from this wrapper's
+# env block. If you store it in a different path (Bitwarden, .env-harvest),
+# edit the $env: lines below to point at your source.
 $wrapperPath = Join-Path $repoRoot "scripts\run_harvest.bat"
+$envFile = Join-Path (Split-Path $repoRoot -Parent) ".hermes\.env-harvest"
+$envBlock = ""
+if (Test-Path $envFile) {
+    $envBlock = "for /f `"usebackq tokens=1,*`" %%%%a in (`"$envFile`") do @set `"%%%%a=%%%%b`""
+}
 $wrapper = @"
 @echo off
 set REPO=$repoRoot
 set PYTHONUNBUFFERED=1
 cd /d %REPO%
+$envBlock
 echo === harvest_filings ===  >> $logFile
 python -u "$script1"                            >> $logFile 2>&1
 echo === harvest_download ===  >> $logFile

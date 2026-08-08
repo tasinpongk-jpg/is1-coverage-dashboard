@@ -48,6 +48,27 @@ DATA_DIR = REPO / "data"
 QUEUE_FILE = DATA_DIR / "harvest-queue.json"
 STATE_FILE = DATA_DIR / "harvest-state.json"
 
+# Load ~/.hermes/.env-harvest if it exists (best-effort, silent on errors).
+# This lets users drop their MINIMAX_API_KEY in a single place without
+# needing to export it system-wide. The Windows task wrapper registered by
+# scripts/register_harvest.ps1 ALSO loads this file, so the env is available
+# even when launched by Task Scheduler (which doesn't inherit interactive
+# shell env vars).
+_HERMES_DOTENV = Path.home() / ".hermes" / ".env-harvest"
+if _HERMES_DOTENV.exists():
+    try:
+        for _line in _HERMES_DOTENV.read_text(encoding="utf-8").splitlines():
+            _line = _line.strip()
+            if not _line or _line.startswith("#") or "=" not in _line:
+                continue
+            _k, _, _v = _line.partition("=")
+            _k, _v = _k.strip(), _v.strip()
+            # Don't overwrite values already set in the env.
+            if _k and _k not in os.environ:
+                os.environ[_k] = _v
+    except (OSError, UnicodeDecodeError):
+        pass
+
 # Reuse the doc-extraction helpers from enrich_filing.py — they already
 # handle DOCX/XLSX/PDF and nested ZIPs (from Loop 4 v5).
 _DOC_FACTORIES = {
