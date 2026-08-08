@@ -68,6 +68,10 @@ RE_PERIOD_HEADLINE_Q_SLASH = re.compile(r"\bQ\s*([1-4])\s*/\s*(\d{4})\b")
 RE_PERIOD_HEADLINE_FY = re.compile(r"\bFY\s*(\d{4})\b")
 # Last resort: "Quarter N" with year inferred from the news datetime
 RE_PERIOD_HEADLINE_QTR_BARE = re.compile(r"\b[Qq]uarter\s*([1-4])\b")
+# Ending <date> <month> <year> — e.g. "Quarter 2 Ending 30 Jun 2026"
+RE_PERIOD_ENDING = re.compile(r"[Ee]nding\s+(?:\d{1,2}\s+)?[A-Za-z]+\s+(\d{4})")
+# Buddhist year (2569 = 2026 CE, 2570 = 2027 CE, etc.). Range covers 2550..2599.
+RE_PERIOD_BUDDHIST = re.compile(r"\b(25[5-9]\d)\b")
 
 
 def classify(headline: str, tag: str = "") -> Literal["MDA", "FS", "AUDITOR", "SKIP"]:
@@ -91,43 +95,102 @@ def _is_yearly(headline: str) -> bool:
     return bool(YEARLY_HEADLINE_PAT.search(headline))
 
 
+_MONTH_TO_Q = {
+    "jan": 1, "feb": 2, "mar": 3, "apr": 4, "may": 5, "jun": 6,
+    "jul": 7, "aug": 8, "sep": 9, "oct": 10, "nov": 11, "dec": 12,
+}
+
+
+def _month_to_quarter(month_name: str) -> int | None:
+    """Map month abbreviation to quarter (1-4)."""
+    if not month_name:
+        return None
+    m = month_name.lower()[:3]
+    month_num = _MONTH_TO_Q.get(m)
+    if month_num is None:
+        return None
+    return (month_num - 1) // 3 + 1
+
+
+def _buddhist_to_gregorian(year_str: str) -> str | None:
+    """Convert a Buddhist year (2569 = 2026 CE) to Gregorian, or None if invalid."""
+    try:
+        y = int(year_str)
+    except (TypeError, ValueError):
+        return None
+    if 2500 <= y < 2600:  # Buddhist Era range
+        return str(y - 543)
+    return None
+
+
 def parse_period(headline: str, url: str = "", news_datetime: str = "") -> str:
     """Extract a period label like '2026Q2' or '2025FY'.
 
-    Priority:
+    Priority (most authoritative first):
       1. From filename or URL (e.g., MDA_AP_2026Q1_E.md -> '2026Q1').
-      2. From headline: 'Quarter 2/2026', 'Q2/2026', 'FY2025', 'Yearly 2025'.
-      3. From 'Quarter N Ending <date> <month> <year>' -> use the year.
-      4. Last resort: bare 'Quarter N' + year inferred from news_datetime.
-      5. UNKNOWN if nothing matches.
+      2. From 'Quarter N Ending <date> <month> <year>' — use the year from
+         the Ending clause (most authoritative; some PFREITs label the
+         reporting period differently from the quarter-end-date, e.g.
+         FPT Q2/2026 filings appear as 'Quarter 3 Ending 30 Jun 2026').
+      3. From headline 'Quarter N/YYYY' (Gregorian) — convert Buddhist year
+         if the year is in BE range (2550-2599).
+      4. From headline 'FY YYYY'.
+      5. From 'Yearly/Annual YYYY' -> YYYY FY.
+      6. Bare 'Quarter N' + year inferred from news_datetime.
+      7. UNKNOWN if nothing matches.
     """
+    # 1. Filename / URL (always Gregorian; filenames use the canonical period).
     for source in (headline, url):
         m = RE_PERIOD_FILE.search(source)
         if m:
             return m.group(1)
+
+    # 2. "Ending 30 Jun 2026" — the most authoritative signal. Use the
+    #    month in the Ending clause to determine the quarter (NOT the
+    #    headline's "Quarter N" token — SET sometimes labels filings by
+    #    reporting period rather than quarter-end-date, e.g. FPT Q2/2026
+    #    filings appear as "Quarter 3 Ending 30 Jun 2026").
+    m = RE_PERIOD_ENDING.search(headline)
+    if m:
+        ending_year = m.group(1)
+        ge_year = _buddhist_to_gregorian(ending_year) or ending_year
+        month_m = re.search(r"Ending\s+(?:\d{1,2}\s+)?([A-Za-z]+)", headline)
+        if month_m:
+            q = _month_to_quarter(month_m.group(1))
+            if q:
+                return f"{ge_year}Q{q}"
+        # No parseable month — fall through to the next priority.
+    # If Ending matched but month didn't, still try the other patterns
+    # below with a hint to prefer the Ending year.
+
+    # 3. Quarter N/YYYY — convert Buddhist year if needed.
     m = RE_PERIOD_HEADLINE_QTR_SLASH.search(headline) or RE_PERIOD_HEADLINE_Q_SLASH.search(headline)
     if m:
-        return f"{m.group(2)}Q{m.group(1)}"
+        q, raw_year = m.group(1), m.group(2)
+        ge_year = _buddhist_to_gregorian(raw_year) or raw_year
+        return f"{ge_year}Q{q}"
+
+    # 4. FY YYYY.
     m = RE_PERIOD_HEADLINE_FY.search(headline)
     if m:
-        return f"{m.group(1)}FY"
-    # "Yearly/Annual 2025" → 2025FY (year-end form, second year of the span)
+        ge_year = _buddhist_to_gregorian(m.group(1)) or m.group(1)
+        return f"{ge_year}FY"
+
+    # 5. Yearly/Annual YYYY -> YYYY FY.
     if _is_yearly(headline):
-        ymatch = re.search(r"\b(20\d{2})\b", headline)
+        ymatch = re.search(r"\b(25\d{2}|20\d{2})\b", headline)
         if ymatch:
-            return f"{ymatch.group(1)}FY"
-    # "Quarter N Ending 31 Mar 2026" — extract quarter, year from the rest of the headline
+            ge_year = _buddhist_to_gregorian(ymatch.group(1)) or ymatch.group(1)
+            return f"{ge_year}FY"
+
+    # 6. Bare "Quarter N" + year from news_datetime.
     m = RE_PERIOD_HEADLINE_QTR_BARE.search(headline)
     if m:
-        ymatch = re.search(r"\b(20\d{2})\b", headline)
-        if ymatch:
-            return f"{ymatch.group(1)}Q{m.group(1)}"
-        # Fallback: year from news_datetime (YYYY-MM-DD...)
         if news_datetime:
             ymatch = re.match(r"(\d{4})", news_datetime)
             if ymatch:
                 return f"{ymatch.group(1)}Q{m.group(1)}"
-    return "UNKNOWN"
+
     return "UNKNOWN"
 
 

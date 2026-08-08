@@ -99,18 +99,27 @@ class TestParsePeriod(unittest.TestCase):
     def test_unknown(self):
         self.assertEqual(parse_period("Some vague headline with no period"), "UNKNOWN")
 
-    def test_buddhist_year_not_misread(self):
-        # SET sometimes uses Buddhist year 2569 = 2026. The bare regex
-        # `(20\d{2})` only matches Gregorian, so we should NOT get 2569.
-        # The fix is to convert BE→CE; verify the current behavior:
-        result = parse_period("Quarter 1/2569 (Reviewed)")
-        # The current regex DOES match \d{4}/, so 2569 will come back. Note
-        # this as a known gap that needs a Buddhist-year fixer.
-        self.assertIn("2569", result)
+    def test_buddhist_year_converted(self):
+        # SET sometimes uses Buddhist Era. 2569 = 2026 CE, 2570 = 2027 CE.
+        self.assertEqual(parse_period("Financial Statement Quarter 1/2569 (Reviewed)"), "2026Q1")
+        self.assertEqual(parse_period("MDA Quarter 4 Ending 31 Dec 2569"), "2026Q4")
+        self.assertEqual(parse_period("FY2569"), "2026FY")
 
-    def test_filename_priority_over_headline(self):
+    def test_filname_priority_over_headline(self):
         # Filename is the more authoritative source
         self.assertEqual(parse_period("Some random title", url="MDA_X_2024Q3_T.pdf"), "2024Q3")
+
+    def test_ending_date_overrides_quarter_label(self):
+        # FPT-style mislabel: headline says "Quarter 3" but "Ending 30 Jun 2026" is Q2.
+        # Ending date is the most authoritative signal.
+        self.assertEqual(parse_period("Management Discussion and Analysis Quarter 3 Ending 30 Jun 2026"), "2026Q2")
+
+    def test_month_from_ending(self):
+        # "Ending 30 Jun 2026" -> Q2 (June is Q2)
+        self.assertEqual(parse_period("Quarter N Ending 30 Jun 2026"), "2026Q2")
+        self.assertEqual(parse_period("Quarter N Ending 31 Mar 2026"), "2026Q1")
+        self.assertEqual(parse_period("Quarter N Ending 30 Sep 2025"), "2025Q3")
+        self.assertEqual(parse_period("Quarter N Ending 31 Dec 2025"), "2025Q4")
 
 
 class TestEndToEnd(unittest.TestCase):

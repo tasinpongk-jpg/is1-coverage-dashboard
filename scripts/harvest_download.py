@@ -151,6 +151,7 @@ def extract_fs_zip(zip_bytes: bytes) -> list[dict[str, Any]]:
         status = "ok"
         page_count = None
         sheet_count = None
+        doctype = "OTHER"  # default; overridden by successful extraction
         try:
             if suffix == ".pdf":
                 text, page_count = extract_mda_pdf(payload)
@@ -172,6 +173,7 @@ def extract_fs_zip(zip_bytes: bytes) -> list[dict[str, Any]]:
         except Exception as exc:  # noqa: BLE001
             print(f"  [harvest-dl] FS member {name} parse error: {exc}", flush=True)
             status = "parse_error"
+            # doctype stays "OTHER" so the doc is still recorded and can be skipped later
         out.append({
             "doctype": doctype,
             "member_filename": name,
@@ -363,8 +365,20 @@ def process_one(client: SetNewsClient, item: dict[str, Any], state: dict[str, An
     # PARENT (the "1-Raw" folder) so the final path is correct.
     vault_root = vault_raw_writer.DEFAULT_VAULT_ROOT.parent
     report = vault_raw_writer.project_one(entry, filing, vault_root)
+    # Treat "same sha256, skipped" as a success — the vault file already
+    # exists with matching content, so nothing needs to be written.
+    skipped = report.get("skipped", [])
+    all_sha_skip = skipped and all("same sha256, skipped" in s for s in skipped)
+    if all_sha_skip:
+        completed[news_id] = {
+            "sha256": sha,
+            "kind": kind,
+            "ts": _now_iso(),
+            "files": [],  # nothing new written
+        }
+        return "skipped:sha_match"
     if not report.get("writes", {}).get("raw"):
-        return f"failed:write:{report.get('skipped', report)}"
+        return f"failed:write:{skipped or report}"
 
     completed[news_id] = {
         "sha256": sha,
