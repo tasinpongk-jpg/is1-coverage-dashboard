@@ -116,7 +116,11 @@ def download_bytes(client: SetNewsClient, url: str, timeout: float = 60.0) -> by
 # ---------------------------------------------------------------- extraction
 
 def extract_mda_pdf(pdf_bytes: bytes) -> tuple[str, int]:
-    """Extract text from a single-PDF MDA. Returns (text, page_count)."""
+    """Extract text from a single-PDF MDA. Returns (text, page_count).
+
+    Detects scanned/encrypted PDFs (zero text extracted) and writes a warning
+    to the harvest log so the caller can mark `needs_review` for human/OCR.
+    """
     try:
         import pypdf  # type: ignore
     except ImportError:
@@ -129,7 +133,14 @@ def extract_mda_pdf(pdf_bytes: bytes) -> tuple[str, int]:
                 pages.append(p.extract_text() or "")
             except Exception:  # noqa: BLE001
                 pages.append("")
-        return "\n\n".join(pages), len(reader.pages)
+        text = "\n\n".join(pages).strip()
+        if not text:
+            # Could be a scanned PDF, an encrypted PDF, or a PDF with
+            # only images. Mark as needs_review.
+            print(f"  [harvest-dl] PDF has 0 extractable text "
+                  f"({len(reader.pages)} pages) — likely scanned/encrypted",
+                  flush=True)
+        return text, len(reader.pages)
     except Exception as exc:  # noqa: BLE001
         print(f"  [harvest-dl] MDA PDF parse error: {type(exc).__name__}: {exc}", flush=True)
         return "", 0
@@ -158,10 +169,17 @@ def extract_fs_zip(zip_bytes: bytes) -> list[dict[str, Any]]:
                 # Embedded PDFs inside a ZIP are usually NOTES (full statements),
                 # not MDA — the SET convention is MDA ships as a standalone PDF.
                 doctype = "NOTES"
-            elif suffix in {".doc", ".docx"}:
+            elif suffix == ".doc":
+                text = _doc_text(payload)
+                doctype = _classify_office_member(name, text)
+            elif suffix == ".docx":
                 text = _docx_text(payload)
                 doctype = _classify_office_member(name, text)
-            elif suffix in {".xls", ".xlsx"}:
+            elif suffix == ".xls":
+                text = _xls_text(payload)
+                sheet_count = text.count("# Sheet:")
+                doctype = _classify_office_member(name, text)
+            elif suffix == ".xlsx":
                 text = _xlsx_text(payload)
                 sheet_count = text.count("# Sheet:")
                 doctype = _classify_office_member(name, text)
@@ -205,6 +223,45 @@ def _iter_zip_members(data: bytes, prefix: str = "") -> list[tuple[str, bytes]]:
     return out
 
 
+def _doc_text(data: bytes) -> str:
+    """Extract text from legacy .doc (binary Word format) via antiword CLI.
+
+    Returns "" if antiword is not available or fails. Falls back silently.
+    """
+    import subprocess
+    import tempfile
+    try:
+        with tempfile.NamedTemporaryFile(suffix=".doc", delete=False) as tmp:
+            tmp.write(data)
+            tmp_path = tmp.name
+        result = subprocess.run(
+            ["antiword", tmp_path],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        try:
+            os.unlink(tmp_path)
+        except OSError:
+            pass
+        if result.returncode == 0 and result.stdout.strip():
+            return result.stdout
+        # Some .doc files are mislabeled (themeManager XML); detect and skip.
+        if result.stderr and ("not a Word document" in result.stderr or
+                              "is not" in result.stderr):
+            return ""
+        return result.stdout or ""
+    except FileNotFoundError:
+        # antiword not installed — degrade silently
+        return ""
+    except subprocess.TimeoutExpired:
+        print(f"  [harvest-dl] antiword timeout", flush=True)
+        return ""
+    except Exception as exc:  # noqa: BLE001
+        print(f"  [harvest-dl] antiword error: {type(exc).__name__}: {exc}", flush=True)
+        return ""
+
+
 def _docx_text(data: bytes) -> str:
     try:
         from docx import Document  # type: ignore
@@ -213,6 +270,27 @@ def _docx_text(data: bytes) -> str:
     doc = Document(io.BytesIO(data))
     parts = [p.text for p in doc.paragraphs if p.text and p.text.strip()]
     return "\n".join(parts)
+
+
+def _xls_text(data: bytes) -> str:
+    try:
+        import xlrd  # type: ignore
+    except ImportError:
+        return ""
+    try:
+        book = xlrd.open_workbook(file_contents=data, formatting_info=False)
+        parts: list[str] = []
+        for sheet in book.sheets():
+            parts.append(f"# Sheet: {sheet.name}")
+            for row_idx in range(sheet.nrows):
+                row = sheet.row_values(row_idx)
+                cells = [str(c).strip() for c in row if str(c).strip()]
+                if cells:
+                    parts.append("\t".join(cells))
+        return "\n".join(parts)
+    except Exception as exc:  # noqa: BLE001
+        print(f"  [harvest-dl] xlrd error: {type(exc).__name__}: {exc}", flush=True)
+        return ""
 
 
 def _xlsx_text(data: bytes) -> str:

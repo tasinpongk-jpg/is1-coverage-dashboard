@@ -112,6 +112,57 @@ def _month_to_quarter(month_name: str) -> int | None:
     return (month_num - 1) // 3 + 1
 
 
+def _is_likely_fy_offset(headline: str, ticker: str) -> bool:
+    """Return True if the ticker is likely on a non-calendar fiscal year.
+
+    Heuristic: REITs (tickers ending in REIT/PFREIT) and a handful of known
+    offset companies. NOT perfect — just a hint for downstream consumers
+    to flag the filing for manual review.
+
+    See https://www.set.or.th/en/listed-companies/listed-company-search for
+    authoritative FY info per ticker.
+    """
+    up = ticker.upper()
+    if up.endswith("REIT") or up.endswith("PFREIT") or up.endswith("PROSPECT"):
+        return True
+    # Known FY-offset IS1 tickers as of 2026-08
+    fy_offset_known = {
+        "IMPACT",   # FY = Jul-Jun
+        "BH",       # FY = Apr-Mar (Bumrungrad)
+        "BDMS",     # FY = Apr-Mar (Bangkok Dusit Medical)
+        "CHG",      # FY = Apr-Mar
+        "RJH",      # FY = Apr-Mar
+    }
+    return up in fy_offset_known
+
+
+def _disclosure_to_calendar_period(headline: str, news_datetime: str) -> str | None:
+    """Infer the calendar period from the disclosure date as a fallback.
+
+    SET deadlines: 45 days after quarter-end. So filings in Aug typically
+    cover Q2 (Jun-end), May covers Q1 (Mar-end), Nov covers Q3 (Sep-end),
+    Feb covers Yearly. This is a calendar-year heuristic; FY-offset
+    companies (REITs, hospitals) won't fit. Returns the inferred period
+    OR None if no useful inference.
+    """
+    if not news_datetime or len(news_datetime) < 7:
+        return None
+    try:
+        filing_month = int(news_datetime[5:7])
+    except (TypeError, ValueError):
+        return None
+    # Calendar-quarter mapping — these are FY-2026 specific; will need to
+    # be updated yearly or made year-aware if used in production.
+    mapping = {
+        2: "FY",   # Feb: most likely Yearly
+        3: "FY",   # Mar: annual filings sometimes spill
+        5: "Q1",   # May: most likely Q1 (Mar-end)
+        8: "Q2",   # Aug: most likely Q2 (Jun-end)
+        11: "Q3",  # Nov: most likely Q3 (Sep-end)
+    }
+    return mapping.get(filing_month)
+
+
 def _buddhist_to_gregorian(year_str: str) -> str | None:
     """Convert a Buddhist year (2569 = 2026 CE) to Gregorian, or None if invalid."""
     try:
@@ -262,6 +313,7 @@ def discover_per_ticker(client: SetNewsClient, tickers: list[str], lookback: int
                 "status": "pending",
                 "discovered_at": dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds"),
                 "source": "set_per_symbol",
+                "fiscal_year_caveat": _is_likely_fy_offset(headline, tk),
             })
             added += 1
         if added or (i + 1) % 25 == 0:
@@ -295,6 +347,7 @@ def discover_firehose(client: SetNewsClient, lookback: int) -> list[Item]:
             "status": "pending",
             "discovered_at": dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds"),
             "source": "set_firehose",
+            "fiscal_year_caveat": _is_likely_fy_offset(headline, (entry.get("symbol") or "").upper()),
         })
     return items
 
