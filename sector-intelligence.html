@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sector Intelligence — IS1 Coverage Desk</title>
+<link rel="icon" href="data:,">
+<script src="theme.js?v=8"></script>
+<link rel="stylesheet" href="theme.css?v=8">
+<link rel="stylesheet" href="sector-intelligence.css?v=3">
+<script src="i18n.js?v=9"></script>
+</head>
+<body>
+<header>
+  <div>
+    <h1>Sector Intelligence</h1>
+    <div id="meta">FOOD / PROP sector briefing</div>
+  </div>
+</header>
+
+<main class="si-page" id="sectorIntelligenceApp" aria-busy="true">
+  <section class="si-toolbar" aria-label="Sector and presentation controls">
+    <div class="si-toolbar-title">
+      <h1 data-si="pageTitle" data-i18n="page.sectorIntelligence">Sector Intelligence</h1>
+      <p data-si="pageSubtitle">Interactive sector briefing for RM meetings</p>
+    </div>
+    <div class="si-control-group" aria-label="Sector">
+      <span class="si-control-label" data-si="sectorLabel">Sector</span>
+      <div class="si-segmented" id="sectorSwitch">
+        <button type="button" data-sector="FOOD">FOOD</button>
+        <button type="button" data-sector="PROP">PROP</button>
+      </div>
+    </div>
+    <div class="si-control-group" aria-label="View mode">
+      <span class="si-control-label" data-si="modeLabel">Mode</span>
+      <div class="si-segmented si-mode-switch" id="modeSwitch">
+        <button type="button" data-mode="meeting"></button>
+        <button type="button" data-mode="explore"></button>
+      </div>
+    </div>
+    <div class="si-cutoff" id="cutoffLabel">—</div>
+  </section>
+
+  <div class="si-loading" id="loadingState">
+    <span></span>
+    <p>กำลังโหลด Sector Intelligence…</p>
+  </div>
+
+  <div class="si-content" id="contentState" hidden>
+    <nav class="si-flow si-flow-mobile" aria-label="Presentation flow">
+      <button type="button" data-flow="overview"><span>1</span><b data-si="flowOverview">Sector view</b></button>
+      <button type="button" data-flow="segment"><span>2</span><b data-si="flowSegment">Segment</b></button>
+      <button type="button" data-flow="company"><span>3</span><b data-si="flowCompany">Companies</b></button>
+      <button type="button" data-flow="evidence"><span>4</span><b data-si="flowEvidence">Evidence</b></button>
+    </nav>
+
+    <section class="si-thesis" id="overviewSection" aria-labelledby="sectorHeadline">
+      <div>
+        <h2 id="sectorHeadline"></h2>
+        <p id="sectorThesis"></p>
+      </div>
+      <ol class="si-takeaways" id="sectorTakeaways"></ol>
+    </section>
+
+    <section class="si-lenses" aria-label="Three-lens decision framework">
+      <article class="si-lens si-lens-structure">
+        <header><span>01</span><h3 data-si="structureLens">Market structure</h3></header>
+        <div class="si-lens-grid">
+          <div><b id="sectorMarketCap">—</b><small data-si="marketCap">Market cap</small></div>
+          <div><b id="sectorCompanies">—</b><small data-si="companies">Companies</small></div>
+          <div><b id="largestSegment">—</b><small data-si="largestSegment">Largest segment</small></div>
+        </div>
+      </article>
+      <article class="si-lens si-lens-earnings">
+        <header><span>02</span><h3 data-si="earningsLens">FY2025 earnings</h3></header>
+        <div class="si-lens-grid">
+          <div><b id="sectorRfo">—</b><small>RFO YoY</small></div>
+          <div><b id="sectorNpat">—</b><small>NPAT YoY</small></div>
+          <div><b id="deliveredCount">—</b><small data-si="deliveredSegments">Delivered segments</small></div>
+        </div>
+      </article>
+      <article class="si-lens si-lens-market">
+        <header><span>03</span><h3 data-si="marketLens">Market view</h3></header>
+        <div class="si-lens-grid">
+          <div><b id="sectorYtd">—</b><small data-si="ytdPrice">YTD adjusted</small></div>
+          <div><b id="sectorPe">—</b><small data-si="aggregatePe">Aggregate P/E</small></div>
+          <div><b id="expectationCount">—</b><small data-si="priceLeading">Price-leading segments</small></div>
+        </div>
+      </article>
+    </section>
+
+    <section class="si-workspace" id="segmentSection">
+      <div class="si-matrix-panel">
+        <div class="si-section-head">
+          <div>
+            <h3 data-si="matrixTitle">Ranked segment map</h3>
+            <p data-si="matrixSubtitle">Market-cap order • click a row to open the analyst view</p>
+          </div>
+          <div class="si-legend" aria-label="Status legend">
+            <span class="delivered" data-si="delivered">Earnings confirmed</span>
+            <span class="expectation" data-si="expectation">Price leads</span>
+            <span class="pressure" data-si="pressure">Under pressure</span>
+          </div>
+        </div>
+        <div class="si-table-scroll" tabindex="0">
+          <table class="si-matrix">
+            <thead>
+              <tr>
+                <th scope="col" class="si-rank" data-si="rank">Rank</th>
+                <th scope="col" data-si="segment">Segment</th>
+                <th scope="col">M-cap</th>
+                <th scope="col">RFO YoY</th>
+                <th scope="col">NPAT YoY</th>
+                <th scope="col" data-si="ytd">YTD price</th>
+                <th scope="col">P/E</th>
+                <th scope="col" data-si="leader">Leader</th>
+                <th scope="col" data-si="signal">Signal</th>
+              </tr>
+            </thead>
+            <tbody id="segmentRows"></tbody>
+          </table>
+        </div>
+        <div class="si-keyboard-hint" id="keyboardHint"></div>
+
+        <section class="si-company-panel" id="companyPanel" aria-labelledby="companyPanelTitle">
+          <div class="si-section-head">
+            <div>
+              <h3 id="companyPanelTitle"></h3>
+              <p id="companyPanelSubtitle"></p>
+            </div>
+          </div>
+          <div class="si-table-scroll">
+            <table class="si-company-table">
+              <thead><tr>
+                <th data-si="ticker">Ticker</th>
+                <th data-si="role">Role</th>
+                <th>M-cap</th>
+                <th>RFO YoY</th>
+                <th>NPAT YoY</th>
+                <th data-si="ytd">YTD price</th>
+                <th>P/E</th>
+                <th data-si="margin">Margin</th>
+              </tr></thead>
+              <tbody id="companyRows"></tbody>
+            </table>
+          </div>
+        </section>
+      </div>
+
+      <aside class="si-detail" id="segmentDetail" aria-live="polite">
+        <div class="si-detail-kicker" id="detailKicker"></div>
+        <h3 id="detailTitle"></h3>
+        <div class="si-observed" id="observedFact"></div>
+        <div class="si-alternative-fiscal" id="alternativeFiscalView" hidden></div>
+
+        <section class="si-detail-section">
+          <h4 data-si="whyChanged">Why it changed</h4>
+          <ul id="whyList"></ul>
+        </section>
+
+        <section class="si-detail-section">
+          <h4 data-si="causalChain">Causal proof chain</h4>
+          <div class="si-chain" id="causalChain"></div>
+        </section>
+
+        <section class="si-detail-section">
+          <h4 data-si="roles">Segment roles</h4>
+          <div class="si-roles" id="roleList"></div>
+        </section>
+
+        <section class="si-valuation" id="valuationBlock">
+          <div class="si-valuation-label" id="valuationLabel"></div>
+          <p id="valuationText"></p>
+        </section>
+
+        <div class="si-trigger-risk">
+          <section>
+            <h4 data-si="trigger">Trigger</h4>
+            <ul id="triggerList"></ul>
+          </section>
+          <section>
+            <h4 data-si="risk">Risk</h4>
+            <ul id="riskList"></ul>
+          </section>
+        </div>
+
+        <section class="si-must-prove">
+          <span>6M26</span>
+          <p id="mustProve"></p>
+        </section>
+
+        <button class="si-evidence-button" id="evidenceButton" type="button"></button>
+      </aside>
+    </section>
+
+    <nav class="si-flow si-flow-bottom" aria-label="Presentation flow">
+      <button type="button" data-flow="overview"><span>1</span><b data-si="flowOverview">Sector view</b></button>
+      <button type="button" data-flow="segment"><span>2</span><b data-si="flowSegment">Segment</b></button>
+      <button type="button" data-flow="company"><span>3</span><b data-si="flowCompany">Companies</b></button>
+      <button type="button" data-flow="evidence"><span>4</span><b data-si="flowEvidence">Evidence</b></button>
+    </nav>
+
+    <footer class="si-method-strip">
+      <div id="definitions"></div>
+      <div id="sourceLineage"></div>
+    </footer>
+  </div>
+
+  <div class="si-error" id="errorState" hidden></div>
+</main>
+
+<dialog class="si-evidence-dialog" id="evidenceDialog">
+  <div class="si-dialog-head">
+    <div><span id="dialogKicker"></span><h2 id="dialogTitle"></h2></div>
+    <button type="button" id="closeEvidence" aria-label="Close">×</button>
+  </div>
+  <div class="si-dialog-body">
+    <section class="si-source-method">
+      <h3 data-si="methodology">Methodology & boundaries</h3>
+      <dl id="methodologyList"></dl>
+    </section>
+    <section>
+      <h3 data-si="claimsRegister">Claim register</h3>
+      <div class="si-claim-list" id="claimList"></div>
+    </section>
+    <section>
+      <h3 data-si="evidenceRegister">Evidence register</h3>
+      <div class="si-source-list" id="sourceList"></div>
+    </section>
+  </div>
+  <div class="si-dialog-foot">
+    <p id="sourceWarning"></p>
+    <button type="button" id="copyDeepLink"></button>
+  </div>
+</dialog>
+
+<script src="sector-intelligence.js?v=3"></script>
+<script src="nav.js?v=9" defer></script>
+<script src="chat-dock.js?v=9" defer></script>
+</body>
+</html>
