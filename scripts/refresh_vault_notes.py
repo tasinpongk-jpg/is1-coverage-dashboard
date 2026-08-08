@@ -93,23 +93,32 @@ def commit_and_push() -> bool:
     print("[refresh] pushing to origin/main ...", flush=True)
     # Pull first so we don't fight a remote cron that landed in the meantime.
     run(["git", "fetch", "origin", "main"])
-    result = run(["git", "pull", "--rebase", "origin", "main"])
-    if result.returncode != 0:
-        # Conflict recovery: this script only touches the vault JSON, so if
-        # the remote cron also touched it, prefer theirs (fresher DuckDB data)
-        # then reapply our commit on top.
-        print("[refresh] rebase conflict — accepting theirs and continuing", flush=True)
+
+    def _rebase_or_resolve() -> bool:
+        """Return True if the rebase resolved (or there was nothing to do)."""
+        result = run(["git", "pull", "--rebase", "origin", "main"])
+        if result.returncode == 0:
+            return True
+        # Conflict recovery. This script only touches the vault JSON, so if
+        # the remote cron also touched it, prefer ours (the daily rebuild is
+        # newer than the previous cron push, which was the one that landed
+        # first). Then re-check: if our bytes now match the remote's,
+        # there's nothing to push and we're done.
+        print(f"[refresh] rebase conflict — keeping ours (we are the fresher source)", flush=True)
         run(["git", "rebase", "--abort"])
-        run(["git", "pull", "--rebase", "origin", "main"])
-        # The rebase succeeded second time around (cron usually rewrites the
-        # same file the same way). If still conflicting, bail rather than
-        # silently drop user data.
+        merge = run(["git", "pull", "--no-rebase", "origin", "main", "-X", "ours"])
+        if merge.returncode != 0:
+            run(["git", "reset", "--hard", "origin/main"])
+            raise SystemExit("[refresh] could not resolve rebase conflict — gave up and reset to origin")
         verify = run(["git", "diff", "--stat", "--", rel])
         if not verify.stdout.strip():
-            print("[refresh] rebase dropped our changes (rebuild content identical to remote) — done", flush=True)
+            print("[refresh] after resolving, our changes match remote — nothing to push", flush=True)
             return False
-        run(["git", "add", rel])
-        run(["git", "rebase", "--continue"])
+        # We have a real conflict; ours won. The file is staged.
+        return True
+
+    if not _rebase_or_resolve():
+        return False
 
     for attempt in range(1, 4):
         push = run(["git", "push", "origin", "main"])
@@ -117,8 +126,8 @@ def commit_and_push() -> bool:
             print(f"[refresh] push succeeded on attempt {attempt}", flush=True)
             return True
         print(f"[refresh] push attempt {attempt} failed: {push.stderr.strip()}", flush=True)
-        run(["git", "rebase", "--abort"])
-        run(["git", "pull", "--rebase", "origin", "main"])
+        if not _rebase_or_resolve():
+            return False
     raise SystemExit("[refresh] push failed after 3 attempts")
 
 

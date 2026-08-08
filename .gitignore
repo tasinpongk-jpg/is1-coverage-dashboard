@@ -38,5 +38,11 @@ data/synthesis/
 # fall back to a synthetic empty pulse if missing.
 tests/fixtures/disclosure_pulse_*.json
 
+# Hermes MDA-FS Harvester runtime state — regenerable from SET API.
+# harvest-queue.json holds pending downloads; harvest-state.json holds
+# the source_sha256 dedup table.
+data/harvest-queue.json
+data/harvest-state.json
+
 # Build artifacts that ARE committed (do not ignore):
 # data/*.json — these are the daily snapshots that drive the dashboards
