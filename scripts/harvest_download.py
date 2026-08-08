@@ -523,16 +523,31 @@ def _xlsx_text(data: bytes) -> str:
 def _classify_office_member(name: str, text: str) -> str:
     """Return one of FS / NOTES / AUDITOR / OTHER based on filename + content.
 
-    Mirrors fetch_set_financial_filings.py:pick_member.
+    Mirrors fetch_set_financial_filings.py:pick_member, with broader coverage
+    for Thai financial-statement terminology (SET companies use varying
+    English/Thai headers across decades).
     """
     up = name.upper()
-    if any(p in up for p in ("NOTES", "หมายเหตุ")) or "notes to the financial statements" in text.lower():
+    text_lower = text.lower()
+    if any(p in up for p in ("NOTES", "หมายเหตุ")) or \
+       any(p in text_lower for p in ("notes to the financial statements", "หมายเหตุประกอบงบการเงิน")):
         return "NOTES"
     if any(p in up for p in ("AUDITOR", "INDEPENDENT_AUDITOR", "ผู้สอบบัญชี")) or \
-       "independent auditor" in text.lower() or "รายงานของผู้สอบบัญชี" in text:
+       any(p in text_lower for p in ("independent auditor", "รายงานของผู้สอบบัญชี")):
         return "AUDITOR"
-    if "balance sheet" in text.lower() or "งบแสดงฐานะการเงิน" in text:
-        return "FS"
+    # FS detection — broad: balance sheet, statement of financial position,
+    # or any of the standard FS table headers. Single-member ZIPs (SCC, SCGD)
+    # only ship FINANCIAL_STATEMENTS.XLS so this path is critical for them.
+    if any(p in text_lower for p in (
+        "balance sheet",
+        "statement of financial position",
+        "งบแสดงฐานะการเงิน",
+        "statement of comprehensive income",
+        "งบกำไรขาดทุน",
+        "statement of cash flows",
+        "งบกระแสเงินสด",
+    )) or "FINANCIAL_STATEMENTS" in up:
+        return "NOTES"  # treat full FS XLS as NOTES (the full statements set)
     return "OTHER"
 
 
