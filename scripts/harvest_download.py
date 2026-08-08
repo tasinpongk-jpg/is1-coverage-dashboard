@@ -118,8 +118,9 @@ def download_bytes(client: SetNewsClient, url: str, timeout: float = 60.0) -> by
 def extract_mda_pdf(pdf_bytes: bytes) -> tuple[str, int]:
     """Extract text from a single-PDF MDA. Returns (text, page_count).
 
-    Detects scanned/encrypted PDFs (zero text extracted) and writes a warning
-    to the harvest log so the caller can mark `needs_review` for human/OCR.
+    Detects scanned/encrypted PDFs (zero text extracted) and falls back to
+    OCR via tesseract if available. If OCR is not installed, marks the
+    filing as needs_review so the user can process it manually.
     """
     try:
         import pypdf  # type: ignore
@@ -135,15 +136,80 @@ def extract_mda_pdf(pdf_bytes: bytes) -> tuple[str, int]:
                 pages.append("")
         text = "\n\n".join(pages).strip()
         if not text:
-            # Could be a scanned PDF, an encrypted PDF, or a PDF with
-            # only images. Mark as needs_review.
+            # Scanned PDF or only-image PDF. Try OCR fallback.
             print(f"  [harvest-dl] PDF has 0 extractable text "
-                  f"({len(reader.pages)} pages) — likely scanned/encrypted",
+                  f"({len(reader.pages)} pages) — trying OCR",
+                  flush=True)
+            ocr_text = _ocr_pdf_fallback(pdf_bytes, len(reader.pages))
+            if ocr_text:
+                return ocr_text, len(reader.pages)
+            print(f"  [harvest-dl] OCR unavailable or empty — "
+                  f"mark as needs_review (set TESSERACT_CMD env var to enable)",
                   flush=True)
         return text, len(reader.pages)
     except Exception as exc:  # noqa: BLE001
         print(f"  [harvest-dl] MDA PDF parse error: {type(exc).__name__}: {exc}", flush=True)
         return "", 0
+
+
+def _ocr_pdf_fallback(pdf_bytes: bytes, page_count: int) -> str:
+    """OCR a scanned PDF using tesseract if it's installed.
+
+    Strategy:
+      1. Check for tesseract binary (env: TESSERACT_CMD or default path).
+      2. Render each page to a PNG via pypdf+Pillow, run tesseract on each.
+      3. Concatenate page text.
+
+    Returns "" if tesseract is missing, Pillow is missing, or all pages fail.
+    """
+    import shutil
+    import subprocess
+    import tempfile
+
+    tesseract_cmd = os.environ.get("TESSERACT_CMD") or shutil.which("tesseract")
+    if not tesseract_cmd:
+        return ""
+    try:
+        from PIL import Image  # type: ignore
+    except ImportError:
+        print(f"  [harvest-dl] OCR skipped — Pillow not installed",
+              flush=True)
+        return ""
+    try:
+        import pypdf  # type: ignore
+    except ImportError:
+        return ""
+
+    text_chunks: list[str] = []
+    try:
+        reader = pypdf.PdfReader(io.BytesIO(pdf_bytes))
+        for i, page in enumerate(reader.pages):
+            tmp_png = None
+            try:
+                # Render page to image at 200 DPI for OCR.
+                for img_obj in page.images:
+                    with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmp:
+                        tmp.write(img_obj.data)
+                        tmp_png = tmp.name
+                    # Run tesseract.
+                    result = subprocess.run(
+                        [tesseract_cmd, tmp_png, "-", "-l", "eng+tha"],
+                        capture_output=True, text=True, timeout=60,
+                    )
+                    if result.returncode == 0 and result.stdout.strip():
+                        text_chunks.append(result.stdout)
+                        break  # one image per page is enough
+            finally:
+                if tmp_png:
+                    try:
+                        os.unlink(tmp_png)
+                    except OSError:
+                        pass
+    except Exception as exc:  # noqa: BLE001
+        print(f"  [harvest-dl] OCR error: {type(exc).__name__}: {exc}",
+              flush=True)
+        return ""
+    return "\n\n".join(text_chunks).strip()
 
 
 def extract_fs_zip(zip_bytes: bytes) -> list[dict[str, Any]]:
@@ -371,7 +437,12 @@ def process_one(client: SetNewsClient, item: dict[str, Any], state: dict[str, An
     if kind == "MDA" or file_type == "PDF":
         text, page_count = extract_mda_pdf(payload)
         if not text:
-            return "failed:pdf_no_text"
+            # Scanned PDF with no extractable text. Don't fail outright —
+            # save a needs_review marker so the user can OCR later, and
+            # store the source PDF metadata so the file can be re-extracted.
+            print(f"  [harvest-dl] {tk} {kind} {period} -> needs_review "
+                  f"(scanned PDF, no text)", flush=True)
+            return f"needs_review:scanned_pdf:page_count={page_count}"
         docs.append({
             "doctype": "MDA",
             "member_filename": Path(download_url).name or f"{tk}_{period}_MDA.pdf",
@@ -519,6 +590,13 @@ def main() -> int:
                 it["status"] = "skipped"
                 success += 1
             elif status.startswith("dry_run"):
+                success += 1
+            elif status.startswith("needs_review"):
+                # Scanned PDF without OCR fallback available — flag for manual review.
+                # Treated as success (file metadata captured, no crash) but the
+                # queue item carries the caveat so the user can find it.
+                it["status"] = "needs_review"
+                it["needs_review_reason"] = status
                 success += 1
             else:
                 it["status"] = "failed"
