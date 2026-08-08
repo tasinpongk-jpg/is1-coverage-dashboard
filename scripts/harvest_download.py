@@ -153,22 +153,103 @@ def extract_mda_pdf(pdf_bytes: bytes) -> tuple[str, int]:
 
 
 def _ocr_pdf_fallback(pdf_bytes: bytes, page_count: int) -> str:
-    """OCR a scanned PDF using tesseract if it's installed.
+    """OCR a scanned PDF using m3 vision (preferred) or tesseract (fallback).
 
-    Strategy:
-      1. Check for tesseract binary (env: TESSERACT_CMD or default path).
-      2. Render each page to a PNG via pypdfium2 (pure-Python PDF renderer
-         that doesn't need poppler). pypdfium2 produces a real raster of
-         the scanned page, unlike pypdf's page.images which only returns
-         embedded images.
-      3. Run tesseract on each PNG; concatenate results.
+    Strategy (priority order):
+      1. m3 vision API — sends the PDF as base64, m3 does OCR + structure
+         recognition in one shot. Requires MINIMAX_API_KEY env var.
+         Cost: ~$0.01-0.05 per page. Most reliable for Thai + English mixed text.
+      2. tesseract OCR — render via pypdfium2, shell out to tesseract binary.
+         Requires tesseract installed at TESSERACT_CMD path or in PATH.
+         Free, but quality is mediocre for Thai (eng model only).
+      3. Return "" — caller marks as needs_review.
 
-    Returns "" if tesseract or pypdfium2 is missing, or all pages fail.
+    Returns the extracted text (or "" if all paths fail).
+    """
+    # 1. m3 vision (preferred)
+    text = _m3_vision_ocr(pdf_bytes)
+    if text and text.strip():
+        return text.strip()
 
-    Setup notes:
-      - Install pypdfium2: pip install pypdfium2
-      - Install tesseract: winget install --id tesseract-ocr.tesseract
-      - Or set TESSERACT_CMD env var to a custom path.
+    # 2. tesseract fallback
+    text = _tesseract_ocr(pdf_bytes)
+    if text and text.strip():
+        return text.strip()
+
+    return ""
+
+
+def _m3_vision_ocr(pdf_bytes: bytes) -> str:
+    """Use m3 vision (Anthropic Messages API) to OCR a PDF.
+
+    Mirrors the request shape in scripts/enrich_filing.py. Requires
+    MINIMAX_API_KEY env var. Returns "" if no key or call fails.
+    """
+    import base64
+    import urllib.error
+    import urllib.request
+
+    api_key = os.environ.get("MINIMAX_API_KEY") or os.environ.get("ANTHROPIC_API_KEY")
+    if not api_key:
+        return ""
+    try:
+        import enrich_filing as ef  # reuse constants
+        m3_url = ef.M3_BASE_URL + "/v1/messages"
+        m3_model = ef.M3_MODEL
+        max_tokens = ef.M3_MAX_TOKENS
+    except ImportError:
+        return ""
+
+    b64 = base64.standard_b64encode(pdf_bytes).decode("ascii")
+    body = {
+        "model": m3_model,
+        "max_tokens": max_tokens,
+        "messages": [{
+            "role": "user",
+            "content": [
+                {"type": "document", "source": {
+                    "type": "base64",
+                    "media_type": "application/pdf",
+                    "data": b64,
+                }},
+                {"type": "text", "text":
+                 "Extract all readable text from this scanned PDF document. "
+                 "Return only the extracted text, preserving section structure "
+                 "with markdown headings where possible. If the document is in "
+                 "Thai, return Thai text; if English, return English. Do not "
+                 "summarize — extract verbatim."},
+            ],
+        }],
+    }
+    try:
+        req = urllib.request.Request(
+            m3_url,
+            data=json.dumps(body).encode("utf-8"),
+            headers={
+                "x-api-key": api_key,
+                "anthropic-version": "2023-06-01",
+                "Content-Type": "application/json",
+            },
+        )
+        with urllib.request.urlopen(req, timeout=120) as resp:
+            result = json.loads(resp.read().decode("utf-8"))
+        # Extract text blocks from the response.
+        parts = []
+        for block in result.get("content", []):
+            if block.get("type") == "text":
+                parts.append(block.get("text", ""))
+        return "\n\n".join(parts)
+    except Exception as exc:  # noqa: BLE001
+        print(f"  [harvest-dl] m3 vision OCR error: {type(exc).__name__}: {exc}",
+              flush=True)
+        return ""
+
+
+def _tesseract_ocr(pdf_bytes: bytes) -> str:
+    """OCR a scanned PDF using tesseract (fallback if m3 unavailable).
+
+    Requires tesseract binary installed. Renders each page to PNG via
+    pypdfium2, runs tesseract on each, concatenates text.
     """
     import shutil
     import subprocess
@@ -180,8 +261,6 @@ def _ocr_pdf_fallback(pdf_bytes: bytes, page_count: int) -> str:
     try:
         import pypdfium2 as pdfium  # type: ignore
     except ImportError:
-        print(f"  [harvest-dl] OCR skipped — pypdfium2 not installed "
-              f"(pip install pypdfium2)", flush=True)
         return ""
 
     text_chunks: list[str] = []
@@ -191,21 +270,16 @@ def _ocr_pdf_fallback(pdf_bytes: bytes, page_count: int) -> str:
             tmp_png = None
             try:
                 page = pdf[page_idx]
-                # scale=2 → ~144 DPI, good for Thai/English printed text.
                 pil_image = page.render(scale=2).to_pil()
                 with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmp:
                     pil_image.save(tmp.name, format="PNG")
                     tmp_png = tmp.name
-                # Run tesseract. -l eng+tha for English + Thai support.
                 result = subprocess.run(
                     [tesseract_cmd, tmp_png, "-", "-l", "eng+tha"],
                     capture_output=True, text=True, timeout=60,
                 )
                 if result.returncode == 0 and result.stdout.strip():
                     text_chunks.append(result.stdout)
-                elif result.stderr:
-                    print(f"  [harvest-dl] tesseract stderr: {result.stderr.strip()[:200]}",
-                          flush=True)
             finally:
                 if tmp_png:
                     try:
@@ -213,7 +287,7 @@ def _ocr_pdf_fallback(pdf_bytes: bytes, page_count: int) -> str:
                     except OSError:
                         pass
     except Exception as exc:  # noqa: BLE001
-        print(f"  [harvest-dl] OCR error: {type(exc).__name__}: {exc}",
+        print(f"  [harvest-dl] tesseract OCR error: {type(exc).__name__}: {exc}",
               flush=True)
         return ""
     return "\n\n".join(text_chunks).strip()
