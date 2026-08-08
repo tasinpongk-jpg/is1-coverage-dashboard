@@ -157,10 +157,18 @@ def _ocr_pdf_fallback(pdf_bytes: bytes, page_count: int) -> str:
 
     Strategy:
       1. Check for tesseract binary (env: TESSERACT_CMD or default path).
-      2. Render each page to a PNG via pypdf+Pillow, run tesseract on each.
-      3. Concatenate page text.
+      2. Render each page to a PNG via pypdfium2 (pure-Python PDF renderer
+         that doesn't need poppler). pypdfium2 produces a real raster of
+         the scanned page, unlike pypdf's page.images which only returns
+         embedded images.
+      3. Run tesseract on each PNG; concatenate results.
 
-    Returns "" if tesseract is missing, Pillow is missing, or all pages fail.
+    Returns "" if tesseract or pypdfium2 is missing, or all pages fail.
+
+    Setup notes:
+      - Install pypdfium2: pip install pypdfium2
+      - Install tesseract: winget install --id tesseract-ocr.tesseract
+      - Or set TESSERACT_CMD env var to a custom path.
     """
     import shutil
     import subprocess
@@ -170,35 +178,34 @@ def _ocr_pdf_fallback(pdf_bytes: bytes, page_count: int) -> str:
     if not tesseract_cmd:
         return ""
     try:
-        from PIL import Image  # type: ignore
+        import pypdfium2 as pdfium  # type: ignore
     except ImportError:
-        print(f"  [harvest-dl] OCR skipped — Pillow not installed",
-              flush=True)
-        return ""
-    try:
-        import pypdf  # type: ignore
-    except ImportError:
+        print(f"  [harvest-dl] OCR skipped — pypdfium2 not installed "
+              f"(pip install pypdfium2)", flush=True)
         return ""
 
     text_chunks: list[str] = []
     try:
-        reader = pypdf.PdfReader(io.BytesIO(pdf_bytes))
-        for i, page in enumerate(reader.pages):
+        pdf = pdfium.PdfDocument(pdf_bytes)
+        for page_idx in range(len(pdf)):
             tmp_png = None
             try:
-                # Render page to image at 200 DPI for OCR.
-                for img_obj in page.images:
-                    with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmp:
-                        tmp.write(img_obj.data)
-                        tmp_png = tmp.name
-                    # Run tesseract.
-                    result = subprocess.run(
-                        [tesseract_cmd, tmp_png, "-", "-l", "eng+tha"],
-                        capture_output=True, text=True, timeout=60,
-                    )
-                    if result.returncode == 0 and result.stdout.strip():
-                        text_chunks.append(result.stdout)
-                        break  # one image per page is enough
+                page = pdf[page_idx]
+                # scale=2 → ~144 DPI, good for Thai/English printed text.
+                pil_image = page.render(scale=2).to_pil()
+                with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmp:
+                    pil_image.save(tmp.name, format="PNG")
+                    tmp_png = tmp.name
+                # Run tesseract. -l eng+tha for English + Thai support.
+                result = subprocess.run(
+                    [tesseract_cmd, tmp_png, "-", "-l", "eng+tha"],
+                    capture_output=True, text=True, timeout=60,
+                )
+                if result.returncode == 0 and result.stdout.strip():
+                    text_chunks.append(result.stdout)
+                elif result.stderr:
+                    print(f"  [harvest-dl] tesseract stderr: {result.stderr.strip()[:200]}",
+                          flush=True)
             finally:
                 if tmp_png:
                     try:
