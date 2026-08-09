@@ -7,7 +7,7 @@
 <link rel="icon" href="data:,">
 <script src="theme.js?v=8"></script>
 <link rel="stylesheet" href="theme.css?v=8">
-<link rel="stylesheet" href="sector-intelligence.css?v=3">
+<link rel="stylesheet" href="sector-intelligence.css?v=4">
 <script src="i18n.js?v=9"></script>
 </head>
 <body>
@@ -89,6 +89,44 @@
       </article>
     </section>
 
+    <section class="si-visual-story" id="visualStorySection" aria-label="Visual sector briefing">
+      <article class="si-chart-card si-chart-mix">
+        <header class="si-chart-head">
+          <div><span>01 · STRUCTURE</span><h3 data-si="mixChart">Market-cap mix</h3></div>
+          <p data-si="mixChartSub">Segment share and market leader</p>
+        </header>
+        <div class="si-mix-layout">
+          <div class="si-donut-wrap" id="marketCapDonut"></div>
+          <div class="si-chart-legend" id="marketCapLegend"></div>
+        </div>
+      </article>
+
+      <article class="si-chart-card si-chart-earnings">
+        <header class="si-chart-head">
+          <div><span>02 · EARNINGS</span><h3 data-si="earningsChart">RFO and owner NPAT direction</h3></div>
+          <p data-si="earningsChartSub">FY2025 YoY • zero-centred bars</p>
+        </header>
+        <div class="si-earnings-axis" aria-hidden="true"><span>RFO YoY</span><span>NPAT YoY</span></div>
+        <div class="si-earnings-bars" id="earningsBars"></div>
+      </article>
+
+      <article class="si-chart-card si-chart-market-map">
+        <header class="si-chart-head">
+          <div><span>03 · MARKET</span><h3 data-si="marketMap">Price versus earnings map</h3></div>
+          <p data-si="marketMapSub">X = NPAT YoY • Y = YTD price • bubble = market cap</p>
+        </header>
+        <div class="si-market-map" id="marketMap"></div>
+      </article>
+
+      <article class="si-chart-card si-chart-pe">
+        <header class="si-chart-head">
+          <div><span>04 · VALUATION</span><h3 data-si="peChart">Aggregate positive-earner P/E</h3></div>
+          <p data-si="peChartSub">Coverage shown beside every multiple</p>
+        </header>
+        <div class="si-pe-strip" id="peStrip"></div>
+      </article>
+    </section>
+
     <section class="si-workspace" id="segmentSection">
       <div class="si-matrix-panel">
         <div class="si-section-head">
@@ -102,7 +140,7 @@
             <span class="pressure" data-si="pressure">Under pressure</span>
           </div>
         </div>
-        <div class="si-table-scroll" tabindex="0">
+        <div class="si-table-scroll si-matrix-table-wrap" tabindex="0">
           <table class="si-matrix">
             <thead>
               <tr>
@@ -129,7 +167,11 @@
               <p id="companyPanelSubtitle"></p>
             </div>
           </div>
-          <div class="si-table-scroll">
+          <div class="si-company-explorer">
+            <div class="si-company-card-list" id="companyCardList"></div>
+            <article class="si-company-story" id="companyStory" aria-live="polite"></article>
+          </div>
+          <div class="si-table-scroll si-company-table-wrap">
             <table class="si-company-table">
               <thead><tr>
                 <th data-si="ticker">Ticker</th>
@@ -234,7 +276,7 @@
   </div>
 </dialog>
 
-<script src="sector-intelligence.js?v=3"></script>
+<script src="sector-intelligence.js?v=4"></script>
 <script src="nav.js?v=9" defer></script>
 <script src="chat-dock.js?v=9" defer></script>
 </body>
