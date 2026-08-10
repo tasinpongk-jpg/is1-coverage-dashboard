@@ -81,8 +81,9 @@ used. Article bodies and images remain on the source site.
 
 | Path | Purpose |
 |---|---|
-| `index.html` | Landing page with links to the 4 dashboards |
+| `index.html` | Landing page with links to the coverage dashboards |
 | `price-movement.html` | EOD prices + sparklines, RM/sector tabs |
+| `sector-intelligence.html` | Interactive FOOD/PROP meeting brief: segment earnings, market, valuation, drivers, risks, evidence and company drill-down |
 | `disclosure-pulse.html` | Recent SET filings, severity-tagged |
 | `efinance-news.html` | Live eFinanceThai headlines with Thai summaries, search, filters, and quick navigation |
 | `sec-form59.html` | SEC Form 59 management/related-person buy/sell reports |
@@ -95,6 +96,7 @@ used. Article bodies and images remain on the source site.
 | `data/build-status.json` | Last build timestamp + per-route status |
 | `data/company-reports.json` | Generated per-company analyst reports for the ticker drawer Report tab |
 | `scripts/build_daily.py` | Calls SETSMART proxy in-process for all 232 tickers |
+| `scripts/build_sector_intelligence_audited.py` | Builds schema-v4 `data/sector-intelligence.json` from audited FY2024–25 panels, official SET EOD data, and claim-level FY2025 MD&A excerpts (no browser-side API key) |
 | `scripts/build_company_reports.py` | Local report agent; saves Markdown to Obsidian and dashboard JSON |
 | `scripts/build_lex_corpus.py` | Extracts the local regulation PDFs into the Lex corpus |
 | `scripts/setsmart_proxy.py` | Vendored FastAPI proxy used by `build_daily.py` |
@@ -102,6 +104,66 @@ used. Article bodies and images remain on the source site.
 | `.github/workflows/daily.yml` | Consolidated CI: surveillance job + build job (09:50 BKK Mon–Fri) |
 | `.github/workflows/disclosure-refresh.yml` | Intra-day disclosure-pulse refresh only (14:00 + 18:00 BKK Mon–Fri, no emails) |
 | `cloudflare-cron/` | Worker that triggers `daily.yml` via workflow_dispatch (replaces flaky GHA cron) |
+
+### Sector Intelligence data refresh
+
+The FOOD/PROP route is built from audited local project snapshots. It never calls
+SETSMART from the browser and never ships an API key. Pass both the pinned snapshot
+directory and its effective completed EOD explicitly:
+
+Refresh the official bilingual SET company profiles before rebuilding the sector
+payload. This patches only Thai company names and business descriptions; it does
+not touch price, valuation, or financial-history fields:
+
+```powershell
+py -3.11 scripts\refresh_sector_business_profiles_th.py
+```
+
+```powershell
+py -3 scripts\build_sector_intelligence_audited.py `
+  --theme-root "C:\Users\tasin\OneDrive - The Stock Exchange of Thailand\Claude-Vault\Work-SET\Listed Company\2-Analysis\AI-Generated\05-Themes\Sector-Review-6M26" `
+  --legacy-script scripts\build_sector_intelligence.py `
+  --snapshot-dir "C:\Users\tasin\OneDrive - The Stock Exchange of Thailand\Claude-Vault\Work-SET\Listed Company\2-Analysis\AI-Generated\05-Themes\Sector-Review-6M26\data\official-2026-08-08-eod-2026-08-07" `
+  --effective-eod 2026-08-07 `
+  --out data\sector-intelligence.json
+```
+
+The generated file carries its market-data cutoff, independent RFO/NPAT/margin
+coverage, definitions, source-file paths and SHA-256 hashes, claim-level source IDs,
+and a warning that price/valuation explanations remain inference unless a dated
+management or market source supports causation.
+
+Schema v4 records a per-company MD&A source state and evidence coverage. The current
+118-company perimeter has 117 usable FY2025 MD&A files and one missing annual MD&A
+(AKS). AP and ICHI were recovered from official issuer/SET image-only PDFs and
+OCR-extracted with source hashes. Each verified RFO/NPAT
+driver carries an exact source excerpt plus a SHA-256 hash for reproducible review.
+
+`scripts/build_sector_intelligence.py` is imported only for governed bilingual
+narrative scaffolding. Do not execute it directly for audited refreshes.
+
+Pre-deployment checks:
+
+```powershell
+node --test tests\theme.test.mjs tests\worker.test.mjs tests\sector-intelligence.test.mjs
+node tests\i18n-check.mjs
+py -3 "<theme-root>\verify_dashboard_against_audited_panels.py" `
+  --json data\sector-intelligence.json `
+  --company-csv "<snapshot-dir>\food_prop_company_fy2024_2025_audited_2026-08-07.csv" `
+  --segment-csv "<snapshot-dir>\food_prop_segment_fy2024_2025_audited_2026-08-07.csv" `
+  --sector-csv "<snapshot-dir>\food_prop_sector_fy2024_2025_audited_2026-08-07.csv" `
+  --qa-json "<snapshot-dir>\QA_SUMMARY_FY2024_2025_AUDITED_2026-08-08.json" `
+  --work-set-root "C:\Users\tasin\OneDrive - The Stock Exchange of Thailand\Claude-Vault\Work-SET" `
+  --market-reconciliation "<snapshot-dir>\food_prop_set_public_surface_reconciliation_2026-08-07.csv"
+py -3.11 "<theme-root>\qa_sector_dashboard_browser.py" `
+  --base-url http://127.0.0.1:8765 `
+  --report "<snapshot-dir>\QA_DASHBOARD_BROWSER_2026-08-08.json" `
+  --screenshot-dir "<snapshot-dir>\qa-screenshots"
+```
+
+Serve locally (for example `py -3 -m http.server 8765`) before browser QA; the
+browser suite checks desktop/mobile layout, both languages, navigation, evidence
+deep links, claim/source lineage and important null/coverage cases.
 
 > **SEC Form 59 scrape needs a real browser.** The SEC iDisc site
 > (`market.sec.or.th`) is behind an F5 bot-defense WAF — plain `httpx` gets a

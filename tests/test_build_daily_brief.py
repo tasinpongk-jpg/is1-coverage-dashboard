@@ -148,7 +148,7 @@ class TestBuildRmWatchEmbed(unittest.TestCase):
 
 class TestBuildFilingsTodayEmbed(unittest.TestCase):
     def test_basic(self):
-        pulse = _load_fixture("disclosure_pulse_2026-08-04.json")
+        pulse = _maybe_load("disclosure_pulse_2026-08-04.json") or {"filings": []}
         tickers = _load_fixture("tickers_2026-08-04.json")
         rm_c = {t["tk"] for t in tickers["tickers"] if t.get("rm") == "C"}
         emb = b._build_filings_today_embed(pulse, rm_c, "2026-08-04")

@@ -117,8 +117,11 @@ test("theme runtime is included in the deployed asset set", async () => {
 test("all shared assets use the current cache version", async () => {
   for (const file of htmlFiles) {
     const source = await readFile(file, "utf8");
-    for (const asset of ["theme.js", "theme.css", "i18n.js", "nav.js"]) {
+    for (const asset of ["theme.js", "theme.css"]) {
       assert.match(source, new RegExp(`${asset.replace(".", "\\.")}\\?v=8`), `${file} must load ${asset} v8`);
+    }
+    for (const asset of ["i18n.js", "nav.js"]) {
+      assert.match(source, new RegExp(`${asset.replace(".", "\\.")}\\?v=9`), `${file} must load ${asset} v9`);
     }
   }
 });

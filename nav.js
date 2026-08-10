@@ -29,6 +29,7 @@
       id:"market", label:["Market","ตลาด"], icon:"chart-no-axes-combined", color:"#5d96ff",
       pages:[
         ["price-movement.html","Price movement","ความเคลื่อนไหวราคา","trending-up"],
+        ["sector-intelligence.html","Sector intelligence","บทวิเคราะห์รายกลุ่ม","chart-no-axes-combined"],
         ["multiples-comparison.html","Multiples comparison","เปรียบเทียบ multiples","columns-3"],
         ["multiples-band.html","Multiples band","ช่วง multiples","chart-spline"],
         ["https://tradingview-daily-dashboard.tasinpong-k.workers.dev/","Daily market board","กระดานตลาดรายวัน","monitor-up"],
@@ -81,6 +82,7 @@
 
   var PAGE_META = {
     "price-movement":      ["Market","Daily price moves across coverage","ความเคลื่อนไหวราคารายวันใน coverage","#5d96ff","trending-up"],
+    "sector-intelligence": ["Market","Meeting-ready FOOD and PROP sector briefing","บทวิเคราะห์ FOOD และ PROP สำหรับนำเสนอในที่ประชุม","#f2aa1f","chart-no-axes-combined"],
     "company-summary":     ["Companies","Fundamentals and profile per company","ข้อมูลพื้นฐานและ profile รายบริษัท","#35bdd0","notebook-tabs"],
     "multiples-comparison":["Market","Valuation multiples side by side","เปรียบเทียบ valuation multiples","#5d96ff","columns-3"],
     "multiples-band":      ["Market","Valuation ranges across all sectors","ช่วง valuation ของทุก sector","#5d96ff","chart-spline"],
