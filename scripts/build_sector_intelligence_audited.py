@@ -225,9 +225,32 @@ def build(theme_root, legacy_script, snapshot_dir, effective_eod):
     vault_root = next(parent for parent in [theme_root, *theme_root.parents] if parent.name == "Work-SET")
     repo_root = Path(__file__).resolve().parents[1]
     company_reports, company_reports_path = load_reports(repo_root)
+    ticker_summary_path = repo_root / "data" / "ticker-summary.json"
+    ticker_summary = json.loads(ticker_summary_path.read_text(encoding="utf-8"))
+    ticker_profiles = {row["tk"]: row for row in ticker_summary.get("tickers", [])}
+    perimeter_tickers = {row["ticker"] for row in companies}
+    profile_gaps = sorted(
+        ticker
+        for ticker in perimeter_tickers
+        if ticker not in ticker_profiles
+        or not ticker_profiles[ticker].get("businessType")
+        or not ticker_profiles[ticker].get("businessTypeTh")
+        or not any("\u0e00" <= char <= "\u0e7f" for char in ticker_profiles[ticker].get("businessTypeTh", ""))
+    )
+    if profile_gaps:
+        raise ValueError("Bilingual SET company profiles missing: " + ", ".join(profile_gaps))
+
+    def business_description(ticker):
+        profile = ticker_profiles[ticker]
+        return bi(
+            profile.get("businessType") or company_reports.get(ticker, {}).get("business") or "",
+            profile["businessTypeTh"],
+        )
+
     quant_sources = {
         "FY_PANEL": {"kind": "fact_calculated", "label": "Audited FY2024-25 company panel", "detail": f"RFO / NPAT-to-owners / independent panel membership; QA {qa['counts']['pass']} pass / {qa['counts']['fail']} fail", "path": str(company_path.relative_to(vault_root)).replace("\\", "/"), "sha256": sha256(company_path), "role": "historical fact", "url": None},
         "SET_PUBLIC_EOD": {"kind": "fact_calculated", "label": f"SET public Company Highlights — EOD {effective_eod}", "detail": "Adjusted YTD; unadjusted price, market cap and valuation; factsheet-surface cross-check", "path": str((snapshot / f"food_prop_set_public_surface_reconciliation_{effective_eod}.csv").relative_to(vault_root)).replace("\\", "/"), "sha256": sha256(snapshot / f"food_prop_set_public_surface_reconciliation_{effective_eod}.csv"), "role": "current market fact", "url": None},
+        "SET_COMPANY_PROFILE": {"kind": "fact", "label": "SET company profiles — English and Thai", "detail": "Official company names and business descriptions refreshed and validated for the 118-company perimeter from the public SET profile API", "path": None, "sha256": None, "role": "company business profile", "url": "https://www.set.or.th/th/market/product/stock/overview"},
     }
 
     segment_payload = {}
@@ -361,6 +384,9 @@ def build(theme_root, legacy_script, snapshot_dir, effective_eod):
             "companies": [{"ticker": company["ticker"], "businessDescription": (company_reports.get(company["ticker"], {}).get("business") or None), "rfoFy2024Mb": number(company["fy2024_rfo_mb"]), "rfoFy2025Mb": number(company["fy2025_rfo_mb"]), "rfoChangeMb": number(company["rfo_change_mb"]), "npatOwnersFy2024Mb": number(company["fy2024_npat_owners_mb"]), "npatOwnersFy2025Mb": number(company["fy2025_npat_owners_mb"]), "npatChangeMb": number(company["npat_change_mb"]), "priceThb": number(company["price_thb"]), "marketCapMb": number(company["market_cap_mb"]), "marketCapSharePct": number(company["market_cap_share_pct"]), "pe": number(company["pe"]), "pbv": number(company["pbv"]), "dividendYieldPct": number(company["dividend_yield_pct"]), "ytdAdjustedReturnPct": number(company["ytd_adjusted_return_pct"]), "rfoYoYPct": number(company["rfo_yoy_pct"]), "npatYoYPct": number(company["npat_yoy_pct_positive_base_only"]), "npatState": company["npat_state"], "netMarginPct": number(company["fy2025_net_margin_pct"]), "rfoPanel": company["rfo_panel_included"] == "yes", "npatPanel": company["npat_panel_included"] == "yes", "marginPanel": company["margin_panel_included"] == "yes", "panelExclusionReason": company["panel_exclusion_reason"], "rfoOverrideSourceIds": company["rfo_override_source_ids"].split(";") if company["rfo_override_source_ids"] else [], "npatOverrideSourceIds": company["npat_override_source_ids"].split(";") if company["npat_override_source_ids"] else [], "marketCapAvailable": company["market_cap_available"] == "yes", "positivePeEligible": company["positive_pe_eligible"] == "yes", "performanceDrivers": company_driver_map[company["ticker"]]} for company in segment_companies],
             "sources": sources,
         }
+        for company_payload in segment_payload[code]["companies"]:
+            company_payload["businessDescription"] = business_description(company_payload["ticker"])
+
 
     sector_payload = {}
     for sector_row in sectors:

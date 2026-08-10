@@ -146,9 +146,14 @@ test("Every company analysis has a business profile and official SET logo", asyn
   const metaByTicker = new Map(tickerData.tickers.map((ticker) => [ticker.tk, ticker]));
   for (const company of companies) {
     const meta = metaByTicker.get(company.ticker);
-    const factsheetBusiness = meta?.businessType?.trim() || "";
-    const description = factsheetBusiness.length >= 50 ? factsheetBusiness : (company.businessDescription || factsheetBusiness);
-    assert.ok(description?.length > 20, company.ticker + " must have a business description");
+    assert.ok(meta?.businessType?.trim().length >= 12, company.ticker + " must have an English SET business description");
+    assert.ok(meta?.businessTypeTh?.trim().length >= 12, company.ticker + " must have a Thai SET business description");
+    assert.match(meta.businessTypeTh, /[\u0E00-\u0E7F]/, company.ticker + " Thai SET business description must contain Thai text");
+    assert.match(meta?.nameTh || "", /[\u0E00-\u0E7F]/, company.ticker + " must have an official Thai company name");
+    assert.equal(typeof company.businessDescription, "object", company.ticker + " embedded business description must be bilingual");
+    assert.ok(company.businessDescription.en?.length >= 12, company.ticker + " embedded English description is missing");
+    assert.ok(company.businessDescription.th?.length >= 12, company.ticker + " embedded Thai description is missing");
+    assert.match(company.businessDescription.th, /[\u0E00-\u0E7F]/, company.ticker + " embedded Thai description must contain Thai text");
     assert.match(meta?.logoUrl || "", /^https:\/\/media\.set\.or\.th\/common\/logo\/company\//);
   }
 });
@@ -169,9 +174,11 @@ test("Sector Intelligence is bilingual, deep-linkable, coverage-aware and secret
   assert.match(html, /id="earningsNpatTotal"/);
   assert.match(html, /id="marketMap"/);
   assert.match(html, /id="peStrip"/);
+  assert.match(html, /id="segmentKpis"/);
+  assert.match(html, /class="si-reason-flow" id="whyList"/);
   assert.match(html, /id="companyCardList"/);
   assert.match(html, /id="companyStory"/);
-  assert.equal((html.match(/class="si-flow/g) || []).length, 2);
+  assert.equal((html.match(/class="si-flow/g) || []).length, 1);
   assert.match(index, /href="sector-intelligence\.html"/);
   assert.match(nav, /sector-intelligence\.html/);
   assert.match(js, /URLSearchParams\(location\.search\)/);
@@ -186,17 +193,21 @@ test("Sector Intelligence is bilingual, deep-linkable, coverage-aware and secret
   assert.match(js, /renderMarketCapMix/);
   assert.match(js, /renderEarningsBars/);
   assert.match(js, /renderDriverChain/);
+  assert.match(js, /renderSegmentKpis/);
+  assert.match(js, /renderReasonFlow/);
   assert.match(js, /renderRoleCards/);
   assert.match(js, /ticker-summary\.json/);
-  assert.match(js, /FACTSHEET_BUSINESS_TH/);
+  assert.match(js, /meta\.businessTypeTh/);
+  assert.match(js, /meta\.nameTh/);
   assert.match(js, /companyBusinessProfile/);
   assert.match(js, /sourceStatusPresentation/);
   assert.match(js, /item\.evidence/);
   assert.match(js, /businessDescription/);
   assert.match(js, /quoteSha256/);
   assert.match(js, /meta\.businessType/);
-  assert.match(js, /classList\.contains\('si-earnings-row'\)/);
+  assert.doesNotMatch(js, /classList\.contains\('si-earnings-row'\)/);
   assert.match(js, /scrollToCompanyPanel/);
+  assert.match(js, /scrollToSegmentBrief/);
   assert.match(js, /renderMarketMap/);
   assert.match(js, /renderPeStrip/);
   assert.match(js, /directCompanyClaim/);
@@ -212,8 +223,11 @@ test("Sector Intelligence is bilingual, deep-linkable, coverage-aware and secret
   assert.match(css, /\.si-metric-coverage/);
   assert.match(css, /\.si-claim-item/);
   assert.match(css, /\.si-source-meta/);
-  assert.match(css, /\.si-flow-mobile/);
+  assert.match(css, /\.si-flow-top/);
   assert.match(css, /\.si-visual-story/);
+  assert.match(css, /\.si-segment-kpi/);
+  assert.match(css, /\.si-kpi-track/);
+  assert.match(css, /\.si-reason-step/);
   assert.match(css, /\.si-market-map/);
   assert.match(css, /\.si-earnings-totals/);
   assert.match(css, /\.si-driver-node/);
@@ -222,6 +236,9 @@ test("Sector Intelligence is bilingual, deep-linkable, coverage-aware and secret
   assert.match(css, /\.si-driver-evidence/);
   assert.match(css, /\.si-evidence-coverage/);
   assert.match(css, /scroll-margin-top:82px/);
+  assert.match(css, /"segment company"/);
+  assert.match(css, /\.si-company-panel \{[\s\S]*position:sticky/);
+  assert.match(css, /\.si-detail \.si-segment-kpis \{ grid-template-columns:repeat\(4/);
   assert.match(css, /\.si-company-why-grid/);
   assert.match(css, /\.si-page\[data-mode="meeting"\] \.si-matrix-table-wrap/);
   assert.doesNotMatch(js, /lossNarrowed"\)\s*\+\s*"\s+—/);

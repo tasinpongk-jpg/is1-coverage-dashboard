@@ -367,6 +367,51 @@
     return "FY2025: RFO " + fmtPct(m.rfoYoYPct,1) + " • NPAT " + npat + " • YTD price " + fmtPct(m.ytdAdjustedReturnPct,1) + " • P/E " + fmtPe(m.aggregatePositiveEarningsPe) + " • Coverage " + panelCoverage;
   }
 
+  function kpiVisual(value,cap,unipolar) {
+    if (!finite(value)) return '<span class="si-kpi-track neutral"><i></i></span>';
+    var number = Number(value), size = clamp(Math.abs(number) / cap * 100,4,100);
+    var tone = number > .049 ? 'positive' : number < -.049 ? 'negative' : 'neutral';
+    return '<span class="si-kpi-track ' + tone + (unipolar ? ' unipolar' : '') + '" style="--kpi-size:' + size.toFixed(1) + '%"><i></i></span>';
+  }
+
+  function renderSegmentKpis(segment) {
+    var metrics = segment.metrics;
+    var npatTone = /^(turned_to_loss|loss_widened)$/.test(metrics.npatState) ? 'negative' : signClass(metrics.npatYoYPct);
+    var cards = [
+      {
+        kind:'rfo', label:'RFO', period:'FY2025 YoY', value:fmtPct(metrics.rfoYoYPct,1),
+        detail:fmtAmount(metrics.rfoFy2025Mb) + ' FY2025', coverage:coverageText(segment.coverage.rfo,false),
+        tone:signClass(metrics.rfoYoYPct), raw:metrics.rfoYoYPct, cap:50, icon:{en:'Volume and revenue',th:'ปริมาณและรายได้'}
+      },
+      {
+        kind:'npat', label:'NPAT', period:copy('Owners FY2025 YoY','ส่วนผู้ถือหุ้น FY2025 YoY'), value:fmtNpat(metrics),
+        detail:fmtAmount(metrics.npatOwnersFy2025Mb) + ' FY2025', coverage:coverageText(segment.coverage.npat,false),
+        tone:npatTone, raw:metrics.npatYoYPct, cap:100, icon:{en:'Profit earnings',th:'กำไร'}
+      },
+      {
+        kind:'price', label:copy('Price','ราคา'), period:copy('YTD adjusted','YTD ปรับแล้ว'), value:fmtPct(metrics.ytdAdjustedReturnPct,1),
+        detail:copy('EOD ','ณ ') + displayDate(state.data.meta.effectiveMarketEod), coverage:coverageText(segment.coverage.ytd,true),
+        tone:signClass(metrics.ytdAdjustedReturnPct), raw:metrics.ytdAdjustedReturnPct, cap:50, icon:{en:'Price trend',th:'ทิศทางราคา'}
+      },
+      {
+        kind:'pe', label:'P/E', period:copy('Positive earners','เฉพาะบริษัทที่มีกำไร'), value:fmtPe(metrics.aggregatePositiveEarningsPe),
+        detail:copy('Aggregate multiple','ค่าเฉลี่ยรวม'), coverage:coverageText(segment.coverage.positivePe,true),
+        tone:'neutral', raw:metrics.aggregatePositiveEarningsPe, cap:30, unipolar:true, icon:{en:'Valuation',th:'มูลค่า'}
+      }
+    ];
+    var target = document.getElementById('segmentKpis');
+    target.setAttribute('aria-label',copy('Segment KPI summary','สรุปตัวเลขสำคัญของ Segment'));
+    target.innerHTML = cards.map(function (card) {
+      return '<article class="si-segment-kpi ' + esc(card.tone) + ' ' + esc(card.kind) + '">' +
+        '<span class="si-segment-kpi-icon">' + driverIconSvg(card.icon) + '</span>' +
+        '<span class="si-segment-kpi-heading"><b>' + esc(card.label) + '</b><small>' + esc(card.period) + '</small></span>' +
+        '<strong>' + esc(card.value) + '</strong><em>' + esc(card.detail) + '</em>' +
+        kpiVisual(card.raw,card.cap,card.unipolar) +
+        '<small class="si-segment-kpi-coverage">' + esc(copy('Coverage ','ครอบคลุม ') + card.coverage) + '</small>' +
+      '</article>';
+    }).join('');
+  }
+
   function driverKey(item) { return ((item && item.en) || "") + " " + ((item && item.th) || ""); }
   function driverIconSvg(item) {
     var key = driverKey(item).toLowerCase(), paths;
@@ -411,6 +456,22 @@
       return '<article class="si-driver-node ' + esc(p.tone) + '" title="' + esc(segment.why[index % segment.why.length] ? loc(segment.why[index % segment.why.length]) : p.label) + '"><span class="si-driver-icon">' + driverIconSvg(item) + '</span><div><small>' + esc(p.label) + '</small>' + (p.value ? '<b>' + esc(p.value) + '</b>' : '') + (p.detail ? '<em>' + esc(p.detail) + '</em>' : '') + '</div></article>';
     }).join("");
   }
+
+  function renderReasonFlow(segment) {
+    var whyClaims = (segment.claims || []).filter(function (claim) { return claim.section === 'why'; });
+    document.getElementById('whyList').innerHTML = segment.why.map(function (item,index) {
+      var claim = whyClaims[index] || {};
+      var chainItem = segment.chain[Math.min(index,segment.chain.length - 1)] || item;
+      var driver = driverPresentation(segment,chainItem,index);
+      var kind = claim.kind || 'analyst_inference';
+      var kindClass = kind.replace(/_/g,'-');
+      return '<article class="si-reason-step ' + esc(kindClass) + ' ' + esc(driver.tone) + '">' +
+        '<span class="si-reason-icon">' + driverIconSvg(chainItem) + '</span>' +
+        '<div><header><small>' + esc(t(kind)) + '</small>' + (driver.value ? '<b>' + esc(driver.value) + '</b>' : '') + '</header>' +
+        '<strong>' + esc(loc(chainItem)) + '</strong><p>' + esc(loc(item)) + '</p></div>' +
+      '</article>';
+    }).join('');
+  }
   function logoMarkup(ticker) {
     var meta = state.tickerMeta[ticker] || {}, url = safeUrl(meta.logoUrl);
     return '<span class="si-role-logo"><span>' + esc(String(ticker).slice(0,3)) + '</span>' + (url ? '<img src="' + esc(url) + '" alt="' + esc(ticker + ' logo') + '" loading="lazy" onerror="this.remove()">' : '') + '</span>';
@@ -424,11 +485,12 @@
   }
   function companyBusinessProfile(company) {
     var meta = state.tickerMeta[company.ticker] || {};
-    var factsheetBusiness = conciseBusiness(meta.businessType);
-    var official = factsheetBusiness.length >= 50 ? factsheetBusiness : (conciseBusiness(company.businessDescription) || factsheetBusiness);
-    var description = language() === 'th' && FACTSHEET_BUSINESS_TH[company.ticker] ? FACTSHEET_BUSINESS_TH[company.ticker] : official;
+    var embeddedBusiness = conciseBusiness(loc(company.businessDescription));
+    var factsheetBusiness = conciseBusiness(language() === 'th' ? meta.businessTypeTh : meta.businessType);
+    var description = factsheetBusiness.length >= 20 ? factsheetBusiness : embeddedBusiness;
     if (!description) description = copy('Business description is not yet available in IS1 Coverage.','ยังไม่มีคำอธิบายลักษณะธุรกิจใน IS1 Coverage');
-    var name = meta.name || company.ticker;
+    var name = language() === 'th' ? (meta.nameTh || meta.name || company.ticker) : (meta.name || company.ticker);
+    if (language() === 'th' && !/[\u0e00-\u0e7f]/.test(description)) description = embeddedBusiness || description;
     var factsheet = safeUrl('https://www.set.or.th/' + (language() === 'th' ? 'th' : 'en') + '/market/product/stock/quote/' + company.ticker.toLowerCase() + '/factsheet');
     var website = safeUrl(meta.website);
     return '<section class="si-company-profile" aria-label="' + esc(copy('Company business profile','ข้อมูลลักษณะธุรกิจบริษัท')) + '">' +
@@ -457,6 +519,7 @@
     var segment = selectedSegment();
     document.getElementById("detailKicker").textContent = segment.code + " · " + Number(segment.marketCapSharePct).toFixed(1) + "% M-cap";
     document.getElementById("detailTitle").textContent = loc(segment.headline);
+    renderSegmentKpis(segment);
     document.getElementById("observedFact").textContent = t("observed") + " — " + observedText(segment);
     var alternative = document.getElementById("alternativeFiscalView");
     if (segment.alternativeFiscalView) {
@@ -470,7 +533,7 @@
       alternative.hidden = true;
       alternative.textContent = "";
     }
-    document.getElementById("whyList").innerHTML = segment.why.map(function (item) { return "<li>" + esc(loc(item)) + "</li>"; }).join("");
+    renderReasonFlow(segment);
     renderDriverChain(segment);
     renderRoleCards(segment);
     var valuation = document.getElementById("valuationBlock");
@@ -599,12 +662,14 @@
     history.replaceState(null,"",location.pathname + "?" + params.toString() + location.hash);
   }
 
-  function scrollToCompanyPanel() {
-    var panel = document.getElementById('companyPanel');
+  function scrollPanelIntoView(id) {
+    var panel = document.getElementById(id);
     if (!panel) return;
     var reducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     panel.scrollIntoView({behavior:reducedMotion ? 'auto' : 'smooth',block:'start'});
   }
+  function scrollToCompanyPanel() { scrollPanelIntoView('companyPanel'); }
+  function scrollToSegmentBrief() { scrollPanelIntoView('segmentDetail'); }
   function selectSegment(code,moveFocus,destination) {
     var exists = selectedSector().segments.some(function (segment) { return segment.code === code; });
     if (!exists) return;
@@ -613,6 +678,7 @@
     state.flow = destination === 'company' ? 'company' : 'segment';
     render();
     if (destination === 'company') requestAnimationFrame(scrollToCompanyPanel);
+    if (destination !== 'company') requestAnimationFrame(scrollToSegmentBrief);
     if (moveFocus) {
       var row = document.querySelector('[data-segment="' + CSS.escape(code) + '"]');
       if (row) row.focus({preventScroll:true});
@@ -720,11 +786,11 @@
     });
     document.getElementById('visualStorySection').addEventListener('click',function (event) {
       var target = event.target.closest('[data-segment]');
-      if (target) selectSegment(target.dataset.segment,false,target.classList.contains('si-earnings-row') ? 'company' : 'segment');
+      if (target) selectSegment(target.dataset.segment,false,'segment');
     });
     document.getElementById('visualStorySection').addEventListener('keydown',function (event) {
       var target = event.target.closest('[data-segment]');
-      if (target && (event.key === 'Enter' || event.key === ' ')) { event.preventDefault(); selectSegment(target.dataset.segment,false,target.classList.contains('si-earnings-row') ? 'company' : 'segment'); }
+      if (target && (event.key === 'Enter' || event.key === ' ')) { event.preventDefault(); selectSegment(target.dataset.segment,false,'segment'); }
     });
     document.getElementById('companyCardList').addEventListener('click',function (event) {
       var target = event.target.closest('[data-company]');
@@ -760,12 +826,8 @@
         renderFlow();
         updateUrl();
         if (flow === "overview") document.getElementById("overviewSection").scrollIntoView({behavior:"smooth",block:"start"});
-        if (flow === "segment") document.getElementById("segmentSection").scrollIntoView({behavior:"smooth",block:"start"});
-        if (flow === "company") {
-          state.mode = "explore";
-          render();
-          document.getElementById("companyPanel").scrollIntoView({behavior:"smooth",block:"start"});
-        }
+        if (flow === "segment") scrollToSegmentBrief();
+        if (flow === "company") scrollToCompanyPanel();
         if (flow === "evidence") openEvidence();
       });
     });

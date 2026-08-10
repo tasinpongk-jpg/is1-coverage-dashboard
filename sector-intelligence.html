@@ -7,7 +7,7 @@
 <link rel="icon" href="data:,">
 <script src="theme.js?v=8"></script>
 <link rel="stylesheet" href="theme.css?v=8">
-<link rel="stylesheet" href="sector-intelligence.css?v=4">
+<link rel="stylesheet" href="sector-intelligence.css?v=5">
 <script src="i18n.js?v=9"></script>
 </head>
 <body>
@@ -47,7 +47,7 @@
   </div>
 
   <div class="si-content" id="contentState" hidden>
-    <nav class="si-flow si-flow-mobile" aria-label="Presentation flow">
+    <nav class="si-flow si-flow-top" aria-label="Presentation flow">
       <button type="button" data-flow="overview"><span>1</span><b data-si="flowOverview">Sector view</b></button>
       <button type="button" data-flow="segment"><span>2</span><b data-si="flowSegment">Segment</b></button>
       <button type="button" data-flow="company"><span>3</span><b data-si="flowCompany">Companies</b></button>
@@ -196,12 +196,13 @@
       <aside class="si-detail" id="segmentDetail" aria-live="polite">
         <div class="si-detail-kicker" id="detailKicker"></div>
         <h3 id="detailTitle"></h3>
-        <div class="si-observed" id="observedFact"></div>
+        <div class="si-segment-kpis" id="segmentKpis" aria-label="Segment KPI summary"></div>
+        <p class="si-observed si-visually-hidden" id="observedFact"></p>
         <div class="si-alternative-fiscal" id="alternativeFiscalView" hidden></div>
 
-        <section class="si-detail-section">
+        <section class="si-detail-section si-reason-section">
           <h4 data-si="whyChanged">Why it changed</h4>
-          <ul id="whyList"></ul>
+          <div class="si-reason-flow" id="whyList"></div>
         </section>
 
         <section class="si-detail-section">
@@ -239,12 +240,6 @@
       </aside>
     </section>
 
-    <nav class="si-flow si-flow-bottom" aria-label="Presentation flow">
-      <button type="button" data-flow="overview"><span>1</span><b data-si="flowOverview">Sector view</b></button>
-      <button type="button" data-flow="segment"><span>2</span><b data-si="flowSegment">Segment</b></button>
-      <button type="button" data-flow="company"><span>3</span><b data-si="flowCompany">Companies</b></button>
-      <button type="button" data-flow="evidence"><span>4</span><b data-si="flowEvidence">Evidence</b></button>
-    </nav>
 
     <footer class="si-method-strip">
       <div id="definitions"></div>
@@ -280,7 +275,7 @@
   </div>
 </dialog>
 
-<script src="sector-intelligence.js?v=4"></script>
+<script src="sector-intelligence.js?v=5"></script>
 <script src="nav.js?v=9" defer></script>
 <script src="chat-dock.js?v=9" defer></script>
 </body>

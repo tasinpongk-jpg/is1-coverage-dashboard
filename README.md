@@ -111,6 +111,14 @@ The FOOD/PROP route is built from audited local project snapshots. It never call
 SETSMART from the browser and never ships an API key. Pass both the pinned snapshot
 directory and its effective completed EOD explicitly:
 
+Refresh the official bilingual SET company profiles before rebuilding the sector
+payload. This patches only Thai company names and business descriptions; it does
+not touch price, valuation, or financial-history fields:
+
+```powershell
+py -3.11 scripts\refresh_sector_business_profiles_th.py
+```
+
 ```powershell
 py -3 scripts\build_sector_intelligence_audited.py `
   --theme-root "C:\Users\tasin\OneDrive - The Stock Exchange of Thailand\Claude-Vault\Work-SET\Listed Company\2-Analysis\AI-Generated\05-Themes\Sector-Review-6M26" `
