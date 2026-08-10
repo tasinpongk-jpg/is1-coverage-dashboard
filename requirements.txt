@@ -10,3 +10,9 @@ duckdb==1.5.2
 # Pinned to 6.x — 5.x fails with AttributeError on PIL.__version__ when
 # Pillow is installed alongside.
 pypdf==6.15.0
+
+# pypdfium2 — pure-Python PDF page renderer for OCR fallback (scanned PDFs).
+# Used by scripts/harvest_download.py when pypdf returns 0 text from a
+# scanned/image-only PDF. Without pypdfium2, those filings fall back to
+# 'needs_review:scanned_pdf' status until manually OCR'd.
+pypdfium2==5.5.0

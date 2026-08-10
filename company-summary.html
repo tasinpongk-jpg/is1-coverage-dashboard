@@ -298,6 +298,7 @@ main{flex:1;max-width:1540px;width:100%;margin:0 auto;padding:22px 24px 48px;pos
 .note-badge-mda{color:#60a5fa;background:#3b82f618}
 .note-badge-fs{color:#34d399;background:#22c55e18}
 .note-badge-review{color:#f87171;background:#ef444418}
+.note-badge-fyoffset{color:#fbbf24;background:#f59e0b18;border:1px solid #f59e0b44;font-weight:600}
 .note-link{color:var(--accent);text-decoration:none;font-size:10px}
 .note-link:hover{text-decoration:underline}
 .note-takeaway{margin-top:6px;padding:7px 9px;border-radius:6px;background:#171b26;border:1px solid #252b3b;font-size:11px;line-height:1.55;color:var(--text)}
@@ -844,10 +845,16 @@ function noteAnalysis(n){
 function noteItem(n, kind, label){
   const cls={call:'note-badge-call',opp:'note-badge-opp',mda:'note-badge-mda',fs:'note-badge-fs'}[kind]||'note-badge-call';
   const status=n.needsReview?`<span class="note-badge note-badge-review">${tt('company.review')}</span>`:(n.verified?`<span class="note-badge note-badge-fs">${tt('company.verified')}</span>`:'');
+  // Fiscal-year offset warning: REITs and known FY-offset companies
+  // (IMPACT Jul-Jun, BH/BDMS/CHG/RJH Apr-Mar) report by their internal
+  // fiscal calendar, not the calendar year. Their "Quarter N/YYYY"
+  // labels don't always match SET's standard Q1/Q2/Q3/Q4 cadence.
+  const fyCaveat = (window.FY_OFFSET_TICKERS || []).includes((n.ticker||'').toUpperCase());
+  const fyBadge = fyCaveat ? `<span class="note-badge note-badge-fyoffset" title="Fiscal year may not align with calendar (REIT or non-calendar fiscal year). Period label is per the company's internal fiscal calendar.">FY</span>` : '';
   const meta=noteMeta([n.period,n.eventDate,n.eventType,n.language]);
   const analyzed=!!(n.analysis&&Object.keys(n.analysis).length);
   return `<div class="note-row">
-    <div class="note-row-top"><span class="note-badge ${cls}">${label}</span>${status}${meta?`<span style="font-size:10px;color:var(--dim)">${meta}</span>`:''}</div>
+    <div class="note-row-top"><span class="note-badge ${cls}">${label}</span>${status}${fyBadge}${meta?`<span style="font-size:10px;color:var(--dim)">${meta}</span>`:''}</div>
     <div class="note-title">${esc(n.title||label)}</div>
     ${analyzed?noteAnalysis(n):(n.snippet?`<div class="note-snippet">${esc(trimText(n.snippet,360))}</div>`:'')}
     ${analyzed&&n.snippet?`<div class="note-snippet note-excerpt">${tt('company.sourceExcerpt')} ${esc(trimText(n.snippet,220))}</div>`:''}
@@ -1193,6 +1200,20 @@ function renderTab(tab){
 
 // ── state & render ───────────────────────────────────────────────────────────
 let ALL=[], SECTOR_STATS={}, DISC_MAP={}, OPP_MAP={}, VAULT_MAP={}, REPORT_MAP={}, sectFilter='ALL', rmFilter=/^[CKOGPT]$/.test(localStorage.getItem('is1_rm') || '') ? localStorage.getItem('is1_rm') : '', sortKey='tk', searchQ='';
+// Tickers whose fiscal year is not Jan-Dec. Seeded with the well-known
+// FY-offset companies; REITs (ticker ends in REIT/PFREIT) get appended
+// after the tickers.json fetch in fetchData() because the REIT universe
+// isn't known at module-load time.
+window.FY_OFFSET_TICKERS = [
+  // Specific known FY-offset tickers (suffix is too generic to catch these):
+  'IMPACT',   // FY = Jul-Jun
+  'BH',       // FY = Apr-Mar (Bumrungrad)
+  'BDMS',     // FY = Apr-Mar (Bangkok Dusit Medical)
+  'CHG',      // FY = Apr-Mar
+  'RJH',      // FY = Apr-Mar
+];
+// REITs are appended in fetchData() after tickers.json loads — see
+// the line marked "REIT auto-append" below.
 let STARRED = new Set(JSON.parse(localStorage.getItem('is1_starred')||'[]'));
 let DATA_META = { asOf: '', source: '', sourceKey: false, built: '' };
 
@@ -1384,6 +1405,20 @@ async function loadData(){
   const SEGS={TU:'Seafood',ASIAN:'Seafood',CFRESH:'Seafood',ITC:'Pet Food',AAI:'Pet Food',TFMAMA:'Noodles',SST:'Noodles',PRG:'Snacks/Bakery',SNP:'Snacks/Bakery',SSF:'Snacks/Bakery',PB:'Snacks/Bakery',M:'Restaurant',ZEN:'Restaurant',OKJ:'Restaurant',MADAME:'Restaurant',PQS:'Other Food',TWPC:'Other Food',CHOTI:'Other Food',TC:'Other Food',XBIO:'Other Food',CPN:'Retail',MBK:'Retail',PLAT:'Retail',WHA:'IE',AMATA:'IE',AMATAV:'IE',ROJNA:'IE',NNCL:'IE',PIN:'IE',AWC:'Mixed/Hosp',J:'Residential',BLAND:'Residential',JCK:'Residential',WIN:'Residential',WHART:'Industrial REIT',FTREIT:'Industrial REIT',WHAIR:'Industrial REIT',AMATAR:'Industrial REIT',TIF1:'Industrial PF',TTLPF:'Industrial PF',TNPF:'Industrial PF',CPNREIT:'Retail REIT',LHSC:'Retail REIT',ALLY:'Retail REIT',AIMCG:'Office REIT',IMPACT:'Office REIT',SSTRT:'Hospitality REIT',HPF:'Other PF',MJLF:'Other PF',AXTRART:'Other REIT'};
   const [brief,heat,tkr]=await Promise.all([fetch('data/morning-brief.json').then(r=>r.json()),fetch('data/sector-heatmap.json').then(r=>r.json()).catch(()=>({rows:[]})),fetch('data/tickers.json').then(r=>r.json())]);
   const rmMap={};(tkr.tickers||[]).forEach(t=>{rmMap[t.tk]=t.rm;});
+  // Expose the ticker universe for downstream consumers.
+  window.__FY_TICKERS__ = tkr;
+  // REIT auto-append: any ticker in the universe ending in REIT/PFREIT
+  // is likely on a non-calendar fiscal year. Done here (not at module
+  // load) because tickers.json hasn't been fetched yet at that point.
+  try {
+    for (const t of (tkr.tickers || [])) {
+      const tk = (t.tk || '').toUpperCase();
+      if ((tk.endsWith('REIT') || tk.endsWith('PFREIT')) &&
+          !window.FY_OFFSET_TICKERS.includes(tk)) {
+        window.FY_OFFSET_TICKERS.push(tk);
+      }
+    }
+  } catch (e) { /* safe to ignore — caveat list is best-effort */ }
   const hm={};(heat.rows||[]).forEach(r=>{hm[r.tk]=r.values||{};});
   const tickers=(brief.rows||[]).map(r=>({tk:r.tk,sector:r.sector,segment:SEGS[r.tk]||r.sector,rm:rmMap[r.tk]||'—',last:r.last,pct1d:r.pct1d,pct5d:r.pct5d,pctMtd:r.pctMtd,pctYtd:r.pctYtd,sparkline:r.path,volRatio:r.volRatio,atHi52:r.hi52,atLo52:r.lo52,hi52:r.path?Math.max(...r.path):null,lo52:r.path?Math.min(...r.path):null,pe:hm[r.tk]?.PE,pbv:hm[r.tk]?.PBV,dy:hm[r.tk]?.DY,evebitda:hm[r.tk]?.EVEBITDA,mktcap:null}));
   return{tickers,asOf:brief.asOf,source:'company.fallbackSource',sourceKey:true,built:brief._built_at};
