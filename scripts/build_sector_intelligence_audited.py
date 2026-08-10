@@ -16,6 +16,8 @@ import math
 from datetime import datetime, timezone
 from pathlib import Path
 
+from build_company_performance_drivers import build_driver, find_mda, load_reports, source_url
+
 
 def bi(en, th):
     return {"en": en, "th": th}
@@ -221,6 +223,8 @@ def build(theme_root, legacy_script, snapshot_dir, effective_eod):
     override_sources = provenance.get("override_sources") or {}
 
     vault_root = next(parent for parent in [theme_root, *theme_root.parents] if parent.name == "Work-SET")
+    repo_root = Path(__file__).resolve().parents[1]
+    company_reports, company_reports_path = load_reports(repo_root)
     quant_sources = {
         "FY_PANEL": {"kind": "fact_calculated", "label": "Audited FY2024-25 company panel", "detail": f"RFO / NPAT-to-owners / independent panel membership; QA {qa['counts']['pass']} pass / {qa['counts']['fail']} fail", "path": str(company_path.relative_to(vault_root)).replace("\\", "/"), "sha256": sha256(company_path), "role": "historical fact", "url": None},
         "SET_PUBLIC_EOD": {"kind": "fact_calculated", "label": f"SET public Company Highlights — EOD {effective_eod}", "detail": "Adjusted YTD; unadjusted price, market cap and valuation; factsheet-surface cross-check", "path": str((snapshot / f"food_prop_set_public_surface_reconciliation_{effective_eod}.csv").relative_to(vault_root)).replace("\\", "/"), "sha256": sha256(snapshot / f"food_prop_set_public_surface_reconciliation_{effective_eod}.csv"), "role": "current market fact", "url": None},
@@ -240,14 +244,47 @@ def build(theme_root, legacy_script, snapshot_dir, effective_eod):
             "positivePe": {"count": int(row["positive_pe_company_count"]), "total": int(row["universe_company_count"]), "marketCapPct": number(row["positive_pe_market_cap_coverage_pct"]), "included": row["positive_pe_tickers"].split(";") if row["positive_pe_tickers"] else [], "excluded": row["positive_pe_excluded_tickers"].split(";") if row["positive_pe_excluded_tickers"] else []},
         }
         metrics = {
-            "rfoYoYPct": number(row["rfo_yoy_pct"]), "npatYoYPct": number(row["npat_yoy_pct_positive_base_only"]),
-            "npatState": row["npat_state"], "netMarginPct": number(row["fy2025_net_margin_pct_comparable"]),
+            "rfoFy2024Mb": number(row["fy2024_rfo_mb"]), "rfoFy2025Mb": number(row["fy2025_rfo_mb"]),
+            "rfoYoYPct": number(row["rfo_yoy_pct"]),
+            "npatOwnersFy2024Mb": number(row["fy2024_npat_owners_mb"]), "npatOwnersFy2025Mb": number(row["fy2025_npat_owners_mb"]),
+            "npatChangeMb": number(row["npat_change_mb"]), "npatYoYPct": number(row["npat_yoy_pct_positive_base_only"]),
+            "npatState": row["npat_state"], "netMarginFy2024Pct": number(row["fy2024_net_margin_pct_comparable"]), "netMarginPct": number(row["fy2025_net_margin_pct_comparable"]),
+            "rfoDirectionDriver": row["rfo_direction_driver"], "rfoDirectionDriverChangeMb": number(row["rfo_direction_driver_change_mb"]),
+            "npatDirectionDriver": row["npat_direction_driver"], "npatDirectionDriverChangeMb": number(row["npat_direction_driver_change_mb"]),
             "ytdAdjustedReturnPct": number(row["ytd_adjusted_return_pct"]), "ytdPositiveBreadthPct": number(row["ytd_positive_breadth_pct"]),
             "aggregatePositiveEarningsPe": number(row["aggregate_positive_earnings_pe"]), "aggregatePbv": number(row["aggregate_positive_pbv"]),
             "dividendYieldPct": number(row["market_cap_weighted_dividend_yield_pct"]),
         }
         copy_row = content[code]
         sources = [dict(sourceId=source_id, **source) for source_id, source in quant_sources.items()]
+        sources.append({
+            "sourceId": "COMPANY_REPORTS",
+            "kind": "analyst_inference",
+            "label": "Company report synthesis corpus",
+            "detail": "Annual-only draft synthesis; reconciled to the ticker FY2025 MD&A where available",
+            "path": "data/company-reports.json",
+            "sha256": sha256(company_reports_path),
+            "role": "secondary synthesis; not management attribution",
+            "url": None,
+        })
+        role_tickers = {item["ticker"] for item in copy_row["roles"]}
+        company_driver_map = {}
+        for company in segment_companies:
+            ticker = company["ticker"]
+            mda_path = find_mda(vault_root, ticker)
+            company_driver_map[ticker] = build_driver(company, company_reports.get(ticker, {}), mda_path, role_tickers)
+            if mda_path:
+                relative_mda = str(mda_path.relative_to(vault_root)).replace("\\", "/")
+                sources.append({
+                    "sourceId": f"MDA_{ticker}_FY2025",
+                    "kind": "management_explanation",
+                    "label": f"{ticker} FY2025 MD&A",
+                    "detail": "Primary annual management explanation; narrative shown is a concise analyst synthesis unless explicitly quoted",
+                    "path": relative_mda,
+                    "sha256": sha256(mda_path),
+                    "role": "FY2025 operating-performance attribution",
+                    "url": source_url(mda_path),
+                })
         override_evidence_ids = []
         override_evidence_ids_main = []
         for company in segment_companies:
@@ -317,7 +354,7 @@ def build(theme_root, legacy_script, snapshot_dir, effective_eod):
             "triggers": copy_row["triggers"], "risks": copy_row["risks"], "status": STATUS[code],
             "mustProve": copy_row["must_prove"], "claims": claims,
             "alternativeFiscalView": ({"label": row["all_issuer_fiscal_label"], "companyCount": int(row["all_issuer_fiscal_company_count"]), "rfoYoYPct": number(row["all_issuer_rfo_yoy_pct"]), "npatYoYPct": number(row["all_issuer_npat_yoy_pct_positive_base_only"]), "netMarginPct": number(row["all_issuer_fy2025_net_margin_pct"])} if code == "F8" else None),
-            "companies": [{"ticker": company["ticker"], "priceThb": number(company["price_thb"]), "marketCapMb": number(company["market_cap_mb"]), "marketCapSharePct": number(company["market_cap_share_pct"]), "pe": number(company["pe"]), "pbv": number(company["pbv"]), "dividendYieldPct": number(company["dividend_yield_pct"]), "ytdAdjustedReturnPct": number(company["ytd_adjusted_return_pct"]), "rfoYoYPct": number(company["rfo_yoy_pct"]), "npatYoYPct": number(company["npat_yoy_pct_positive_base_only"]), "npatState": company["npat_state"], "netMarginPct": number(company["fy2025_net_margin_pct"]), "rfoPanel": company["rfo_panel_included"] == "yes", "npatPanel": company["npat_panel_included"] == "yes", "marginPanel": company["margin_panel_included"] == "yes", "panelExclusionReason": company["panel_exclusion_reason"], "rfoOverrideSourceIds": company["rfo_override_source_ids"].split(";") if company["rfo_override_source_ids"] else [], "npatOverrideSourceIds": company["npat_override_source_ids"].split(";") if company["npat_override_source_ids"] else [], "marketCapAvailable": company["market_cap_available"] == "yes", "positivePeEligible": company["positive_pe_eligible"] == "yes"} for company in segment_companies],
+            "companies": [{"ticker": company["ticker"], "rfoFy2024Mb": number(company["fy2024_rfo_mb"]), "rfoFy2025Mb": number(company["fy2025_rfo_mb"]), "rfoChangeMb": number(company["rfo_change_mb"]), "npatOwnersFy2024Mb": number(company["fy2024_npat_owners_mb"]), "npatOwnersFy2025Mb": number(company["fy2025_npat_owners_mb"]), "npatChangeMb": number(company["npat_change_mb"]), "priceThb": number(company["price_thb"]), "marketCapMb": number(company["market_cap_mb"]), "marketCapSharePct": number(company["market_cap_share_pct"]), "pe": number(company["pe"]), "pbv": number(company["pbv"]), "dividendYieldPct": number(company["dividend_yield_pct"]), "ytdAdjustedReturnPct": number(company["ytd_adjusted_return_pct"]), "rfoYoYPct": number(company["rfo_yoy_pct"]), "npatYoYPct": number(company["npat_yoy_pct_positive_base_only"]), "npatState": company["npat_state"], "netMarginPct": number(company["fy2025_net_margin_pct"]), "rfoPanel": company["rfo_panel_included"] == "yes", "npatPanel": company["npat_panel_included"] == "yes", "marginPanel": company["margin_panel_included"] == "yes", "panelExclusionReason": company["panel_exclusion_reason"], "rfoOverrideSourceIds": company["rfo_override_source_ids"].split(";") if company["rfo_override_source_ids"] else [], "npatOverrideSourceIds": company["npat_override_source_ids"].split(";") if company["npat_override_source_ids"] else [], "marketCapAvailable": company["market_cap_available"] == "yes", "positivePeEligible": company["positive_pe_eligible"] == "yes", "performanceDrivers": company_driver_map[company["ticker"]]} for company in segment_companies],
             "sources": sources,
         }
 
@@ -328,13 +365,13 @@ def build(theme_root, legacy_script, snapshot_dir, effective_eod):
         sector_payload[sector] = {
             "code": sector, "focusSegment": legacy.SECTOR_COPY[sector]["focus"], "title": legacy.SECTOR_COPY[sector]["title"],
             "thesis": legacy.SECTOR_COPY[sector]["thesis"], "takeaways": legacy.SECTOR_COPY[sector]["takeaways"],
-            "metrics": {"marketCapMb": number(sector_row["market_cap_mb"]), "companyCount": int(sector_row["universe_company_count"]), "rfoYoYPct": number(sector_row["rfo_yoy_pct"]), "npatYoYPct": number(sector_row["npat_yoy_pct_positive_base_only"]), "npatState": sector_row["npat_state"], "ytdAdjustedReturnPct": number(sector_row["ytd_adjusted_return_pct"]), "aggregatePositiveEarningsPe": number(sector_row["aggregate_positive_earnings_pe"])},
+            "metrics": {"marketCapMb": number(sector_row["market_cap_mb"]), "companyCount": int(sector_row["universe_company_count"]), "rfoFy2024Mb": number(sector_row["fy2024_rfo_mb"]), "rfoFy2025Mb": number(sector_row["fy2025_rfo_mb"]), "rfoYoYPct": number(sector_row["rfo_yoy_pct"]), "npatOwnersFy2024Mb": number(sector_row["fy2024_npat_owners_mb"]), "npatOwnersFy2025Mb": number(sector_row["fy2025_npat_owners_mb"]), "npatChangeMb": number(sector_row["npat_change_mb"]), "npatYoYPct": number(sector_row["npat_yoy_pct_positive_base_only"]), "npatState": sector_row["npat_state"], "netMarginFy2024Pct": number(sector_row["fy2024_net_margin_pct_comparable"]), "netMarginPct": number(sector_row["fy2025_net_margin_pct_comparable"]), "rfoDirectionDriver": sector_row["rfo_direction_driver"], "rfoDirectionDriverChangeMb": number(sector_row["rfo_direction_driver_change_mb"]), "npatDirectionDriver": sector_row["npat_direction_driver"], "npatDirectionDriverChangeMb": number(sector_row["npat_direction_driver_change_mb"]), "ytdAdjustedReturnPct": number(sector_row["ytd_adjusted_return_pct"]), "aggregatePositiveEarningsPe": number(sector_row["aggregate_positive_earnings_pe"])},
             "coverage": {"rfo": f"{sector_row['rfo_panel_company_count']}/{sector_row['universe_company_count']}", "npat": f"{sector_row['npat_panel_company_count']}/{sector_row['universe_company_count']}", "marketCap": f"{sector_row['known_market_cap_company_count']}/{sector_row['universe_company_count']}", "positivePe": f"{sector_row['positive_pe_company_count']}/{sector_row['universe_company_count']} · {number(sector_row['positive_pe_market_cap_coverage_pct']):.1f}% M-cap", "ytd": f"{sector_row['ytd_company_count']}/{sector_row['universe_company_count']} · {number(sector_row['ytd_market_cap_coverage_pct']):.1f}% M-cap"},
             "segments": selected,
         }
 
     return {
-        "meta": {"schemaVersion": 2, "builtAt": datetime.now(timezone.utc).isoformat(timespec="seconds"), "effectiveMarketEod": effective_eod, "earningsPeriod": "FY2025 vs FY2024", "scope": "FOOD and PROP; audited primary-segment perimeter", "qaVerdict": qa["verdict"], "qaChecks": qa["counts"], "definitions": {"rfo": "Revenue from Operations (01 Sale); December-FYE comparable panel unless separately labelled", "npat": "Net profit attributable to owners of the parent; independent panel from RFO", "margin": "NPAT / RFO only on the identical issuer intersection", "price": "Adjusted YTD price return; excludes cash dividends", "valuation": "Aggregate positive-earner P/E; identical numerator/denominator issuer set", "marketCap": "Point-in-time market capitalisation; official null remains null"}, "sourceLineage": ["Audited RFO workbook / filing overrides", "NPAT attributable to owners", "SET public Company Highlights", "SET Factsheet", "FY2025 MD&A", "Broker/credit research as forward context"], "sourceFiles": [str(path.relative_to(theme_root)).replace("\\", "/") for path in (company_path, segment_path, sector_path, qa_path, provenance_path)], "warning": "Facts, management explanations, analyst inferences and analyst tests are explicitly separated. Price/valuation explanations are inference, not proof of causality."},
+        "meta": {"schemaVersion": 3, "builtAt": datetime.now(timezone.utc).isoformat(timespec="seconds"), "effectiveMarketEod": effective_eod, "earningsPeriod": "FY2025 vs FY2024", "scope": "FOOD and PROP; audited primary-segment perimeter", "qaVerdict": qa["verdict"], "qaChecks": qa["counts"], "definitions": {"rfo": "Revenue from Operations (01 Sale); December-FYE comparable panel unless separately labelled", "rfoAmount": "FY2024/FY2025 audited RFO amount in THB million on the stated RFO panel", "npat": "Net profit attributable to owners of the parent; independent panel from RFO", "npatAmount": "FY2024/FY2025 owner NPAT amount in THB million on the stated NPAT panel", "margin": "NPAT / RFO only on the identical issuer intersection", "price": "Adjusted YTD price return; excludes cash dividends", "valuation": "Aggregate positive-earner P/E; identical numerator/denominator issuer set", "marketCap": "Point-in-time market capitalisation; official null remains null"}, "sourceLineage": ["Audited RFO workbook / filing overrides", "NPAT attributable to owners", "SET public Company Highlights", "SET Factsheet", "FY2025 MD&A", "Broker/credit research as forward context"], "sourceFiles": [str(path.relative_to(theme_root)).replace("\\", "/") for path in (company_path, segment_path, sector_path, qa_path, provenance_path)], "warning": "Facts, management explanations, analyst inferences and analyst tests are explicitly separated. Price/valuation explanations are inference, not proof of causality."},
         "sectors": sector_payload,
     }
 

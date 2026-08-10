@@ -9,9 +9,9 @@ const close = (actual, expected, tolerance = 0.001) => {
   assert.ok(Math.abs(actual - expected) <= tolerance, `${actual} not within ${tolerance} of ${expected}`);
 };
 
-test("Sector Intelligence v2 preserves the audited perimeter and corrected panels", async () => {
+test("Sector Intelligence v3 preserves the audited perimeter and adds MD&A-backed company drivers", async () => {
   const data = JSON.parse(await read("data/sector-intelligence.json"));
-  assert.equal(data.meta.schemaVersion, 2);
+  assert.equal(data.meta.schemaVersion, 3);
   assert.equal(data.meta.effectiveMarketEod, "2026-08-07");
   assert.equal(data.meta.qaVerdict, "PASS");
   assert.deepEqual(Object.keys(data.sectors).sort(), ["FOOD", "PROP"]);
@@ -42,13 +42,42 @@ test("Sector Intelligence v2 preserves the audited perimeter and corrected panel
         assert.equal(typeof company.marginPanel, "boolean");
         assert.ok(Array.isArray(company.rfoOverrideSourceIds));
         assert.ok(Array.isArray(company.npatOverrideSourceIds));
+        assert.ok(company.performanceDrivers);
+        assert.ok(["high","medium","standard"].includes(company.performanceDrivers.materiality));
+        assert.ok(company.performanceDrivers.rfoDrivers.length > 0);
+        assert.ok(company.performanceDrivers.npatDrivers.length > 0);
+        for (const driver of [
+          ...company.performanceDrivers.rfoDrivers,
+          ...company.performanceDrivers.npatDrivers,
+          ...company.performanceDrivers.specialItems,
+        ]) {
+          assert.match(driver.th, /[\u0E00-\u0E7F]/, company.ticker + " driver must contain Thai copy");
+          assert.notEqual(driver.th.trim(), driver.en.trim(), company.ticker + " Thai driver must not fall back to English");
+        }
+        for (const sourceId of company.performanceDrivers.sourceIds) assert.ok(sourceIds.has(sourceId), segment.code + " unresolved company source " + sourceId);
       }
     }
   }
 
-  const f1 = data.sectors.FOOD.segments.find((row) => row.code === "F1");
+  const allCompanies = Object.values(data.sectors).flatMap((sector) => sector.segments.flatMap((segment) => segment.companies));
+  assert.equal(allCompanies.length, 118);
+  assert.equal(allCompanies.filter((company) => company.performanceDrivers.primaryMdaAvailable).length, 116);
+  assert.deepEqual(allCompanies.filter((company) => !company.performanceDrivers.primaryMdaAvailable).map((company) => company.ticker).sort(), ["AKS","AP"]);
+  const food = data.sectors.FOOD;
+  close(food.metrics.rfoFy2024Mb, 1271330.27125);
+  close(food.metrics.rfoFy2025Mb, 1259913.52285);
+  close(food.metrics.npatOwnersFy2024Mb, 61543.52041);
+  close(food.metrics.npatOwnersFy2025Mb, 70708.8896);
+
+  const f1 = food.segments.find((row) => row.code === "F1");
+  close(f1.metrics.rfoFy2024Mb, 778569.02447);
+  close(f1.metrics.rfoFy2025Mb, 784535.4531);
   close(f1.metrics.rfoYoYPct, 0.7663326491);
+  close(f1.metrics.npatOwnersFy2024Mb, 26124.63559);
+  close(f1.metrics.npatOwnersFy2025Mb, 40273.60675);
   close(f1.metrics.npatYoYPct, 54.1594967373);
+  assert.equal(f1.metrics.rfoDirectionDriver, "BTG");
+  assert.equal(f1.metrics.npatDirectionDriver, "CPF");
   assert.equal(f1.coverage.rfo.count, 6);
   assert.equal(f1.coverage.positivePe.count, 6);
 
@@ -105,6 +134,8 @@ test("Sector Intelligence is bilingual, deep-linkable, coverage-aware and secret
   assert.match(html, /id="alternativeFiscalView"/);
   assert.match(html, /id="marketCapDonut"/);
   assert.match(html, /id="earningsBars"/);
+  assert.match(html, /id="earningsRfoTotal"/);
+  assert.match(html, /id="earningsNpatTotal"/);
   assert.match(html, /id="marketMap"/);
   assert.match(html, /id="peStrip"/);
   assert.match(html, /id="companyCardList"/);
@@ -115,7 +146,7 @@ test("Sector Intelligence is bilingual, deep-linkable, coverage-aware and secret
   assert.match(js, /URLSearchParams\(location\.search\)/);
   assert.match(js, /query\.get\("flow"\)/);
   assert.match(js, /params\.set\("flow",state\.flow\)/);
-  assert.match(js, /segment\.claims\.map/);
+  assert.match(js, /evidenceClaims\.map/);
   assert.match(js, /source\.sha256/);
   assert.match(js, /source\.path/);
   assert.match(js, /source\.role/);
@@ -123,6 +154,9 @@ test("Sector Intelligence is bilingual, deep-linkable, coverage-aware and secret
   assert.match(js, /renderVisuals/);
   assert.match(js, /renderMarketCapMix/);
   assert.match(js, /renderEarningsBars/);
+  assert.match(js, /renderDriverChain/);
+  assert.match(js, /renderRoleCards/);
+  assert.match(js, /ticker-summary\.json/);
   assert.match(js, /renderMarketMap/);
   assert.match(js, /renderPeStrip/);
   assert.match(js, /directCompanyClaim/);
@@ -141,6 +175,9 @@ test("Sector Intelligence is bilingual, deep-linkable, coverage-aware and secret
   assert.match(css, /\.si-flow-mobile/);
   assert.match(css, /\.si-visual-story/);
   assert.match(css, /\.si-market-map/);
+  assert.match(css, /\.si-earnings-totals/);
+  assert.match(css, /\.si-driver-node/);
+  assert.match(css, /\.si-role-logo/);
   assert.match(css, /\.si-company-why-grid/);
   assert.match(css, /\.si-page\[data-mode="meeting"\] \.si-matrix-table-wrap/);
   assert.doesNotMatch(js, /lossNarrowed"\)\s*\+\s*"\s+—/);

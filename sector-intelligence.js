@@ -52,11 +52,11 @@
       definitions:"RFO = Revenue from Operations • NPAT = กำไรส่วนผู้ถือหุ้น • ราคา = adjusted ไม่รวมเงินปันผล",
       fact:"ข้อเท็จจริง", fact_calculated:"ข้อเท็จจริงจากการคำนวณ", management:"ฝ่ายจัดการ", management_explanation:"คำอธิบายฝ่ายจัดการ", forward:"มุมมองล่วงหน้า", credit_analysis:"บทวิเคราะห์เครดิต", analyst_inference:"ข้ออนุมานนักวิเคราะห์", analyst_test:"ประเด็นที่ต้องพิสูจน์", claimsRegister:"ทะเบียนข้อสรุป", known:"มีข้อมูล",
       alternativeFiscal:"มุมมองตามปีบัญชีของผู้ออก", sourceId:"รหัสแหล่งข้อมูล", sourceRole:"บทบาท", sourcePath:"พาธ", sourceHash:"SHA-256",
-      mixChart:"สัดส่วน Market Cap", mixChartSub:"ขนาด Segment และผู้นำตลาด", earningsChart:"ทิศทาง RFO และ NPAT ส่วนผู้ถือหุ้น", earningsChartSub:"FY2025 YoY • แถบเทียบจากแกนศูนย์", marketMap:"ราคาเทียบกับทิศทางกำไร", marketMapSub:"X = NPAT YoY • Y = ราคา YTD • ขนาดวง = Market Cap", peChart:"P/E รวมของบริษัทที่มีกำไร", peChartSub:"แสดง coverage ควบคู่ทุกค่า", companyWhyTitle:"อ่านผลประกอบการรายบริษัท", rfoWhy:"RFO — เพราะอะไร", npatWhy:"NPAT — เพราะอะไร", auditedReadThrough:"ข้อสรุปจากตัวเลขที่สอบทาน", managementContext:"บริบทเฉพาะบริษัท", noDirectCause:"ยังไม่ได้ผูกสาเหตุจาก MD&A รายบริษัทโดยตรง จึงห้ามนำ read-through นี้ไปกล่าวเป็นคำอธิบายของฝ่ายจัดการ", selectedCompany:"บริษัทที่เลือก", scaleNote:"กราฟจำกัดช่วงเพื่อให้อ่านง่าย; label และ tooltip แสดงค่าจริง"
+      mixChart:"สัดส่วน Market Cap", mixChartSub:"ขนาด Segment และผู้นำตลาด", earningsChart:"ทิศทาง RFO และ NPAT ส่วนผู้ถือหุ้น", earningsChartSub:"FY2025 YoY • แถบเทียบจากแกนศูนย์", marketMap:"ราคาเทียบกับทิศทางกำไร", marketMapSub:"X = NPAT YoY • Y = ราคา YTD • ขนาดวง = Market Cap", peChart:"P/E รวมของบริษัทที่มีกำไร", peChartSub:"แสดงความครอบคลุมของข้อมูลควบคู่ทุกค่า", companyWhyTitle:"อ่านผลประกอบการรายบริษัท", rfoWhy:"RFO — เพราะอะไร", npatWhy:"NPAT — เพราะอะไร", auditedReadThrough:"ข้อสรุปจากตัวเลขที่สอบทาน", managementContext:"บริบทเฉพาะบริษัท", noDirectCause:"ยังไม่ได้ผูกสาเหตุจาก MD&A รายบริษัทโดยตรง จึงห้ามนำข้อสรุปเชิงวิเคราะห์นี้ไปกล่าวเป็นคำอธิบายของฝ่ายจัดการ", selectedCompany:"บริษัทที่เลือก", scaleNote:"กราฟจำกัดช่วงเพื่อให้อ่านง่าย; ป้ายค่าและคำอธิบายเมื่อชี้แสดงค่าจริง"
     }
   };
 
-  var state = { data:null, sector:"FOOD", segment:null, company:null, mode:"meeting", flow:"overview" };
+  var state = { data:null, tickerMeta:{}, sector:"FOOD", segment:null, company:null, mode:"meeting", flow:"overview" };
   var SEGMENT_COLORS = ["#ef8b16","#0f7f78","#285f89","#d8a329","#6b6f9b","#4f9b91","#a2674a","#75818d","#b7799b"];
   var app = document.getElementById("sectorIntelligenceApp");
   var query = new URLSearchParams(location.search);
@@ -97,6 +97,17 @@
     if (!finite(value)) return "—";
     var n = Number(value);
     return n >= 1000 ? "THB " + (n / 1000).toFixed(n >= 100000 ? 0 : 1) + "bn" : "THB " + n.toFixed(0) + "m";
+  }
+  function fmtAmount(value) {
+    if (!finite(value)) return "—";
+    var n = Number(value), sign = n < 0 ? "−" : "", absolute = Math.abs(n);
+    if (absolute >= 1000000) return sign + "THB " + (absolute / 1000000).toFixed(2) + "tn";
+    if (absolute >= 1000) return sign + "THB " + (absolute / 1000).toFixed(absolute >= 100000 ? 0 : 1) + "bn";
+    return sign + "THB " + absolute.toFixed(0) + "m";
+  }
+  function fmtAmountDelta(value) {
+    if (!finite(value)) return "—";
+    return (Number(value) > 0 ? "+" : "") + fmtAmount(value).replace("THB ","");
   }
   function fill(template,vars) {
     return String(template).replace(/\{(\w+)\}/g,function (_,key) { return vars[key] == null ? "" : vars[key]; });
@@ -160,21 +171,31 @@
       return '<button type="button" class="si-legend-row ' + (selected ? 'selected' : '') + '" data-segment="' + esc(segment.code) + '"><i style="--segment-color:' + chartColor(index) + '"></i><span><b>' + esc(segment.code + ' ' + loc(segment.name)) + '</b><small>' + esc(t('leader') + ' ' + (segment.leader.ticker || '—')) + '</small></span><strong>' + Number(segment.marketCapSharePct).toFixed(1) + '%</strong></button>';
     }).join('');
   }
-  function divergingBar(value,scale,label,stateName) {
-    if (!finite(value)) return '<div class="si-div-cell neutral"><span class="si-div-track"></span><b>—</b></div>';
+  function divergingBar(value,scale,label,stateName,amount) {
+    var amountText = fmtAmount(amount);
+    if (!finite(value)) return '<div class="si-div-cell neutral"><span class="si-div-track"></span><span class="si-div-label"><b>—</b><small>' + esc(amountText) + '</small></span></div>';
     var number = Number(value), clipped = Math.abs(number) > scale;
     var width = clamp(Math.abs(number) / scale * 48,1.2,48);
     var left = number >= 0 ? 50 : 50 - width;
     var cls = number >= 0 ? 'positive' : 'negative';
     if (/^(turned_to_loss|loss_widened)$/.test(stateName || '')) cls = 'negative';
-    return '<div class="si-div-cell ' + cls + (clipped ? ' clipped' : '') + '" title="' + esc(label) + '"><span class="si-div-track"><i style="left:' + left.toFixed(2) + '%;width:' + width.toFixed(2) + '%"></i></span><b>' + esc(label) + '</b></div>';
+    return '<div class="si-div-cell ' + cls + (clipped ? ' clipped' : '') + '" title="' + esc(label + ' · FY2025 ' + amountText) + '"><span class="si-div-track"><i style="left:' + left.toFixed(2) + '%;width:' + width.toFixed(2) + '%"></i></span><span class="si-div-label"><b>' + esc(label) + '</b><small>' + esc(amountText) + '</small></span></div>';
   }
   function renderEarningsBars(sector) {
+    var metrics = sector.metrics;
+    document.querySelector('.si-earnings-totals .rfo span').textContent = copy('RFO FY2025','RFO FY2025');
+    document.querySelector('.si-earnings-totals .npat span').textContent = copy('Owner NPAT FY2025','NPAT ส่วนผู้ถือหุ้น FY2025');
+    document.getElementById('earningsRfoTotal').textContent = fmtAmount(metrics.rfoFy2025Mb);
+    document.getElementById('earningsRfoTotal').className = signClass(metrics.rfoYoYPct);
+    document.getElementById('earningsRfoCoverage').textContent = copy('FY2024 ' + fmtAmount(metrics.rfoFy2024Mb) + ' · panel ' + sector.coverage.rfo,'FY2024 ' + fmtAmount(metrics.rfoFy2024Mb) + ' · ชุดข้อมูล ' + sector.coverage.rfo);
+    document.getElementById('earningsNpatTotal').textContent = fmtAmount(metrics.npatOwnersFy2025Mb);
+    document.getElementById('earningsNpatTotal').className = signClass(metrics.npatYoYPct);
+    document.getElementById('earningsNpatCoverage').textContent = copy('FY2024 ' + fmtAmount(metrics.npatOwnersFy2024Mb) + ' · panel ' + sector.coverage.npat,'FY2024 ' + fmtAmount(metrics.npatOwnersFy2024Mb) + ' · ชุดข้อมูล ' + sector.coverage.npat);
     var axis = document.querySelectorAll('.si-earnings-axis span');
     if (axis.length === 2) { axis[0].textContent = 'RFO YoY · ±50%'; axis[1].textContent = 'NPAT YoY · ±100%'; }
     document.getElementById('earningsBars').innerHTML = sector.segments.map(function (segment) {
       var selected = segment.code === state.segment;
-      return '<button type="button" class="si-earnings-row ' + (selected ? 'selected' : '') + '" data-segment="' + esc(segment.code) + '"><span class="si-earnings-name"><b>' + esc(segment.code) + '</b><small>' + esc(loc(segment.name)) + '</small></span>' + divergingBar(segment.metrics.rfoYoYPct,50,metricActual(segment.metrics.rfoYoYPct)) + divergingBar(segment.metrics.npatYoYPct,100,fmtNpat(segment.metrics),segment.metrics.npatState) + '</button>';
+      return '<button type="button" class="si-earnings-row ' + (selected ? 'selected' : '') + '" data-segment="' + esc(segment.code) + '"><span class="si-earnings-name"><b>' + esc(segment.code) + '</b><small>' + esc(loc(segment.name)) + '</small></span>' + divergingBar(segment.metrics.rfoYoYPct,50,metricActual(segment.metrics.rfoYoYPct),null,segment.metrics.rfoFy2025Mb) + divergingBar(segment.metrics.npatYoYPct,100,fmtNpat(segment.metrics),segment.metrics.npatState,segment.metrics.npatOwnersFy2025Mb) + '</button>';
     }).join('') + '<p class="si-scale-note">' + esc(t('scaleNote')) + '</p>';
   }
   function renderMarketMap(sector) {
@@ -222,30 +243,30 @@
     }) || null;
   }
   function rfoNarrative(company) {
-    if (!company.rfoPanel) return copy('Not in the comparable RFO panel' + (company.panelExclusionReason ? ': ' + company.panelExclusionReason : '.') + ' No operating-revenue direction is asserted.','ไม่อยู่ใน comparable RFO panel' + (company.panelExclusionReason ? ': ' + company.panelExclusionReason : '') + ' จึงไม่สรุปทิศทางรายได้จากการดำเนินงาน');
+    if (!company.rfoPanel) return copy('Not in the comparable RFO panel' + (company.panelExclusionReason ? ': ' + company.panelExclusionReason : '.') + ' No operating-revenue direction is asserted.','ไม่อยู่ในชุดข้อมูล RFO ที่เปรียบเทียบได้' + (company.panelExclusionReason ? ': ' + company.panelExclusionReason : '') + ' จึงไม่สรุปทิศทางรายได้จากการดำเนินงาน');
     var value = Number(company.rfoYoYPct);
-    if (value > 1) return copy('RFO increased ' + Math.abs(value).toFixed(1) + '%. The audited panel confirms operating-revenue expansion, but the split between volume, price/mix and FX still requires issuer MD&A.','RFO เพิ่ม ' + Math.abs(value).toFixed(1) + '% ตัวเลขที่สอบทานยืนยันการขยายตัวของรายได้ดำเนินงาน แต่ยังต้องใช้ MD&A แยก volume, price/mix และ FX');
-    if (value < -1) return copy('RFO decreased ' + Math.abs(value).toFixed(1) + '%. The audited panel confirms weaker operating scale; volume, price/mix and FX attribution must come from issuer MD&A.','RFO ลด ' + Math.abs(value).toFixed(1) + '% ตัวเลขที่สอบทานยืนยันฐานรายได้ดำเนินงานที่อ่อนลง แต่สาเหตุด้าน volume, price/mix และ FX ต้องยืนยันจาก MD&A');
-    return copy('RFO was broadly flat at ' + fmtPct(value,1) + '. Revenue scale was stable; the number alone does not identify offsets within volume, price/mix or FX.','RFO ทรงตัวที่ ' + fmtPct(value,1) + ' สะท้อนฐานรายได้ค่อนข้างคงที่ แต่ตัวเลขอย่างเดียวไม่ระบุแรงชดเชยระหว่าง volume, price/mix หรือ FX');
+    if (value > 1) return copy('RFO increased ' + Math.abs(value).toFixed(1) + '%. The audited panel confirms operating-revenue expansion, but the split between volume, price/mix and FX still requires issuer MD&A.','RFO เพิ่ม ' + Math.abs(value).toFixed(1) + '% ตัวเลขที่สอบทานยืนยันการขยายตัวของรายได้ดำเนินงาน แต่ยังต้องใช้ MD&A แยก ปริมาณขาย ราคาขาย/ส่วนผสมผลิตภัณฑ์ และผลอัตราแลกเปลี่ยน');
+    if (value < -1) return copy('RFO decreased ' + Math.abs(value).toFixed(1) + '%. The audited panel confirms weaker operating scale; volume, price/mix and FX attribution must come from issuer MD&A.','RFO ลด ' + Math.abs(value).toFixed(1) + '% ตัวเลขที่สอบทานยืนยันฐานรายได้ดำเนินงานที่อ่อนลง แต่สาเหตุด้าน ปริมาณขาย ราคาขาย/ส่วนผสมผลิตภัณฑ์ และผลอัตราแลกเปลี่ยน ต้องยืนยันจาก MD&A');
+    return copy('RFO was broadly flat at ' + fmtPct(value,1) + '. Revenue scale was stable; the number alone does not identify offsets within volume, price/mix or FX.','RFO ทรงตัวที่ ' + fmtPct(value,1) + ' สะท้อนฐานรายได้ค่อนข้างคงที่ แต่ตัวเลขอย่างเดียวไม่ระบุแรงชดเชยระหว่างปริมาณขาย ราคาขาย/ส่วนผสมผลิตภัณฑ์ หรือผลอัตราแลกเปลี่ยน');
   }
   function npatNarrative(company) {
-    if (!company.npatPanel) return copy('Not in the comparable owner-NPAT panel. Raw values are retained for audit but are not used for the company read-through.','ไม่อยู่ใน comparable NPAT ส่วนผู้ถือหุ้น panel ค่า raw เก็บไว้เพื่อ audit แต่ไม่นำมาใช้สรุปบริษัท');
-    if (company.npatState === 'turned_to_loss') return copy('Owner NPAT turned to a loss. The profit bridge broke below the operating-revenue line; the exact margin, impairment or financing driver requires issuer evidence.','NPAT ส่วนผู้ถือหุ้นพลิกเป็นขาดทุน แสดงว่า profit bridge อ่อนลงต่ำกว่าบรรทัดรายได้ดำเนินงาน แต่ต้องใช้หลักฐานบริษัทแยก margin, impairment หรือ financing');
+    if (!company.npatPanel) return copy('Not in the comparable owner-NPAT panel. Raw values are retained for audit but are not used for the company read-through.','ไม่อยู่ในชุดข้อมูล NPAT ส่วนผู้ถือหุ้นที่เปรียบเทียบได้ โดยคงตัวเลขดิบไว้เพื่อการสอบทานแต่ไม่นำมาใช้สรุปบริษัท');
+    if (company.npatState === 'turned_to_loss') return copy('Owner NPAT turned to a loss. The profit bridge broke below the operating-revenue line; the exact margin, impairment or financing driver requires issuer evidence.','NPAT ส่วนผู้ถือหุ้นพลิกเป็นขาดทุน สะท้อนว่าการเปลี่ยนรายได้เป็นกำไรอ่อนลง แต่ต้องใช้หลักฐานบริษัทแยกผลจากอัตรากำไร การด้อยค่า หรือต้นทุนทางการเงิน');
     if (company.npatState === 'loss_narrowed') return copy('The owner loss narrowed. This is an improving profit direction, but it is not equivalent to a profitable earnings base.','ขาดทุนส่วนผู้ถือหุ้นลดลง เป็นทิศทางกำไรที่ดีขึ้น แต่ยังไม่เท่ากับมีฐานกำไรเป็นบวก');
     if (company.npatState === 'loss_widened') return copy('The owner loss widened. Profit pressure intensified even if revenue moved differently; issuer evidence is required before naming the cost driver.','ขาดทุนส่วนผู้ถือหุ้นเพิ่มขึ้น สะท้อนแรงกดดันกำไรรุนแรงขึ้น แม้รายได้อาจเคลื่อนไหวต่างกัน ต้องใช้หลักฐานบริษัทก่อนระบุต้นทุนที่เป็นสาเหตุ');
-    if (company.npatState === 'turned_to_profit' && !finite(company.npatYoYPct)) return copy('Owner NPAT turned profitable. Treat this as a turnaround state rather than a meaningful growth percentage.','NPAT ส่วนผู้ถือหุ้นพลิกกลับเป็นกำไร ควรอ่านเป็นสถานะ turnaround ไม่ใช่อัตราเติบโตที่มีความหมาย');
+    if (company.npatState === 'turned_to_profit' && !finite(company.npatYoYPct)) return copy('Owner NPAT turned profitable. Treat this as a turnaround state rather than a meaningful growth percentage.','NPAT ส่วนผู้ถือหุ้นพลิกกลับเป็นกำไร ควรอ่านเป็นสถานะฟื้นตัว ไม่ใช่อัตราเติบโตที่มีความหมาย');
     if (!finite(company.npatYoYPct)) return copy('Owner-NPAT growth is not meaningful on the available base.','อัตราเติบโต NPAT ส่วนผู้ถือหุ้นไม่มีความหมายบนฐานที่มี');
     var npat = Number(company.npatYoYPct);
-    if (!company.rfoPanel || !finite(company.rfoYoYPct)) return copy('Owner NPAT changed ' + fmtPct(npat,1) + ', but there is no identical RFO panel for a conversion read-through.','NPAT ส่วนผู้ถือหุ้นเปลี่ยน ' + fmtPct(npat,1) + ' แต่ไม่มี RFO panel ฐานเดียวกันสำหรับอ่าน conversion');
+    if (!company.rfoPanel || !finite(company.rfoYoYPct)) return copy('Owner NPAT changed ' + fmtPct(npat,1) + ', but there is no identical RFO panel for a conversion read-through.','NPAT ส่วนผู้ถือหุ้นเปลี่ยน ' + fmtPct(npat,1) + ' แต่ไม่มีชุดข้อมูล RFO ฐานเดียวกันสำหรับวิเคราะห์การเปลี่ยนรายได้เป็นกำไร');
     var gap = npat - Number(company.rfoYoYPct);
-    if (gap > 5) return copy('Owner NPAT ' + fmtPct(npat,1) + ' outpaced RFO by ' + gap.toFixed(1) + ' ppts. This points to margin, cost or below-line uplift; it is an analyst read-through, not causal proof.','NPAT ส่วนผู้ถือหุ้น ' + fmtPct(npat,1) + ' เติบโตเร็วกว่า RFO ' + gap.toFixed(1) + ' จุด สะท้อนแรงหนุนจาก margin, ต้นทุน หรือรายการต่ำกว่ารายได้ แต่เป็น read-through ไม่ใช่หลักฐานเหตุ');
-    if (gap < -5) return copy('Owner NPAT ' + fmtPct(npat,1) + ' lagged RFO by ' + Math.abs(gap).toFixed(1) + ' ppts. Profit conversion weakened, pointing to margin or below-line drag that must be verified in MD&A.','NPAT ส่วนผู้ถือหุ้น ' + fmtPct(npat,1) + ' แย่กว่า RFO ' + Math.abs(gap).toFixed(1) + ' จุด สะท้อน profit conversion ที่อ่อนลงจาก margin หรือรายการต่ำกว่ารายได้ ซึ่งต้องยืนยันใน MD&A');
-    return copy('Owner NPAT ' + fmtPct(npat,1) + ' moved broadly with RFO. Profit conversion was directionally aligned, subject to issuer-level MD&A confirmation.','NPAT ส่วนผู้ถือหุ้น ' + fmtPct(npat,1) + ' เคลื่อนไหวใกล้เคียง RFO สะท้อน profit conversion ที่ไปในทิศทางเดียวกัน แต่ยังต้องยืนยันระดับบริษัทจาก MD&A');
+    if (gap > 5) return copy('Owner NPAT ' + fmtPct(npat,1) + ' outpaced RFO by ' + gap.toFixed(1) + ' ppts. This points to margin, cost or below-line uplift; it is an analyst read-through, not causal proof.','NPAT ส่วนผู้ถือหุ้น ' + fmtPct(npat,1) + ' เติบโตเร็วกว่า RFO ' + gap.toFixed(1) + ' จุด สะท้อนแรงหนุนจากอัตรากำไร ต้นทุน หรือรายการต่ำกว่ารายได้ แต่เป็นการอนุมานของนักวิเคราะห์ ไม่ใช่หลักฐานเชิงสาเหตุ');
+    if (gap < -5) return copy('Owner NPAT ' + fmtPct(npat,1) + ' lagged RFO by ' + Math.abs(gap).toFixed(1) + ' ppts. Profit conversion weakened, pointing to margin or below-line drag that must be verified in MD&A.','NPAT ส่วนผู้ถือหุ้น ' + fmtPct(npat,1) + ' แย่กว่า RFO ' + Math.abs(gap).toFixed(1) + ' จุด สะท้อนการเปลี่ยนรายได้เป็นกำไรที่อ่อนลงจากอัตรากำไรหรือรายการต่ำกว่ารายได้ ซึ่งต้องยืนยันใน MD&A');
+    return copy('Owner NPAT ' + fmtPct(npat,1) + ' moved broadly with RFO. Profit conversion was directionally aligned, subject to issuer-level MD&A confirmation.','NPAT ส่วนผู้ถือหุ้น ' + fmtPct(npat,1) + ' เคลื่อนไหวใกล้เคียง RFO สะท้อนการเปลี่ยนรายได้เป็นกำไรที่สอดคล้องกัน แต่ยังต้องยืนยันระดับบริษัทจาก MD&A');
   }
   function companyBridge(company) {
-    if (!company.rfoPanel || !company.npatPanel) return copy('Panel-limited: avoid a causal bridge','Panel จำกัด: หลีกเลี่ยง causal bridge');
+    if (!company.rfoPanel || !company.npatPanel) return copy('Panel-limited: avoid a causal bridge','ข้อมูลเทียบเคียงจำกัด: ไม่ควรสรุปเหตุเชื่อมโยงระหว่างรายได้กับกำไร');
     if (/^(turned_to_loss|loss_widened)$/.test(company.npatState)) return copy('Profit pressure exceeded the revenue signal','แรงกดดันกำไรมากกว่าสัญญาณรายได้');
-    if (company.npatState === 'loss_narrowed' || company.npatState === 'turned_to_profit') return copy('Turnaround state; growth rate is secondary','สถานะ turnaround; อัตราเติบโตเป็นเรื่องรอง');
+    if (company.npatState === 'loss_narrowed' || company.npatState === 'turned_to_profit') return copy('Turnaround state; growth rate is secondary','อยู่ในภาวะฟื้นตัว; อัตราเติบโตมีความสำคัญรองลงมา');
     var gap = Number(company.npatYoYPct) - Number(company.rfoYoYPct);
     if (gap > 5) return copy('Profit outpaced operating revenue','กำไรเติบโตเร็วกว่ารายได้ดำเนินงาน');
     if (gap < -5) return copy('Profit conversion lagged revenue','กำไรแปลงจากรายได้ได้อ่อนลง');
@@ -335,6 +356,71 @@
     return "FY2025: RFO " + fmtPct(m.rfoYoYPct,1) + " • NPAT " + npat + " • YTD price " + fmtPct(m.ytdAdjustedReturnPct,1) + " • P/E " + fmtPe(m.aggregatePositiveEarningsPe) + " • Coverage " + panelCoverage;
   }
 
+  function driverKey(item) { return ((item && item.en) || "") + " " + ((item && item.th) || ""); }
+  function driverIconSvg(item) {
+    var key = driverKey(item).toLowerCase(), paths;
+    if (/livestock|animal|ปศุสัตว์|สัตว์/.test(key)) paths = '<path d="M4 10c0-3 3-5 7-5h3l2-2 1 4c2 .6 3 2 3 4v4h-3v3h-3v-3H8v3H5v-4H3v-4h1Z"/><circle cx="17" cy="10" r=".8"/>';
+    else if (/commodity|crop|input|soy|feed cost|ต้นทุน|ถั่ว|วัตถุดิบ|พืช/.test(key)) paths = '<path d="M12 20V9"/><path d="M12 13C7 13 4 10 4 5c5 0 8 3 8 8Z"/><path d="M12 10c5 0 8-3 8-7-5 0-8 2-8 7Z"/>';
+    else if (/margin|spread|mix|unit cost|cost control|อัตรากำไร|สเปรด|ต้นทุน/.test(key)) paths = '<circle cx="7" cy="7" r="2"/><circle cx="17" cy="17" r="2"/><path d="m6 18 12-12"/>';
+    else if (/npat|profit|earnings|ebitda|กำไร/.test(key)) paths = '<path d="M4 20V10h4v10M10 20V5h4v15M16 20v-7h4v7"/><path d="M3 20h18"/>';
+    else if (/valuation|premium|re-rating|p\/e|มูลค่า|พรีเมียม/.test(key)) paths = '<path d="M12 3v18M6 6h12M4 6l-3 7h6L4 6Zm16 0-3 7h6l-3-7Z"/><path d="M8 21h8"/>';
+    else if (/export|fx|ส่งออก|อัตราแลกเปลี่ยน/.test(key)) paths = '<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a15 15 0 0 1 0 18M12 3a15 15 0 0 0 0 18"/>';
+    else if (/rent|occupancy|asset|store|land|transfer|โรงแรม|พื้นที่|สินทรัพย์|โอน/.test(key)) paths = '<path d="M4 21V7l8-4 8 4v14M8 10h2M14 10h2M8 14h2M14 14h2M10 21v-4h4v4"/>';
+    else if (/cash|debt|liquidity|solvency|เงินสด|หนี้|สภาพคล่อง/.test(key)) paths = '<rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18M16 14h2"/>';
+    else if (/volume|traffic|demand|orders|arrivals|ปริมาณ|ลูกค้า|คำสั่งซื้อ/.test(key)) paths = '<path d="M4 18h16M5 15l4-4 3 2 6-7"/><path d="m14 6h4v4"/>';
+    else paths = '<path d="M4 18h16M5 15l4-4 3 2 6-7"/><path d="m14 6h4v4"/>';
+    return '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round">' + paths + '</svg>';
+  }
+  function driverPresentation(segment,item,index) {
+    var key = driverKey(item).toLowerCase(), metrics = segment.metrics;
+    var presentation = { label:loc(item), value:"", detail:"", tone:"neutral" };
+    if (segment.code === "F1" && index === 0) presentation = {label:copy("Livestock price","ราคาสัตว์"),value:"↑",detail:copy("recovery driver","แรงหนุนการฟื้นตัว"),tone:"positive"};
+    if (segment.code === "F1" && index === 1) presentation = {label:copy("Feed cost / soybean","ต้นทุนอาหารสัตว์ / ถั่วเหลือง"),value:"↓",detail:copy("cost tailwind","ต้นทุนเอื้อต่อกำไร"),tone:"positive"};
+    if (/margin|อัตรากำไร/.test(key)) {
+      var delta = finite(metrics.netMarginPct) && finite(metrics.netMarginFy2024Pct) ? Number(metrics.netMarginPct) - Number(metrics.netMarginFy2024Pct) : null;
+      presentation.value = finite(metrics.netMarginPct) ? Number(metrics.netMarginPct).toFixed(1) + "%" : "—";
+      presentation.detail = finite(delta) ? (delta > 0 ? "+" : "") + delta.toFixed(1) + " ppt YoY" : "FY2025";
+      presentation.tone = signClass(delta);
+    }
+    if (/npat|profit|earnings|ebitda|กำไร/.test(key)) {
+      presentation.value = fmtNpat(metrics);
+      presentation.detail = fmtAmount(metrics.npatOwnersFy2025Mb) + " FY2025";
+      presentation.tone = /^(turned_to_loss|loss_widened)$/.test(metrics.npatState) ? "negative" : signClass(metrics.npatYoYPct);
+    }
+    if (/valuation|premium|re-rating|p\/e|มูลค่า|พรีเมียม/.test(key)) {
+      presentation.value = fmtPe(metrics.aggregatePositiveEarningsPe);
+      presentation.detail = "YTD " + fmtPct(metrics.ytdAdjustedReturnPct,1);
+      presentation.tone = signClass(metrics.ytdAdjustedReturnPct);
+    }
+    return presentation;
+  }
+  function renderDriverChain(segment) {
+    document.getElementById("causalChain").innerHTML = segment.chain.map(function (item,index) {
+      var p = driverPresentation(segment,item,index);
+      return '<article class="si-driver-node ' + esc(p.tone) + '" title="' + esc(segment.why[index % segment.why.length] ? loc(segment.why[index % segment.why.length]) : p.label) + '"><span class="si-driver-icon">' + driverIconSvg(item) + '</span><div><small>' + esc(p.label) + '</small>' + (p.value ? '<b>' + esc(p.value) + '</b>' : '') + (p.detail ? '<em>' + esc(p.detail) + '</em>' : '') + '</div></article>';
+    }).join("");
+  }
+  function logoMarkup(ticker) {
+    var meta = state.tickerMeta[ticker] || {}, url = safeUrl(meta.logoUrl);
+    return '<span class="si-role-logo"><span>' + esc(String(ticker).slice(0,3)) + '</span>' + (url ? '<img src="' + esc(url) + '" alt="' + esc(ticker + ' logo') + '" loading="lazy" onerror="this.remove()">' : '') + '</span>';
+  }
+  function roleMetric(segment,role) {
+    var company = segment.companies.find(function (item) { return item.ticker === role.ticker; });
+    if (!company) return {value:"—",caption:copy("No audited company row","ไม่มีข้อมูลบริษัทในชุด audit"),tone:"neutral"};
+    var key = (((role.label && role.label.en) || "") + " " + ((role.label && role.label.th) || "")).toLowerCase();
+    if (/leader|ผู้นำ/.test(key)) return {value:finite(company.marketCapSharePct) ? Number(company.marketCapSharePct).toFixed(0) + "%" : "—",caption:copy("segment M-cap share","สัดส่วน Market Cap ในกลุ่ม"),tone:"neutral"};
+    if (/rfo|revenue|รายได้/.test(key)) return {value:company.rfoPanel ? fmtPct(company.rfoYoYPct,1) : "—",caption:"RFO YoY · Δ " + fmtAmountDelta(company.rfoChangeMb),tone:company.rfoPanel ? signClass(company.rfoYoYPct) : "neutral"};
+    if (/profit|earnings|npat|loss|กำไร|ขาดทุน/.test(key)) return {value:company.npatPanel ? fmtNpat(company) : "—",caption:"NPAT YoY · Δ " + fmtAmountDelta(company.npatChangeMb),tone:company.npatPanel ? (/^(turned_to_loss|loss_widened)$/.test(company.npatState) ? "negative" : signClass(company.npatYoYPct)) : "neutral"};
+    if (/price|rising|ดาวรุ่ง|ราคา/.test(key)) return {value:fmtPct(company.ytdAdjustedReturnPct,1),caption:copy("YTD adjusted price","ราคา YTD ปรับแล้ว"),tone:signClass(company.ytdAdjustedReturnPct)};
+    return {value:fmtPe(company.pe),caption:"P/E · YTD " + fmtPct(company.ytdAdjustedReturnPct,1),tone:signClass(company.ytdAdjustedReturnPct)};
+  }
+  function renderRoleCards(segment) {
+    document.getElementById("roleList").innerHTML = segment.roles.map(function (role) {
+      var metric = roleMetric(segment,role);
+      return '<a class="si-role ' + esc(metric.tone) + '" href="company-summary.html?tk=' + encodeURIComponent(role.ticker) + '">' + logoMarkup(role.ticker) + '<span><small>' + esc(loc(role.label)) + '</small><strong>' + esc(role.ticker) + '</strong><b>' + esc(metric.value) + '</b><em>' + esc(metric.caption) + '</em></span></a>';
+    }).join("");
+  }
+
   function renderDetail() {
     var segment = selectedSegment();
     document.getElementById("detailKicker").textContent = segment.code + " · " + Number(segment.marketCapSharePct).toFixed(1) + "% M-cap";
@@ -353,10 +439,8 @@
       alternative.textContent = "";
     }
     document.getElementById("whyList").innerHTML = segment.why.map(function (item) { return "<li>" + esc(loc(item)) + "</li>"; }).join("");
-    document.getElementById("causalChain").innerHTML = segment.chain.map(function (item) { return "<span>" + esc(loc(item)) + "</span>"; }).join("");
-    document.getElementById("roleList").innerHTML = segment.roles.map(function (role) {
-      return '<a class="si-role" href="company-summary.html?tk=' + encodeURIComponent(role.ticker) + '"><small>' + esc(loc(role.label)) + '</small><strong>' + esc(role.ticker) + '</strong></a>';
-    }).join("");
+    renderDriverChain(segment);
+    renderRoleCards(segment);
     var valuation = document.getElementById("valuationBlock");
     valuation.className = "si-valuation " + segment.status;
     document.getElementById("valuationLabel").textContent = valuationLabel(segment.status);
@@ -396,18 +480,38 @@
     }).join("");
   }
 
-  function renderCompanyStory(segment,company,role) {
-    var claim = directCompanyClaim(segment,company.ticker);
-    var context = claim ? loc(claim.text) : t('noDirectCause');
-    var contextKind = claim ? t(claim.kind) : t('analyst_inference');
-    var sourceIds = claim ? claim.sourceIds : ['FY_PANEL'];
-    var npatClass = company.npatPanel ? (/^(turned_to_loss|loss_widened)$/.test(company.npatState) ? 'negative' : signClass(company.npatYoYPct)) : 'neutral';
-    document.getElementById('companyStory').innerHTML = '<header class="si-company-story-head"><div><span>' + esc(t('selectedCompany') + ' · ' + role) + '</span><h4>' + esc(company.ticker) + '</h4><p>' + esc(companyBridge(company)) + '</p></div><a href="company-summary.html?tk=' + encodeURIComponent(company.ticker) + '">' + esc(copy('Open company','เปิดหน้าบริษัท')) + ' ↗</a></header>' +
-      '<div class="si-company-kpis"><div><b>' + esc(fmtMcap(company.marketCapMb)) + '</b><small>M-cap</small></div><div><b>' + (finite(company.priceThb) ? Number(company.priceThb).toFixed(2) : '—') + '</b><small>' + esc(copy('Price THB','ราคา บาท')) + '</small></div><div><b class="' + signClass(company.ytdAdjustedReturnPct) + '">' + fmtPct(company.ytdAdjustedReturnPct,1) + '</b><small>YTD</small></div><div><b>' + esc(fmtPe(company.pe)) + '</b><small>P/E</small></div><div><b>' + (company.marginPanel && finite(company.netMarginPct) ? Number(company.netMarginPct).toFixed(1) + '%' : '—') + '</b><small>NPAT / RFO</small></div></div>' +
-      '<div class="si-company-why-grid"><section><div><span class="si-source-kind fact_calculated">' + esc(t('auditedReadThrough')) + '</span><b class="' + signClass(company.rfoPanel ? company.rfoYoYPct : null) + '">' + esc(t('rfoWhy')) + ' · ' + (company.rfoPanel ? fmtPct(company.rfoYoYPct,1) : '—') + '</b></div><p>' + esc(rfoNarrative(company)) + '</p></section><section><div><span class="si-source-kind analyst_inference">' + esc(t('auditedReadThrough')) + '</span><b class="' + npatClass + '">' + esc(t('npatWhy')) + ' · ' + (company.npatPanel ? fmtNpat(company) : '—') + '</b></div><p>' + esc(npatNarrative(company)) + '</p></section></div>' +
-      '<div class="si-company-context"><div><span class="si-source-kind ' + esc(claim ? claim.kind : 'analyst_inference') + '">' + esc(contextKind) + '</span><b>' + esc(t('managementContext')) + '</b></div><p>' + esc(context) + '</p><button type="button" data-open-evidence>' + esc(t('source')) + ' · ' + esc(sourceIds.join(' / ')) + ' ↗</button></div>';
+  function companyDriverList(items) {
+    if (!Array.isArray(items) || !items.length) return '<p class="si-driver-gap">' + esc(copy('No attributable driver is available.','ยังไม่มีปัจจัยขับเคลื่อนที่ระบุสาเหตุได้')) + '</p>';
+    return '<ul class="si-company-driver-list">' + items.map(function (item) { return '<li>' + esc(loc(item)) + '</li>'; }).join('') + '</ul>';
   }
-  function renderFlow() {
+  function driverBasis(driver) {
+    if (driver && driver.basis === 'mda_backed_synthesis') return copy('MD&A-backed synthesis','สังเคราะห์โดยมี MD&A รองรับ');
+    return copy('Secondary synthesis · primary MD&A gap','สังเคราะห์จากแหล่งข้อมูลรอง · ยังไม่มี MD&A ฉบับหลัก');
+  }
+  function materialityLabel(level) {
+    if (level === 'high') return copy('Material mover','เปลี่ยนแปลงมีนัยสำคัญ');
+    if (level === 'medium') return copy('Monitor','ติดตาม');
+    return copy('Standard review','ทบทวนปกติ');
+  }
+  function performanceLine(company,kind) {
+    var isRfo = kind === 'rfo';
+    var prior = isRfo ? company.rfoFy2024Mb : company.npatOwnersFy2024Mb;
+    var current = isRfo ? company.rfoFy2025Mb : company.npatOwnersFy2025Mb;
+    var delta = isRfo ? company.rfoChangeMb : company.npatChangeMb;
+    var pct = isRfo ? company.rfoYoYPct : company.npatYoYPct;
+    var panel = isRfo ? company.rfoPanel : company.npatPanel;
+    return '<div class="si-performance-line"><span>FY2024 <b>' + esc(fmtAmount(prior)) + '</b></span><i>→</i><span>FY2025 <b>' + esc(fmtAmount(current)) + '</b></span><strong class="' + signClass(delta) + '">' + esc(fmtAmountDelta(delta)) + (panel && finite(pct) ? ' · ' + esc(fmtPct(pct,1)) : '') + '</strong></div>';
+  }
+  function renderCompanyStory(segment,company,role) {
+    var driver = company.performanceDrivers || {basis:'secondary_synthesis_source_gap',materiality:'standard',rfoDrivers:[rfoNarrative(company)],npatDrivers:[npatNarrative(company)],specialItems:[],sourceIds:['FY_PANEL']};
+    var npatClass = company.npatPanel ? (/^(turned_to_loss|loss_widened)$/.test(company.npatState) ? 'negative' : signClass(company.npatYoYPct)) : 'neutral';
+    var basisClass = driver.primaryMdaAvailable ? 'management_explanation' : 'source_gap';
+    var special = Array.isArray(driver.specialItems) && driver.specialItems.length ? '<section class="si-company-special"><div><span class="si-source-kind analyst_inference">' + esc(copy('Special / non-recurring','รายการพิเศษ / ไม่ประจำ')) + '</span><b>' + esc(copy('Reported-to-core bridge','เชื่อมจากกำไรรายงานสู่กำไรหลัก')) + '</b></div>' + companyDriverList(driver.specialItems) + '</section>' : '';
+    document.getElementById('companyStory').innerHTML = '<header class="si-company-story-head"><div><span>' + esc(t('selectedCompany') + ' · ' + role) + '</span><div class="si-company-title-row"><h4>' + esc(company.ticker) + '</h4><em class="si-materiality ' + esc(driver.materiality) + '">' + esc(materialityLabel(driver.materiality)) + '</em></div><p>' + esc(companyBridge(company)) + '</p></div><a href="company-summary.html?tk=' + encodeURIComponent(company.ticker) + '">' + esc(copy('Open company','เปิดหน้าบริษัท')) + ' ↗</a></header>' +
+      '<div class="si-company-kpis"><div><b>' + esc(fmtMcap(company.marketCapMb)) + '</b><small>M-cap</small></div><div><b>' + (finite(company.priceThb) ? Number(company.priceThb).toFixed(2) : '—') + '</b><small>' + esc(copy('Price THB','ราคา บาท')) + '</small></div><div><b class="' + signClass(company.ytdAdjustedReturnPct) + '">' + fmtPct(company.ytdAdjustedReturnPct,1) + '</b><small>YTD</small></div><div><b>' + esc(fmtPe(company.pe)) + '</b><small>P/E</small></div><div><b>' + (company.marginPanel && finite(company.netMarginPct) ? Number(company.netMarginPct).toFixed(1) + '%' : '—') + '</b><small>NPAT / RFO</small></div></div>' +
+      '<div class="si-company-why-grid"><section class="si-driver-panel rfo"><div><span class="si-source-kind ' + basisClass + '">' + esc(driverBasis(driver)) + '</span><b class="' + signClass(company.rfoPanel ? company.rfoYoYPct : null) + '">' + esc(t('rfoWhy')) + '</b></div>' + performanceLine(company,'rfo') + companyDriverList(driver.rfoDrivers) + '</section><section class="si-driver-panel npat"><div><span class="si-source-kind ' + basisClass + '">' + esc(driverBasis(driver)) + '</span><b class="' + npatClass + '">' + esc(t('npatWhy')) + '</b></div>' + performanceLine(company,'npat') + companyDriverList(driver.npatDrivers) + '</section></div>' +
+      special + '<div class="si-company-context si-company-evidence-bar"><div><span class="si-source-kind ' + basisClass + '">' + esc(driver.primaryMdaAvailable ? copy('Primary filing checked','ตรวจเอกสาร MD&A หลักแล้ว') : copy('Primary-source gap','ขาดเอกสารต้นทางหลัก')) + '</span><b>' + esc(copy('Evidence trail','เส้นทางหลักฐาน')) + '</b></div><p>' + esc(copy('Audited RFO and owner-NPAT amounts are kept separate from the causal explanation. Open evidence to inspect the FY2025 MD&A path, URL and SHA-256.','ตัวเลข RFO และ NPAT ส่วนผู้ถือหุ้นที่สอบทานแล้วแยกจากคำอธิบายสาเหตุ เปิดหลักฐานเพื่อตรวจเส้นทางไฟล์ ลิงก์ และค่า SHA-256 ของ MD&A ปี 2568')) + '</p><button type="button" data-open-evidence>' + esc(t('source')) + ' · ' + esc((driver.sourceIds || ['FY_PANEL']).join(' / ')) + ' ↗</button></div>';
+  }  function renderFlow() {
     document.querySelectorAll("[data-flow]").forEach(function (button) { button.classList.toggle("active",button.dataset.flow === state.flow); });
   }
 
@@ -472,7 +576,17 @@
     document.getElementById("methodologyList").innerHTML = Object.keys(meta.definitions).map(function (key) {
       return "<dt>" + esc(key.toUpperCase()) + "</dt><dd>" + esc(meta.definitions[key]) + "</dd>";
     }).join("");
-    document.getElementById("claimList").innerHTML = segment.claims.map(function (claim) {
+    var evidenceClaims = segment.claims.slice();
+    var evidenceCompany = segment.companies.find(function (company) { return company.ticker === state.company; });
+    if (evidenceCompany && evidenceCompany.performanceDrivers) {
+      var driver = evidenceCompany.performanceDrivers;
+      var driverKind = driver.primaryMdaAvailable ? 'management_explanation' : 'analyst_inference';
+      (driver.rfoDrivers || []).forEach(function (text) { evidenceClaims.push({section:'company_rfo_' + evidenceCompany.ticker,kind:driverKind,text:text,sourceIds:driver.sourceIds || ['FY_PANEL']}); });
+      (driver.npatDrivers || []).forEach(function (text) { evidenceClaims.push({section:'company_npat_' + evidenceCompany.ticker,kind:driverKind,text:text,sourceIds:driver.sourceIds || ['FY_PANEL']}); });
+      (driver.specialItems || []).forEach(function (text) { evidenceClaims.push({section:'company_special_' + evidenceCompany.ticker,kind:'analyst_inference',text:text,sourceIds:driver.sourceIds || ['FY_PANEL']}); });
+      document.getElementById("dialogTitle").textContent = loc(segment.name) + ' · ' + evidenceCompany.ticker;
+    }
+    document.getElementById("claimList").innerHTML = evidenceClaims.map(function (claim) {
       var links = claim.sourceIds.map(function (sourceId) {
         var source = sourceMap[sourceId] || {};
         return '<span title="' + esc(source.label || sourceId) + '">' + esc(sourceId) + '</span>';
@@ -585,9 +699,12 @@
   async function init() {
     bindEvents();
     try {
+      var tickerPromise = fetch("./data/ticker-summary.json",{cache:"no-store"}).then(function (response) { return response.ok ? response.json() : {tickers:[]}; }).catch(function () { return {tickers:[]}; });
       var response = await fetch("./data/sector-intelligence.json",{cache:"no-store"});
       if (!response.ok) throw new Error("HTTP " + response.status);
-      state.data = await response.json();
+      var payloads = await Promise.all([response.json(),tickerPromise]);
+      state.data = payloads[0];
+      (payloads[1].tickers || []).forEach(function (ticker) { if (ticker && ticker.tk) state.tickerMeta[ticker.tk] = ticker; });
       var sector = selectedSector();
       if (!state.segment || !sector.segments.some(function (segment) { return segment.code === state.segment; })) state.segment = sector.focusSegment || sector.segments[0].code;
       var initialSegment = selectedSegment();
