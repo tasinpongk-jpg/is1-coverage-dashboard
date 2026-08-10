@@ -96,7 +96,7 @@ used. Article bodies and images remain on the source site.
 | `data/build-status.json` | Last build timestamp + per-route status |
 | `data/company-reports.json` | Generated per-company analyst reports for the ticker drawer Report tab |
 | `scripts/build_daily.py` | Calls SETSMART proxy in-process for all 232 tickers |
-| `scripts/build_sector_intelligence_audited.py` | Builds schema-v2 `data/sector-intelligence.json` from the audited FY2024–25 panels and official SET EOD snapshot (no browser-side API key) |
+| `scripts/build_sector_intelligence_audited.py` | Builds schema-v4 `data/sector-intelligence.json` from audited FY2024–25 panels, official SET EOD data, and claim-level FY2025 MD&A excerpts (no browser-side API key) |
 | `scripts/build_company_reports.py` | Local report agent; saves Markdown to Obsidian and dashboard JSON |
 | `scripts/build_lex_corpus.py` | Extracts the local regulation PDFs into the Lex corpus |
 | `scripts/setsmart_proxy.py` | Vendored FastAPI proxy used by `build_daily.py` |
@@ -124,6 +124,12 @@ The generated file carries its market-data cutoff, independent RFO/NPAT/margin
 coverage, definitions, source-file paths and SHA-256 hashes, claim-level source IDs,
 and a warning that price/valuation explanations remain inference unless a dated
 management or market source supports causation.
+
+Schema v4 records a per-company MD&A source state and evidence coverage. The current
+118-company perimeter has 117 usable FY2025 MD&A files and one missing annual MD&A
+(AKS). AP and ICHI were recovered from official issuer/SET image-only PDFs and
+OCR-extracted with source hashes. Each verified RFO/NPAT
+driver carries an exact source excerpt plus a SHA-256 hash for reproducible review.
 
 `scripts/build_sector_intelligence.py` is imported only for governed bilingual
 narrative scaffolding. Do not execute it directly for audited refreshes.

@@ -58,6 +58,17 @@
 
   var state = { data:null, tickerMeta:{}, sector:"FOOD", segment:null, company:null, mode:"meeting", flow:"overview" };
   var SEGMENT_COLORS = ["#ef8b16","#0f7f78","#285f89","#d8a329","#6b6f9b","#4f9b91","#a2674a","#75818d","#b7799b"];
+  var FACTSHEET_BUSINESS_TH = {
+    OSP:"ดำเนินธุรกิจหลัก 3 กลุ่ม ได้แก่ เครื่องดื่ม สินค้า Personal Care และ Healthcare/Confectionery พร้อมธุรกิจสนับสนุน เช่น รับจ้างผลิตสินค้า (OEM) และผลิตบรรจุภัณฑ์",
+    CBG:"โฮลดิ้งคอมพานีที่ลงทุนในธุรกิจเครื่องดื่มแบบครบวงจร ตั้งแต่การผลิต การตลาด การขาย ไปจนถึงการบริหารเครือข่ายกระจายสินค้า โดยมีเครื่องดื่มชูกำลังและเครื่องดื่มประเภทอื่นเป็นธุรกิจหลัก",
+    ICHI:"ผลิตและจำหน่ายชาเขียวพร้อมดื่ม เครื่องดื่มสมุนไพร และชาพร้อมดื่มน้ำตาลต่ำ ภายใต้แบรนด์อิชิตัน เย็นเย็น และไบเล่ พร้อมถือหุ้น 50% ในบริษัทร่วมที่ผลิตและจำหน่ายเครื่องดื่มอิชิตันในอินโดนีเซีย",
+    SAPPE:"พัฒนา ผลิต และจำหน่ายสินค้าเครื่องดื่มนวัตกรรมทั้งในและต่างประเทศ ครอบคลุม Functional Beverage น้ำผลไม้/เครื่องดื่มน้ำผลไม้ Functional Powder ขนมเพื่อสุขภาพ และผลิตภัณฑ์เสริมอาหาร",
+    COCOCO:"ผลิตและจำหน่ายผลิตภัณฑ์แปรรูปจากมะพร้าวและผลไม้ เช่น กะทิ น้ำมะพร้าว ขนม และอาหารพร้อมรับประทาน ภายใต้แบรนด์ Thaicoco และ Cocoburi รวมถึงอาหารสัตว์เลี้ยงชนิดเปียกและไอศกรีมผลไม้ โดยจำหน่ายทั้งแบรนด์ตนเองและ OEM ในประเทศและส่งออก",
+    HTC:"ผลิตและจำหน่ายเครื่องดื่มในฐานะผู้รับสิทธิ์บรรจุขวดแต่เพียงผู้เดียวของ The Coca-Cola Company ใน 14 จังหวัดภาคใต้ ครอบคลุม Coca-Cola, Fanta, Sprite, Minute Maid และน้ำดื่มน้ำทิพย์",
+    TIPCO:"ผลิตและจำหน่ายน้ำแร่ธรรมชาติพร้อมดื่มภายใต้แบรนด์ Aura ตามคำอธิบายลักษณะธุรกิจบน SET Factsheet",
+    MALEE:"ผลิตและจำหน่ายผลิตภัณฑ์อาหารและเครื่องดื่ม โดย SET Factsheet ระบุขอบเขตธุรกิจในภาพรวมดังกล่าว",
+    PLUS:"ผลิตและจำหน่ายเครื่องดื่มน้ำผลไม้ รวมถึงน้ำมะพร้าว กะทิ เครื่องดื่มน้ำผลไม้ผสมเม็ดแมงลักหรือเมล็ดเจีย และเครื่องดื่มประเภทอื่น"
+  };
   var app = document.getElementById("sectorIntelligenceApp");
   var query = new URLSearchParams(location.search);
   if (/^(FOOD|PROP)$/.test(query.get("sector") || "")) state.sector = query.get("sector");
@@ -404,6 +415,27 @@
     var meta = state.tickerMeta[ticker] || {}, url = safeUrl(meta.logoUrl);
     return '<span class="si-role-logo"><span>' + esc(String(ticker).slice(0,3)) + '</span>' + (url ? '<img src="' + esc(url) + '" alt="' + esc(ticker + ' logo') + '" loading="lazy" onerror="this.remove()">' : '') + '</span>';
   }
+  function conciseBusiness(value) {
+    var text = String(value || '').replace(/\s+/g,' ').replace(/\?s\b/g,"'s").trim();
+    if (text.length <= 420) return text;
+    var clipped = text.slice(0,417), stop = Math.max(clipped.lastIndexOf('. '),clipped.lastIndexOf('; '),clipped.lastIndexOf(', '));
+    if (stop > 250) clipped = clipped.slice(0,stop + 1);
+    return clipped.replace(/[\s,;]+$/,'') + '…';
+  }
+  function companyBusinessProfile(company) {
+    var meta = state.tickerMeta[company.ticker] || {};
+    var factsheetBusiness = conciseBusiness(meta.businessType);
+    var official = factsheetBusiness.length >= 50 ? factsheetBusiness : (conciseBusiness(company.businessDescription) || factsheetBusiness);
+    var description = language() === 'th' && FACTSHEET_BUSINESS_TH[company.ticker] ? FACTSHEET_BUSINESS_TH[company.ticker] : official;
+    if (!description) description = copy('Business description is not yet available in IS1 Coverage.','ยังไม่มีคำอธิบายลักษณะธุรกิจใน IS1 Coverage');
+    var name = meta.name || company.ticker;
+    var factsheet = safeUrl('https://www.set.or.th/' + (language() === 'th' ? 'th' : 'en') + '/market/product/stock/quote/' + company.ticker.toLowerCase() + '/factsheet');
+    var website = safeUrl(meta.website);
+    return '<section class="si-company-profile" aria-label="' + esc(copy('Company business profile','ข้อมูลลักษณะธุรกิจบริษัท')) + '">' +
+      '<div class="si-company-profile-logo">' + logoMarkup(company.ticker) + '</div>' +
+      '<div class="si-company-profile-copy"><span>' + esc(copy('Core business · SET Factsheet via IS1 Coverage','ธุรกิจหลัก · SET Factsheet ผ่าน IS1 Coverage')) + '</span><b>' + esc(name) + '</b><p>' + esc(description) + '</p></div>' +
+      '<div class="si-company-profile-links"><a href="' + esc(factsheet) + '" target="_blank" rel="noopener">SET Factsheet ↗</a>' + (website ? '<a href="' + esc(website) + '" target="_blank" rel="noopener">' + esc(copy('Company website','เว็บไซต์บริษัท')) + ' ↗</a>' : '') + '</div></section>';
+  }
   function roleMetric(segment,role) {
     var company = segment.companies.find(function (item) { return item.ticker === role.ticker; });
     if (!company) return {value:"—",caption:copy("No audited company row","ไม่มีข้อมูลบริษัทในชุด audit"),tone:"neutral"};
@@ -482,11 +514,38 @@
 
   function companyDriverList(items) {
     if (!Array.isArray(items) || !items.length) return '<p class="si-driver-gap">' + esc(copy('No attributable driver is available.','ยังไม่มีปัจจัยขับเคลื่อนที่ระบุสาเหตุได้')) + '</p>';
-    return '<ul class="si-company-driver-list">' + items.map(function (item) { return '<li>' + esc(loc(item)) + '</li>'; }).join('') + '</ul>';
+    return '<ul class="si-company-driver-list">' + items.map(function (item) {
+      var evidence = item && item.evidence;
+      var evidenceHtml = evidence ? '<details class="si-driver-evidence"><summary>' +
+        esc(copy('Primary MD&A excerpt','ข้อความ MD&A ต้นทาง') + ' · ' + String(evidence.language || '').toUpperCase()) +
+        '</summary><blockquote>' + esc(evidence.quote || '') + '</blockquote><small>' +
+        esc((evidence.passageId || '') + ' · SHA ' + String(evidence.quoteSha256 || '').slice(0,12)) + '</small></details>' : '';
+      return '<li><p>' + esc(loc(item)) + '</p>' + evidenceHtml + '</li>';
+    }).join('') + '</ul>';
   }
   function driverBasis(driver) {
+    if (driver && driver.basis === 'mda_direct_extraction') return copy('Direct MD&A extraction','ดึงคำอธิบายตรงจาก MD&A');
     if (driver && driver.basis === 'mda_backed_synthesis') return copy('MD&A-backed synthesis','สังเคราะห์โดยมี MD&A รองรับ');
+    if (driver && driver.basis === 'mixed_mda_and_secondary') return copy('MD&A + secondary cross-check','MD&A ร่วมกับแหล่งข้อมูลรอง');
     return copy('Secondary synthesis · primary MD&A gap','สังเคราะห์จากแหล่งข้อมูลรอง · ยังไม่มี MD&A ฉบับหลัก');
+  }
+  function sourceStatusPresentation(driver) {
+    var status = driver && driver.sourceStatus;
+    if (status === 'primary_verified') return {
+      className:'management_explanation',
+      label:copy('Primary MD&A verified','ตรวจ MD&A ฉบับหลักแล้ว'),
+      detail:copy('RFO and NPAT each have a FY2025 MD&A supporting excerpt. Curated wording remains analyst synthesis; the excerpt and hash make the evidence testable.','ทั้ง RFO และ NPAT มีข้อความสนับสนุนจาก MD&A ปี 2568 คำสรุปแบบ curated ยังคงเป็นบทสังเคราะห์ของนักวิเคราะห์ โดยมี excerpt และ hash ให้ย้อนทดสอบได้')
+    };
+    if (status === 'reextract_required') return {
+      className:'source_gap',
+      label:copy('MD&A re-extraction required','ต้องดึง MD&A ใหม่'),
+      detail:copy('A filing file exists, but its markdown contains no usable revenue/profit explanation. Do not treat the secondary explanation as management attribution.','พบไฟล์ MD&A แต่ markdown ไม่มีคำอธิบายรายได้/กำไรที่ใช้ได้ จึงห้ามกล่าวว่าสรุปจากแหล่งข้อมูลรองเป็นคำอธิบายของฝ่ายจัดการ')
+    };
+    return {
+      className:'source_gap',
+      label:copy('Primary FY2025 MD&A missing','ไม่มี MD&A FY2025 ฉบับหลัก'),
+      detail:copy('The figures remain audited, but the causal explanation is a labelled secondary synthesis until the annual MD&A is obtained.','ตัวเลขยังเป็นตัวเลขสอบทาน แต่คำอธิบายสาเหตุเป็นข้อมูลรองที่ติดป้ายชัดเจนจนกว่าจะได้ MD&A ประจำปี')
+    };
   }
   function materialityLabel(level) {
     if (level === 'high') return copy('Material mover','เปลี่ยนแปลงมีนัยสำคัญ');
@@ -503,15 +562,19 @@
     return '<div class="si-performance-line"><span>FY2024 <b>' + esc(fmtAmount(prior)) + '</b></span><i>→</i><span>FY2025 <b>' + esc(fmtAmount(current)) + '</b></span><strong class="' + signClass(delta) + '">' + esc(fmtAmountDelta(delta)) + (panel && finite(pct) ? ' · ' + esc(fmtPct(pct,1)) : '') + '</strong></div>';
   }
   function renderCompanyStory(segment,company,role) {
-    var driver = company.performanceDrivers || {basis:'secondary_synthesis_source_gap',materiality:'standard',rfoDrivers:[rfoNarrative(company)],npatDrivers:[npatNarrative(company)],specialItems:[],sourceIds:['FY_PANEL']};
+    var driver = company.performanceDrivers || {basis:'secondary_synthesis_source_gap',sourceStatus:'missing_primary_source',materiality:'standard',rfoDrivers:[rfoNarrative(company)],npatDrivers:[npatNarrative(company)],specialItems:[],sourceIds:['FY_PANEL']};
     var npatClass = company.npatPanel ? (/^(turned_to_loss|loss_widened)$/.test(company.npatState) ? 'negative' : signClass(company.npatYoYPct)) : 'neutral';
-    var basisClass = driver.primaryMdaAvailable ? 'management_explanation' : 'source_gap';
-    var special = Array.isArray(driver.specialItems) && driver.specialItems.length ? '<section class="si-company-special"><div><span class="si-source-kind analyst_inference">' + esc(copy('Special / non-recurring','รายการพิเศษ / ไม่ประจำ')) + '</span><b>' + esc(copy('Reported-to-core bridge','เชื่อมจากกำไรรายงานสู่กำไรหลัก')) + '</b></div>' + companyDriverList(driver.specialItems) + '</section>' : '';
-    document.getElementById('companyStory').innerHTML = '<header class="si-company-story-head"><div><span>' + esc(t('selectedCompany') + ' · ' + role) + '</span><div class="si-company-title-row"><h4>' + esc(company.ticker) + '</h4><em class="si-materiality ' + esc(driver.materiality) + '">' + esc(materialityLabel(driver.materiality)) + '</em></div><p>' + esc(companyBridge(company)) + '</p></div><a href="company-summary.html?tk=' + encodeURIComponent(company.ticker) + '">' + esc(copy('Open company','เปิดหน้าบริษัท')) + ' ↗</a></header>' +
-      '<div class="si-company-kpis"><div><b>' + esc(fmtMcap(company.marketCapMb)) + '</b><small>M-cap</small></div><div><b>' + (finite(company.priceThb) ? Number(company.priceThb).toFixed(2) : '—') + '</b><small>' + esc(copy('Price THB','ราคา บาท')) + '</small></div><div><b class="' + signClass(company.ytdAdjustedReturnPct) + '">' + fmtPct(company.ytdAdjustedReturnPct,1) + '</b><small>YTD</small></div><div><b>' + esc(fmtPe(company.pe)) + '</b><small>P/E</small></div><div><b>' + (company.marginPanel && finite(company.netMarginPct) ? Number(company.netMarginPct).toFixed(1) + '%' : '—') + '</b><small>NPAT / RFO</small></div></div>' +
+    var status = sourceStatusPresentation(driver);
+    var basisClass = status.className;
+    var coverage = driver.evidenceCoverage || {rfo:0,npat:0,special:0};
+    var coverageHtml = '<div class="si-evidence-coverage"><span>' + esc(copy('Claim evidence','หลักฐานรายข้อ')) + '</span><b>RFO ' + Number(coverage.rfo || 0) + '</b><b>NPAT ' + Number(coverage.npat || 0) + '</b><b>' + esc(copy('Special','พิเศษ')) + ' ' + Number(coverage.special || 0) + '</b></div>';
+    var special = Array.isArray(driver.specialItems) && driver.specialItems.length ? '<section class="si-company-special"><div><span class="si-source-kind analyst_inference">' + esc(copy('Special / below-line','รายการพิเศษ / ต่ำกว่าการดำเนินงาน')) + '</span><b>' + esc(copy('Reported-to-operating bridge','เชื่อมกำไรรายงานกับผลดำเนินงาน')) + '</b></div>' + companyDriverList(driver.specialItems) + '</section>' : '';
+    document.getElementById('companyStory').innerHTML = '<header class="si-company-story-head"><div><span>' + esc(t('selectedCompany') + ' · ' + role) + '</span><div class="si-company-title-row"><h4>' + esc(company.ticker) + '</h4><em class="si-materiality ' + esc(driver.materiality) + '">' + esc(materialityLabel(driver.materiality)) + '</em></div><p>' + esc(companyBridge(company)) + '</p></div><a href="company-summary.html?tk=' + encodeURIComponent(company.ticker) + '">' + esc(copy('Open company','เปิดหน้าบริษัท')) + ' ↗</a></header>' + companyBusinessProfile(company) +
+      '<div class="si-company-kpis"><div><b>' + esc(fmtMcap(company.marketCapMb)) + '</b><small>M-cap</small></div><div><b>' + (finite(company.priceThb) ? Number(company.priceThb).toFixed(2) : '—') + '</b><small>' + esc(copy('Price THB','ราคา บาท')) + '</small></div><div><b class="' + signClass(company.ytdAdjustedReturnPct) + '">' + fmtPct(company.ytdAdjustedReturnPct,1) + '</b><small>YTD</small></div><div><b>' + esc(fmtPe(company.pe)) + '</b><small>P/E</small></div><div><b>' + (company.marginPanel && finite(company.netMarginPct) ? Number(company.netMarginPct).toFixed(1) + '%' : '—') + '</b><small>NPAT / RFO</small></div></div>' + coverageHtml +
       '<div class="si-company-why-grid"><section class="si-driver-panel rfo"><div><span class="si-source-kind ' + basisClass + '">' + esc(driverBasis(driver)) + '</span><b class="' + signClass(company.rfoPanel ? company.rfoYoYPct : null) + '">' + esc(t('rfoWhy')) + '</b></div>' + performanceLine(company,'rfo') + companyDriverList(driver.rfoDrivers) + '</section><section class="si-driver-panel npat"><div><span class="si-source-kind ' + basisClass + '">' + esc(driverBasis(driver)) + '</span><b class="' + npatClass + '">' + esc(t('npatWhy')) + '</b></div>' + performanceLine(company,'npat') + companyDriverList(driver.npatDrivers) + '</section></div>' +
-      special + '<div class="si-company-context si-company-evidence-bar"><div><span class="si-source-kind ' + basisClass + '">' + esc(driver.primaryMdaAvailable ? copy('Primary filing checked','ตรวจเอกสาร MD&A หลักแล้ว') : copy('Primary-source gap','ขาดเอกสารต้นทางหลัก')) + '</span><b>' + esc(copy('Evidence trail','เส้นทางหลักฐาน')) + '</b></div><p>' + esc(copy('Audited RFO and owner-NPAT amounts are kept separate from the causal explanation. Open evidence to inspect the FY2025 MD&A path, URL and SHA-256.','ตัวเลข RFO และ NPAT ส่วนผู้ถือหุ้นที่สอบทานแล้วแยกจากคำอธิบายสาเหตุ เปิดหลักฐานเพื่อตรวจเส้นทางไฟล์ ลิงก์ และค่า SHA-256 ของ MD&A ปี 2568')) + '</p><button type="button" data-open-evidence>' + esc(t('source')) + ' · ' + esc((driver.sourceIds || ['FY_PANEL']).join(' / ')) + ' ↗</button></div>';
-  }  function renderFlow() {
+      special + '<div class="si-company-context si-company-evidence-bar"><div><span class="si-source-kind ' + basisClass + '">' + esc(status.label) + '</span><b>' + esc(copy('Evidence trail','เส้นทางหลักฐาน')) + '</b></div><p>' + esc(status.detail) + '</p><button type="button" data-open-evidence>' + esc(t('source')) + ' · ' + esc((driver.sourceIds || ['FY_PANEL']).join(' / ')) + ' ↗</button></div>';
+  }
+  function renderFlow() {
     document.querySelectorAll("[data-flow]").forEach(function (button) { button.classList.toggle("active",button.dataset.flow === state.flow); });
   }
 
@@ -536,13 +599,20 @@
     history.replaceState(null,"",location.pathname + "?" + params.toString() + location.hash);
   }
 
-  function selectSegment(code,moveFocus) {
+  function scrollToCompanyPanel() {
+    var panel = document.getElementById('companyPanel');
+    if (!panel) return;
+    var reducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    panel.scrollIntoView({behavior:reducedMotion ? 'auto' : 'smooth',block:'start'});
+  }
+  function selectSegment(code,moveFocus,destination) {
     var exists = selectedSector().segments.some(function (segment) { return segment.code === code; });
     if (!exists) return;
     state.segment = code;
     state.company = null;
-    state.flow = "segment";
+    state.flow = destination === 'company' ? 'company' : 'segment';
     render();
+    if (destination === 'company') requestAnimationFrame(scrollToCompanyPanel);
     if (moveFocus) {
       var row = document.querySelector('[data-segment="' + CSS.escape(code) + '"]');
       if (row) row.focus({preventScroll:true});
@@ -581,9 +651,22 @@
     if (evidenceCompany && evidenceCompany.performanceDrivers) {
       var driver = evidenceCompany.performanceDrivers;
       var driverKind = driver.primaryMdaAvailable ? 'management_explanation' : 'analyst_inference';
-      (driver.rfoDrivers || []).forEach(function (text) { evidenceClaims.push({section:'company_rfo_' + evidenceCompany.ticker,kind:driverKind,text:text,sourceIds:driver.sourceIds || ['FY_PANEL']}); });
-      (driver.npatDrivers || []).forEach(function (text) { evidenceClaims.push({section:'company_npat_' + evidenceCompany.ticker,kind:driverKind,text:text,sourceIds:driver.sourceIds || ['FY_PANEL']}); });
-      (driver.specialItems || []).forEach(function (text) { evidenceClaims.push({section:'company_special_' + evidenceCompany.ticker,kind:'analyst_inference',text:text,sourceIds:driver.sourceIds || ['FY_PANEL']}); });
+      function addCompanyClaim(section,item,kind) {
+        var ids = item && item.evidence ? [item.evidence.sourceId] : (driver.sourceIds || ['FY_PANEL']);
+        evidenceClaims.push({section:section,kind:kind,text:item,sourceIds:ids});
+        if (item && item.evidence) {
+          var quote = item.evidence.quote || '';
+          evidenceClaims.push({
+            section:section + '_evidence_' + (item.evidence.passageId || 'source'),
+            kind:'management_explanation',
+            text:{en:quote,th:(item.evidence.language === 'th' ? quote : 'ข้อความต้นทางภาษาอังกฤษ: ' + quote)},
+            sourceIds:[item.evidence.sourceId]
+          });
+        }
+      }
+      (driver.rfoDrivers || []).forEach(function (item) { addCompanyClaim('company_rfo_' + evidenceCompany.ticker,item,driverKind); });
+      (driver.npatDrivers || []).forEach(function (item) { addCompanyClaim('company_npat_' + evidenceCompany.ticker,item,driverKind); });
+      (driver.specialItems || []).forEach(function (item) { addCompanyClaim('company_special_' + evidenceCompany.ticker,item,item.evidence ? 'management_explanation' : 'analyst_inference'); });
       document.getElementById("dialogTitle").textContent = loc(segment.name) + ' · ' + evidenceCompany.ticker;
     }
     document.getElementById("claimList").innerHTML = evidenceClaims.map(function (claim) {
@@ -637,11 +720,11 @@
     });
     document.getElementById('visualStorySection').addEventListener('click',function (event) {
       var target = event.target.closest('[data-segment]');
-      if (target) selectSegment(target.dataset.segment,false);
+      if (target) selectSegment(target.dataset.segment,false,target.classList.contains('si-earnings-row') ? 'company' : 'segment');
     });
     document.getElementById('visualStorySection').addEventListener('keydown',function (event) {
       var target = event.target.closest('[data-segment]');
-      if (target && (event.key === 'Enter' || event.key === ' ')) { event.preventDefault(); selectSegment(target.dataset.segment,false); }
+      if (target && (event.key === 'Enter' || event.key === ' ')) { event.preventDefault(); selectSegment(target.dataset.segment,false,target.classList.contains('si-earnings-row') ? 'company' : 'segment'); }
     });
     document.getElementById('companyCardList').addEventListener('click',function (event) {
       var target = event.target.closest('[data-company]');

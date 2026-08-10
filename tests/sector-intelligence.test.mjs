@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
+import { createHash } from "node:crypto";
 import path from "node:path";
 
 const root = process.cwd();
@@ -9,9 +10,9 @@ const close = (actual, expected, tolerance = 0.001) => {
   assert.ok(Math.abs(actual - expected) <= tolerance, `${actual} not within ${tolerance} of ${expected}`);
 };
 
-test("Sector Intelligence v3 preserves the audited perimeter and adds MD&A-backed company drivers", async () => {
+test("Sector Intelligence v4 preserves the audited perimeter and adds claim-level MD&A evidence", async () => {
   const data = JSON.parse(await read("data/sector-intelligence.json"));
-  assert.equal(data.meta.schemaVersion, 3);
+  assert.equal(data.meta.schemaVersion, 4);
   assert.equal(data.meta.effectiveMarketEod, "2026-08-07");
   assert.equal(data.meta.qaVerdict, "PASS");
   assert.deepEqual(Object.keys(data.sectors).sort(), ["FOOD", "PROP"]);
@@ -53,6 +54,14 @@ test("Sector Intelligence v3 preserves the audited perimeter and adds MD&A-backe
         ]) {
           assert.match(driver.th, /[\u0E00-\u0E7F]/, company.ticker + " driver must contain Thai copy");
           assert.notEqual(driver.th.trim(), driver.en.trim(), company.ticker + " Thai driver must not fall back to English");
+          assert.ok(["direct_mda_excerpt","mda_backed_synthesis","secondary_synthesis","source_gap"].includes(driver.claimBasis), company.ticker + " driver basis");
+          if (driver.evidence) {
+            assert.match(driver.evidence.sourceId, /^MDA_[A-Z0-9&-]+_FY2025$/);
+            assert.match(driver.evidence.passageId, /^p\d{3}$/);
+            assert.ok(driver.evidence.quote.length > 40);
+            assert.match(driver.evidence.quoteSha256, /^[a-f0-9]{64}$/);
+            assert.equal(createHash("sha256").update(driver.evidence.quote).digest("hex"), driver.evidence.quoteSha256);
+          }
         }
         for (const sourceId of company.performanceDrivers.sourceIds) assert.ok(sourceIds.has(sourceId), segment.code + " unresolved company source " + sourceId);
       }
@@ -61,8 +70,16 @@ test("Sector Intelligence v3 preserves the audited perimeter and adds MD&A-backe
 
   const allCompanies = Object.values(data.sectors).flatMap((sector) => sector.segments.flatMap((segment) => segment.companies));
   assert.equal(allCompanies.length, 118);
-  assert.equal(allCompanies.filter((company) => company.performanceDrivers.primaryMdaAvailable).length, 116);
-  assert.deepEqual(allCompanies.filter((company) => !company.performanceDrivers.primaryMdaAvailable).map((company) => company.ticker).sort(), ["AKS","AP"]);
+  assert.equal(allCompanies.filter((company) => company.performanceDrivers.primaryMdaAvailable).length, 117);
+  assert.deepEqual(allCompanies.filter((company) => !company.performanceDrivers.primaryMdaAvailable).map((company) => company.ticker).sort(), ["AKS"]);
+  assert.equal(allCompanies.filter((company) => company.performanceDrivers.sourceStatus === "primary_verified").length, 117);
+  assert.deepEqual(allCompanies.filter((company) => company.performanceDrivers.sourceStatus === "missing_primary_source").map((company) => company.ticker).sort(), ["AKS"]);
+  assert.deepEqual(allCompanies.filter((company) => company.performanceDrivers.sourceStatus === "reextract_required").map((company) => company.ticker), []);
+  for (const company of allCompanies.filter((item) => item.performanceDrivers.sourceStatus === "primary_verified")) {
+    assert.ok(company.performanceDrivers.evidenceCoverage.rfo > 0, company.ticker + " must have RFO MD&A evidence");
+    assert.ok(company.performanceDrivers.evidenceCoverage.npat > 0, company.ticker + " must have NPAT MD&A evidence");
+    assert.ok(company.performanceDrivers.hasClaimLevelEvidence);
+  }
   const food = data.sectors.FOOD;
   close(food.metrics.rfoFy2024Mb, 1271330.27125);
   close(food.metrics.rfoFy2025Mb, 1259913.52285);
@@ -122,6 +139,20 @@ test("Sector Intelligence v3 preserves the audited perimeter and adds MD&A-backe
   assert.deepEqual(aqua.npatOverrideSourceIds, ["AQUA_FY2025_MDA"]);
 });
 
+test("Every company analysis has a business profile and official SET logo", async () => {
+  const [sectorData, tickerData] = await Promise.all([read("data/sector-intelligence.json"), read("data/ticker-summary.json")].map(async (value) => JSON.parse(await value)));
+  const companies = Object.values(sectorData.sectors).flatMap((sector) => sector.segments.flatMap((segment) => segment.companies));
+  assert.equal(companies.length, 118);
+  const metaByTicker = new Map(tickerData.tickers.map((ticker) => [ticker.tk, ticker]));
+  for (const company of companies) {
+    const meta = metaByTicker.get(company.ticker);
+    const factsheetBusiness = meta?.businessType?.trim() || "";
+    const description = factsheetBusiness.length >= 50 ? factsheetBusiness : (company.businessDescription || factsheetBusiness);
+    assert.ok(description?.length > 20, company.ticker + " must have a business description");
+    assert.match(meta?.logoUrl || "", /^https:\/\/media\.set\.or\.th\/common\/logo\/company\//);
+  }
+});
+
 
 test("Sector Intelligence is bilingual, deep-linkable, coverage-aware and secret-safe", async () => {
   const [html, css, js, index, nav, data] = await Promise.all([
@@ -157,6 +188,15 @@ test("Sector Intelligence is bilingual, deep-linkable, coverage-aware and secret
   assert.match(js, /renderDriverChain/);
   assert.match(js, /renderRoleCards/);
   assert.match(js, /ticker-summary\.json/);
+  assert.match(js, /FACTSHEET_BUSINESS_TH/);
+  assert.match(js, /companyBusinessProfile/);
+  assert.match(js, /sourceStatusPresentation/);
+  assert.match(js, /item\.evidence/);
+  assert.match(js, /businessDescription/);
+  assert.match(js, /quoteSha256/);
+  assert.match(js, /meta\.businessType/);
+  assert.match(js, /classList\.contains\('si-earnings-row'\)/);
+  assert.match(js, /scrollToCompanyPanel/);
   assert.match(js, /renderMarketMap/);
   assert.match(js, /renderPeStrip/);
   assert.match(js, /directCompanyClaim/);
@@ -178,6 +218,10 @@ test("Sector Intelligence is bilingual, deep-linkable, coverage-aware and secret
   assert.match(css, /\.si-earnings-totals/);
   assert.match(css, /\.si-driver-node/);
   assert.match(css, /\.si-role-logo/);
+  assert.match(css, /\.si-company-profile/);
+  assert.match(css, /\.si-driver-evidence/);
+  assert.match(css, /\.si-evidence-coverage/);
+  assert.match(css, /scroll-margin-top:82px/);
   assert.match(css, /\.si-company-why-grid/);
   assert.match(css, /\.si-page\[data-mode="meeting"\] \.si-matrix-table-wrap/);
   assert.doesNotMatch(js, /lossNarrowed"\)\s*\+\s*"\s+—/);
