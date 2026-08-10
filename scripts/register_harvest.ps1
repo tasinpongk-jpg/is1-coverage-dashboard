@@ -59,7 +59,7 @@ echo === harvest_filings ===  >> $logFile
 python -u "$script1"                            >> $logFile 2>&1
 echo === harvest_download ===  >> $logFile
 python -u "$script2" --limit 30                 >> $logFile 2>&1
-echo === done $(date /t) $(time /t) ===  >> $logFile
+echo === done $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') ===  >> $logFile
 "@
 Set-Content -Path $wrapperPath -Value $wrapper -Encoding ASCII
 
