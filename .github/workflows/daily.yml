@@ -297,10 +297,10 @@ jobs:
             exit 0
           fi
           git commit -m "daily snapshot $(date -u +%Y-%m-%d)"
-          # Race-safe push: rebase on top of any commits that landed during the
-          # ~20-min build. The bot only touches data/*.json so conflicts are
-          # nearly impossible. Retry up to 3 times with linear backoff to absorb
-          # transient network errors and concurrent bot pushes.
+          # Another automation may update disclosure-pulse.json during this
+          # ~20-minute build. Auto-resolve only generated data/*.json conflicts.
+          # During a rebase, --theirs is this run's generated-data commit.
+          # Any conflict outside generated JSON still fails safely.
           for attempt in 1 2 3; do
             if git push origin main; then
               echo "Push succeeded on attempt $attempt."
@@ -308,7 +308,38 @@ jobs:
             fi
             echo "Push attempt $attempt rejected — rebasing and retrying..."
             git rebase --abort 2>/dev/null || true
-            git pull --rebase origin main
+            if ! git pull --rebase origin main; then
+              mapfile -t conflicts < <(git diff --name-only --diff-filter=U)
+              if (( ${#conflicts[@]} == 0 )); then
+                echo "Rebase failed without a content conflict; retrying."
+                git rebase --abort 2>/dev/null || true
+                sleep $((attempt * 5))
+                continue
+              fi
+
+              unsafe_conflict=false
+              for path in "${conflicts[@]}"; do
+                case "$path" in
+                  data/*.json) ;;
+                  *)
+                    echo "Refusing to auto-resolve non-generated conflict: $path"
+                    unsafe_conflict=true
+                    ;;
+                esac
+              done
+              if [[ "$unsafe_conflict" == "true" ]]; then
+                git rebase --abort 2>/dev/null || true
+                exit 1
+              fi
+
+              git checkout --theirs -- "${conflicts[@]}"
+              git add -- "${conflicts[@]}"
+              if ! GIT_EDITOR=true git rebase --continue; then
+                git rebase --abort 2>/dev/null || true
+                sleep $((attempt * 5))
+                continue
+              fi
+            fi
             sleep $((attempt * 5))
           done
           echo "Push failed after 3 attempts."
