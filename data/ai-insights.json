@@ -1,78 +1,82 @@
 {
-  "asOf": "2026-08-10",
+  "asOf": "2026-08-11",
   "model": "openai/gpt-oss-120b",
-  "_built_at": "2026-08-10T09:29:07.467675+00:00",
-  "headline": "TRITN surges 50.00% intraday, matching its 5‑day gain, while several stocks post extreme price‑gap moves.",
-  "market_take": "Today's coverage shows a mixed picture across sectors. Construction stocks display both strong upside (TRITN +50.00%) and downside (SQ -5.56%). Property and PF&REIT see notable volume spikes and price gaps, especially TU-PF (+8.00% gap, +8.33% intraday) and A5 (price gap -29.83% with +37.80% intraday). Food stocks are volatile with CHOTI and F&D each opening with a -100.00% gap despite modest price changes. Multiple earnings and dividend filings across FOOD, PROP, PFREIT and CONS add earnings‑season context.",
+  "_built_at": "2026-08-11T02:42:21.933730+00:00",
+  "headline": "KC (PROP) spikes 50.00% on thin trading while EMC (CONS) plunges 33.33% on a price gap.",
+  "market_take": "Today's coverage shows mixed momentum across sectors. Food stocks led by AQUA (+10.00% intraday) and TC (+8.57% with a 5.5σ volume spike) posted gains, but NRF fell -8.33% intraday. Consumer sector was volatile, highlighted by EMC's -33.33% open gap and SQ's +5.88% rise. Prop saw KC surge 50.00% on very low volume, offset by ANAN and RICHY declines. PF&REIT activity centered on TU-PF's +5.98% rise, a -9.40% open gap and a 16.98% intraday jump.",
   "sector_notes": [
     {
       "sector": "FOOD",
-      "note": "CHOTI opened with a -100.00% gap yet closed +4.48%; CPI fell -5.98% on heavy volume (4.55×); F&D also opened with a -100.00% gap. SNNP released several Q2 earnings and an interim dividend."
+      "note": "AQUA jumped +10.00% intraday; TC rose +8.57% with a 5.5σ volume spike; KSL added +6.71% on solid volume; NRF dropped -8.33% intraday; ZEN opened with a -100.00% price gap."
     },
     {
       "sector": "PROP",
-      "note": "PF posted a +25.00% open gap; EVER dropped -14.29% on strong volume (1.92×); JCK triggered a 4.6σ volume spike; PRECHA filed a high‑priority connected‑transaction notice."
+      "note": "KC surged +50.00% on minimal volume (vol×0.09); ANAN and RICHY each slipped -5.88%; AMATAV filed Q2 earnings."
     },
     {
       "sector": "CONS",
-      "note": "TRITN surged +50.00% intraday and +50.00% over 5 days; SQ opened with a -5.56% gap; JR showed a 4.1σ volume spike; TPOLY opened +11.11% but intraday fell -10.00%."
+      "note": "EMC opened down -33.33% and fell further intraday; PLE fell -12.50% intraday; SQ gained +5.88%; STECON down -5.00% with volume spike; SOLAR rose +4.55% on a 5.25 volume spike."
     },
     {
       "sector": "PF&REIT",
-      "note": "TU-PF recorded a +17.00% volume increase, +8.00% open gap and +8.33% intraday rise; M-PAT opened +7.14%; TLHPF opened with a -100.00% gap; TTLPF disclosed Q2 earnings."
+      "note": "TU-PF climbed +5.98% and showed a -9.40% open gap plus a 16.98% intraday rise; SSTRT recorded a 3.1σ volume spike; SIRIPRT submitted Q2 earnings."
     },
     {
       "sector": "AGRI",
-      "note": "PPPM posted a volume ratio of 3.63×, intraday +8.00% and a 5‑day gain of +17.4%."
+      "note": "PPPM displayed a -7.41% open gap and an +8.00% intraday move."
+    },
+    {
+      "sector": "CONMAT",
+      "note": "GEL opened down -20.00% and surged +25.00% intraday; VNG released Q2 earnings."
     }
   ],
   "watchlist": [
     {
-      "tk": "TRITN",
-      "rm": "K",
-      "reason": "Intraday +50.00% move and 5‑day +50.00% gain in CONS."
+      "tk": "KC",
+      "rm": "G",
+      "reason": "50.00% jump on extremely low volume suggests speculative move."
     },
     {
       "tk": "EMC",
       "rm": "K",
-      "reason": "Open price gap -33.33% and intraday +50.00% swing in CONS."
+      "reason": "Open price gap of -33.33% and intraday decline signal heightened sell pressure."
+    },
+    {
+      "tk": "PLE",
+      "rm": "K",
+      "reason": "-12.50% intraday move with low volume warrants monitoring."
+    },
+    {
+      "tk": "AQUA",
+      "rm": "C",
+      "reason": "Intraday rise of +10.00% may indicate emerging buying interest."
+    },
+    {
+      "tk": "TC",
+      "rm": "C",
+      "reason": "+8.57% gain accompanied by a 5.5σ volume spike."
     },
     {
       "tk": "TU-PF",
       "rm": "P",
-      "reason": "Volume +17.00%, open gap +8.00% and intraday +8.33% in PF&REIT."
+      "reason": "+5.98% rise, -9.40% open gap and +16.98% intraday move show volatility."
+    },
+    {
+      "tk": "SOLAR",
+      "rm": "K",
+      "reason": "+4.55% increase with a strong volume spike (5.25×)."
     },
     {
       "tk": "PPPM",
       "rm": "K",
-      "reason": "High volume ratio 3.63×, intraday +8.00% and 5‑day +17.4% in AGRI."
-    },
-    {
-      "tk": "CHOTI",
-      "rm": "C",
-      "reason": "Extreme open gap -100.00% despite a +4.48% close in FOOD."
-    },
-    {
-      "tk": "F&D",
-      "rm": "P",
-      "reason": "Open gap -100.00% in FOOD."
-    },
-    {
-      "tk": "A5",
-      "rm": "G",
-      "reason": "Open gap -29.83% and intraday +37.80% move in PROP."
-    },
-    {
-      "tk": "TLHPF",
-      "rm": "K",
-      "reason": "Open gap -100.00% in PF&REIT."
+      "reason": "-7.41% open gap and +8.00% intraday move in AGRI sector."
     }
   ],
   "risk_flags": [
-    "Extreme price‑gap openings in CHOTI, F&D, TLHPF and PRIN suggest liquidity risk.",
-    "Negative momentum in PROP with EVER down -14.29% and high volume.",
-    "High volume spikes in AGRI PPPM and CONS JR may indicate short‑term speculative pressure.",
-    "Multiple earnings filings could increase volatility across FOOD, PROP, PFREIT and CONS.",
-    "Low trading volume on several gap stocks (e.g., TRITN vol×0.04) raises execution concerns."
+    "KC's 50.00% rise on vol×0.09 raises liquidity risk.",
+    "EMC's -33.33% price gap indicates possible downside pressure.",
+    "ZEN's -100.00% open gap reflects extreme price risk.",
+    "PF's -20.00% price gap combined with a +25.00% intraday swing shows high volatility.",
+    "GEL's -20.00% gap and +25.00% intraday move suggest sharp CONMAT volatility."
   ]
 }
