@@ -97,6 +97,7 @@ used. Article bodies and images remain on the source site.
 | `data/company-reports.json` | Generated per-company analyst reports for the ticker drawer Report tab |
 | `scripts/build_daily.py` | Calls SETSMART proxy in-process for all 232 tickers |
 | `scripts/build_sector_intelligence_audited.py` | Builds schema-v4 `data/sector-intelligence.json` from audited FY2024–25 panels, official SET EOD data, and claim-level FY2025 MD&A excerpts (no browser-side API key) |
+| `scripts/export_sector_intelligence_md.py` | Renders `data/sector-intelligence.json` into the Markdown copies of the page under `docs/` |
 | `scripts/build_company_reports.py` | Local report agent; saves Markdown to Obsidian and dashboard JSON |
 | `scripts/build_lex_corpus.py` | Extracts the local regulation PDFs into the Lex corpus |
 | `scripts/setsmart_proxy.py` | Vendored FastAPI proxy used by `build_daily.py` |
@@ -141,6 +142,26 @@ driver carries an exact source excerpt plus a SHA-256 hash for reproducible revi
 
 `scripts/build_sector_intelligence.py` is imported only for governed bilingual
 narrative scaffolding. Do not execute it directly for audited refreshes.
+
+### Markdown copy of the Sector Intelligence page
+
+`scripts/export_sector_intelligence_md.py` renders the same payload the browser
+reads into Markdown, mirroring `sector-intelligence.js` (same formatters, same
+section order, same claim and evidence registers) for sharing, printing or
+pasting into a meeting note:
+
+```powershell
+py -3 scripts\export_sector_intelligence_md.py            # full EN + TH
+py -3 scripts\export_sector_intelligence_md.py --brief    # no per-company read-through
+py -3 scripts\export_sector_intelligence_md.py --lang th  # one language only
+```
+
+| File | Contents |
+|---|---|
+| `docs/sector-intelligence.md` / `.th.md` | Full export: sector thesis, three lenses, chart tables, ranked segment map, every segment brief, all 118 company read-throughs with MD&A excerpts and hashes, claim and evidence registers |
+| `docs/sector-intelligence-brief.md` / `.th.md` | Meeting length: everything above the per-company read-through |
+
+Regenerate them whenever `data/sector-intelligence.json` is rebuilt.
 
 Pre-deployment checks:
 
