@@ -129,6 +129,8 @@ let DATA_META = null;
 let ACTIVE_RM = /^[CKOGPT]$/.test(localStorage.getItem('is1_rm') || '') ? localStorage.getItem('is1_rm') : 'C';
 const TT_FALLBACK = {
   "common.updatedAgo": "updated {x} ago",
+  "common.dataStaleAsOf": "● data as of {date} ({x}d old)",
+  "common.dataNeverIngested": "● no data ingested",
   "sec.latestAction": "latest action {date}",
   "common.showing": "Showing",
   "sec.latestInView": "Latest in view",
@@ -178,6 +180,17 @@ function freshnessLabel(builtAt) {
   const ageH = (Date.now() - new Date(builtAt).getTime()) / 36e5;
   const x = ageH < 1 ? Math.round(ageH * 60) + 'm' : Math.round(ageH) + 'h';
   return { txt: tx('common.updatedAgo', { x }), warn: ageH > 36 };
+}
+function dataFreshnessLabel(payload) {
+  // _built_at only records when the file was last rewritten, and the daily job
+  // rewrites it even when the upstream SEC scrape returned nothing. Badge the
+  // age of the rows themselves so a dead ingest stops reading as "updated 2h ago".
+  if (payload && payload.stale) {
+    return payload.dataAsOf
+      ? { txt: tx('common.dataStaleAsOf', { date: payload.dataAsOf, x: payload.dataAgeDays }), warn: true }
+      : { txt: tt('common.dataNeverIngested'), warn: true };
+  }
+  return freshnessLabel(payload && payload._built_at);
 }
 function decodeHtml(s) {
   const el = document.createElement('textarea');
@@ -385,7 +398,7 @@ async function init() {
     DATA_META = dj;
     ITEMS = (dj.items || []).filter(it => !isHeaderRow(it)).map(hydrateItem);
     latestActionMs = ITEMS.reduce((m, it) => Math.max(m, it._dateMs || 0), 0);
-    const fresh = freshnessLabel(dj._built_at);
+    const fresh = dataFreshnessLabel(dj);
     const badge = document.getElementById('staleBadge');
     badge.textContent = fresh.txt;
     if (fresh.warn) badge.classList.add('warn');

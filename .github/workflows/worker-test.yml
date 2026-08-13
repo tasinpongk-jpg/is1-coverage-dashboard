@@ -8,9 +8,11 @@ on:
       - "worker.js"
       - "chat-dock.js"
       - "nav.js"
+      - "i18n.js"
       - "theme.css"
       - "*.html"
       - "surveillance/**"
+      - "scripts/**"
       - "tests/**"
       - ".github/workflows/worker-test.yml"
   pull_request:
@@ -18,9 +20,11 @@ on:
       - "worker.js"
       - "chat-dock.js"
       - "nav.js"
+      - "i18n.js"
       - "theme.css"
       - "*.html"
       - "surveillance/**"
+      - "scripts/**"
       - "tests/**"
 
 jobs:
@@ -36,10 +40,16 @@ jobs:
         with:
           python-version: "3.11"
       - name: Syntax check
-        run: node --check worker.js && node --check chat-dock.js && node --check nav.js
+        run: node --check worker.js && node --check chat-dock.js && node --check nav.js && node --check i18n.js
       - name: Run worker tests
         run: node --test tests/*.test.mjs
-      - name: Run Form 59 parser tests
+      - name: i18n key check
+        run: node tests/i18n-check.mjs
+      - name: Run Python tests
+        # Discovery rather than a single file: seven of the eight test modules
+        # were never reached by CI, so regressions in the builders and the
+        # vault writers could only be caught by running them by hand.
+        # -t tests because tests/ is a namespace package with no __init__.py.
         run: |
           python -m pip install duckdb==1.5.2 httpx==0.27.2
-          python -m unittest tests/test_form59.py
+          python -m unittest discover -s tests -p 'test_*.py' -t tests

@@ -143,6 +143,8 @@ let ITEMS = [], activeWindow = 30, activeSide = 'ALL', activeRm = /^[CKOGPT]$/.t
 let DATA_META = null;
 const TT_FALLBACK = {
   "common.updatedAgo": "updated {x} ago",
+  "common.dataStaleAsOf": "● data as of {date} ({x}d old)",
+  "common.dataNeverIngested": "● no data ingested",
   "common.buy": "Buy",
   "common.sell": "Sell",
   "common.transfer": "Transfer",
@@ -178,6 +180,17 @@ function freshnessLabel(builtAt) {
   const ageH = (Date.now() - new Date(builtAt).getTime()) / 36e5;
   const x = ageH < 1 ? Math.round(ageH * 60) + 'm' : Math.round(ageH) + 'h';
   return { txt: tx('common.updatedAgo', { x }), warn: ageH > 36 };
+}
+function dataFreshnessLabel(payload) {
+  // _built_at only records when the file was last rewritten, and the daily job
+  // rewrites it even when the upstream SEC scrape returned nothing. Badge the
+  // age of the rows themselves so a dead ingest stops reading as "updated 2h ago".
+  if (payload && payload.stale) {
+    return payload.dataAsOf
+      ? { txt: tx('common.dataStaleAsOf', { date: payload.dataAsOf, x: payload.dataAgeDays }), warn: true }
+      : { txt: tt('common.dataNeverIngested'), warn: true };
+  }
+  return freshnessLabel(payload && payload._built_at);
 }
 function escapeHtml(s) {
   return String(s ?? '').replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[ch]);
@@ -351,7 +364,7 @@ async function init() {
     const dj = await fetch('./data/sec-form59.json').then(r => r.json());
     DATA_META = dj;
     ITEMS = (dj.items || []).map(hydrate);
-    const fresh = freshnessLabel(dj._built_at);
+    const fresh = dataFreshnessLabel(dj);
     const badge = document.getElementById('staleBadge');
     badge.textContent = fresh.txt;
     if (fresh.warn) badge.classList.add('warn');
