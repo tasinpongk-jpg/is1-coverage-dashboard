@@ -1,5 +1,5 @@
 {
-  "asOf": "2026-08-12",
+  "asOf": "2026-08-13",
   "source": "SETSMART intraday API · 54 alerts across 42 tickers",
   "thresholds": {
     "vol_spike": {
@@ -51,8 +51,10 @@
         "high": 0.95,
         "low": 0.84
       },
-      "filingsLinked": 0,
-      "filingsTitles": []
+      "filingsLinked": 1,
+      "filingsTitles": [
+        "CB sign lifted on MADAME's securities"
+      ]
     },
     {
       "tk": "XBIO",
@@ -188,7 +190,7 @@
       "sector": "PROP",
       "type": "Intraday move",
       "atype": "intraday",
-      "severity": "medium",
+      "severity": "high",
       "value": 6.593,
       "label": "-6.59% intraday",
       "evidence": {
@@ -197,12 +199,8 @@
         "high": 0.92,
         "low": 0.84
       },
-      "filingsLinked": 4,
-      "filingsTitles": [
-        "Management Discussion and Analysis Quarter 2 Ending 30 Jun 2026",
-        "Financial Performance Quarter 2 (F45) (Reviewed)",
-        "Financial Statement Quarter 2/2026 (Reviewed)"
-      ]
+      "filingsLinked": 0,
+      "filingsTitles": []
     },
     {
       "tk": "AMATAV",
@@ -303,7 +301,7 @@
       "sector": "CONS",
       "type": "Volume spike",
       "atype": "vol_spike",
-      "severity": "high",
+      "severity": "medium",
       "value": 3.306,
       "label": "3.3σ vs 20D avg",
       "evidence": {
@@ -311,23 +309,31 @@
         "vol20dAvg": 488703.55,
         "vol20dStd": 296666.89454984275
       },
-      "filingsLinked": 0,
-      "filingsTitles": []
+      "filingsLinked": 5,
+      "filingsTitles": [
+        "Financial Performance Quarter 2 (F45) (Reviewed) (Revised)",
+        "Notification of the related party transaction regarding the receipt of financial assistance",
+        "Management Discussion and Analysis Quarter 2 Ending 30 Jun 2026"
+      ]
     },
     {
       "tk": "TRC",
       "sector": "CONS",
       "type": "Price gap",
       "atype": "gap",
-      "severity": "medium",
+      "severity": "low",
       "value": 3.774,
       "label": "-3.77% open gap",
       "evidence": {
         "open": 0.51,
         "prevClose": 0.53
       },
-      "filingsLinked": 0,
-      "filingsTitles": []
+      "filingsLinked": 5,
+      "filingsTitles": [
+        "Financial Performance Quarter 2 (F45) (Reviewed) (Revised)",
+        "Notification of the related party transaction regarding the receipt of financial assistance",
+        "Management Discussion and Analysis Quarter 2 Ending 30 Jun 2026"
+      ]
     },
     {
       "tk": "APCS",
@@ -645,10 +651,8 @@
         "vol20dAvg": 495.15,
         "vol20dStd": 889.5423697047826
       },
-      "filingsLinked": 1,
-      "filingsTitles": [
-        "Report NAV as at 30 June 2026"
-      ]
+      "filingsLinked": 0,
+      "filingsTitles": []
     },
     {
       "tk": "BRR",
@@ -734,7 +738,7 @@
       "sector": "PFREIT",
       "type": "Intraday move",
       "atype": "intraday",
-      "severity": "low",
+      "severity": "medium",
       "value": 4.082,
       "label": "+4.08% intraday",
       "evidence": {
@@ -743,10 +747,8 @@
         "high": 7.65,
         "low": 7.35
       },
-      "filingsLinked": 1,
-      "filingsTitles": [
-        "Report NAV as at 30 June 2026"
-      ]
+      "filingsLinked": 0,
+      "filingsTitles": []
     },
     {
       "tk": "ESTAR",
@@ -1082,29 +1084,6 @@
       ]
     },
     {
-      "tk": "TRC",
-      "sector": "CONS",
-      "alertCount": 2,
-      "highestSeverity": "high",
-      "filingsLinked": 0,
-      "alertTypes": [
-        {
-          "atype": "vol_spike",
-          "type": "Volume spike",
-          "severity": "high"
-        },
-        {
-          "atype": "gap",
-          "type": "Price gap",
-          "severity": "medium"
-        }
-      ],
-      "summary": [
-        "Volume spike: 3.3σ vs 20D avg",
-        "Price gap: -3.77% open gap"
-      ]
-    },
-    {
       "tk": "TWPC",
       "sector": "FOOD",
       "alertCount": 2,
@@ -1179,6 +1158,23 @@
       ]
     },
     {
+      "tk": "J",
+      "sector": "PROP",
+      "alertCount": 1,
+      "highestSeverity": "high",
+      "filingsLinked": 0,
+      "alertTypes": [
+        {
+          "atype": "intraday",
+          "type": "Intraday move",
+          "severity": "high"
+        }
+      ],
+      "summary": [
+        "Intraday move: -6.59% intraday"
+      ]
+    },
+    {
       "tk": "KBS",
       "sector": "FOOD",
       "alertCount": 1,
@@ -1213,23 +1209,6 @@
       ]
     },
     {
-      "tk": "MADAME",
-      "sector": "FOOD",
-      "alertCount": 1,
-      "highestSeverity": "high",
-      "filingsLinked": 0,
-      "alertTypes": [
-        {
-          "atype": "intraday",
-          "type": "Intraday move",
-          "severity": "high"
-        }
-      ],
-      "summary": [
-        "Intraday move: +9.52% intraday"
-      ]
-    },
-    {
       "tk": "MIPF",
       "sector": "PFREIT",
       "alertCount": 1,
@@ -1244,6 +1223,23 @@
       ],
       "summary": [
         "Price gap: -100.00% open gap"
+      ]
+    },
+    {
+      "tk": "MNIT2",
+      "sector": "PFREIT",
+      "alertCount": 1,
+      "highestSeverity": "high",
+      "filingsLinked": 0,
+      "alertTypes": [
+        {
+          "atype": "vol_spike",
+          "type": "Volume spike",
+          "severity": "high"
+        }
+      ],
+      "summary": [
+        "Volume spike: 12.4σ vs 20D avg"
       ]
     },
     {
@@ -1417,20 +1413,20 @@
       ]
     },
     {
-      "tk": "MNIT2",
-      "sector": "PFREIT",
+      "tk": "MADAME",
+      "sector": "FOOD",
       "alertCount": 1,
       "highestSeverity": "high",
       "filingsLinked": 1,
       "alertTypes": [
         {
-          "atype": "vol_spike",
-          "type": "Volume spike",
+          "atype": "intraday",
+          "type": "Intraday move",
           "severity": "high"
         }
       ],
       "summary": [
-        "Volume spike: 12.4σ vs 20D avg"
+        "Intraday move: +9.52% intraday"
       ]
     },
     {
@@ -1477,6 +1473,29 @@
       "summary": [
         "Price gap: -3.85% open gap",
         "Intraday move: +4.00% intraday"
+      ]
+    },
+    {
+      "tk": "TRC",
+      "sector": "CONS",
+      "alertCount": 2,
+      "highestSeverity": "medium",
+      "filingsLinked": 5,
+      "alertTypes": [
+        {
+          "atype": "vol_spike",
+          "type": "Volume spike",
+          "severity": "medium"
+        },
+        {
+          "atype": "gap",
+          "type": "Price gap",
+          "severity": "low"
+        }
+      ],
+      "summary": [
+        "Volume spike: 3.3σ vs 20D avg",
+        "Price gap: -3.77% open gap"
       ]
     },
     {
@@ -1599,6 +1618,23 @@
       ]
     },
     {
+      "tk": "M-STOR",
+      "sector": "PFREIT",
+      "alertCount": 1,
+      "highestSeverity": "medium",
+      "filingsLinked": 0,
+      "alertTypes": [
+        {
+          "atype": "intraday",
+          "type": "Intraday move",
+          "severity": "medium"
+        }
+      ],
+      "summary": [
+        "Intraday move: +4.08% intraday"
+      ]
+    },
+    {
       "tk": "SSTRT",
       "sector": "PFREIT",
       "alertCount": 1,
@@ -1648,42 +1684,8 @@
       "summary": [
         "Intraday move: +4.00% intraday"
       ]
-    },
-    {
-      "tk": "J",
-      "sector": "PROP",
-      "alertCount": 1,
-      "highestSeverity": "medium",
-      "filingsLinked": 4,
-      "alertTypes": [
-        {
-          "atype": "intraday",
-          "type": "Intraday move",
-          "severity": "medium"
-        }
-      ],
-      "summary": [
-        "Intraday move: -6.59% intraday"
-      ]
-    },
-    {
-      "tk": "M-STOR",
-      "sector": "PFREIT",
-      "alertCount": 1,
-      "highestSeverity": "low",
-      "filingsLinked": 1,
-      "alertTypes": [
-        {
-          "atype": "intraday",
-          "type": "Intraday move",
-          "severity": "low"
-        }
-      ],
-      "summary": [
-        "Intraday move: +4.08% intraday"
-      ]
     }
   ],
-  "_built_at": "2026-08-12T04:38:05.897343+00:00",
+  "_built_at": "2026-08-13T02:35:58.502304+00:00",
   "_coverage_size": 232
 }
