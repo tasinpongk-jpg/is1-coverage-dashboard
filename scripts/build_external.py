@@ -34,6 +34,45 @@ def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
 
+def _newest_date(values) -> str | None:
+    """Newest YYYY-MM-DD among a mix of datetimes, ISO strings and nulls."""
+    best: str | None = None
+    for v in values:
+        if not v:
+            continue
+        s = (v.isoformat() if hasattr(v, "isoformat") else str(v))[:10]
+        if len(s) == 10 and s[4] == "-" and (best is None or s > best):
+            best = s
+    return best
+
+
+def _stamp_freshness(
+    payload: dict, newest: str | None, *, label: str, stale_after_days: int
+) -> None:
+    """Record how old the underlying rows are, not just when we rebuilt them.
+
+    asOf and _built_at are refreshed on every run, so a staleness badge keyed
+    off either reads "fresh" even while the upstream scrape has been failing
+    for weeks — which is exactly what happened to both SEC feeds. dataAsOf is
+    the newest row we actually hold, which is what a reader means by "as of".
+    """
+    payload["dataAsOf"] = newest
+    if newest:
+        age = (datetime.now(BKK).date() - datetime.fromisoformat(newest).date()).days
+        payload["dataAgeDays"] = age
+        payload["stale"] = age > stale_after_days
+    else:
+        payload["dataAgeDays"] = None
+        payload["stale"] = True
+    if payload["stale"]:
+        age = payload["dataAgeDays"]
+        print(
+            f"  ::warning::{label} data is stale — newest row {newest or 'none'}"
+            + (f", {age} day(s) old" if age is not None else ""),
+            flush=True,
+        )
+
+
 def _load_tickers() -> dict[str, dict]:
     j = json.loads((DATA_DIR / "tickers.json").read_text(encoding="utf-8"))
     out = {}
@@ -175,12 +214,23 @@ def build_sec_enforcement(con: duckdb.DuckDBPyConnection, tickers: dict) -> None
             "rm": (tickers.get(r[5]) or {}).get("rm") if r[5] else None,
             "sector": (tickers.get(r[5]) or {}).get("sector") if r[5] else None,
         })
-    _write(DATA_DIR / "sec-enforcement.json", {
+    payload = {
         "asOf": datetime.now(BKK).date().isoformat(),
         "total": len(items),
         "in_coverage_count": sum(1 for i in items if i["matched_ticker"]),
         "items": items,
-    })
+    }
+    # scraped_at, not action_date: we want "when did the ingest last succeed",
+    # which is the signal that goes flat when the SEC render starts failing.
+    # Read raw_rows, not the sorted top-200 slice — a recent scrape of an older
+    # action can fall outside that slice and would understate freshness.
+    _stamp_freshness(
+        payload,
+        _newest_date(r[8] for r in raw_rows),
+        label="sec_enforcement",
+        stale_after_days=7,
+    )
+    _write(DATA_DIR / "sec-enforcement.json", payload)
 
 
 def build_sec_form59(con: duckdb.DuckDBPyConnection, tickers: dict) -> None:
@@ -284,6 +334,14 @@ def build_sec_form59(con: duckdb.DuckDBPyConnection, tickers: dict) -> None:
         aggregates.append(agg)
     aggregates.sort(key=lambda a: (abs(a["net_value"]), a["buy_count"] + a["sell_count"]), reverse=True)
 
+    # The 90-day window can be empty while the store still holds older rows, so
+    # ask the whole table when the ingest last succeeded. That is the number
+    # that tells you the scraper is down rather than the window being quiet.
+    try:
+        last_scrape = con.execute("SELECT MAX(scraped_at) FROM sec_form59").fetchone()
+    except duckdb.Error:
+        last_scrape = None
+
     target = DATA_DIR / "sec-form59.json"
     payload = {
         "asOf": datetime.now(BKK).date().isoformat(),
@@ -294,9 +352,25 @@ def build_sec_form59(con: duckdb.DuckDBPyConnection, tickers: dict) -> None:
         "tickers": aggregates,
         "items": items,
     }
+    _stamp_freshness(
+        payload,
+        _newest_date([last_scrape[0] if last_scrape else None]),
+        label="sec_form59",
+        stale_after_days=7,
+    )
     if _preserve_nonempty_snapshot(target, payload):
         print("  -> kept previous non-empty sec-form59.json (current SEC scrape returned 0 rows)")
         return
+    if payload["total"] == 0:
+        # The preserve guard above only fires while the file on disk still has
+        # rows. Once a zero has been written it can never restore itself, so an
+        # ongoing outage would otherwise rewrite an empty file in silence.
+        print(
+            "  ::warning::sec_form59 wrote an empty snapshot — no rows in the "
+            f"{payload['windowDays']}-day window and none to preserve "
+            f"(last successful scrape: {payload['dataAsOf'] or 'never'})",
+            flush=True,
+        )
     _write(target, payload)
 
 

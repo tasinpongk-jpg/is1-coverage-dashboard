@@ -148,6 +148,18 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
+      # Per-source ingest status is written here but committed by the build
+      # job, which is the only job that pushes data/*.json. Without this
+      # handoff the file would die with this runner.
+      - name: Upload source-health.json (handoff to build job)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: source-health
+          path: data/source-health.json
+          if-no-files-found: ignore
+          retention-days: 14
+
       # Run last so R2 upload + artifact upload above always complete first.
       # Without continue-on-error, this fails the job (and the workflow run UI)
       # when an email step failed, surfacing SMTP issues that previously went
@@ -211,6 +223,13 @@ jobs:
         with:
           name: surveillance-duckdb
           path: /tmp
+
+      - name: Download source-health.json (from surveillance job)
+        continue-on-error: true
+        uses: actions/download-artifact@v4
+        with:
+          name: source-health
+          path: data
 
       # Fail fast on SETSMART auth/quota issues BEFORE the 15-min 232-ticker scan.
       # Uses the proxy's existing /probe/auth handler, which calls

@@ -47,9 +47,22 @@ HEADERS = {
     "Accept-Language": "th,en-US;q=0.7,en;q=0.3",
 }
 TIMEOUT = httpx.Timeout(20.0, connect=10.0)
+# Some Thai wire feeds are slow rather than down; one retry on a longer budget
+# recovers them without holding the whole run hostage.
+RSS_RETRY_TIMEOUT = httpx.Timeout(45.0, connect=15.0)
 
 
 BKK = timezone(timedelta(hours=7))
+
+# Hard failures (a render that never returned HTML, a feed that never
+# answered) recorded per source. A source that returns 0 rows because the day
+# was quiet and one that returns 0 rows because the site is unreachable look
+# identical in the summary line — this is what tells them apart.
+SOURCE_FAILURES: dict[str, list[str]] = {}
+
+
+def _note_failure(source: str, reason: str) -> None:
+    SOURCE_FAILURES.setdefault(source, []).append(reason)
 
 
 # ---------------------------------------------------------------------------
@@ -178,8 +191,19 @@ def fetch_external_news(client: httpx.Client) -> tuple[int, int]:
             r.raise_for_status()
             items = _parse_rss(r.text)
         except Exception as e:  # noqa: BLE001
-            print(f"  [rss/{feed['source']}] FAIL {type(e).__name__}: {e}", flush=True)
-            continue
+            print(
+                f"  [rss/{feed['source']}] {type(e).__name__}: {e} — retrying "
+                f"on a longer timeout",
+                flush=True,
+            )
+            try:
+                r = client.get(feed["url"], timeout=RSS_RETRY_TIMEOUT)
+                r.raise_for_status()
+                items = _parse_rss(r.text)
+            except Exception as e2:  # noqa: BLE001
+                print(f"  [rss/{feed['source']}] FAIL {type(e2).__name__}: {e2}", flush=True)
+                _note_failure("external_news", f"{feed['source']}: {type(e2).__name__}")
+                continue
         sources_ok += 1
         matched_rows: list[tuple[Any, ...]] = []
         for it in items:
@@ -694,6 +718,7 @@ def _fetch_idisc_html_via_browser(url: str) -> str:
             return html
     except Exception as e:  # noqa: BLE001
         print(f"  [idisc] browser render failed {type(e).__name__}: {e}", flush=True)
+        _note_failure("sec_enforcement", f"idisc render: {type(e).__name__}")
         return ""
 
 
@@ -801,6 +826,7 @@ def _fetch_form59_history_via_browser(
             browser.close()
     except Exception as e:  # noqa: BLE001
         print(f"  [sec_form59] history render failed {type(e).__name__}: {e}", flush=True)
+        _note_failure("sec_form59", f"r59 render: {type(e).__name__}")
     return pages
 
 
@@ -915,6 +941,57 @@ def fetch_sec_form59(client: httpx.Client) -> int:  # noqa: ARG001 (WAF needs a 
 # Entry point
 # ---------------------------------------------------------------------------
 
+def _source_health_path() -> str:
+    return os.path.join(
+        os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+        "data",
+        "source-health.json",
+    )
+
+
+def _write_source_health(results: dict[str, Any], path: str | None = None) -> None:
+    """Publish per-source ingest status so a dead scraper is visible off-log.
+
+    Every fetcher swallows its own errors and returns 0 so that one dead site
+    cannot take the run down. The cost is that "no news today" and "this site
+    has been unreachable for weeks" print the same summary line. This file
+    keeps the two apart, and survives a --only run by merging rather than
+    replacing the sources it did not touch.
+    """
+    path = path or _source_health_path()
+    try:
+        with open(path, encoding="utf-8") as f:
+            sources = (json.load(f) or {}).get("sources", {})
+    except (OSError, json.JSONDecodeError):
+        sources = {}
+
+    for label, value in results.items():
+        rows = value[0] if isinstance(value, tuple) else value
+        failures = SOURCE_FAILURES.get(label) or []
+        sources[label] = {
+            "rows": rows,
+            "ok": not failures and rows != -1,
+            "failures": failures,
+            "checkedAt": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        }
+
+    payload = {
+        "asOf": datetime.now(BKK).date().isoformat(),
+        "checkedAt": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "failingCount": sum(1 for s in sources.values() if not s.get("ok")),
+        "sources": sources,
+    }
+    try:
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(payload, f, ensure_ascii=False, indent=2)
+        print(
+            f"  -> wrote source-health.json ({payload['failingCount']} failing)",
+            flush=True,
+        )
+    except OSError as e:  # noqa: BLE001
+        print(f"  [source_health] write FAIL {type(e).__name__}: {e}", flush=True)
+
+
 def main() -> None:
     p = argparse.ArgumentParser()
     p.add_argument(
@@ -948,7 +1025,16 @@ def main() -> None:
 
     print("\n=== summary ===")
     for k, v in results.items():
-        print(f"  {k:20s}  {v}")
+        failures = SOURCE_FAILURES.get(k) or []
+        print(f"  {k:20s}  {v}" + (f"   FAILED: {'; '.join(failures)}" if failures else ""))
+
+    # GitHub renders these in the run summary, so an unreachable source stops
+    # looking like a quiet day in a green build.
+    for k, failures in SOURCE_FAILURES.items():
+        print(f"::warning::{k} did not ingest — {'; '.join(failures)}", flush=True)
+
+    _write_source_health(results)
+
     elapsed = (datetime.now() - started).total_seconds()
     print(f"=== done in {elapsed:.1f}s ===")
 
