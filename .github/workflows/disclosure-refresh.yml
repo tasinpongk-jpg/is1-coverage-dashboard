@@ -4,11 +4,11 @@ name: Disclosure Pulse Refresh (intra-day)
 #
 # Runs twice daily, Mon-Fri:
 #   14:00 BKK (07:00 UTC) — early afternoon catch-up for morning filings
-#                            posted after the 09:50 daily build.
+#                            posted after the 09:15 daily build.
 #   18:00 BKK (11:00 UTC) — end-of-day sweep for after-market filings
 #                            (SET closes 16:30 BKK; companies often file
 #                            material disclosures shortly after).
-# The morning daily.yml at 09:50 BKK still does the full pipeline
+# The morning daily.yml at 09:15 BKK still does the full pipeline
 # (surveillance + emails + all 4 routes + commit). This job just picks
 # up new disclosures and commits ONLY disclosure-pulse.json — no emails,
 # no SETSMART scan, no touching the other 3 dashboards.
@@ -39,9 +39,6 @@ on:
 permissions:
   contents: write
 
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
-
 concurrency:
   group: daily
   cancel-in-progress: false
@@ -69,7 +66,7 @@ jobs:
       R2_BUCKET: ${{ secrets.R2_BUCKET }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
@@ -83,7 +80,7 @@ jobs:
           git reset --hard origin/main
 
       - name: Setup Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: '3.11'
           cache: pip

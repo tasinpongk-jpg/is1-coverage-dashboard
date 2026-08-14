@@ -14,7 +14,7 @@ auto-deploys on push. See `SYSTEM.md` for the full system reference.
 
 ```
   Cloudflare Worker Cron Triggers (cloudflare-cron/)            GitHub Actions cron
-   09:50 BKK ──► daily.yml                  ──┐                  (redundant backup)
+   09:15 BKK ──► daily.yml                  ──┐                  (redundant backup)
    14:00 BKK ──► disclosure-refresh.yml     ──┤                   same times in each YAML
    18:00 BKK ──► disclosure-refresh.yml     ──┤
                                               │ workflow_dispatch (Cloudflare path)
@@ -37,8 +37,9 @@ auto-deploys on push. See `SYSTEM.md` for the full system reference.
 The Cloudflare Worker is the reliable primary scheduler for **all three**
 fire times. GHA's built-in `schedule:` events in both workflows are kept as
 redundant backups — `concurrency:group=daily` (shared between the two
-workflows) prevents simultaneous runs. See `cloudflare-cron/README.md`
-for deploy steps and the per-cron routing table.
+workflows) serialises them, and the `guard` job in `daily.yml` drops the
+backup when the dispatch already succeeded that day. See
+`cloudflare-cron/README.md` for deploy steps and the per-cron routing table.
 
 ## Agent chat (✦ Ask the agents)
 
@@ -101,7 +102,7 @@ used. Article bodies and images remain on the source site.
 | `scripts/build_lex_corpus.py` | Extracts the local regulation PDFs into the Lex corpus |
 | `scripts/setsmart_proxy.py` | Vendored FastAPI proxy used by `build_daily.py` |
 | `surveillance/` | Polling, classification, R2 sync, email routing |
-| `.github/workflows/daily.yml` | Consolidated CI: surveillance job + build job (09:50 BKK Mon–Fri) |
+| `.github/workflows/daily.yml` | Consolidated CI: surveillance job + build job (09:15 BKK Mon–Fri) |
 | `.github/workflows/disclosure-refresh.yml` | Intra-day disclosure-pulse refresh only (14:00 + 18:00 BKK Mon–Fri, no emails) |
 | `cloudflare-cron/` | Worker that triggers `daily.yml` via workflow_dispatch (replaces flaky GHA cron) |
 
@@ -201,13 +202,23 @@ deep links, claim/source lineage and important null/coverage cases.
 
 | Trigger | Cron (UTC) | Bangkok local | Source | Reliability |
 |---|---|---|---|---|
-| **Primary** | `50 2 * * 1-5` | 09:50 | `cloudflare-cron/` Worker | Cloudflare cron — fires within seconds of the scheduled minute |
-| Backup | `50 2 * * 1-5` | 09:50 | `.github/workflows/daily.yml` schedule | GHA cron — best-effort, may drop or delay |
+| **Primary** | `15 2 * * 1-5` | 09:15 | `cloudflare-cron/` Worker | Cloudflare cron — fires within seconds of the scheduled minute |
+| Backup | `15 2 * * 1-5` | 09:15 | `.github/workflows/daily.yml` schedule | GHA cron — best-effort, may drop or delay |
 
-Both fire at the same minute. `concurrency:group=daily` in `daily.yml` queues
-the second arrival so only one pipeline runs end-to-end. On the rare day
-both trigger and the primary completes first, the backup's commit step is a
-no-op (data unchanged), so no duplicate snapshot commits.
+Both are scheduled for the same minute, but in practice only the Worker is
+punctual — GHA's `schedule:` has been landing 100–130 minutes late every day,
+which is why the Worker exists.
+
+`concurrency:group=daily` serialises the two but does **not** drop either:
+`cancel-in-progress: false` queues the late arrival and then runs it in full.
+Nor is its commit step a no-op — `asOf` and `_built_at` are restamped on every
+build, so the data always differs and a second `daily snapshot` commit lands.
+Both ran end-to-end every weekday until the `guard` job was added.
+
+The `guard` job at the top of `daily.yml` is what actually deduplicates: on a
+`schedule` run it asks the API whether a `workflow_dispatch` run already
+succeeded the same UTC day and skips if so. It fails open — if the query fails,
+the backup runs, because a missed day costs more than a duplicate one.
 
 Manual re-runs (no inputs): `gh workflow run daily.yml`.
 
