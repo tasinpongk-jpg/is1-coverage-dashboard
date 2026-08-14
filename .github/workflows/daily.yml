@@ -10,7 +10,7 @@ name: Daily Surveillance + Build
 #                         routes, commit data/*.json. Cloudflare auto-deploys.
 #
 # Schedule (Mon-Fri):
-#   02:50 UTC = 09:50 Bangkok — single morning run, full pipeline.
+#   02:15 UTC = 09:15 Bangkok — single morning run, full pipeline.
 #
 # Critical alerts are idempotent (only fire on UNSENT items) so re-running
 # manually via workflow_dispatch is safe.
@@ -26,12 +26,7 @@ on:
 
 permissions:
   contents: write
-
-# Run JavaScript actions on Node.js 24 ahead of GitHub's June 2, 2026 default
-# switch. Silences the Node 20 deprecation warning without bumping action
-# major versions. Remove once Node 24 becomes the runner default.
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
+  actions: read      # JOB 0 lists earlier runs to drop the redundant backup
 
 concurrency:
   group: daily
@@ -39,9 +34,65 @@ concurrency:
 
 jobs:
   # ------------------------------------------------------------------
+  # JOB 0 — Drop the redundant schedule run
+  #
+  # The Cloudflare dispatcher (cloudflare-cron/) fires this workflow punctually
+  # via workflow_dispatch; the `schedule:` trigger above is the backup for when
+  # that Worker is down or GitHub drops the cron. The `concurrency` group does
+  # NOT dedupe the two — cancel-in-progress: false queues the backup and then
+  # runs the whole ~20-minute pipeline a second time, which is why main was
+  # getting two "daily snapshot" commits every weekday.
+  #
+  # Queuing works in our favour here: by the time the backup leaves the queue
+  # the dispatch run has already concluded, so this check can see it.
+  # ------------------------------------------------------------------
+  guard:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    outputs:
+      run: ${{ steps.decide.outputs.run }}
+    steps:
+      - name: Decide whether this run is redundant
+        id: decide
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          EVENT: ${{ github.event_name }}
+        run: |
+          if [ "$EVENT" != "schedule" ]; then
+            echo "Triggered by $EVENT — running."
+            echo "run=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          today=$(date -u +%Y-%m-%d)
+          hits=$(curl -sS \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/workflows/daily.yml/runs?event=workflow_dispatch&status=success&per_page=30" \
+            | jq --arg d "$today" \
+                 '[.workflow_runs[] | select(.run_started_at | startswith($d))] | length') || hits=""
+
+          # Fail open: a missed day costs more than a duplicate one.
+          if ! [ "$hits" -ge 0 ] 2>/dev/null; then
+            echo "::warning::could not query earlier runs — running the backup to be safe"
+            echo "run=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if [ "$hits" -gt 0 ]; then
+            echo "Dispatcher already completed $hits successful run(s) today — skipping this backup."
+            echo "run=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "No successful dispatch run today — the backup earns its keep."
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          fi
+
+  # ------------------------------------------------------------------
   # JOB 1 — Surveillance (poll SET, classify, email alerts, upload DB)
   # ------------------------------------------------------------------
   surveillance:
+    needs: guard
+    if: needs.guard.outputs.run == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 25
     env:
@@ -55,10 +106,10 @@ jobs:
       R2_BUCKET: ${{ secrets.R2_BUCKET }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Setup Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: '3.11'
           cache: pip
@@ -141,7 +192,7 @@ jobs:
 
       - name: Upload surveillance.duckdb as artifact (handoff to build job + 30d audit trail)
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: surveillance-duckdb
           path: ${{ env.SURVEILLANCE_DB_PATH }}
@@ -153,7 +204,7 @@ jobs:
       # handoff the file would die with this runner.
       - name: Upload source-health.json (handoff to build job)
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: source-health
           path: data/source-health.json
@@ -193,23 +244,25 @@ jobs:
   # JOB 2 — Build (download DB artifact, generate 4 JSONs, commit)
   # ------------------------------------------------------------------
   build:
-    needs: surveillance
+    needs: [guard, surveillance]
     # Run even if surveillance failed (e.g. SMTP outage) — the artifact step
     # in surveillance is `if: always()` so the DuckDB is still available, and
     # JSON dashboards must keep refreshing regardless of email-channel health.
-    if: always() && needs.surveillance.result != 'cancelled'
+    # The guard clause is load-bearing: always() would otherwise let this job
+    # run even when JOB 0 skipped the pipeline as redundant.
+    if: always() && needs.guard.outputs.run == 'true' && needs.surveillance.result != 'cancelled'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
       SURVEILLANCE_DB_PATH: /tmp/surveillance.duckdb
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Setup Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: '3.11'
           cache: pip
@@ -219,14 +272,14 @@ jobs:
         run: pip install -r requirements.txt
 
       - name: Download surveillance.duckdb artifact (from job 1)
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           name: surveillance-duckdb
           path: /tmp
 
       - name: Download source-health.json (from surveillance job)
         continue-on-error: true
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           name: source-health
           path: data
@@ -366,7 +419,7 @@ jobs:
 
       - name: Upload build status as artifact
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: build-status-${{ github.run_id }}
           path: data/build-status.json
