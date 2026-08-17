@@ -593,19 +593,41 @@ def process_one(client: SetNewsClient, item: dict[str, Any], state: dict[str, An
         return "skipped:duplicate_sha"
 
     # Extract
+    # Bug fix 2026-08-17: previously routed ANY PDF to MDA extractor
+    # regardless of `kind`. That misclassified AUDITOR filings delivered
+    # as single-file PDFs (e.g. NRF "Explanation of the Auditor's
+    # Report Disclaimer of Opinion..." which ships as a 2-page PDF) as
+    # MDA_<TK>_UNKNOWN_E.md. Trust `kind` first; fall back to file_type
+    # only when kind is ambiguous.
     docs: list[dict[str, Any]] = []
-    if kind == "MDA" or file_type == "PDF":
+    if kind == "MDA":
         text, page_count = extract_mda_pdf(payload)
         if not text:
-            # Scanned PDF with no extractable text. Don't fail outright —
-            # save a needs_review marker so the user can OCR later, and
-            # store the source PDF metadata so the file can be re-extracted.
             print(f"  [harvest-dl] {tk} {kind} {period} -> needs_review "
                   f"(scanned PDF, no text)", flush=True)
             return f"needs_review:scanned_pdf:page_count={page_count}"
         docs.append({
             "doctype": "MDA",
             "member_filename": Path(download_url).name or f"{tk}_{period}_MDA.pdf",
+            "text": text,
+            "raw_bytes_len": len(payload),
+            "extraction_status": "ok",
+            "page_count": page_count,
+            "extractor": "pypdf-v5",
+            "sha256": sha,
+        })
+    elif kind == "AUDITOR":
+        # AUDITOR may ship as a single-file PDF (disclaimer/explanation)
+        # or as a member of an FS ZIP. This branch handles the single-file
+        # PDF case; ZIP members are handled in the FS branch below.
+        text, page_count = extract_mda_pdf(payload)
+        if not text:
+            print(f"  [harvest-dl] {tk} {kind} {period} -> needs_review "
+                  f"(scanned PDF, no text)", flush=True)
+            return f"needs_review:scanned_pdf:page_count={page_count}"
+        docs.append({
+            "doctype": "AUDITOR",
+            "member_filename": Path(download_url).name or f"{tk}_{period}_AUDITOR.pdf",
             "text": text,
             "raw_bytes_len": len(payload),
             "extraction_status": "ok",
@@ -621,6 +643,24 @@ def process_one(client: SetNewsClient, item: dict[str, Any], state: dict[str, An
         if not members:
             return "failed:zip_no_extract"
         docs = members
+    elif file_type == "PDF":
+        # Unknown kind but file is PDF — best-effort MDA extraction
+        # (preserves backward compat with kinds we haven't enumerated).
+        text, page_count = extract_mda_pdf(payload)
+        if not text:
+            print(f"  [harvest-dl] {tk} {kind} {period} -> needs_review "
+                  f"(scanned PDF, no text)", flush=True)
+            return f"needs_review:scanned_pdf:page_count={page_count}"
+        docs.append({
+            "doctype": "MDA",
+            "member_filename": Path(download_url).name or f"{tk}_{period}_MDA.pdf",
+            "text": text,
+            "raw_bytes_len": len(payload),
+            "extraction_status": "ok",
+            "page_count": page_count,
+            "extractor": "pypdf-v5",
+            "sha256": sha,
+        })
     else:
         return f"failed:unknown_kind:{kind}"
 
