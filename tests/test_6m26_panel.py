@@ -169,6 +169,29 @@ class PanelBuild(unittest.TestCase):
         self.assertEqual(self.segments["F3"]["npat_panel_excluded_tickers"], "ITC")
         self.assertEqual(self.segments["F9"]["rfo_panel_company_count"], "0")
 
+    # --------------------------------------------------------------- report
+
+    def test_report_states_panel_counts_and_qa(self):
+        text = (self.out / "COVERAGE_REPORT_6M25_6M26_2026-08-17.md").read_text(encoding="utf-8")
+        self.assertIn("| Universe | 6 | 100.0% |", text)
+        self.assertIn("QA verdict **PASS**", text)
+
+    def test_report_causes_are_specific_not_generic(self):
+        """ITC's table exists and reconciles; saying otherwise would misdirect."""
+        text = (self.out / "COVERAGE_REPORT_6M25_6M26_2026-08-17.md").read_text(encoding="utf-8")
+        self.assertIn("no owner-attributed profit line", text)
+        self.assertIn("only a combined total revenue", text)
+
+    def test_report_surfaces_promotion_candidates_with_values(self):
+        text = (self.out / "COVERAGE_REPORT_6M25_6M26_2026-08-17.md").read_text(encoding="utf-8")
+        self.assertIn("Candidates for analyst promotion", text)
+        self.assertIn("| ITC | F3 | 1,715 |", text)
+
+    def test_report_has_segment_coverage(self):
+        text = (self.out / "COVERAGE_REPORT_6M25_6M26_2026-08-17.md").read_text(encoding="utf-8")
+        self.assertIn("## Segment coverage", text)
+        self.assertIn("| F3 | 1 | 1 | 0 |", text)
+
     # ----------------------------------------------------------- provenance
 
     def test_provenance_hashes_every_source_and_output(self):

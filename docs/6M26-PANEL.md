@@ -119,6 +119,7 @@ plausibility band. Exit code is non-zero if QA fails.
 | `food_prop_company_6m25_6m26_<date>.csv` | One row per company: figures, panel flags, exclusion reason, and for every published number its matched label, evidence line, source path and SHA-256 |
 | `food_prop_segment_6m25_6m26_<date>.csv` | Segment aggregates, panel membership and direction drivers |
 | `food_prop_sector_6m25_6m26_<date>.csv` | FOOD / PROP totals |
+| `COVERAGE_REPORT_6M25_6M26_<date>.md` | **Read this first.** Panel counts, exclusions grouped by actionable cause, promotion candidates, per-segment coverage |
 | `QA_SUMMARY_6M25_6M26_<date>.json` | Structural checks; `verdict` must be `PASS` |
 | `PROVENANCE_6M25_6M26_<date>.json` | Per-ticker source hashes, output hashes, method and limitations |
 

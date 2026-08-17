@@ -398,6 +398,97 @@ def run_qa(rows: list[CompanyRow], segments: list[dict], sectors: list[dict]) ->
             "counts": counts, "checks": checks}
 
 
+def _exclusion_cause(row: CompanyRow) -> str:
+    """Bucket an exclusion into an actionable cause rather than a raw message."""
+    reason = row.exclusion_reason
+    if not reason:
+        return ""
+    if "no 2026Q2 MD&A" in reason:
+        return "no Q2/2026 MD&A in the vault"
+    if "plausibility band" in reason:
+        return "figure failed the FY plausibility band"
+    # Order matters: a company can miss both panels for different reasons, and
+    # the specific cause is more actionable than the generic one.
+    if "unattributed 'net profit'" in reason:
+        return "no owner-attributed profit line (unattributed net profit only)"
+    if "different basis than SET 01 Sale" in reason:
+        return "only a combined total revenue, no other-income line to subtract"
+    if "no 6M25/6M26 table found" in reason:
+        return "MD&A carries no half-year table"
+    if "exceeds" in reason and "computed" in reason:
+        return "issuer-stated YoY did not reconcile"
+    if "net margin" in reason:
+        return "implied margin out of range"
+    if "non-numeric" in reason or "numeric fields" in reason:
+        return "half-year columns did not align with the row"
+    return "other"
+
+
+def build_report(rows: list[CompanyRow], segments: list[dict], qa: dict, as_of: str) -> str:
+    """A human-readable summary of what landed in the panel and what did not."""
+    total = len(rows)
+    rfo = [row for row in rows if row.in_rfo_panel]
+    npat = [row for row in rows if row.in_npat_panel]
+    margin = [row for row in rows if row.in_margin_panel]
+
+    lines = [
+        f"# 6M26 panel coverage — {as_of}",
+        "",
+        f"QA verdict **{qa['verdict']}** ({qa['counts']['pass']} pass / {qa['counts']['fail']} fail)",
+        "",
+        "| Panel | Companies | Share of universe |",
+        "| --- | ---: | ---: |",
+        f"| Universe | {total} | 100.0% |",
+        f"| RFO (6M26 revenue) | {len(rfo)} | {len(rfo) / total * 100:.1f}% |",
+        f"| NPAT to owners | {len(npat)} | {len(npat) / total * 100:.1f}% |",
+        f"| Margin (intersection) | {len(margin)} | {len(margin) / total * 100:.1f}% |",
+        "",
+    ]
+
+    causes: dict[str, list[str]] = {}
+    for row in rows:
+        cause = _exclusion_cause(row)
+        if cause:
+            causes.setdefault(cause, []).append(row.ticker)
+    if causes:
+        lines += ["## Why companies are missing a panel", "",
+                  "| Cause | Companies | Tickers |", "| --- | ---: | --- |"]
+        for cause, tickers in sorted(causes.items(), key=lambda item: -len(item[1])):
+            listed = ", ".join(sorted(tickers))
+            if len(listed) > 300:
+                listed = listed[:297] + "…"
+            lines.append(f"| {cause} | {len(tickers)} | {listed} |")
+        lines.append("")
+
+    promotable = [row for row in rows
+                  if not row.in_npat_panel and row.extract
+                  and row.extract.npat_unattributed.verified]
+    if promotable:
+        lines += [
+            "## Candidates for analyst promotion", "",
+            "These print a reconcilable but unattributed \"net profit\". Confirm "
+            "non-controlling interests are immaterial, then promote them into the "
+            "NPAT panel by hand.", "",
+            "| Ticker | Segment | 6M26 net profit (THB mn) |", "| --- | --- | ---: |",
+        ]
+        for row in sorted(promotable, key=lambda r: r.ticker):
+            value = row.extract.npat_unattributed.current
+            lines.append(f"| {row.ticker} | {row.segment} | {value:,.0f} |")
+        lines.append("")
+
+    lines += ["## Segment coverage", "",
+              "| Segment | Universe | RFO panel | NPAT panel |", "| --- | ---: | ---: | ---: |"]
+    for record in segments:
+        lines.append(
+            f"| {record['primary_segment_code']} | {record['universe_company_count']} "
+            f"| {record['rfo_panel_company_count']} | {record['npat_panel_company_count']} |")
+    lines += ["",
+              "Every figure in the company CSV carries the row label and source line it "
+              "came from; check `rfo_evidence` / `npat_evidence` before quoting a number.",
+              ""]
+    return "\n".join(lines)
+
+
 def write_csv(path: Path, fields: list[str], records: list[dict]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", encoding="utf-8-sig", newline="") as handle:
@@ -425,6 +516,9 @@ def build(vault_root: Path, fy_company_csv: Path, out_dir: Path, as_of: str) -> 
     qa_path = out_dir / f"QA_SUMMARY_6M25_6M26_{as_of}.json"
     qa_path.write_text(json.dumps(qa, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
+    report_path = out_dir / f"COVERAGE_REPORT_6M25_6M26_{as_of}.md"
+    report_path.write_text(build_report(rows, segments, qa, as_of), encoding="utf-8")
+
     provenance = {
         "schema_version": "1.0",
         "period": "6M26 vs 6M25",
@@ -438,7 +532,7 @@ def build(vault_root: Path, fy_company_csv: Path, out_dir: Path, as_of: str) -> 
         "fy_company_csv_sha256": sha256_file(fy_company_csv),
         "outputs": {
             path.name: sha256_file(path)
-            for path in (company_path, segment_path, sector_path, qa_path)
+            for path in (company_path, segment_path, sector_path, qa_path, report_path)
         },
         "sources": [
             {"ticker": row.ticker, "path": row.source_path, "sha256": row.source_sha256}
@@ -472,6 +566,7 @@ def build(vault_root: Path, fy_company_csv: Path, out_dir: Path, as_of: str) -> 
         "qa": qa["verdict"],
         "qa_counts": qa["counts"],
         "out_dir": str(out_dir),
+        "report": str(report_path),
     }
 
 

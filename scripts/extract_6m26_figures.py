@@ -457,6 +457,11 @@ def extract_company(ticker: str, markdown: str) -> CompanyExtract:
         npat_unattributed=unattributed,
     )
     if not npat.verified and unattributed.verified:
+        # Say what is actually wrong. "No half-year table found" would be false
+        # here — the table exists and reconciles, it just never splits owner
+        # profit from non-controlling interests.
+        npat.reason = ("the filing reports an unattributed 'net profit' and never states "
+                       "profit attributable to owners of the parent")
         result.checks.append(
             "only an unattributed 'net profit' line was found; the FY panel "
             "measures profit attributable to owners of the parent")
