@@ -318,59 +318,71 @@ def project_one(cache_entry: dict, filing: dict, vault_root: Path
     # specific file (doctype+period+lang tuple) already exists with
     # matching sha256. If existing file has different content, suffix
     # with sha8 to preserve both versions.
-    subdir = next(sub for _, sub, _ in to_write)
-    final_dir = vault_root / RAW_DIR_NAME / subdir / tk
+    #
+    # Group files by subdir so multi-doctype filings (e.g. FS ZIP with
+    # AUDITOR + NOTES + NOTES) land in their correct folders. Pre-fix,
+    # `next(sub for _, sub, _ in to_write)` picked only the first
+    # subdir, so all sibling files (even NOTES) ended up under
+    # AUDITOR/<TK>/. Bug surfaced 2026-08-17 after Q2/2026 harvest:
+    # 407 Q2 files in AUDITOR/, only 18 in FS-NOTES/. Fix iterates per
+    # subdir.
     written: list[str] = []
     skipped_files: list[str] = []
-    for filename, _subdir, body in to_write:
-        target = final_dir / filename
-        # Use os.path.isfile (direct syscall) instead of Path.exists()
-        # to bypass OneDrive cache that can return stale True/False.
-        existing_sha = ""
-        if os.path.isfile(str(target)):
-            try:
-                txt = target.read_text(encoding="utf-8", errors="ignore")
-                m = re.search(r'^source_sha256:\s*"?([a-f0-9]+)"?',
-                               txt, re.MULTILINE)
-                if m:
-                    existing_sha = m.group(1)
-            except (OSError, FileNotFoundError):
-                # OneDrive race: file may have been deleted between
-                # isfile() and read_text(). Treat as missing.
-                existing_sha = ""
-        # Find matching doc to compare sha (filename is unique in to_write).
-        doc_sha = ""
-        for filename2, _, body2 in to_write:
-            if filename2 == filename:
-                # Parse sha from frontmatter of body2 (faster than
-                # re-iterating docs which is no longer in scope).
-                m = re.search(r'^source_sha256:\s*"?([a-f0-9]+)"?',
-                               body2, re.MULTILINE)
-                if m:
-                    doc_sha = m.group(1)
-                break
-        if existing_sha == doc_sha and doc_sha:
-            skipped_files.append(f"{filename}: same sha256, skipped")
-            continue
-        target.parent.mkdir(parents=True, exist_ok=True)
-        try:
-            # On Windows + OneDrive, os.replace() may fail if target
-            # exists. Use os.path.isfile (direct syscall) + unlink
-            # before replace. Skip unlink if already absent.
+    by_subdir: dict[str, list[tuple[str, str, str]]] = {}
+    for filename, subdir, body in to_write:
+        by_subdir.setdefault(subdir, []).append((filename, subdir, body))
+
+    for subdir, group in by_subdir.items():
+        final_dir = vault_root / RAW_DIR_NAME / subdir / tk
+        for filename, _subdir, body in group:
+            target = final_dir / filename
+            # Use os.path.isfile (direct syscall) instead of Path.exists()
+            # to bypass OneDrive cache that can return stale True/False.
+            existing_sha = ""
             if os.path.isfile(str(target)):
-                os.unlink(str(target))
-            tmp = target.with_suffix(target.suffix + ".tmp")
-            tmp.write_text(body, encoding="utf-8")
-            os.replace(str(tmp), str(target))
-            # fsync to flush to OneDrive.
+                try:
+                    txt = target.read_text(encoding="utf-8", errors="ignore")
+                    m = re.search(r'^source_sha256:\s*"?([a-f0-9]+)"?',
+                                   txt, re.MULTILINE)
+                    if m:
+                        existing_sha = m.group(1)
+                except (OSError, FileNotFoundError):
+                    # OneDrive race: file may have been deleted between
+                    # isfile() and read_text(). Treat as missing.
+                    existing_sha = ""
+            # Find matching doc to compare sha (filename is unique in to_write).
+            doc_sha = ""
+            for filename2, _, body2 in to_write:
+                if filename2 == filename:
+                    # Parse sha from frontmatter of body2 (faster than
+                    # re-iterating docs which is no longer in scope).
+                    m = re.search(r'^source_sha256:\s*"?([a-f0-9]+)"?',
+                                   body2, re.MULTILINE)
+                    if m:
+                        doc_sha = m.group(1)
+                    break
+            if existing_sha == doc_sha and doc_sha:
+                skipped_files.append(f"{filename}: same sha256, skipped")
+                continue
+            target.parent.mkdir(parents=True, exist_ok=True)
             try:
-                with open(str(target), "rb") as f:
-                    os.fsync(f.fileno())
-            except OSError:
-                pass  # best-effort
-            written.append(filename)
-        except OSError as e:
-            skipped_files.append(f"{filename}: {e}")
+                # On Windows + OneDrive, os.replace() may fail if target
+                # exists. Use os.path.isfile (direct syscall) + unlink
+                # before replace. Skip unlink if already absent.
+                if os.path.isfile(str(target)):
+                    os.unlink(str(target))
+                tmp = target.with_suffix(target.suffix + ".tmp")
+                tmp.write_text(body, encoding="utf-8")
+                os.replace(str(tmp), str(target))
+                # fsync to flush to OneDrive.
+                try:
+                    with open(str(target), "rb") as f:
+                        os.fsync(f.fileno())
+                except OSError:
+                    pass  # best-effort
+                written.append(filename)
+            except OSError as e:
+                skipped_files.append(f"{filename}: {e}")
 
     if written:
         report["writes"]["raw"] = True
