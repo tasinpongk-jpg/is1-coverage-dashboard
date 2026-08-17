@@ -1,5 +1,5 @@
 {
-  "asOf": "2026-08-16",
+  "asOf": "2026-08-17",
   "source": "SETSMART intraday API · 102 alerts across 78 tickers",
   "thresholds": {
     "vol_spike": {
@@ -83,8 +83,12 @@
         "high": 0.08,
         "low": 0.07
       },
-      "filingsLinked": 0,
-      "filingsTitles": []
+      "filingsLinked": 4,
+      "filingsTitles": [
+        "Financial Performance Quarter 2 (F45) (Reviewed) (Revised)",
+        "Management Discussion and Analysis Quarter 2 Ending 30 Jun 2026",
+        "Financial Performance Quarter 2 (F45) (Reviewed)"
+      ]
     },
     {
       "tk": "TU",
@@ -620,7 +624,7 @@
       "sector": "CONS",
       "type": "Intraday move",
       "atype": "intraday",
-      "severity": "medium",
+      "severity": "low",
       "value": 5.556,
       "label": "-5.56% intraday",
       "evidence": {
@@ -629,8 +633,12 @@
         "high": 0.18,
         "low": 0.17
       },
-      "filingsLinked": 0,
-      "filingsTitles": []
+      "filingsLinked": 4,
+      "filingsTitles": [
+        "Financial Transaction with Risk to the Financial Position and Operating Performance.",
+        "Management Discussion and Analysis Quarter 2 Ending 30 Jun 2026",
+        "Financial Performance Quarter 2 (F45) (Reviewed)"
+      ]
     },
     {
       "tk": "SOLAR",
@@ -1008,7 +1016,7 @@
       "sector": "FOOD",
       "type": "Intraday move",
       "atype": "intraday",
-      "severity": "medium",
+      "severity": "low",
       "value": 4.348,
       "label": "-4.35% intraday",
       "evidence": {
@@ -1017,8 +1025,11 @@
         "high": 0.23,
         "low": 0.22
       },
-      "filingsLinked": 0,
-      "filingsTitles": []
+      "filingsLinked": 2,
+      "filingsTitles": [
+        "SP sign posted on the securities of NRF, NWR, SQ, TTCL as the auditor has been unable to express a conclusion on financi",
+        "Financial Transaction with Risk to the Financial Position and Operating Performance."
+      ]
     },
     {
       "tk": "PLUS",
@@ -1638,8 +1649,10 @@
         "open": 0.0,
         "prevClose": 1.17
       },
-      "filingsLinked": 0,
-      "filingsTitles": []
+      "filingsLinked": 1,
+      "filingsTitles": [
+        "Notification convening date of the Public Presentation"
+      ]
     },
     {
       "tk": "PRECHA",
@@ -2084,23 +2097,6 @@
       ],
       "summary": [
         "Volume spike: 5.5σ vs 20D avg"
-      ]
-    },
-    {
-      "tk": "BROCK",
-      "sector": "PROP",
-      "alertCount": 1,
-      "highestSeverity": "high",
-      "filingsLinked": 0,
-      "alertTypes": [
-        {
-          "atype": "gap",
-          "type": "Price gap",
-          "severity": "high"
-        }
-      ],
-      "summary": [
-        "Price gap: -100.00% open gap"
       ]
     },
     {
@@ -2665,11 +2661,28 @@
       ]
     },
     {
+      "tk": "BROCK",
+      "sector": "PROP",
+      "alertCount": 1,
+      "highestSeverity": "high",
+      "filingsLinked": 1,
+      "alertTypes": [
+        {
+          "atype": "gap",
+          "type": "Price gap",
+          "severity": "high"
+        }
+      ],
+      "summary": [
+        "Price gap: -100.00% open gap"
+      ]
+    },
+    {
       "tk": "XBIO",
       "sector": "FOOD",
       "alertCount": 1,
       "highestSeverity": "high",
-      "filingsLinked": 0,
+      "filingsLinked": 4,
       "alertTypes": [
         {
           "atype": "intraday",
@@ -2910,23 +2923,6 @@
       ]
     },
     {
-      "tk": "NRF",
-      "sector": "FOOD",
-      "alertCount": 1,
-      "highestSeverity": "medium",
-      "filingsLinked": 0,
-      "alertTypes": [
-        {
-          "atype": "intraday",
-          "type": "Intraday move",
-          "severity": "medium"
-        }
-      ],
-      "summary": [
-        "Intraday move: -4.35% intraday"
-      ]
-    },
-    {
       "tk": "PB",
       "sector": "FOOD",
       "alertCount": 1,
@@ -3046,23 +3042,6 @@
       ]
     },
     {
-      "tk": "SQ",
-      "sector": "CONS",
-      "alertCount": 1,
-      "highestSeverity": "medium",
-      "filingsLinked": 0,
-      "alertTypes": [
-        {
-          "atype": "intraday",
-          "type": "Intraday move",
-          "severity": "medium"
-        }
-      ],
-      "summary": [
-        "Intraday move: -5.56% intraday"
-      ]
-    },
-    {
       "tk": "TPIPL",
       "sector": "CONMAT",
       "alertCount": 1,
@@ -3129,8 +3108,42 @@
       "summary": [
         "Volume spike: 2.4σ vs 20D avg"
       ]
+    },
+    {
+      "tk": "NRF",
+      "sector": "FOOD",
+      "alertCount": 1,
+      "highestSeverity": "low",
+      "filingsLinked": 2,
+      "alertTypes": [
+        {
+          "atype": "intraday",
+          "type": "Intraday move",
+          "severity": "low"
+        }
+      ],
+      "summary": [
+        "Intraday move: -4.35% intraday"
+      ]
+    },
+    {
+      "tk": "SQ",
+      "sector": "CONS",
+      "alertCount": 1,
+      "highestSeverity": "low",
+      "filingsLinked": 4,
+      "alertTypes": [
+        {
+          "atype": "intraday",
+          "type": "Intraday move",
+          "severity": "low"
+        }
+      ],
+      "summary": [
+        "Intraday move: -5.56% intraday"
+      ]
     }
   ],
-  "_built_at": "2026-08-16T02:39:41.518221+00:00",
+  "_built_at": "2026-08-17T02:40:50.504704+00:00",
   "_coverage_size": 232
 }
