@@ -99,7 +99,7 @@ def is_nil_token(token: str) -> bool:
 
 # A column header naming a period: 2Q25, Q2 2025, 6M26, 1H26, FY25, 9M25.
 _PERIOD_COL = re.compile(
-    r"^(?:[1-4]Q|Q[1-4]|6M|9M|1H|2H|H1|H2|FY)\s*(?:20)?\d{2}$", re.I
+    r"^(?:[1-4]Q|Q[1-4]|6M|9M|1H|2H|H1|H2|FY)\s*[/\-]?\s*(?:20)?\d{2}$", re.I
 )
 # Tokens that continue a column name rather than starting a new one.
 _COL_SUFFIX = {"(%)", "%", "(chg)", "chg", "(x)", "(times)"}
@@ -121,8 +121,9 @@ def _merge_column_tokens(tokens: list[str]) -> list[str]:
 
 
 def _period_token(year_two: str) -> re.Pattern[str]:
+    # Issuers write the half year as 6M25, 1H26, 6M/2026 or H1 2025.
     return re.compile(
-        rf"^(?:6M|1H|H1)\s*(?:20)?{year_two}$", re.I
+        rf"^(?:6M|1H|H1)\s*[/\-]?\s*(?:20)?{year_two}$", re.I
     )
 
 
@@ -154,7 +155,10 @@ def find_period_columns(line: str) -> PeriodColumns | None:
     columns = tokens[first_col:]
     prior = next((i for i, t in enumerate(columns) if HEADER_PRIOR.match(t)), None)
     current = next((i for i, t in enumerate(columns) if HEADER_CURRENT.match(t)), None)
-    if prior is None or current is None or current <= prior:
+    # Either order occurs in the wild: CPN prints 6M25 then 6M26, AWC prints
+    # 6M/2026 then 6M/2025. The header names the columns, so position is read
+    # from it rather than assumed.
+    if prior is None or current is None or prior == current:
         return None
     return PeriodColumns(prior=prior, current=current, count=len(columns), header=line.strip())
 
@@ -305,8 +309,10 @@ def extract_measure(
             continue
 
         base.prior, base.current = prior, current
-        if columns.current + 1 < len(fields):
-            base.stated_yoy_pct = parse_pct(fields[columns.current + 1])
+        # The YoY sits after whichever half-year column the issuer printed last.
+        yoy_index = max(columns.prior, columns.current) + 1
+        if yoy_index < len(fields):
+            base.stated_yoy_pct = parse_pct(fields[yoy_index])
         if prior > 0:
             base.computed_yoy_pct = (current - prior) / prior * 100.0
 

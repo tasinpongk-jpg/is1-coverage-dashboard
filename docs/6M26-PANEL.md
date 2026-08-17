@@ -54,6 +54,27 @@ strictly on the intersection.
 - 6M26 RFO outside 20–85% of audited FY2025 RFO blocks the company from both
   panels. Deliberately wide: this catches scale and row errors, not seasonality.
 
+## Format variants observed in real filings
+
+Sampling real Q2/2026 MD&A from the vault turned up three distinct layouts. The
+first two extract cleanly; the third is the reason the reconciliation gate
+exists.
+
+| Issuer | Layout | Outcome |
+| --- | --- | --- |
+| CPN | `6M25` / `6M26` columns, `YoY (%)` split across two tokens, combined total revenue | Both measures published; RFO derived as total less other income |
+| ITC | `1H25` / `1H26` columns, `%YoY` as one token, "Sales and service" already on the 01 Sale basis | Revenue published; owner NPAT withheld — the filing prints only an unattributed "Net profit" |
+| AWC | `6M/2026` before `6M/2025`, header emitted *after* the data rows, `%Change` headers on their own lines, row labels detached and reprinted in a block | Nothing published |
+
+AWC is kept as a fixture precisely because its true figures are recoverable by
+eye (12,278 / 11,401 revenue; 3,455 / 3,374 net profit) but not provably by
+machine. A test asserts the parser never emits those numbers, so a future change
+that reads the right cells by accident still fails the suite.
+
+Two safe generalisations came out of this sampling: half-year columns may be
+written with a slash (`6M/2026`), and the current period may be printed before
+the prior one. Position is always read from the header, never assumed.
+
 ## Prerequisite: re-extract the DOCX filings
 
 `harvest_download.py:_docx_text` read only `doc.paragraphs`, so **every table in

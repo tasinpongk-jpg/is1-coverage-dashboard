@@ -21,6 +21,7 @@ import extract_6m26_figures as X  # noqa: E402
 FIX = REPO / "tests" / "fixtures"
 CPN = (FIX / "mda_CPN_2026Q2_pl_excerpt.md").read_text(encoding="utf-8")
 ITC = (FIX / "mda_ITC_2026Q2_pl_excerpt.md").read_text(encoding="utf-8")
+AWC = (FIX / "mda_AWC_2026Q2_pl_excerpt.md").read_text(encoding="utf-8")
 
 HEADER = "Profit & Loss Statement (Baht mn) 2Q25 1Q26 2Q26 YoY (%) QoQ (%) 6M25 6M26 YoY (%)"
 
@@ -135,6 +136,59 @@ class RealFilingITC(unittest.TestCase):
         self.assertEqual(self.result.npat_unattributed.current, 1715.0)
         self.assertEqual(self.result.status, "needs_review")
         self.assertTrue(any("attributable to owners" in c for c in self.result.checks))
+
+
+class RealFilingAWC(unittest.TestCase):
+    """A layout the parser must refuse rather than misread.
+
+    pypdf emitted AWC's header after its data rows, put the %Change headers on
+    separate lines, and detached most row labels. The true figures are
+    12,278 / 11,401 revenue and 3,455 / 3,374 net profit — none of which may be
+    published, because the column mapping cannot be proven from this text.
+    """
+
+    def setUp(self):
+        self.result = X.extract_company("AWC", AWC)
+
+    def test_publishes_nothing(self):
+        self.assertEqual(self.result.status, "needs_review")
+        self.assertIsNone(self.result.rfo.current)
+        self.assertIsNone(self.result.npat.current)
+        self.assertIsNone(self.result.npat_unattributed.current)
+
+    def test_does_not_emit_the_true_figures_by_luck(self):
+        """Guards against a future change that reads the right cells by accident."""
+        for figure in (self.result.rfo, self.result.npat, self.result.revenue):
+            self.assertNotIn(figure.current, (12278.0, 11401.0, 3455.0, 3374.0))
+
+    def test_exclusion_names_a_reason(self):
+        self.assertTrue(self.result.exclusion_reason)
+
+
+class SlashAndReversedHeaders(unittest.TestCase):
+    """Format variants found in the wild while sampling real filings."""
+
+    def test_slash_notation_is_recognised(self):
+        columns = X.find_period_columns(
+            "Unit: THB Million 2Q/2026 1Q/2026 2Q/2025 6M/2025 6M/2026 YoY (%)")
+        self.assertIsNotNone(columns)
+        self.assertEqual((columns.prior, columns.current), (3, 4))
+
+    def test_current_before_prior_is_read_from_the_header(self):
+        """AWC prints 6M/2026 before 6M/2025; position comes from the header."""
+        columns = X.find_period_columns(
+            "Unit: THB Million 2Q/2026 6M/2026 6M/2025 YoY (%)")
+        self.assertIsNotNone(columns)
+        self.assertEqual((columns.current, columns.prior), (1, 2))
+
+    def test_reversed_order_still_reconciles(self):
+        doc = "\n".join([
+            "Unit: THB Million 2Q/2026 6M/2026 6M/2025 YoY (%)",
+            "Total sales 100 1,200 1,000 20%",
+        ])
+        figure = X.extract_measure(doc, X.REVENUE_PATTERNS)
+        self.assertTrue(figure.verified)
+        self.assertEqual((figure.prior, figure.current), (1000.0, 1200.0))
 
 
 class RefusesToGuess(unittest.TestCase):

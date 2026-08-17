@@ -38,6 +38,7 @@ FY_ROWS = [
     # ticker, sector, segment, fy2025_rfo_mb
     ("CPN", "PROP", "P3", 50000.0),
     ("ITC", "FOOD", "F3", 19000.0),
+    ("AWC", "PROP", "P4", 25000.0),
     ("LOSSCO", "PROP", "P5", 2400.0),
     ("QUARTERONLY", "FOOD", "F9", 1800.0),
     ("NOFILE", "FOOD", "F9", 900.0),
@@ -55,6 +56,7 @@ class PanelBuild(unittest.TestCase):
         bodies = {
             "CPN": (FIX / "mda_CPN_2026Q2_pl_excerpt.md").read_text(encoding="utf-8"),
             "ITC": (FIX / "mda_ITC_2026Q2_pl_excerpt.md").read_text(encoding="utf-8"),
+            "AWC": (FIX / "mda_AWC_2026Q2_pl_excerpt.md").read_text(encoding="utf-8"),
             "LOSSCO": LOSSCO,
             "QUARTERONLY": QUARTERONLY,
         }
@@ -130,6 +132,15 @@ class PanelBuild(unittest.TestCase):
         self.assertEqual(row["npat_panel_included"], "no")
         self.assertEqual(row["margin_panel_included"], "no")
         self.assertAlmostEqual(float(row["npat_unattributed_6m26_mb"]), 1715.0)
+        self.assertTrue(row["panel_exclusion_reason"])
+
+    def test_awc_detached_labels_publish_nothing(self):
+        """Real figures exist in the filing but cannot be safely attributed."""
+        row = self.companies["AWC"]
+        self.assertEqual(row["rfo_panel_included"], "no")
+        self.assertEqual(row["npat_panel_included"], "no")
+        self.assertEqual(row["rfo_6m26_mb"], "")
+        self.assertEqual(row["npat_owners_6m26_mb"], "")
         self.assertTrue(row["panel_exclusion_reason"])
 
     def test_quarter_only_filing_is_excluded_not_zero_filled(self):
