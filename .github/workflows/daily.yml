@@ -316,6 +316,19 @@ jobs:
           PYTHONIOENCODING: utf-8
         run: python scripts/build_daily.py
 
+      # Rebuild vault-ticker-notes.json (MDA + FS-NOTES + calls + filingSummary
+      # + bizProfile excerpts from the OneDrive vault). The script is a no-op
+      # on runners where the vault path doesn't exist (exits 0 with a warning),
+      # so this is safe in CI even though the vault lives on Champ's laptop.
+      # On local laptop triggers (workflow_dispatch on a clone that DOES have
+      # the vault) this keeps the per-ticker drawer in company-summary.html
+      # fresh. ~3 minutes for 232 tickers on a 2020-era laptop.
+      - name: Rebuild vault ticker notes
+        env:
+          PYTHONIOENCODING: utf-8
+        run: python scripts/build_vault_ticker_notes.py
+        continue-on-error: true
+
       # Pure DB -> JSON, ~2 sec. Reads same DuckDB artifact already on disk.
       - name: Build external dashboard payloads
         env:
