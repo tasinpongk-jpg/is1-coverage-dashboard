@@ -464,6 +464,164 @@ def _build_rm_watch_embed(brief: dict, rm_tickers: set[str]) -> dict:
     }
 
 
+# Thai-language red-flag keywords that flag a news item as risk-worthy.
+# These are matched case-insensitively against title + excerpt. Keep small
+# and high-precision; false positives are louder than misses here.
+_RISK_KEYWORDS_TH = (
+    "อายัด", "ฟ้องล้มละลาย", "ผิดนัดชำระหนี้", "พักการซื้อขาย", "delisting",
+    "ถอดถอน", "ฉ้อโกง", "ทุจริต", "แจ้งความ", "ถูกกล่าวหา",
+    "งบประมาณขาดทุน", "ขาดทุนต่อเนื่อง", "เข้าข่ายถูกเพิกถอน",
+    "free-float ไม่ครบ", "ผู้สอบบัญชี", "ไม่แสดงความเห็น",
+    "รายงานข้อสังเกต", "หยุดพักการซื้อขาย",
+)
+
+_RISK_KEYWORDS_EN = (
+    "delisting", "bankruptcy", "default", "fraud", "restated",
+    "qualified opinion", "audit qualification", "suspended trading",
+    "insolvency", "going concern",
+)
+
+# Display-source → short emoji label for the embed (Thai readers
+# recognise these brands at a glance).
+_SOURCE_LABEL = {
+    "HOONSMART": "🟠 HOONSMART",
+    "KAOHOON": "🔵 KAOHOON",
+    "PRACHACHAT": "🟢 PRACHACHAT",
+    "RYT9": "🟡 RYT9",
+}
+
+
+def _is_risk_item(it: dict) -> bool:
+    """True if a news item contains any high-severity keyword.
+
+    Match against title + excerpt, case-insensitive. Title matches weigh
+    slightly more — but we use a single boolean for the embed color.
+    """
+    haystack = " ".join([
+        str(it.get("title", "") or ""),
+        str(it.get("excerpt", "") or ""),
+    ]).lower()
+    if not haystack:
+        return False
+    for kw in _RISK_KEYWORDS_TH:
+        if kw.lower() in haystack:
+            return True
+    for kw in _RISK_KEYWORDS_EN:
+        if kw.lower() in haystack:
+            return True
+    return False
+
+
+def _pick_news_for_embed(
+    items: list[dict],
+    rm_tickers: set[str],
+    *,
+    rm_min: int = 3,
+    max_rows: int = 5,
+) -> tuple[list[dict], str]:
+    """Apply the RM-C-first, market-fallback rule.
+
+    Returns (picked_items, source_label) where source_label is one of
+    "rm-c", "market-fallback", "none". The picked items are already
+    sorted newest-first and capped at max_rows.
+
+    Rule:
+      1. Filter to items whose tk is in rm_tickers (if any).
+      2. If RM-C items >= rm_min: show RM-C only.
+      3. Else: fall back to all items (market-wide).
+      4. In either branch: newest first.
+    """
+    if not items:
+        return [], "none"
+
+    # Items may be missing tk — treat them as market-wide (never RM-C).
+    def _ts(it: dict) -> str:
+        return str(it.get("ts", "") or "")
+
+    rm_items = [it for it in items if it.get("tk") in rm_tickers]
+    rm_items.sort(key=_ts, reverse=True)
+
+    if len(rm_items) >= rm_min:
+        return rm_items[:max_rows], "rm-c"
+
+    # Fallback: market-wide, newest first.
+    market_items = sorted(items, key=_ts, reverse=True)
+    return market_items[:max_rows], "market-fallback"
+
+
+def _build_news_embed(
+    news: dict,
+    rm_tickers: set[str],
+    asof: str,
+    dashboard_url: str = DEFAULT_BASE_URL,
+) -> dict | None:
+    """Build the 'News Watch' embed (embed #5).
+
+    Returns None if no items at all — caller should skip rather than
+    emit an empty embed. Otherwise returns a 1024-char-safe embed with
+    up to 5 rows (newest first), source labels, ticker tags, and a
+    link to the dashboard news explorer.
+    """
+    items = news.get("items") or []
+    picked, src_label = _pick_news_for_embed(items, rm_tickers)
+
+    if not picked:
+        return None
+
+    # Color: red if any row is a flagged risk item, blue otherwise.
+    has_risk = any(_is_risk_item(it) for it in picked)
+    color = 0xEF4444 if has_risk else 0x06B6D4  # cyan-500
+
+    # Title changes per source label so the user knows whether this
+    # is RM-C priority or a market fallback.
+    if src_label == "rm-c":
+        title = f"📰 RM-C News Watch — {asof} ({len(picked)} items)"
+    else:
+        title = f"📰 Market News Watch — {asof} ({len(picked)} items, no RM-C hits)"
+
+    # Build fields. Up to 5 fields × 1024 chars each is well under the
+    # 6000-char total embed cap (other embeds ~3000 chars combined).
+    fields = []
+    for it in picked:
+        src = it.get("source", "?")
+        src_disp = _SOURCE_LABEL.get(src, src)
+        tk = it.get("tk", "")
+        risk_marker = " 🔴" if _is_risk_item(it) else ""
+        url = it.get("url", "")
+        # Title line: **<ticker>** <short source> 🔴 if risk
+        title_line = f"{src_disp}"
+        if tk:
+            title_line += f" · `{tk}`"
+        title_line += risk_marker
+        # Body line: hyperlink the title for click-through.
+        news_title = _truncate(it.get("title", ""), 200)
+        if url:
+            body_line = f"[{news_title}]({url})"
+        else:
+            body_line = news_title
+        # Combine into a single field value (one row per news item).
+        fields.append({
+            "name": _truncate(title_line, EMBED_FIELD_NAME_MAX),
+            "value": _truncate(body_line, EMBED_FIELD_VALUE_MAX),
+            "inline": False,
+        })
+
+    footer_text = f"src={','.join(news.get('sources', []) or [])}"
+    if src_label == "rm-c":
+        footer_text += " · scope=rm-c"
+    else:
+        footer_text += " · scope=market-fallback"
+    if has_risk:
+        footer_text += " · ⚠️ flagged keywords"
+
+    return {
+        "title": _truncate(title, EMBED_TITLE_MAX),
+        "color": color,
+        "fields": fields,
+        "footer": {"text": _truncate(footer_text, EMBED_FOOTER_MAX)},
+    }
+
+
 def _build_filings_today_embed(pulse: dict, rm_tickers: set[str], asof: str) -> dict:
     """Count today's filings (BKK-day boundary) + recent RM-C filings."""
     filings = pulse.get("filings") or []
@@ -602,6 +760,8 @@ def main() -> int:
             _log(f"FATAL: required source missing — ai={bool(ai)} brief={bool(brief)} "
                   f"tickers={bool(tickers)} pulse={bool(pulse)}")
             return 1
+        # News is OPTIONAL — we degrade gracefully if it's missing or stale.
+        news = _fetch_json(f"{base_url}/data/external-news.json")
 
         # ---- freshness gate
         bkk = timezone(timedelta(hours=7))
@@ -643,6 +803,16 @@ def main() -> int:
             embeds.append(_build_rm_watch_embed(brief, rm_tickers))
         if pulse:
             embeds.append(_build_filings_today_embed(pulse, rm_tickers, overall_asof))
+        # News embed is optional — skipped silently if external-news.json
+        # is missing/empty/stale, since it's a soft add-on, not a core
+        # pillar. We do not gate the whole brief on it.
+        if news and (news.get("items") or []):
+            news_emb = _build_news_embed(news, rm_tickers, overall_asof)
+            if news_emb:
+                embeds.append(news_emb)
+                _log(f"news embed added ({news_emb['footer']['text']})")
+            else:
+                _log("news source had items but picker returned none — skipped")
 
         # ---- clamp + validate
         embeds = _clamp_fields(embeds)

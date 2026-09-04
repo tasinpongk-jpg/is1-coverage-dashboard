@@ -286,6 +286,203 @@ class TestParseRetryAfter(unittest.TestCase):
         self.assertEqual(result, 300.0)
 
 
+class TestIsRiskItem(unittest.TestCase):
+    """Tests for keyword-driven risk flag detection (TH + EN)."""
+
+    def test_thai_bankruptcy(self):
+        self.assertTrue(b._is_risk_item({"title": "บริษัทถูกฟ้องล้มละลาย", "excerpt": ""}))
+
+    def test_thai_default(self):
+        self.assertTrue(b._is_risk_item({"title": "ผิดนัดชำระหนี้", "excerpt": "ข่าวจาก..."}))
+
+    def test_thai_delisting(self):
+        self.assertTrue(b._is_risk_item({"title": "หุ้นเข้าข่ายถูกเพิกถอน", "excerpt": ""}))
+
+    def test_english_delisting(self):
+        self.assertTrue(b._is_risk_item({"title": "Firm faces delisting risk", "excerpt": ""}))
+
+    def test_english_qualified_opinion(self):
+        self.assertTrue(b._is_risk_item({
+            "title": "Audit report",
+            "excerpt": "Auditor issued a qualified opinion on the FY2025 financials",
+        }))
+
+    def test_benign_title_is_not_risk(self):
+        self.assertFalse(b._is_risk_item({"title": "Q2 รายได้โต 33% QoQ", "excerpt": "บริษัทฯ..."}))
+
+    def test_empty_input_is_not_risk(self):
+        self.assertFalse(b._is_risk_item({"title": "", "excerpt": ""}))
+        self.assertFalse(b._is_risk_item({}))
+
+    def test_case_insensitive(self):
+        # English keywords must match regardless of case in the haystack.
+        self.assertTrue(b._is_risk_item({"title": "DELISTING imminent", "excerpt": ""}))
+        self.assertTrue(b._is_risk_item({"title": "Risk of Bankruptcy", "excerpt": ""}))
+
+
+class TestPickNewsForEmbed(unittest.TestCase):
+    """RM-C first, market fallback rule."""
+
+    def _mk(self, tk, ts, source="HOONSMART"):
+        return {
+            "id": f"id-{tk}-{ts}",
+            "tk": tk,
+            "ts": ts,
+            "source": source,
+            "title": f"news about {tk}",
+            "url": f"https://example.com/{tk}",
+        }
+
+    def test_rm_c_priority_when_enough(self):
+        items = [
+            self._mk("X", "2026-09-04T10:00:00+07:00"),
+            self._mk("Y", "2026-09-04T09:00:00+07:00"),
+            self._mk("Z", "2026-09-04T08:00:00+07:00"),
+            self._mk("OTHER", "2026-09-04T11:00:00+07:00"),  # newer but not RM-C
+        ]
+        rm_c = {"X", "Y", "Z"}
+        picked, label = b._pick_news_for_embed(items, rm_c)
+        self.assertEqual(label, "rm-c")
+        self.assertEqual([it["tk"] for it in picked], ["X", "Y", "Z"])
+
+    def test_fallback_when_rm_c_below_min(self):
+        # Only 2 RM-C items but threshold is 3 → market fallback.
+        items = [
+            self._mk("X", "2026-09-04T10:00:00+07:00"),
+            self._mk("Y", "2026-09-04T09:00:00+07:00"),
+            self._mk("A", "2026-09-04T11:00:00+07:00"),
+            self._mk("B", "2026-09-04T10:30:00+07:00"),
+            self._mk("C", "2026-09-04T10:15:00+07:00"),
+        ]
+        rm_c = {"X", "Y"}
+        picked, label = b._pick_news_for_embed(items, rm_c)
+        self.assertEqual(label, "market-fallback")
+        # Newest-first across all sources
+        self.assertEqual([it["tk"] for it in picked], ["A", "B", "C", "X", "Y"])
+
+    def test_empty_returns_none_label(self):
+        picked, label = b._pick_news_for_embed([], {"X"})
+        self.assertEqual(picked, [])
+        self.assertEqual(label, "none")
+
+    def test_caps_at_max_rows(self):
+        items = [self._mk("X", f"2026-09-04T{10 - i:02d}:00:00+07:00") for i in range(20)]
+        rm_c = {"X"}
+        picked, _ = b._pick_news_for_embed(items, rm_c, max_rows=5)
+        self.assertEqual(len(picked), 5)
+
+    def test_handles_missing_tk(self):
+        # Items without tk field are treated as market-wide, not RM-C.
+        items = [
+            {"id": "1", "tk": "", "ts": "2026-09-04T10:00:00+07:00", "title": "macro"},
+            {"id": "2", "ts": "2026-09-04T11:00:00+07:00", "title": "no-tk-field"},  # no tk at all
+            self._mk("X", "2026-09-04T09:00:00+07:00"),
+        ]
+        rm_c = {"X"}
+        picked, label = b._pick_news_for_embed(items, rm_c, rm_min=1)
+        self.assertEqual(label, "rm-c")
+        self.assertEqual([it["tk"] for it in picked], ["X"])
+
+    def test_rm_min_threshold(self):
+        # 3 RM-C items with rm_min=4 → fallback.
+        items = [self._mk("X", f"2026-09-04T{10 - i:02d}:00:00+07:00") for i in range(3)]
+        rm_c = {"X"}
+        _, label = b._pick_news_for_embed(items, rm_c, rm_min=4)
+        self.assertEqual(label, "market-fallback")
+
+
+class TestBuildNewsEmbed(unittest.TestCase):
+    """Full embed builder."""
+
+    def _mk_item(self, tk, ts, source="HOONSMART", title="test", url="https://e.com/1", risk=False):
+        if risk:
+            title = title + " — ฟ้องล้มละลาย"
+        return {
+            "id": f"id-{tk}-{ts}",
+            "tk": tk,
+            "ts": ts,
+            "source": source,
+            "title": title,
+            "url": url,
+        }
+
+    def test_returns_none_when_no_items(self):
+        emb = b._build_news_embed({"items": [], "sources": []}, {"X"}, "2026-09-04")
+        self.assertIsNone(emb)
+
+    def test_rm_c_title_when_priority_hits(self):
+        items = [self._mk_item("X", f"2026-09-04T{10 - i:02d}:00:00+07:00") for i in range(4)]
+        emb = b._build_news_embed({"items": items, "sources": ["HOONSMART"]}, {"X"}, "2026-09-04")
+        self.assertIsNotNone(emb)
+        self.assertIn("RM-C News Watch", emb["title"])
+        self.assertEqual(len(emb["fields"]), 4)
+
+    def test_market_fallback_title_when_below_min(self):
+        items = [self._mk_item("X", "2026-09-04T10:00:00+07:00")]
+        emb = b._build_news_embed({"items": items, "sources": ["RYT9"]}, {"X"}, "2026-09-04")
+        self.assertIn("Market News Watch", emb["title"])
+        self.assertIn("no RM-C hits", emb["title"])
+
+    def test_red_color_when_any_item_is_risk(self):
+        items = [
+            self._mk_item("X", "2026-09-04T10:00:00+07:00"),
+            self._mk_item("Y", "2026-09-04T09:00:00+07:00", risk=True),
+            self._mk_item("Z", "2026-09-04T08:00:00+07:00"),
+        ]
+        emb = b._build_news_embed({"items": items, "sources": ["HOONSMART"]}, {"X", "Y", "Z"}, "2026-09-04")
+        self.assertEqual(emb["color"], 0xEF4444)
+        self.assertIn("⚠️ flagged keywords", emb["footer"]["text"])
+
+    def test_cyan_color_when_all_clean(self):
+        items = [self._mk_item("X", f"2026-09-04T{10 - i:02d}:00:00+07:00") for i in range(4)]
+        emb = b._build_news_embed({"items": items, "sources": ["HOONSMART"]}, {"X"}, "2026-09-04")
+        self.assertEqual(emb["color"], 0x06B6D4)
+
+    def test_footer_marks_scope(self):
+        items = [self._mk_item("X", f"2026-09-04T{10 - i:02d}:00:00+07:00") for i in range(3)]
+        emb = b._build_news_embed({"items": items, "sources": ["HOONSMART", "RYT9"]}, {"X"}, "2026-09-04")
+        self.assertIn("scope=rm-c", emb["footer"]["text"])
+        self.assertIn("HOONSMART", emb["footer"]["text"])
+
+    def test_field_names_include_ticker_and_source(self):
+        items = [self._mk_item("ITC", "2026-09-04T10:00:00+07:00", source="HOONSMART")]
+        emb = b._build_news_embed({"items": items, "sources": ["HOONSMART"]}, {"ITC"}, "2026-09-04")
+        # Field name = source label + ticker
+        self.assertIn("HOONSMART", emb["fields"][0]["name"])
+        self.assertIn("ITC", emb["fields"][0]["name"])
+
+    def test_field_value_is_hyperlink(self):
+        items = [self._mk_item("X", "2026-09-04T10:00:00+07:00", title="ข่าวดี", url="https://example.com/x")]
+        emb = b._build_news_embed({"items": items, "sources": ["HOONSMART"]}, {"X"}, "2026-09-04")
+        self.assertIn("[ข่าวดี](https://example.com/x)", emb["fields"][0]["value"])
+
+    def test_caps_at_5_rows(self):
+        items = [self._mk_item("X", f"2026-09-04T{10 - i:02d}:00:00+07:00") for i in range(20)]
+        emb = b._build_news_embed({"items": items, "sources": ["HOONSMART"]}, {"X"}, "2026-09-04")
+        self.assertEqual(len(emb["fields"]), 5)
+
+    def test_total_chars_under_6000(self):
+        """Integration check: 5 fields × 1024 + title + footer must
+        fit under 6000 chars so the validate_total_chars helper doesn't
+        drop this embed."""
+        items = [
+            self._mk_item(
+                "X",
+                f"2026-09-04T{10 - i:02d}:00:00+07:00",
+                title="A" * 200,  # max-truncated title
+                url="https://example.com/" + "x" * 800,
+            )
+            for i in range(5)
+        ]
+        emb = b._build_news_embed({"items": items, "sources": ["HOONSMART"]}, {"X"}, "2026-09-04")
+        total = (
+            len(emb["title"])
+            + sum(len(f["name"]) + len(f["value"]) for f in emb["fields"])
+            + len(emb["footer"]["text"])
+        )
+        self.assertLess(total, 6000)
+
+
 # ---------------------------------------------------------------- main entry
 
 class TestMainFailClosed(unittest.TestCase):
