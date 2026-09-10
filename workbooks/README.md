@@ -20,10 +20,24 @@ one so the two can be cross-checked without leaving the sheet.
 
 - `Control` — period, the NPAT measure per sector, QA panel. The only sheet
   you edit to roll the period.
-- `Ticker Detail` — the 241-issuer roster. Sales and NPAT pulled from `Raw DB`.
+- `Verify` — type a ticker, see everything about it plus a tie-out ladder from
+  issuer to industry. Start here when checking a number.
+- `Ticker Detail` — the 241-issuer roster. Sales and NPAT pulled from `Raw DB`;
+  market cap at 31 Aug 2026 and 5 Jan 2026.
 - `Movers` — which issuers moved each sector and segment, by contribution.
+- `MD&A` — one row per segment keyed to that segment's top mover, over a
+  ticker-level commentary library. Reads NEEDED where commentary is missing.
+- `Revenue Structure` — FY2025 OneReport top lines and SET alignment, 182 of 241.
 - `Deck Recon` — every place the deck and the database disagree, with the cause.
 - Open in Excel and let it calculate; formula cells ship without cached results.
+
+**Sales comes from the raw panel, not the deck.** `01 Sale` (column J) is the
+primary revenue measure at every level. The deck's Sales YoY never reconciled
+under any aggregation and is kept only as a greyed reference column.
+
+**Market cap sits on one date.** All six sectors are priced at 31 Aug 2026 from
+the SETSMART export, with 5 Jan 2026 carried alongside as the start-of-year
+base. FOOD and PROP tie to the deck exactly.
 
 **The NPAT measure is not the same for every sector.** AGRI, FOOD, CONMAT, CONS
 and PROP use `36 Net profit-majority`; PF&REIT uses `35 Net profit`, because the
