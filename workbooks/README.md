@@ -18,6 +18,12 @@ It follows the deck flow — industry, sector, segment, then the issuers that
 moved the segment — and carries the deck's own figure beside every computed
 one so the two can be cross-checked without leaving the sheet.
 
+- `Deck Guide` — how to turn this workbook into the PowerPoint: what to build
+  on each slide, which block to read, design rules, pre-send checks. Attach the
+  workbook with the PPTX and follow it.
+- `Deck Data` — slide-ready blocks B1–B16, every figure the deck needs, already
+  computed. Literal values, not formulas, so an LLM reading the file sees
+  numbers rather than blanks.
 - `Control` — period, the NPAT measure per sector, QA panel. The only sheet
   you edit to roll the period.
 - `Verify` — type a ticker, see everything about it plus a tie-out ladder from
