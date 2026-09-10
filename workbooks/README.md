@@ -18,6 +18,9 @@ It follows the deck flow — industry, sector, segment, then the issuers that
 moved the segment — and carries the deck's own figure beside every computed
 one so the two can be cross-checked without leaving the sheet.
 
+- `Version Log` — what changed in each build (v1 to v4), which sheets it
+  touched, and which `Deck Data` blocks the deck must pull again. Read it
+  before rebuilding a slide from an older copy of this file.
 - `Deck Guide` — how to turn this workbook into the PowerPoint: what to build
   on each slide, which block to read, design rules, pre-send checks. Attach the
   workbook with the PPTX and follow it.
@@ -32,7 +35,8 @@ one so the two can be cross-checked without leaving the sheet.
   market cap at 31 Aug 2026 and 5 Jan 2026.
 - `Movers` — which issuers moved each sector and segment, by contribution.
 - `MD&A` — one row per segment keyed to that segment's top mover, over a
-  ticker-level commentary library. Reads NEEDED where commentary is missing.
+  47-ticker commentary library. All 39 segments now carry commentary; every
+  entry states the period it actually covers.
 - `Revenue Structure` — FY2025 OneReport top lines and SET alignment, 182 of 241.
 - `Deck Recon` — every place the deck and the database disagree, with the cause.
 - Open in Excel and let it calculate; formula cells ship without cached results.
@@ -47,6 +51,15 @@ overrides: ITC 6M26 (Sales 9,703.74, NPAT 1,715.37), BAREIT 6M26 from the
 official reviewed statements (revenue 590.165, net increase in net assets
 462.503), and the PF&REIT top line for all 56 funds. Hover any yellow cell in
 `Raw DB` for its source. Overrides is now only the five non-calendar-FYE issuers.
+
+**Only 9 of the 22 newest MD&A entries are a clean six months.** Eight quote
+Q2 in the summary sentence (FUTURERT, LEE, NRF, PPP, RABBIT, SCGD, TASCO, TOA),
+EPG is Q1 FY26/27, FTREIT is a special fiscal year, CBG has no six-month
+aggregate at all, DREIT mixes Q2 into a 6M commentary and XBIO does not state
+its period. Column C of the MD&A library carries the basis and those rows are
+filled orange; a caption built from one of them will not tie to the bar beside
+it unless the period is said out loud. NRF also carries a going-concern
+disclaimer.
 
 **The PF&REIT decline in the deck is overstated by 462 THB m.** Both the deck and
 the raw panel had BAREIT missing for the current period. It did file. R6 is
