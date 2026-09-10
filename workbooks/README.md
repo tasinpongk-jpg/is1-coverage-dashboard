@@ -37,9 +37,14 @@ deck's Sales YoY never reconciled under any aggregation and is kept only as a
 greyed reference column.
 
 **Analyst-supplied figures live in `Raw DB` with a cell comment**, not as
-overrides: ITC 6M26 (Sales 9,703.74, NPAT 1,715.37) and the PF&REIT top line for
-all 56 funds. Hover any yellow cell in `Raw DB` for its source. Overrides is now
-only the five non-calendar-FYE issuers.
+overrides: ITC 6M26 (Sales 9,703.74, NPAT 1,715.37), BAREIT 6M26 from the
+official reviewed statements (revenue 590.165, net increase in net assets
+462.503), and the PF&REIT top line for all 56 funds. Hover any yellow cell in
+`Raw DB` for its source. Overrides is now only the five non-calendar-FYE issuers.
+
+**The PF&REIT decline in the deck is overstated by 462 THB m.** Both the deck and
+the raw panel had BAREIT missing for the current period. It did file. R6 is
++193, not −270; the sector is −321, not −783.
 
 **Market cap sits on one date.** All six sectors are priced at 31 Aug 2026 from
 the SETSMART export, with 5 Jan 2026 carried alongside as the start-of-year
