@@ -32,8 +32,14 @@ one so the two can be cross-checked without leaving the sheet.
 - Open in Excel and let it calculate; formula cells ship without cached results.
 
 **Sales comes from the raw panel, not the deck.** `01 Sale` (column J) is the
-primary revenue measure at every level. The deck's Sales YoY never reconciled
-under any aggregation and is kept only as a greyed reference column.
+primary revenue measure at every level, all six sectors including PF&REIT. The
+deck's Sales YoY never reconciled under any aggregation and is kept only as a
+greyed reference column.
+
+**Analyst-supplied figures live in `Raw DB` with a cell comment**, not as
+overrides: ITC 6M26 (Sales 9,703.74, NPAT 1,715.37) and the PF&REIT top line for
+all 56 funds. Hover any yellow cell in `Raw DB` for its source. Overrides is now
+only the five non-calendar-FYE issuers.
 
 **Market cap sits on one date.** All six sectors are priced at 31 Aug 2026 from
 the SETSMART export, with 5 Jan 2026 carried alongside as the start-of-year
