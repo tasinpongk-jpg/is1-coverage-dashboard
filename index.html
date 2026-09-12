@@ -26,6 +26,13 @@ header{padding:18px 32px;border-bottom:1px solid var(--border);display:flex;alig
 .stale-pill{font-size:11px;padding:5px 12px;border-radius:20px;background:#22c55e15;color:var(--green);border:1px solid #22c55e30}
 .stale-pill.warn{background:#f59e0b15;color:var(--yellow);border-color:#f59e0b30}
 .stale-pill.unknown{background:#5a627a15;color:var(--muted);border-color:#5a627a30}
+/* Snapshot freshness bar (B: shows asOf of all 5 critical data snapshots) */
+.snapshots-bar{font-size:11px;padding:6px 18px;display:flex;flex-wrap:wrap;gap:14px;align-items:center;background:#0e1320;border-bottom:1px solid var(--border);color:var(--muted)}
+.snapshots-bar .sb-label{color:var(--muted);text-transform:uppercase;letter-spacing:.5px;font-size:10px}
+.snapshots-bar .sb-row em{font-style:normal;color:var(--text);margin-left:2px;font-variant-numeric:tabular-nums}
+.snapshots-bar .sb-row.fresh em{color:var(--green)}
+.snapshots-bar .sb-row.warn em{color:var(--yellow)}
+.snapshots-bar .sb-row.stale em{color:#ef4444;font-weight:600}
 
 /* ── MAIN ── */
 main{flex:1;max-width:1360px;width:100%;margin:0 auto;padding:36px 32px 56px;position:relative;z-index:1}
@@ -176,6 +183,17 @@ footer a{color:var(--muted);text-decoration:none}
     <span class="t-date" id="todayDate">—</span>
     <span class="t-asof" id="todayAsOf"></span>
     <span class="t-asof" style="margin-left:auto" id="introMeta" data-i18n="common.loadingCoverageData">loading coverage data…</span>
+  </div>
+
+  <!-- Snapshot freshness bar: shows asOf of all 5 critical data snapshots.
+       See CLAUDE.md §2 for which JSON drives which HTML. -->
+  <div class="snapshots-bar" id="snapshotsBar" title="asOf timestamp of each critical data snapshot (CLAUDE.md §2). Red = &gt;14d stale, yellow = 7-14d, green = &le;7d.">
+    <span class="sb-label">snapshots:</span>
+    <span class="sb-row" data-snap="vault-ticker-notes">vault: <em>…</em></span>
+    <span class="sb-row" data-snap="disclosure-pulse">disclosure: <em>…</em></span>
+    <span class="sb-row" data-snap="morning-brief">brief: <em>…</em></span>
+    <span class="sb-row" data-snap="company-reports">reports: <em>…</em></span>
+    <span class="sb-row" data-snap="tickers">tickers: <em>v…</em></span>
   </div>
 
   <a class="ai-take" href="ai-insights.html" id="aiTake" style="display:none">
@@ -865,6 +883,39 @@ async function initToday(){
 }
 initToday();
 
+// Snapshot freshness bar (B): shows asOf of all 5 critical data snapshots.
+// See CLAUDE.md §2 for which JSON drives which HTML.
+async function renderSnapshotsBar(){
+  const SNAPS = [
+    { key:'vault-ticker-notes', file:'vault-ticker-notes.json', timeField:'generated' },
+    { key:'disclosure-pulse',   file:'disclosure-pulse.json',   timeField:'asOf' },
+    { key:'morning-brief',      file:'morning-brief.json',      timeField:'asOf' },
+    { key:'company-reports',    file:'company-reports.json',    timeField:'generated' },
+    { key:'tickers',            file:'tickers.json',            timeField:'version' },
+  ];
+  const results = await Promise.all(SNAPS.map(s =>
+    fetch('./data/'+s.file).then(r=>r.ok?r.json():null).catch(()=>null)
+  ));
+  SNAPS.forEach((s, i) => {
+    const row = document.querySelector(`[data-snap="${s.key}"] em`);
+    if (!row) return;
+    const data = results[i];
+    if (!data) { row.textContent = 'missing'; row.parentElement.classList.add('stale'); return; }
+    const stamp = data[s.timeField];
+    if (!stamp) { row.textContent = 'no '+s.timeField; row.parentElement.classList.add('warn'); return; }
+    if (s.timeField === 'version') { row.textContent = 'v'+stamp; return; }
+    const d = new Date(stamp);
+    if (isNaN(d.getTime())) { row.textContent = stamp; return; }
+    const ageD = (Date.now() - d.getTime()) / 86400000;
+    row.textContent = relAge(stamp) + (ageD >= 1 ? ` (${stamp.slice(0,10)})` : '');
+    const rowEl = row.parentElement;
+    rowEl.classList.remove('fresh','warn','stale');
+    if (ageD > 14)      rowEl.classList.add('stale');
+    else if (ageD > 7)  rowEl.classList.add('warn');
+    else                rowEl.classList.add('fresh');
+  });
+}
+
 async function init(){
   let tj=null, status=null;
   try{
@@ -899,6 +950,11 @@ async function init(){
   }else{
     document.getElementById('statFreshness').textContent=tt('common.unknown');
   }
+
+  // Snapshot freshness bar (B): fetch all 5 critical data snapshots in
+  // parallel, render their asOf / version with age-based colour. Mirrors
+  // the staleness contract in CLAUDE.md §2 and the cron probe (item C).
+  renderSnapshotsBar();
 
   // RM grid
   const rmSectors={};
