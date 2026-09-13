@@ -1,0 +1,310 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SET ex-DELTA · การทบทวนวิธีคำนวณดัชนี SET</title>
+<style>
+:root{
+  --bg:#0c1522; --bg2:#111d2e; --panel:#16233a; --panel2:#1b2b45;
+  --ink:#eaf1fb; --muted:#93a6c4; --line:#26374f;
+  --set:#4ea3ff; --ex:#ff9d3d; --warm:#ff8a4c; --cool:#5ab0ff;
+  --pos:#48d597; --neg:#ff7a7a; --rec:#1f6feb;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{
+  font-family:"Sarabun","Noto Sans Thai","Segoe UI",system-ui,-apple-system,sans-serif;
+  background:radial-gradient(1200px 700px at 70% -10%,#16273f 0%,#0c1522 60%);
+  color:var(--ink); display:flex; align-items:center; justify-content:center;
+  min-height:100vh; padding:24px;
+}
+#deck{width:100%;max-width:1120px}
+.stage{position:relative;width:100%;aspect-ratio:16/9;
+  background:linear-gradient(160deg,var(--bg2),var(--bg));
+  border:1px solid var(--line); border-radius:16px; overflow:hidden;
+  box-shadow:0 24px 60px rgba(0,0,0,.5);}
+.slide{position:absolute;inset:0;padding:44px 56px 60px;display:none;flex-direction:column}
+.slide.active{display:flex}
+h2{font-size:27px;font-weight:700;letter-spacing:.2px;margin-bottom:16px;color:#fff;
+  padding-bottom:12px;border-bottom:2px solid var(--line);position:relative}
+h2::after{content:"";position:absolute;left:0;bottom:-2px;width:64px;height:2px;background:var(--set)}
+.bul{list-style:none;display:flex;flex-direction:column;gap:15px;margin-top:6px}
+.bul li{position:relative;padding-left:26px;font-size:18.5px;line-height:1.5;color:var(--ink)}
+.bul li::before{content:"";position:absolute;left:2px;top:10px;width:9px;height:9px;border-radius:2px;
+  background:var(--set);transform:rotate(45deg)}
+.bul li b{color:#fff}
+/* title */
+.title-slide{justify-content:center;align-items:flex-start;padding:64px 72px}
+.tbadge{font-size:13px;letter-spacing:2px;color:var(--set);font-weight:700;margin-bottom:26px;
+  border:1px solid var(--set);padding:6px 12px;border-radius:6px;opacity:.9}
+.ttitle{font-size:40px;line-height:1.28;font-weight:700;color:#fff;letter-spacing:.2px}
+.tsub{font-size:21px;color:var(--muted);margin-top:20px;max-width:80%;line-height:1.5}
+.trule{width:100px;height:3px;background:var(--ex);margin:30px 0}
+.tmeta{font-size:15px;color:var(--muted)}
+/* charts */
+.chart-wrap{width:100%;background:rgba(8,15,26,.5);border:1px solid var(--line);border-radius:12px;padding:10px 14px}
+.chart{width:100%;height:auto;display:block}
+.grid{stroke:#22344c;stroke-width:1}
+.grid.base{stroke:#3a5170;stroke-dasharray:none;stroke-width:1.4}
+.grid.vert{stroke:#1b2a3f}
+.ytick,.xtick{fill:#8ea4c2;font-size:13px;font-family:inherit}
+.line{fill:none;stroke-width:2.6;stroke-linejoin:round;stroke-linecap:round}
+.line.set{stroke:var(--set)}
+.line.ex{stroke:var(--ex)}
+.line.wt{stroke:var(--ex);stroke-width:2.4}
+.gapfill{fill:rgba(255,157,61,.14)}
+.warea{fill:rgba(255,157,61,.16)}
+.dot.set{fill:var(--set)} .dot.ex{fill:var(--ex)} .dot.wt{fill:var(--ex)}
+.endlab{font-size:14.5px;font-weight:700;font-family:inherit}
+.endlab.set{fill:var(--set)} .endlab.ex{fill:var(--ex)}
+.startlab{fill:#7f95b4;font-size:12.5px;font-family:inherit}
+.anno{stroke:var(--ex);stroke-width:1;stroke-dasharray:3 3}
+.annolab{font-size:13px;font-weight:700;font-family:inherit}
+.annolab.peak{fill:#ffbe7a} .annolab.latest{fill:#ffbe7a}
+/* tables */
+.tbl{width:100%;border-collapse:collapse;font-size:17px;margin-top:4px}
+.tbl th{background:var(--panel2);color:#cfe0f7;text-align:left;padding:11px 14px;font-weight:700;
+  border-bottom:2px solid var(--line);font-size:15px;letter-spacing:.3px}
+.tbl td{padding:10px 14px;border-bottom:1px solid var(--line);color:var(--ink)}
+.tbl .num{text-align:right;font-variant-numeric:tabular-nums;font-weight:700}
+.tbl tr.hl td{background:rgba(255,157,61,.10);color:#ffd7ac}
+.tbl tr.rec td,.tbl tr.rec{background:rgba(31,111,235,.16)}
+.tbl tr.rec td:first-child{box-shadow:inset 3px 0 0 var(--set)}
+.pos{color:var(--pos)} .neg{color:var(--neg)}
+.tag{display:inline-block;background:var(--set);color:#04121f;font-size:12px;font-weight:800;
+  padding:2px 8px;border-radius:20px;margin-left:8px;vertical-align:middle}
+.sw{display:inline-block;width:11px;height:11px;border-radius:2px;margin-right:8px;vertical-align:baseline}
+.sw.set{background:var(--set)} .sw.ex{background:var(--ex)}
+.opts td{font-size:16px;line-height:1.45}
+/* split / note */
+.split{display:grid;grid-template-columns:1.5fr 1fr;gap:22px;align-items:start;margin-top:16px}
+.s4grid{display:grid;grid-template-columns:1.22fr .9fr;gap:24px;align-items:center;margin-top:12px}
+.s4side{display:flex;flex-direction:column;gap:12px}
+.s4side .tbl{font-size:14.5px;margin-top:0}
+.s4side .tbl th,.s4side .tbl td{padding:6px 12px}
+.s4side .note{margin-top:0;font-size:14px;padding:10px 14px}
+.note{font-size:15.5px;color:var(--muted);line-height:1.55;background:rgba(255,157,61,.07);
+  border-left:3px solid var(--ex);padding:12px 16px;border-radius:8px;margin-top:14px}
+.note b{color:#ffd0a0}
+/* hero */
+.hero-grid{display:grid;grid-template-columns:1.55fr 1fr;gap:22px;align-items:center;margin-top:4px}
+.hero-side{display:flex;flex-direction:column;gap:18px}
+.callout{background:linear-gradient(135deg,rgba(255,138,76,.18),rgba(78,163,255,.12));
+  border:1px solid var(--line);border-radius:12px;padding:18px 20px;text-align:center}
+.callout-big{font-size:23px;font-weight:800;color:#fff;letter-spacing:.3px}
+.callout-sub{font-size:15px;color:var(--muted);margin-top:6px}
+.caption{text-align:center;font-size:18px;color:#ffbe7a;font-weight:600;margin-top:14px}
+/* dual cards */
+.dual{display:flex;gap:20px;margin-top:26px}
+.dual-card{flex:1;border:1px solid var(--line);border-radius:12px;padding:20px 22px;background:var(--panel)}
+.dual-card.mech{box-shadow:inset 0 0 0 1px rgba(78,163,255,.25)}
+.dual-card.emp{box-shadow:inset 0 0 0 1px rgba(255,157,61,.25)}
+.dual-num{font-size:38px;font-weight:800;color:#fff}
+.dual-card.mech .dual-num{color:var(--set)} .dual-card.emp .dual-num{color:var(--ex)}
+.dual-lab{font-size:15px;color:var(--muted);margin-top:6px}
+/* stat row */
+.statrow{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-top:26px}
+.statcard{border:1px solid var(--line);border-radius:12px;padding:18px;text-align:center;background:var(--panel)}
+.statnum{font-size:32px;font-weight:800}
+.statnum.warm{color:var(--ex)} .statnum.cool{color:var(--set)}
+.statlab{font-size:14px;color:var(--muted);margin-top:6px}
+/* footer + slide number */
+.footer{position:absolute;left:56px;bottom:18px;font-size:12.5px;color:#6f86a6;
+  border-top:1px solid var(--line);padding-top:8px;width:calc(100% - 112px)}
+.pageno{position:absolute;right:22px;bottom:16px;font-size:13px;color:#8ea4c2;font-weight:700}
+/* controls */
+.controls{display:flex;align-items:center;justify-content:center;gap:18px;margin-top:18px}
+.nav{background:var(--panel2);border:1px solid var(--line);color:var(--ink);
+  width:44px;height:44px;border-radius:50%;font-size:22px;cursor:pointer;line-height:1;
+  display:flex;align-items:center;justify-content:center;transition:.15s}
+.nav:hover{background:var(--set);color:#04121f;border-color:var(--set)}
+.counter{font-size:15px;color:var(--muted);font-variant-numeric:tabular-nums;min-width:70px;text-align:center}
+.hint{text-align:center;font-size:12.5px;color:#5f7595;margin-top:8px}
+@media print{
+  @page{size:landscape;margin:0}
+  body{background:#0c1522;padding:0;display:block}
+  #deck{max-width:none}
+  .controls,.hint{display:none}
+  .stage{aspect-ratio:auto;width:100vw;height:100vh;border-radius:0;border:none;box-shadow:none;
+    page-break-after:always;position:relative}
+  .slide{display:flex !important;position:absolute}
+}
+</style>
+<div id="deck">
+  <div class="stage">
+    <section class="slide title-slide">
+  <div class="tbadge">INDEX STRATEGY · เอกสารภายใน</div>
+  <h1 class="ttitle">การทบทวนวิธีคำนวณดัชนี SET<br>และผลกระทบจากการกระจุกตัวของ DELTA</h1>
+  <p class="tsub">ข้อเสนอเพื่อความโปร่งใสของดัชนี และการจัดทำดัชนีเสริม SET ex-DELTA</p>
+  <div class="trule"></div>
+  <p class="tmeta">เอกสารประกอบการพิจารณาของผู้บริหาร · จัดทำโดย Index Strategy Team · ข้อมูล ณ 8 กรกฎาคม 2026</p>
+<div class="footer">Index Strategy Team · ข้อมูล ณ 8 ก.ค. 2026</div><div class="pageno">1 / 11</div></section>
+<section class="slide">
+  <h2>บทสรุปผู้บริหาร</h2>
+  <ul class="bul"><li><b>ประเด็นเชิงโครงสร้างตลาด:</b> SET Composite ไม่มีการจำกัดน้ำหนักหุ้นรายตัว (no single-stock weight cap) ขณะที่ SET50/SET100 และดัชนี Free-Float variants ใช้วิธี capped-weight</li><li><b>น้ำหนัก DELTA ณ 8 ก.ค. 2026 = 18.66%</b> (มูลค่าตลาด 3.72 ล้านล้านบาท จากทั้งตลาด 19.92 ล้านล้านบาท) และเคยขึ้นสูงสุด 22.68% เมื่อ 9 มิ.ย. 2026</li><li><b>ข้อค้นพบสำคัญ:</b> รอบ 3 ปี SET Composite +5.3% แต่หากตัด DELTA ออก ตลาดติดลบ 8.0% — ผลตอบแทนบวกของดัชนีมาจาก DELTA เกือบทั้งหมด</li><li><b>ข้อเสนอ:</b> ไม่ใช่การถอด DELTA ออกจาก SET Composite แต่เป็นการจัดทำดัชนีเสริม SET ex-DELTA เพื่อเพิ่มความโปร่งใส โดยไม่กระทบ benchmark เดิม</li></ul>
+<div class="footer">Index Strategy Team · ข้อมูล ณ 8 ก.ค. 2026</div><div class="pageno">2 / 11</div></section>
+<section class="slide">
+  <h2>ประเด็นหลัก: ดัชนีสะท้อน DELTA มากกว่าตลาดโดยรวม</h2>
+  <ul class="bul"><li>SET Composite ออกแบบมาเพื่อสะท้อนหุ้นสามัญจดทะเบียนทั้งตลาด แบบถ่วงน้ำหนักด้วยมูลค่าตลาด และไม่มี weight cap</li><li>เมื่อ DELTA มีน้ำหนักเข้าใกล้ <b>~19%</b> ของมูลค่าตลาดรวม ดัชนีจึงสะท้อนการเคลื่อนไหวของ DELTA มากขึ้น แทนภาพรวมตลาดหุ้นไทย</li><li>ควรวางกรอบเป็นข้อเสนอด้านความโปร่งใส / ดัชนีเสริม ไม่ใช่การเสนอถอดหุ้นออกโดยตรง</li></ul>
+<div class="footer">Index Strategy Team · ข้อมูล ณ 8 ก.ค. 2026</div><div class="pageno">3 / 11</div></section>
+<section class="slide">
+  <h2>น้ำหนัก DELTA: แนวโน้มการกระจุกตัว</h2>
+  <div class="s4grid">
+  <div class="chart-wrap"><svg viewBox="0 0 1000 380" class="chart" role="img" aria-label="DELTA weight in index over time">
+<line class="grid" x1="58" y1="274.0" x2="942" y2="274.0"/>
+<text class="ytick" x="48" y="278.0" text-anchor="end">5%</text>
+<line class="grid" x1="58" y1="212.0" x2="942" y2="212.0"/>
+<text class="ytick" x="48" y="216.0" text-anchor="end">10%</text>
+<line class="grid" x1="58" y1="150.0" x2="942" y2="150.0"/>
+<text class="ytick" x="48" y="154.0" text-anchor="end">15%</text>
+<line class="grid" x1="58" y1="88.0" x2="942" y2="88.0"/>
+<text class="ytick" x="48" y="92.0" text-anchor="end">20%</text>
+<line class="grid" x1="58" y1="26.0" x2="942" y2="26.0"/>
+<text class="ytick" x="48" y="30.0" text-anchor="end">25%</text>
+<text class="xtick" x="58.0" y="358" text-anchor="middle">ก.ค. 2023</text>
+<text class="xtick" x="200.2" y="358" text-anchor="middle">2024</text>
+<text class="xtick" x="496.0" y="358" text-anchor="middle">2025</text>
+<text class="xtick" x="793.3" y="358" text-anchor="middle">2026</text>
+<text class="xtick" x="942.0" y="358" text-anchor="middle">ก.ค. 2026</text>
+<path d="M 58.0 336.0 L 58.0 250.9 L 63.7 250.2 L 69.3 245.8 L 76.6 242.8 L 81.4 242.1 L 87.9 249.7 L 93.6 252.1 L 99.2 248.4 L 104.9 248.0 L 110.5 248.8 L 116.2 247.3 L 121.8 249.2 L 126.7 261.5 L 132.3 262.8 L 138.8 261.9 L 145.3 269.6 L 150.9 260.5 L 156.6 261.2 L 162.2 262.2 L 167.9 264.2 L 172.7 266.2 L 179.2 266.6 L 185.7 260.7 L 191.3 253.7 L 200.2 256.0 L 205.9 260.3 L 211.5 261.6 L 217.2 259.0 L 222.0 264.0 L 227.7 263.0 L 233.3 262.8 L 239.0 265.6 L 245.5 269.7 L 251.1 275.6 L 256.8 272.9 L 262.4 275.5 L 267.3 269.4 L 272.9 268.4 L 279.4 267.0 L 287.5 271.0 L 293.1 268.1 L 302.0 269.6 L 307.7 271.2 L 313.3 268.0 L 319.0 267.8 L 325.5 268.3 L 331.1 261.9 L 336.8 252.1 L 342.4 255.9 L 348.1 256.1 L 353.7 254.3 L 358.6 247.6 L 365.1 247.7 L 371.5 238.3 L 377.2 239.7 L 383.6 236.3 L 389.3 242.0 L 395.0 238.1 L 400.6 247.7 L 405.5 244.7 L 411.1 243.0 L 416.8 241.7 L 422.4 243.9 L 428.1 237.5 L 434.5 226.9 L 442.6 227.2 L 448.3 217.4 L 451.5 204.5 L 457.2 195.1 L 462.8 210.5 L 468.5 205.0 L 476.6 205.3 L 483.0 201.6 L 488.7 201.5 L 496.0 210.9 L 500.8 197.7 L 506.5 207.5 L 512.1 201.9 L 517.8 211.6 L 523.4 225.5 L 529.9 224.4 L 535.6 259.0 L 541.2 253.5 L 546.1 258.3 L 551.7 262.1 L 557.4 262.2 L 563.0 259.3 L 568.7 260.1 L 575.1 259.6 L 584.0 261.0 L 589.7 246.2 L 596.2 230.7 L 602.6 218.6 L 608.3 223.0 L 613.9 223.9 L 621.2 231.0 L 626.9 225.3 L 632.5 221.3 L 638.2 225.2 L 643.0 214.1 L 649.5 215.1 L 655.1 193.6 L 660.8 189.7 L 668.9 189.0 L 676.2 188.3 L 681.8 193.7 L 686.7 189.1 L 692.3 191.8 L 698.0 196.3 L 703.6 185.0 L 709.3 175.1 L 714.9 183.4 L 720.6 157.9 L 727.1 156.8 L 731.9 149.8 L 738.4 124.4 L 744.0 129.3 L 749.7 131.5 L 755.3 130.5 L 761.0 137.4 L 766.7 141.4 L 773.9 158.5 L 778.8 171.6 L 784.4 169.7 L 794.1 160.4 L 799.8 178.1 L 805.4 174.2 L 811.1 143.5 L 816.8 146.5 L 822.4 147.9 L 827.3 148.1 L 832.9 131.1 L 838.6 113.3 L 845.0 113.3 L 850.7 107.4 L 856.3 107.1 L 862.0 117.3 L 868.5 102.1 L 875.7 87.7 L 881.4 92.5 L 890.3 81.6 L 895.9 88.5 L 901.6 83.5 L 907.3 69.0 L 914.5 62.8 L 920.2 57.4 L 925.0 68.4 L 930.7 87.8 L 936.3 85.6 L 942.0 104.6 L 942.0 336.0 Z" class="warea"/>
+<path d="M 58.0 250.9 L 63.7 250.2 L 69.3 245.8 L 76.6 242.8 L 81.4 242.1 L 87.9 249.7 L 93.6 252.1 L 99.2 248.4 L 104.9 248.0 L 110.5 248.8 L 116.2 247.3 L 121.8 249.2 L 126.7 261.5 L 132.3 262.8 L 138.8 261.9 L 145.3 269.6 L 150.9 260.5 L 156.6 261.2 L 162.2 262.2 L 167.9 264.2 L 172.7 266.2 L 179.2 266.6 L 185.7 260.7 L 191.3 253.7 L 200.2 256.0 L 205.9 260.3 L 211.5 261.6 L 217.2 259.0 L 222.0 264.0 L 227.7 263.0 L 233.3 262.8 L 239.0 265.6 L 245.5 269.7 L 251.1 275.6 L 256.8 272.9 L 262.4 275.5 L 267.3 269.4 L 272.9 268.4 L 279.4 267.0 L 287.5 271.0 L 293.1 268.1 L 302.0 269.6 L 307.7 271.2 L 313.3 268.0 L 319.0 267.8 L 325.5 268.3 L 331.1 261.9 L 336.8 252.1 L 342.4 255.9 L 348.1 256.1 L 353.7 254.3 L 358.6 247.6 L 365.1 247.7 L 371.5 238.3 L 377.2 239.7 L 383.6 236.3 L 389.3 242.0 L 395.0 238.1 L 400.6 247.7 L 405.5 244.7 L 411.1 243.0 L 416.8 241.7 L 422.4 243.9 L 428.1 237.5 L 434.5 226.9 L 442.6 227.2 L 448.3 217.4 L 451.5 204.5 L 457.2 195.1 L 462.8 210.5 L 468.5 205.0 L 476.6 205.3 L 483.0 201.6 L 488.7 201.5 L 496.0 210.9 L 500.8 197.7 L 506.5 207.5 L 512.1 201.9 L 517.8 211.6 L 523.4 225.5 L 529.9 224.4 L 535.6 259.0 L 541.2 253.5 L 546.1 258.3 L 551.7 262.1 L 557.4 262.2 L 563.0 259.3 L 568.7 260.1 L 575.1 259.6 L 584.0 261.0 L 589.7 246.2 L 596.2 230.7 L 602.6 218.6 L 608.3 223.0 L 613.9 223.9 L 621.2 231.0 L 626.9 225.3 L 632.5 221.3 L 638.2 225.2 L 643.0 214.1 L 649.5 215.1 L 655.1 193.6 L 660.8 189.7 L 668.9 189.0 L 676.2 188.3 L 681.8 193.7 L 686.7 189.1 L 692.3 191.8 L 698.0 196.3 L 703.6 185.0 L 709.3 175.1 L 714.9 183.4 L 720.6 157.9 L 727.1 156.8 L 731.9 149.8 L 738.4 124.4 L 744.0 129.3 L 749.7 131.5 L 755.3 130.5 L 761.0 137.4 L 766.7 141.4 L 773.9 158.5 L 778.8 171.6 L 784.4 169.7 L 794.1 160.4 L 799.8 178.1 L 805.4 174.2 L 811.1 143.5 L 816.8 146.5 L 822.4 147.9 L 827.3 148.1 L 832.9 131.1 L 838.6 113.3 L 845.0 113.3 L 850.7 107.4 L 856.3 107.1 L 862.0 117.3 L 868.5 102.1 L 875.7 87.7 L 881.4 92.5 L 890.3 81.6 L 895.9 88.5 L 901.6 83.5 L 907.3 69.0 L 914.5 62.8 L 920.2 57.4 L 925.0 68.4 L 930.7 87.8 L 936.3 85.6 L 942.0 104.6" class="line wt"/>
+<circle cx="918.6" cy="54.8" r="4.5" class="dot wt"/>
+<line class="anno" x1="918.6" y1="54.8" x2="918.6" y2="24.799999999999997"/>
+<text class="annolab peak" x="905" y="16.8" text-anchor="end">สูงสุด 22.68%</text>
+<circle cx="942.0" cy="104.6" r="4.5" class="dot wt"/>
+<text class="annolab latest" x="905" y="118" text-anchor="end">ล่าสุด 18.66%</text>
+</svg></div>
+  <div class="s4side">
+    <table class="tbl">
+      <thead><tr><th>ช่วงเวลา</th><th class="num">น้ำหนัก DELTA</th></tr></thead>
+      <tbody>
+        <tr><td>ค่าต่ำสุดในรอบ 3 ปี</td><td class="num">4.85%</td></tr>
+        <tr><td>ส.ค. 2025</td><td class="num">ทะลุ 12%</td></tr>
+        <tr><td>ต.ค. 2025</td><td class="num">ทะลุ 15%</td></tr>
+        <tr><td>ก.พ. 2026</td><td class="num">ทะลุ 18%</td></tr>
+        <tr><td>เม.ย. 2026</td><td class="num">ทะลุ 20%</td></tr>
+        <tr class="hl"><td>สูงสุด 9 มิ.ย. 2026</td><td class="num">22.68%</td></tr>
+        <tr class="hl"><td>ปัจจุบัน 8 ก.ค. 2026</td><td class="num">18.66%</td></tr>
+      </tbody>
+    </table>
+    <p class="note">DELTA ใหญ่กว่า ADVANC + PTT + GULF รวมกันประมาณ <b>1.5 เท่า</b> (18.66% เทียบ ~12.5%) — ต้องยืนยันน้ำหนัก constituent ล่าสุดอีกครั้ง</p>
+  </div>
+  </div>
+<div class="footer">Index Strategy Team · ข้อมูล ณ 8 ก.ค. 2026</div><div class="pageno">4 / 11</div></section>
+<section class="slide hero">
+  <h2>ข้อค้นพบสำคัญ: ตัด DELTA ออกแล้วภาพตลาดพลิกกลับ</h2>
+  <div class="hero-grid">
+    <div class="chart-wrap"><svg viewBox="0 0 1000 440" class="chart" role="img" aria-label="SET Composite vs SET ex-DELTA indexed to 100">
+<line class="grid" x1="58" y1="364.0" x2="908" y2="364.0"/>
+<text class="ytick" x="48" y="368.0" text-anchor="end">70</text>
+<line class="grid" x1="58" y1="284.0" x2="908" y2="284.0"/>
+<text class="ytick" x="48" y="288.0" text-anchor="end">80</text>
+<line class="grid" x1="58" y1="204.0" x2="908" y2="204.0"/>
+<text class="ytick" x="48" y="208.0" text-anchor="end">90</text>
+<line class="grid" x1="58" y1="124.0" x2="908" y2="124.0"/>
+<text class="ytick" x="48" y="128.0" text-anchor="end">100</text>
+<line class="grid" x1="58" y1="44.0" x2="908" y2="44.0"/>
+<text class="ytick" x="48" y="48.0" text-anchor="end">110</text>
+<line class="grid base" x1="58" y1="124.0" x2="908" y2="124.0"/>
+<line class="grid vert" x1="58.0" y1="28" x2="58.0" y2="396"/>
+<text class="xtick" x="58.0" y="418" text-anchor="middle">ก.ค. 2023</text>
+<line class="grid vert" x1="194.7" y1="28" x2="194.7" y2="396"/>
+<text class="xtick" x="194.7" y="418" text-anchor="middle">2024</text>
+<line class="grid vert" x1="479.1" y1="28" x2="479.1" y2="396"/>
+<text class="xtick" x="479.1" y="418" text-anchor="middle">2025</text>
+<line class="grid vert" x1="765.0" y1="28" x2="765.0" y2="396"/>
+<text class="xtick" x="765.0" y="418" text-anchor="middle">2026</text>
+<line class="grid vert" x1="908.0" y1="28" x2="908.0" y2="396"/>
+<text class="xtick" x="908.0" y="418" text-anchor="middle">ก.ค. 2026</text>
+<path d="M 58.0 124.0 L 63.4 107.0 L 68.9 109.6 L 75.9 95.5 L 80.5 112.5 L 86.7 111.9 L 92.2 96.1 L 97.6 81.4 L 103.1 96.3 L 108.5 103.5 L 113.9 118.1 L 119.4 123.9 L 124.0 150.5 L 129.5 157.4 L 135.7 155.6 L 141.9 191.2 L 147.4 173.6 L 152.8 173.1 L 158.2 167.6 L 163.7 172.2 L 168.3 182.4 L 174.5 187.1 L 180.8 180.6 L 186.2 173.1 L 194.7 157.9 L 200.2 167.8 L 205.6 174.9 L 211.1 199.0 L 215.7 188.5 L 221.2 184.4 L 226.6 181.5 L 232.0 182.6 L 238.3 179.1 L 243.7 197.6 L 249.1 186.7 L 254.6 185.2 L 259.2 190.5 L 264.7 186.7 L 270.9 175.2 L 278.7 212.1 L 284.1 197.2 L 292.6 188.4 L 298.1 188.3 L 303.5 191.4 L 309.0 195.7 L 315.2 208.7 L 320.6 220.3 L 326.1 227.2 L 331.5 219.0 L 336.9 232.1 L 342.4 216.8 L 347.0 217.8 L 353.2 230.3 L 359.5 217.1 L 364.9 231.2 L 371.1 227.6 L 376.6 199.9 L 382.0 197.7 L 387.4 161.0 L 392.1 164.2 L 397.5 146.5 L 403.0 146.4 L 408.4 152.9 L 413.9 139.2 L 420.1 127.8 L 427.8 147.4 L 433.3 142.1 L 436.4 141.2 L 441.8 153.0 L 447.3 151.0 L 452.7 161.1 L 460.5 150.4 L 466.7 178.1 L 472.1 178.6 L 479.1 186.6 L 483.8 182.3 L 489.2 200.8 L 494.7 196.2 L 500.1 206.1 L 505.5 236.3 L 511.7 237.7 L 517.2 258.3 L 522.6 274.3 L 527.3 279.0 L 532.7 304.0 L 538.2 288.2 L 543.6 287.8 L 549.0 297.3 L 555.3 318.0 L 563.8 317.6 L 569.2 304.3 L 575.5 289.2 L 581.7 273.7 L 587.1 293.5 L 592.6 303.7 L 599.5 316.6 L 605.0 324.0 L 610.4 353.4 L 615.9 345.5 L 620.5 321.6 L 626.7 324.8 L 632.2 279.2 L 637.6 273.5 L 645.4 267.0 L 652.4 241.3 L 657.8 256.9 L 662.5 255.3 L 667.9 256.6 L 673.4 242.0 L 678.8 224.8 L 684.2 243.5 L 689.7 243.0 L 695.1 226.4 L 701.3 236.3 L 706.0 234.2 L 712.2 220.9 L 717.6 231.7 L 723.1 237.3 L 728.5 244.1 L 734.0 250.0 L 739.4 242.7 L 746.4 253.8 L 751.1 255.9 L 756.5 248.1 L 765.8 242.7 L 771.3 263.8 L 776.7 231.2 L 782.1 210.8 L 787.6 209.9 L 793.0 170.2 L 797.7 155.4 L 803.1 132.9 L 808.5 140.2 L 814.8 172.7 L 820.2 157.7 L 825.6 170.2 L 831.1 150.1 L 837.3 130.3 L 844.3 131.7 L 849.7 145.8 L 858.3 127.6 L 863.7 131.1 L 869.2 113.4 L 874.6 93.8 L 881.6 71.7 L 887.0 83.7 L 891.7 75.8 L 897.1 96.6 L 902.6 75.2 L 908.0 81.6 L 908.0 188.3 L 902.6 196.7 L 897.1 213.4 L 891.7 209.8 L 887.0 224.5 L 881.6 210.5 L 874.6 224.6 L 869.2 230.9 L 863.7 242.6 L 858.3 244.4 L 849.7 252.6 L 844.3 243.7 L 837.3 232.6 L 831.1 239.6 L 825.6 264.1 L 820.2 252.9 L 814.8 262.2 L 808.5 233.6 L 803.1 214.9 L 797.7 223.8 L 793.0 237.5 L 787.6 274.5 L 782.1 277.1 L 776.7 277.2 L 771.3 305.4 L 765.8 296.1 L 756.5 295.6 L 751.1 301.8 L 746.4 307.4 L 739.4 307.3 L 734.0 316.2 L 728.5 315.0 L 723.1 308.3 L 717.6 304.6 L 712.2 297.9 L 706.0 294.6 L 701.3 292.4 L 695.1 282.6 L 689.7 282.8 L 684.2 288.2 L 678.8 264.8 L 673.4 274.2 L 667.9 290.8 L 662.5 291.1 L 657.8 290.0 L 652.4 278.3 L 645.4 302.2 L 637.6 308.0 L 632.2 311.2 L 626.7 343.4 L 620.5 340.8 L 615.9 358.4 L 610.4 368.0 L 605.0 337.3 L 599.5 327.1 L 592.6 318.2 L 587.1 308.7 L 581.7 291.9 L 575.5 300.3 L 569.2 306.8 L 563.8 312.3 L 555.3 313.4 L 549.0 292.3 L 543.6 283.2 L 538.2 282.0 L 532.7 298.0 L 527.3 274.8 L 522.6 272.8 L 517.2 253.6 L 511.7 253.5 L 505.5 251.4 L 500.1 230.6 L 494.7 227.1 L 489.2 228.0 L 483.8 216.5 L 479.1 212.1 L 472.1 210.5 L 466.7 210.0 L 460.5 181.0 L 452.7 191.4 L 447.3 178.1 L 441.8 190.2 L 436.4 172.7 L 433.3 164.8 L 427.8 163.4 L 420.1 144.4 L 413.9 148.3 L 408.4 157.6 L 403.0 152.6 L 397.5 151.8 L 392.1 168.3 L 387.4 163.2 L 382.0 205.7 L 376.6 205.5 L 371.1 236.4 L 364.9 238.0 L 359.5 224.8 L 353.2 232.2 L 347.0 219.9 L 342.4 214.7 L 336.9 228.9 L 331.5 215.9 L 326.1 226.5 L 320.6 213.6 L 315.2 198.0 L 309.0 185.0 L 303.5 180.5 L 298.1 175.4 L 292.6 176.5 L 284.1 186.3 L 278.7 199.7 L 270.9 164.7 L 264.7 175.6 L 259.2 178.7 L 254.6 169.4 L 249.1 172.6 L 243.7 182.0 L 238.3 167.0 L 232.0 173.1 L 226.6 173.9 L 221.2 176.6 L 215.7 180.1 L 211.1 193.9 L 205.6 167.9 L 200.2 161.6 L 194.7 154.5 L 186.2 171.2 L 180.8 174.2 L 174.5 177.1 L 168.3 172.5 L 163.7 163.6 L 158.2 160.2 L 152.8 166.4 L 147.4 167.4 L 141.9 179.3 L 135.7 148.2 L 129.5 149.4 L 124.0 143.4 L 119.4 125.0 L 113.9 120.6 L 108.5 105.0 L 103.1 98.4 L 97.6 83.2 L 92.2 95.3 L 86.7 112.7 L 80.5 118.6 L 75.9 101.3 L 68.9 113.2 L 63.4 107.4 L 58.0 124.0 Z" class="gapfill"/>
+<path d="M 58.0 124.0 L 63.4 107.4 L 68.9 113.2 L 75.9 101.3 L 80.5 118.6 L 86.7 112.7 L 92.2 95.3 L 97.6 83.2 L 103.1 98.4 L 108.5 105.0 L 113.9 120.6 L 119.4 125.0 L 124.0 143.4 L 129.5 149.4 L 135.7 148.2 L 141.9 179.3 L 147.4 167.4 L 152.8 166.4 L 158.2 160.2 L 163.7 163.6 L 168.3 172.5 L 174.5 177.1 L 180.8 174.2 L 186.2 171.2 L 194.7 154.5 L 200.2 161.6 L 205.6 167.9 L 211.1 193.9 L 215.7 180.1 L 221.2 176.6 L 226.6 173.9 L 232.0 173.1 L 238.3 167.0 L 243.7 182.0 L 249.1 172.6 L 254.6 169.4 L 259.2 178.7 L 264.7 175.6 L 270.9 164.7 L 278.7 199.7 L 284.1 186.3 L 292.6 176.5 L 298.1 175.4 L 303.5 180.5 L 309.0 185.0 L 315.2 198.0 L 320.6 213.6 L 326.1 226.5 L 331.5 215.9 L 336.9 228.9 L 342.4 214.7 L 347.0 219.9 L 353.2 232.2 L 359.5 224.8 L 364.9 238.0 L 371.1 236.4 L 376.6 205.5 L 382.0 205.7 L 387.4 163.2 L 392.1 168.3 L 397.5 151.8 L 403.0 152.6 L 408.4 157.6 L 413.9 148.3 L 420.1 144.4 L 427.8 163.4 L 433.3 164.8 L 436.4 172.7 L 441.8 190.2 L 447.3 178.1 L 452.7 191.4 L 460.5 181.0 L 466.7 210.0 L 472.1 210.5 L 479.1 212.1 L 483.8 216.5 L 489.2 228.0 L 494.7 227.1 L 500.1 230.6 L 505.5 251.4 L 511.7 253.5 L 517.2 253.6 L 522.6 272.8 L 527.3 274.8 L 532.7 298.0 L 538.2 282.0 L 543.6 283.2 L 549.0 292.3 L 555.3 313.4 L 563.8 312.3 L 569.2 306.8 L 575.5 300.3 L 581.7 291.9 L 587.1 308.7 L 592.6 318.2 L 599.5 327.1 L 605.0 337.3 L 610.4 368.0 L 615.9 358.4 L 620.5 340.8 L 626.7 343.4 L 632.2 311.2 L 637.6 308.0 L 645.4 302.2 L 652.4 278.3 L 657.8 290.0 L 662.5 291.1 L 667.9 290.8 L 673.4 274.2 L 678.8 264.8 L 684.2 288.2 L 689.7 282.8 L 695.1 282.6 L 701.3 292.4 L 706.0 294.6 L 712.2 297.9 L 717.6 304.6 L 723.1 308.3 L 728.5 315.0 L 734.0 316.2 L 739.4 307.3 L 746.4 307.4 L 751.1 301.8 L 756.5 295.6 L 765.8 296.1 L 771.3 305.4 L 776.7 277.2 L 782.1 277.1 L 787.6 274.5 L 793.0 237.5 L 797.7 223.8 L 803.1 214.9 L 808.5 233.6 L 814.8 262.2 L 820.2 252.9 L 825.6 264.1 L 831.1 239.6 L 837.3 232.6 L 844.3 243.7 L 849.7 252.6 L 858.3 244.4 L 863.7 242.6 L 869.2 230.9 L 874.6 224.6 L 881.6 210.5 L 887.0 224.5 L 891.7 209.8 L 897.1 213.4 L 902.6 196.7 L 908.0 188.3" class="line ex"/>
+<path d="M 58.0 124.0 L 63.4 107.0 L 68.9 109.6 L 75.9 95.5 L 80.5 112.5 L 86.7 111.9 L 92.2 96.1 L 97.6 81.4 L 103.1 96.3 L 108.5 103.5 L 113.9 118.1 L 119.4 123.9 L 124.0 150.5 L 129.5 157.4 L 135.7 155.6 L 141.9 191.2 L 147.4 173.6 L 152.8 173.1 L 158.2 167.6 L 163.7 172.2 L 168.3 182.4 L 174.5 187.1 L 180.8 180.6 L 186.2 173.1 L 194.7 157.9 L 200.2 167.8 L 205.6 174.9 L 211.1 199.0 L 215.7 188.5 L 221.2 184.4 L 226.6 181.5 L 232.0 182.6 L 238.3 179.1 L 243.7 197.6 L 249.1 186.7 L 254.6 185.2 L 259.2 190.5 L 264.7 186.7 L 270.9 175.2 L 278.7 212.1 L 284.1 197.2 L 292.6 188.4 L 298.1 188.3 L 303.5 191.4 L 309.0 195.7 L 315.2 208.7 L 320.6 220.3 L 326.1 227.2 L 331.5 219.0 L 336.9 232.1 L 342.4 216.8 L 347.0 217.8 L 353.2 230.3 L 359.5 217.1 L 364.9 231.2 L 371.1 227.6 L 376.6 199.9 L 382.0 197.7 L 387.4 161.0 L 392.1 164.2 L 397.5 146.5 L 403.0 146.4 L 408.4 152.9 L 413.9 139.2 L 420.1 127.8 L 427.8 147.4 L 433.3 142.1 L 436.4 141.2 L 441.8 153.0 L 447.3 151.0 L 452.7 161.1 L 460.5 150.4 L 466.7 178.1 L 472.1 178.6 L 479.1 186.6 L 483.8 182.3 L 489.2 200.8 L 494.7 196.2 L 500.1 206.1 L 505.5 236.3 L 511.7 237.7 L 517.2 258.3 L 522.6 274.3 L 527.3 279.0 L 532.7 304.0 L 538.2 288.2 L 543.6 287.8 L 549.0 297.3 L 555.3 318.0 L 563.8 317.6 L 569.2 304.3 L 575.5 289.2 L 581.7 273.7 L 587.1 293.5 L 592.6 303.7 L 599.5 316.6 L 605.0 324.0 L 610.4 353.4 L 615.9 345.5 L 620.5 321.6 L 626.7 324.8 L 632.2 279.2 L 637.6 273.5 L 645.4 267.0 L 652.4 241.3 L 657.8 256.9 L 662.5 255.3 L 667.9 256.6 L 673.4 242.0 L 678.8 224.8 L 684.2 243.5 L 689.7 243.0 L 695.1 226.4 L 701.3 236.3 L 706.0 234.2 L 712.2 220.9 L 717.6 231.7 L 723.1 237.3 L 728.5 244.1 L 734.0 250.0 L 739.4 242.7 L 746.4 253.8 L 751.1 255.9 L 756.5 248.1 L 765.8 242.7 L 771.3 263.8 L 776.7 231.2 L 782.1 210.8 L 787.6 209.9 L 793.0 170.2 L 797.7 155.4 L 803.1 132.9 L 808.5 140.2 L 814.8 172.7 L 820.2 157.7 L 825.6 170.2 L 831.1 150.1 L 837.3 130.3 L 844.3 131.7 L 849.7 145.8 L 858.3 127.6 L 863.7 131.1 L 869.2 113.4 L 874.6 93.8 L 881.6 71.7 L 887.0 83.7 L 891.7 75.8 L 897.1 96.6 L 902.6 75.2 L 908.0 81.6" class="line set"/>
+<circle cx="908.0" cy="81.6" r="4.5" class="dot set"/>
+<circle cx="908.0" cy="188.3" r="4.5" class="dot ex"/>
+<text class="endlab set" x="916.0" y="77.6">SET 105.3</text>
+<text class="endlab ex" x="916.0" y="202.3">ex-DELTA 92.0</text>
+<text class="startlab" x="58" y="20">ฐาน = 100 ณ 10 ก.ค. 2023</text>
+</svg></div>
+    <div class="hero-side">
+      <table class="tbl">
+        <thead><tr><th>ดัชนี</th><th class="num">รอบ 3 ปี</th><th class="num">YTD 2026</th></tr></thead>
+        <tbody>
+          <tr><td><span class="sw set"></span>SET Composite</td><td class="num pos">+5.3%</td><td class="num pos">+25.1%</td></tr>
+          <tr><td><span class="sw ex"></span>SET ex-DELTA</td><td class="num neg">&minus;8.0%</td><td class="num pos">+17.7%</td></tr>
+        </tbody>
+      </table>
+      <div class="callout">
+        <div class="callout-big">SET +5.3% &nbsp;vs&nbsp; ex-DELTA &minus;8.0%</div>
+        <div class="callout-sub">รอบ 3 ปี · ส่วนต่าง ~13.3 จุด%</div>
+      </div>
+    </div>
+  </div>
+  <p class="caption">ผลตอบแทนบวกของดัชนีเป็นผลจาก DELTA ล้วน ๆ</p>
+<div class="footer">Index Strategy Team · ข้อมูล ณ 8 ก.ค. 2026</div><div class="pageno">5 / 11</div></section>
+<section class="slide">
+  <h2>กลไกผลกระทบของ DELTA ต่อดัชนี</h2>
+  <ul class="bul"><li><b>ผลกระทบเชิงกลไก (mechanical):</b> ~<b>0.19%</b> ต่อการเคลื่อนไหวของ DELTA ทุก 1% (จากน้ำหนัก 18.66% โดยตรง)</li><li><b>ความสัมพันธ์เชิงประจักษ์ (empirical/regression)</b> ช่วง H1/2026 อาจต่ำกว่าที่ ~<b>0.11%</b> — ต้องระบุชัดว่าเป็นค่าเชิงสถิติ ไม่ใช่เชิงกลไก</li><li>ทั้งสองค่าต้องแยกและติดป้ายกำกับให้ชัด ไม่นำมาปนกัน</li></ul>
+  <div class="dual">
+    <div class="dual-card mech"><div class="dual-num">~0.19%</div><div class="dual-lab">เชิงกลไก · ต่อ DELTA 1%</div></div>
+    <div class="dual-card emp"><div class="dual-num">~0.11%</div><div class="dual-lab">เชิงสถิติ (regression) · H1/2026</div></div>
+  </div>
+<div class="footer">Index Strategy Team · ข้อมูล ณ 8 ก.ค. 2026</div><div class="pageno">6 / 11</div></section>
+<section class="slide">
+  <h2>วิธีการคำนวณและการตรวจสอบความถูกต้อง</h2>
+  <ul class="bul"><li><b>การปรับ Base Market Value (BMV):</b> เมื่อนำหุ้นออกจากดัชนี SET จะปรับ BMV ตามหลัก continuity เพื่อให้ Index after adjustment = Index before adjustment ดังนั้นระดับดัชนีจะไม่เกิด price shock จากการปรับองค์ประกอบเพียงอย่างเดียว</li><li>สร้างดัชนี SET ex-DELTA ใหม่ด้วยวิธี <b>divisor-continuity chain</b> จากข้อมูลรายวันดิบ</li><li><b>ผลการตรวจสอบ (acceptance test):</b> ความคลาดเคลื่อนสูงสุด = <b>0.0 bps</b> ตลอด 727 วันทำการ — สร้าง SET Composite ที่ตรงกับดัชนีที่เผยแพร่จริงทุกวัน จึงเชื่อถือเส้น ex-DELTA ได้</li></ul>
+  <div class="dual">
+    <div class="dual-card emp"><div class="dual-num">0.0 bps</div><div class="dual-lab">ความคลาดเคลื่อนสูงสุด</div></div>
+    <div class="dual-card mech"><div class="dual-num">727</div><div class="dual-lab">วันทำการที่ตรวจสอบ</div></div>
+  </div>
+<div class="footer">Index Strategy Team · ข้อมูล ณ 8 ก.ค. 2026</div><div class="pageno">7 / 11</div></section>
+<section class="slide">
+  <h2>ตัวเลข YTD ที่ตรวจสอบแล้ว</h2>
+  <ul class="bul"><li><b>DELTA YTD 2026: +72.3%</b> (ฐานราคาปรับแล้ว, anchor = ราคาปิด 30 ธ.ค. 2025) — ตัวเลข +88% เดิม reproduce ไม่ได้บนฐานนี้ ควรระบุกรอบเวลาชัดหรือใช้ +72.3%</li><li><b>DELTA รอบ 3 ปี: +195%</b></li><li><b>SET Composite YTD +25.1%</b> เทียบ <b>SET ex-DELTA YTD +17.7%</b></li><li>ทุกตัวเลขคำนวณจากข้อมูลรายวันจริง ไม่ใช่ค่าประมาณ</li></ul>
+  <div class="statrow">
+    <div class="statcard"><div class="statnum warm">+72.3%</div><div class="statlab">DELTA YTD 2026</div></div>
+    <div class="statcard"><div class="statnum warm">+195%</div><div class="statlab">DELTA รอบ 3 ปี</div></div>
+    <div class="statcard"><div class="statnum cool">+25.1%</div><div class="statlab">SET YTD</div></div>
+    <div class="statcard"><div class="statnum cool">+17.7%</div><div class="statlab">SET ex-DELTA YTD</div></div>
+  </div>
+<div class="footer">Index Strategy Team · ข้อมูล ณ 8 ก.ค. 2026</div><div class="pageno">8 / 11</div></section>
+<section class="slide">
+  <h2>ผลต่อกองทุนและผลิตภัณฑ์อ้างอิงดัชนี</h2>
+  <ul class="bul"><li>ผลิตภัณฑ์ที่อ้างอิงดัชนี SET อาจต้องปรับพอร์ต (rebalance) ขึ้นอยู่กับ mandate และขนาด AUM ของแต่ละกอง</li><li>การกระจุกตัวสูงทำให้ความเสี่ยงกระจุกตัวส่งผ่านไปยังพอร์ต passive ที่อ้างอิง SET Composite</li><li>ข้อเสนอด้านดัชนีเสริมมีเป้าหมายเพิ่มความโปร่งใส โดยไม่รบกวน benchmark, mandate หรือผลิตภัณฑ์เดิม</li></ul>
+<div class="footer">Index Strategy Team · ข้อมูล ณ 8 ก.ค. 2026</div><div class="pageno">9 / 11</div></section>
+<section class="slide">
+  <h2>ข้อเสนอแนะ: ลำดับทางเลือก</h2>
+  <table class="tbl opts">
+    <thead><tr><th>ทางเลือก</th><th>ข้อเสนอ</th><th>เหตุผล</th></tr></thead>
+    <tbody>
+      <tr class="rec"><td><b>A.</b> จัดทำดัชนีเสริม SET ex-DELTA <span class="tag">แนะนำ</span></td><td><b>แนะนำ</b></td><td>รบกวนน้อย โปร่งใสสูง เป็นก้าวแรกที่ปฏิบัติได้จริง</td></tr>
+      <tr><td><b>B.</b> ใช้ capped weight กับ SET Composite</td><td>พิจารณาระยะยาว</td><td>ต้องทำ public hearing และทบทวนวิธีคำนวณในวงกว้าง</td></tr>
+      <tr><td><b>C.</b> คงสถานะเดิม + เพิ่มการเปิดเผยข้อมูล</td><td>ทางเลือกขั้นต่ำ</td><td>เพิ่มการมองเห็น แต่ไม่แก้ปัญหาการบิดเบือน benchmark</td></tr>
+    </tbody>
+  </table>
+  <p class="note">การถอด DELTA ออกจาก SET Composite ทำได้ยากภายใต้วิธีคำนวณปัจจุบัน เพราะ SET Composite ออกแบบมาเพื่อสะท้อนหุ้นสามัญทั้งตลาดภายใต้เกณฑ์คัดออกที่มีอยู่</p>
+<div class="footer">Index Strategy Team · ข้อมูล ณ 8 ก.ค. 2026</div><div class="pageno">10 / 11</div></section>
+<section class="slide">
+  <h2>ความเห็นสำหรับผู้บริหารและขั้นตอนถัดไป</h2>
+  <ul class="bul"><li>ประเด็นนี้เป็นเรื่องโครงสร้างตลาดที่ถูกต้องตามหลักการ: น้ำหนัก DELTA ~19% ทำให้ SET Composite ถูกครอบงำโดยหุ้นตัวเดียวมากขึ้น ขณะที่ SET50/SET100 ใช้ capped-weight อยู่แล้ว</li><li><b>ข้อเสนอต่อผู้บริหาร:</b> อนุมัติให้ศึกษาการจัดทำดัชนีเสริม SET ex-DELTA อย่างเป็นทางการ สนับสนุนด้วยการวิเคราะห์ daily-chain ที่ตรวจสอบแล้ว การเปิดเผยน้ำหนัก constituent และการประเมินผลกระทบด้านมูลค่า</li><li><b>แหล่งที่มาการวิเคราะห์:</b> Index Strategy Team (การวิเคราะห์ภายใน)</li></ul>
+<div class="footer">Index Strategy Team · ข้อมูล ณ 8 ก.ค. 2026</div><div class="pageno">11 / 11</div></section>
+  </div>
+  <div class="controls">
+    <button class="nav" id="prev" aria-label="ก่อนหน้า">&#8249;</button>
+    <div class="counter" id="counter">1 / 11</div>
+    <button class="nav" id="next" aria-label="ถัดไป">&#8250;</button>
+  </div>
+  <div class="hint">ใช้ปุ่มลูกศร &#8592; &#8594; เพื่อเลื่อนสไลด์ · พิมพ์เป็น PDF ได้จากเมนู Print</div>
+</div>
+<script>
+const slides=[...document.querySelectorAll('.slide')];
+const total=slides.length; let cur=0;
+const counter=document.getElementById('counter');
+function show(i){cur=(i+total)%total;slides.forEach((s,k)=>s.classList.toggle('active',k===cur));
+  counter.textContent=(cur+1)+' / '+total;}
+document.getElementById('prev').onclick=()=>show(cur-1);
+document.getElementById('next').onclick=()=>show(cur+1);
+document.addEventListener('keydown',e=>{
+  if(e.key==='ArrowRight'||e.key==='PageDown'){show(cur+1);}
+  else if(e.key==='ArrowLeft'||e.key==='PageUp'){show(cur-1);}
+  else if(e.key==='Home'){show(0);} else if(e.key==='End'){show(total-1);}
+});
+show(0);
+</script>
