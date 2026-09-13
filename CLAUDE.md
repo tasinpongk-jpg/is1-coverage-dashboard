@@ -100,6 +100,23 @@ python scripts/build_vault_ticker_notes.py
 # Expect: "Wrote vault-ticker-notes.json: {'tickers': 232, 'calls': N, 'mda': N, 'fsNotes': N, ...}"
 ```
 
+### Check freshness of all 5 critical snapshots
+```bash
+cd ~/projects/is1-coverage-dashboard
+python scripts/check_snapshot_freshness.py
+# 7d warn / 14d stale thresholds. Exit 0 if all fresh, 1 if any warn, 2 if any stale.
+# When invoked via pipe (cron / no_agent), auto-quiet: only emits output on warn/stale.
+```
+The cron `is1-snapshot-freshness` (job `e178ed60c87a`, schedule `30 8 * * 1-5`)
+runs this script at 08:30 BKK weekdays before market open and posts a Discord
+alert to channel `1533468684784242778` (same channel as `is1-daily-brief`) only
+when something is stale. The script is copied to `~/AppData/Local/hermes/scripts/`
+(the scheduler's actual script directory, NOT `~/.hermes/scripts/`). The
+**pre-commit hook** (`scripts/_pre_commit_hook.sh`, installed at
+`.git/hooks/pre-commit`) auto-syncs any staged `scripts/*.py` whose basename
+matches an already-deployed file. Edit the script in the repo, commit,
+and the AppData copy updates automatically — no manual step.
+
 ### Commit + push (triggers Cloudflare Pages auto-deploy)
 ```bash
 cd ~/projects/is1-coverage-dashboard
