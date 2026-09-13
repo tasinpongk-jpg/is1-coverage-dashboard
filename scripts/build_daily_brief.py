@@ -14,7 +14,15 @@ Inputs (env vars):
                           Thai display names accepted via alias map.
   DAILY_BRIEF_BASE_URL  — dashboard base (default deployed URL).
   DAILY_BRIEF_DRY_RUN   — if "1", print payload + skip POST (for tests).
-  DAILY_BRIEF_STATE_DIR — state file location (default
+  DAILY_BRIEF_ALLOW_STALE — if "1", post the brief even when dashboard
+                          asOf is older than BKK-today (weekend/holiday
+                          use). The brief is then explicitly labeled
+                          "as of {asOf}" so readers know it's stale.
+                          Default "0" (strict freshness gate).
+  DAILY_BRIEF_MAX_STALE_DAYS — integer, default 3. With ALLOW_STALE=1,
+                          refuse to post if asOf is older than this
+                          many days (defensive cap against truly broken
+                          upstream).
                           ~/.hermes/cron/daily_brief_state.json).
 
 Logic:
@@ -37,6 +45,7 @@ import sys
 import time
 import urllib.error
 import urllib.request
+from collections import Counter
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Iterable
@@ -330,22 +339,24 @@ def _clamp_fields(embeds: list[dict]) -> list[dict]:
 
 # ---------------------------------------------------------------- sections
 
-def _build_headline_embed(ai: dict, asof: str) -> dict:
+def _build_headline_embed(ai: dict, asof: str, *, stale: bool = False) -> dict:
     risk_count = len(ai.get("risk_flags") or [])
     color = 0xEF4444 if risk_count >= 4 else 0xF59E0B if risk_count >= 2 else 0x22C55E
+    headline = (ai.get("headline") or "").strip()
     market_take = (ai.get("market_take") or "").strip()
-    first_sentence = market_take.split(". ")[0] + ("." if market_take else "")
+    body = f"**{headline}**"
+    if market_take:
+        body += f"\n\n{market_take}"
+    stale_tag = " ⚠️ STALE" if stale else ""
+    footer_parts = [f"model={ai.get('model', '?')}", f"risk_flags={risk_count}", f"as_of={asof}"]
+    if stale:
+        footer_parts.append("⚠️ data older than today")
     return {
-        "title": _truncate(f"📊 Daily Brief — {asof}", EMBED_TITLE_MAX),
-        "description": _truncate(
-            f"**{(ai.get('headline') or '').strip()}**\n\n{first_sentence}",
-            EMBED_DESC_MAX,
-        ),
+        "title": _truncate(f"📊 Daily Brief — {asof}{stale_tag}", EMBED_TITLE_MAX),
+        "description": _truncate(body, EMBED_DESC_MAX),
         "color": color,
         "footer": {
-            "text": _truncate(
-                f"model={ai.get('model', '?')} · risk_flags={risk_count}", EMBED_FOOTER_MAX
-            )
+            "text": _truncate(" · ".join(footer_parts), EMBED_FOOTER_MAX)
         },
     }
 
@@ -622,11 +633,19 @@ def _build_news_embed(
     }
 
 
-def _build_filings_today_embed(pulse: dict, rm_tickers: set[str], asof: str) -> dict:
-    """Count today's filings (BKK-day boundary) + recent RM-C filings."""
+def _build_filings_today_embed(
+    pulse: dict, rm_tickers: set[str], asof: str
+) -> dict:
+    """Count today's filings (BKK-day) + recent RM-C filings.
+
+    Falls back to most-recent RM-C filings within the pulse window when
+    today has none (weekends/holidays). Uses the TH titles from upstream
+    when present (1576/1883 filings carry title_th).
+    """
     filings = pulse.get("filings") or []
     bkk = timezone(timedelta(hours=7))
     today = _bkk_today()
+    window_days = pulse.get("windowDays") or 7
 
     def _is_today(ts: str) -> bool:
         try:
@@ -637,39 +656,109 @@ def _build_filings_today_embed(pulse: dict, rm_tickers: set[str], asof: str) -> 
         except (ValueError, TypeError):
             return False
 
+    def _within_window(ts: str) -> bool:
+        try:
+            dt = datetime.fromisoformat(ts.replace("Z", "+00:00"))
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=bkk)
+            cutoff = datetime.now(bkk) - timedelta(days=window_days)
+            return dt >= cutoff
+        except (ValueError, TypeError):
+            return False
+
     today_all = [f for f in filings if _is_today(f.get("ts", ""))]
     today_rmc = [f for f in today_all if f.get("tk") in rm_tickers]
     high_all = [f for f in today_all if f.get("severity") == "high"]
     high_rmc = [f for f in today_rmc if f.get("severity") == "high"]
 
-    recent_rmc = sorted(today_rmc, key=lambda f: f.get("ts", ""), reverse=True)[:5]
+    # All-time (within pulse window) RM-C — used for "latest RM C" fallback
+    window_rmc = [f for f in filings if _within_window(f.get("ts", "")) and f.get("tk") in rm_tickers]
+
+    # Type breakdown for today — surface the top 3 types so the trader
+    # sees WHERE the activity is, not just counts.
+    type_counts_today = Counter(f.get("type", "?") for f in today_all)
+    top_types_today = type_counts_today.most_common(3)
+    top_types_line = (
+        " · ".join(f"{t}:{n}" for t, n in top_types_today)
+        if top_types_today else "—"
+    )
+
+    # Pick the recent block: today first, fall back to last 5 within window.
+    if today_rmc:
+        recent_rmc = sorted(today_rmc, key=lambda f: f.get("ts", ""), reverse=True)[:5]
+        scope_label = "today"
+    elif window_rmc:
+        # 3 rows when falling back — keeps embed under Discord's 1024-char
+        # field-value cap on weekends when TH titles are long.
+        recent_rmc = sorted(window_rmc, key=lambda f: f.get("ts", ""), reverse=True)[:3]
+        scope_label = f"last {window_days}d"
+    else:
+        recent_rmc = []
+        scope_label = "none"
+
     fields = [
         {
             "name": _truncate("📊 Counts (BKK-day)", EMBED_FIELD_NAME_MAX),
             "value": _truncate(
                 f"all: {len(today_all)} · RM C: {len(today_rmc)}\n"
-                f"high-sev: {len(high_all)} · high RM C: {len(high_rmc)}",
+                f"high-sev: {len(high_all)} · high RM C: {len(high_rmc)}\n"
+                f"types: {top_types_line}",
                 EMBED_FIELD_VALUE_MAX,
             ),
             "inline": False,
         },
     ]
+
     if recent_rmc:
+        sev_emoji = {"high": "🔴", "medium": "🟡", "low": "🟢"}.items()
+        type_labels_th = {
+            "capital_change": "ปรับโครงสร้างทุน",
+            "earnings": "รายงานผลประกอบการ",
+            "dividend": "จ่ายปันผล",
+            "director_mgmt_change": "เปลี่ยนแปลงกรรมการ/ผู้บริหาร",
+            "ma_acquisition_disposal": "เข้าซื้อ/ขายกิจการ",
+            "connected_transaction": "รายการเกี่ยวโยง",
+            "information_memo": "บันทึกข้อมูล",
+            "regulatory_filing": "ยื่นต่อ ก.ล.ต.",
+            "agm_resolution": "มติที่ประชุมผู้ถือหุ้น",
+            "warrant_exercise": "ใช้สิทธิ์วอร์แรนต์",
+            "auditor_change": "เปลี่ยนผู้สอบบัญชี",
+            "set_clarification": "ชี้แจงตลาดหลักทรัพย์",
+            "guidance_change": "เปลี่ยนแนวทาง",
+            "trading_sign": "ป้ายการซื้อขาย",
+            "other": "อื่นๆ",
+        }
         bullets = []
         for f in recent_rmc:
             sev = f.get("severity", "low")
-            sev_emoji = {"high": "🔴", "medium": "🟡", "low": "🟢"}.get(sev, "⚪")
+            emoji = next((e for k, e in sev_emoji if k == sev), "⚪")
+            tk = f.get("tk", "?")
             type_ = f.get("type") or "?"
-            bullets.append(f"{sev_emoji} `{f.get('tk', '?')}` {type_} ({sev})")
+            type_th = type_labels_th.get(type_, type_)
+            # Prefer TH title; fall back to EN; fall back to summary
+            th_title = (f.get("title_th") or "").strip()
+            if not th_title:
+                th_title = (f.get("title") or "").strip()
+            if not th_title:
+                th_title = (f.get("_summary_th") or f.get("_summary") or "(no title)").strip()
+            # Hyperlink to filing URL (TH if present)
+            url = f.get("url_th") or f.get("url") or ""
+            title_clip = _truncate(th_title, 70)
+            if url:
+                title_clip = f"[{title_clip}]({url})"
+            bullets.append(f"{emoji} `{tk}` **{type_th}** — {title_clip}")
         fields.append({
-            "name": _truncate(f"Latest RM C ({len(recent_rmc)})", EMBED_FIELD_NAME_MAX),
+            "name": _truncate(
+                f"📑 RM C filings ({scope_label}, {len(recent_rmc)})",
+                EMBED_FIELD_NAME_MAX,
+            ),
             "value": _truncate("\n".join(bullets), EMBED_FIELD_VALUE_MAX),
             "inline": False,
         })
     else:
         fields.append({
-            "name": _truncate("Latest RM C", EMBED_FIELD_NAME_MAX),
-            "value": _truncate("No RM C filings today.", EMBED_FIELD_VALUE_MAX),
+            "name": _truncate("📑 RM C filings", EMBED_FIELD_NAME_MAX),
+            "value": _truncate("No RM C filings in window.", EMBED_FIELD_VALUE_MAX),
             "inline": False,
         })
 
@@ -682,7 +771,49 @@ def _build_filings_today_embed(pulse: dict, rm_tickers: set[str], asof: str) -> 
     }
 
 
+def _build_watchlist_embed(ai: dict, rm_key: str, asof: str) -> dict | None:
+    """Embed #6 — AI watchlist from ai-insights.watchlist.
+
+    Surfaces the LLM-picked names (max 8) with one-line reasons. Highlights
+    RM-C names with a left-bar marker so the trader can see which ones
+    sit on their own book. Returns None if no watchlist at all.
+    """
+    items = ai.get("watchlist") or []
+    if not items:
+        return None
+
+    # Keep RM-C first, preserve upstream order for the rest.
+    rm_c_items = [w for w in items if w.get("rm") == rm_key]
+    other_items = [w for w in items if w.get("rm") != rm_key]
+    ordered = rm_c_items + other_items
+
+    fields = []
+    for w in ordered[:8]:
+        tk = w.get("tk", "?")
+        reason = _truncate(w.get("reason", ""), 220)
+        w_rm = w.get("rm", "")
+        marker = "▌" if w_rm == rm_key else " "
+        fields.append({
+            "name": _truncate(f"{marker}`{tk}`", EMBED_FIELD_NAME_MAX),
+            "value": _truncate(reason or "(no reason)", EMBED_FIELD_VALUE_MAX),
+            "inline": False,
+        })
+
+    rm_count = len(rm_c_items)
+    title = _truncate(
+        f"🔭 AI Watchlist — {asof} ({len(ordered)} names, {rm_count} on your book)",
+        EMBED_TITLE_MAX,
+    )
+    return {
+        "title": title,
+        "color": 0x8B5CF6,  # violet
+        "fields": fields,
+        "footer": {"text": _truncate("▌ = RM C in your coverage", EMBED_FOOTER_MAX)},
+    }
+
+
 # ---------------------------------------------------------------- main
+
 
 def _load_webhook_from_secret_file() -> str | None:
     """Last-resort lookup: read webhook URL from a secret file at
@@ -766,6 +897,8 @@ def main() -> int:
         # ---- freshness gate
         bkk = timezone(timedelta(hours=7))
         today_bkk_date = datetime.now(bkk).date()
+        allow_stale = os.environ.get("DAILY_BRIEF_ALLOW_STALE") == "1"
+        max_stale_days = int(os.environ.get("DAILY_BRIEF_MAX_STALE_DAYS", "3"))
         for name, obj in (("ai-insights", ai), ("morning-brief", brief)):
             asof = _parse_iso_date(obj.get("asOf") or "")
             if not asof:
@@ -773,14 +906,26 @@ def main() -> int:
                 continue
             try:
                 asof_date = datetime.fromisoformat(asof).date()
-                if asof_date < today_bkk_date:
+            except ValueError:
+                continue
+            if asof_date < today_bkk_date:
+                age_days = (today_bkk_date - asof_date).days
+                if not allow_stale:
                     _log(
                         f"SKIP: {name}.asOf={asof} < today {today_bkk_date.isoformat()} "
                         f"(stale data — do not label as today's brief)"
                     )
                     return 0
-            except ValueError:
-                continue
+                if age_days > max_stale_days:
+                    _log(
+                        f"SKIP: {name}.asOf={asof} is {age_days} days stale "
+                        f"(> DAILY_BRIEF_MAX_STALE_DAYS={max_stale_days}) — refusing to post"
+                    )
+                    return 0
+                _log(
+                    f"ALLOW_STALE: {name}.asOf={asof} is {age_days}d old "
+                    f"(max={max_stale_days}d) — posting anyway, brief will be labeled 'as of {asof}'"
+                )
 
         # ---- RM C ticker list
         rm_tickers = {t["tk"] for t in (tickers.get("tickers") or []) if t.get("rm") == rm_key}
@@ -795,9 +940,17 @@ def main() -> int:
         overall_asof = min(ai_asof, brief_asof)
 
         # ---- build embeds
+        # Order matters: filings > news (filings is core, news is optional
+        # fallback). Under the 6000-char cap we want filings to survive if
+        # anything has to drop.
         embeds: list[dict] = []
+        try:
+            asof_date = datetime.fromisoformat(overall_asof).date()
+            stale = asof_date < today_bkk_date
+        except (ValueError, TypeError):
+            stale = False
         if ai:
-            embeds.append(_build_headline_embed(ai, overall_asof))
+            embeds.append(_build_headline_embed(ai, overall_asof, stale=stale))
         if brief:
             embeds.append(_build_sector_pulse_embed(brief))
             embeds.append(_build_rm_watch_embed(brief, rm_tickers))
@@ -813,6 +966,13 @@ def main() -> int:
                 _log(f"news embed added ({news_emb['footer']['text']})")
             else:
                 _log("news source had items but picker returned none — skipped")
+        # Watchlist embed is optional — depends on ai-insights having a
+        # watchlist block. Drop silently if missing.
+        if ai and ai.get("watchlist"):
+            wl_emb = _build_watchlist_embed(ai, rm_key, overall_asof)
+            if wl_emb:
+                embeds.append(wl_emb)
+                _log(f"watchlist embed added ({len(ai.get('watchlist') or [])} names)")
 
         # ---- clamp + validate
         embeds = _clamp_fields(embeds)
