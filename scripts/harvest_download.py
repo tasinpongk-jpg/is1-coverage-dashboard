@@ -473,13 +473,71 @@ def _doc_text(data: bytes) -> str:
         return ""
 
 
+def _docx_cell_text(cell) -> str:
+    """Flatten one table cell: its paragraphs plus any nested tables."""
+    parts = [p.text for p in cell.paragraphs if p.text and p.text.strip()]
+    for nested in getattr(cell, "tables", ()):  # nested tables are rare but real
+        for row in _docx_table_rows(nested):
+            parts.append(row.replace("\t", " | "))
+    return " ".join(" ".join(parts).split())
+
+
+def _docx_table_rows(table) -> list[str]:
+    """Render a table as tab-separated rows, matching the XLS/XLSX convention."""
+    rows: list[str] = []
+    try:
+        table_rows = table.rows
+    except Exception:  # noqa: BLE001  — malformed grid; skip the table, keep the doc
+        return rows
+    for row in table_rows:
+        cells: list[str] = []
+        previous = None
+        try:
+            row_cells = row.cells
+        except Exception:  # noqa: BLE001
+            continue
+        for cell in row_cells:
+            # A horizontally merged cell is repeated once per grid column it
+            # spans, and each repeat returns the same underlying <w:tc>. Emit
+            # its text once so numeric columns keep their positions.
+            if cell._tc is previous:
+                continue
+            previous = cell._tc
+            cells.append(_docx_cell_text(cell))
+        if any(cells):
+            rows.append("\t".join(cells))
+    return rows
+
+
 def _docx_text(data: bytes) -> str:
+    """Extract DOCX text with tables preserved, in document order.
+
+    Pre-fix this read only ``doc.paragraphs``, so every table was dropped. In a
+    SET financial-statement or MD&A DOCX essentially all numbers live in tables,
+    so the extraction reported ``extraction_status: ok`` with a healthy word
+    count while silently discarding the entire income statement. Bug surfaced
+    2026-08-17 while sourcing 6M26 figures: NOTES_CPF_2026Q2_E.md carried
+    "Revenue and results ... were as follows:" followed by nothing.
+    """
     try:
         from docx import Document  # type: ignore
+        from docx.table import Table  # type: ignore
+        from docx.text.paragraph import Paragraph  # type: ignore
     except ImportError:
         return ""
     doc = Document(io.BytesIO(data))
-    parts = [p.text for p in doc.paragraphs if p.text and p.text.strip()]
+    parts: list[str] = []
+    # python-docx exposes paragraphs and tables as separate flat collections,
+    # which loses their relative order. Walk the body's XML children instead so
+    # a table stays attached to the heading that introduces it.
+    for child in doc.element.body.iterchildren():
+        tag = child.tag.split("}")[-1]
+        if tag == "p":
+            text = Paragraph(child, doc).text
+            if text and text.strip():
+                parts.append(text.strip())
+        elif tag == "tbl":
+            parts.extend(_docx_table_rows(Table(child, doc)))
     return "\n".join(parts)
 
 
