@@ -33,6 +33,11 @@ header{padding:18px 32px;border-bottom:1px solid var(--border);display:flex;alig
 .snapshots-bar .sb-row.fresh em{color:var(--green)}
 .snapshots-bar .sb-row.warn em{color:var(--yellow)}
 .snapshots-bar .sb-row.stale em{color:#ef4444;font-weight:600}
+/* Manual-curated snapshots (Opus synthesis, no fixed cadence).
+   Show the date but skip the red/green/warn colour cycle — see
+   CLAUDE.md §2 (company-reports.json is in-session LLM synthesis). */
+.snapshots-bar .sb-row.manual em{color:var(--muted);font-style:italic}
+.snapshots-bar .sb-row.manual::before{content:'●';color:var(--muted);font-size:8px;margin-right:4px;vertical-align:1px}
 
 /* ── MAIN ── */
 main{flex:1;max-width:1360px;width:100%;margin:0 auto;padding:36px 32px 56px;position:relative;z-index:1}
@@ -187,7 +192,7 @@ footer a{color:var(--muted);text-decoration:none}
 
   <!-- Snapshot freshness bar: shows asOf of all 5 critical data snapshots.
        See CLAUDE.md §2 for which JSON drives which HTML. -->
-  <div class="snapshots-bar" id="snapshotsBar" title="asOf timestamp of each critical data snapshot (CLAUDE.md §2). Red = &gt;14d stale, yellow = 7-14d, green = &le;7d.">
+  <div class="snapshots-bar" id="snapshotsBar" title="asOf timestamp of each critical data snapshot (CLAUDE.md §2). Red = >14d stale, yellow = 7-14d, green = ≤7d. Grey ● = manual (Opus synthesis, no fixed cadence).">
     <span class="sb-label">snapshots:</span>
     <span class="sb-row" data-snap="vault-ticker-notes">vault: <em>…</em></span>
     <span class="sb-row" data-snap="disclosure-pulse">disclosure: <em>…</em></span>
@@ -890,7 +895,10 @@ async function renderSnapshotsBar(){
     { key:'vault-ticker-notes', file:'vault-ticker-notes.json', timeField:'generated' },
     { key:'disclosure-pulse',   file:'disclosure-pulse.json',   timeField:'asOf' },
     { key:'morning-brief',      file:'morning-brief.json',      timeField:'asOf' },
-    { key:'company-reports',    file:'company-reports.json',    timeField:'generated' },
+    // company-reports.json is in-session LLM synthesis (Opus) with no
+    // fixed cadence — see CLAUDE.md §2. Don't colour it red just because
+    // it's been 90+ days; that's by design, not drift.
+    { key:'company-reports',    file:'company-reports.json',    timeField:'generated', manual:true },
     { key:'tickers',            file:'tickers.json',            timeField:'version' },
   ];
   const results = await Promise.all(SNAPS.map(s =>
@@ -907,12 +915,19 @@ async function renderSnapshotsBar(){
     const d = new Date(stamp);
     if (isNaN(d.getTime())) { row.textContent = stamp; return; }
     const ageD = (Date.now() - d.getTime()) / 86400000;
-    row.textContent = relAge(stamp) + (ageD >= 1 ? ` (${stamp.slice(0,10)})` : '');
     const rowEl = row.parentElement;
-    rowEl.classList.remove('fresh','warn','stale');
-    if (ageD > 14)      rowEl.classList.add('stale');
-    else if (ageD > 7)  rowEl.classList.add('warn');
-    else                rowEl.classList.add('fresh');
+    rowEl.classList.remove('fresh','warn','stale','manual');
+    if (s.manual) {
+      // Manual-curated: always show the date, never red. The ● marker
+      // (CSS ::before) tells the reader "this is by design, not drift".
+      row.textContent = 'manual · ' + String(stamp).slice(0,10);
+      rowEl.classList.add('manual');
+    } else {
+      row.textContent = relAge(stamp) + (ageD >= 1 ? ` (${stamp.slice(0,10)})` : '');
+      if (ageD > 14)      rowEl.classList.add('stale');
+      else if (ageD > 7)  rowEl.classList.add('warn');
+      else                rowEl.classList.add('fresh');
+    }
   });
 }
 
