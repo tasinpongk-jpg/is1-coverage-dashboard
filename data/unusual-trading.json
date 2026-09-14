@@ -1,5 +1,5 @@
 {
-  "asOf": "2026-09-13",
+  "asOf": "2026-09-14",
   "source": "SETSMART intraday API · 34 alerts across 29 tickers",
   "thresholds": {
     "vol_spike": {
@@ -294,7 +294,7 @@
       "sector": "FOOD",
       "type": "Intraday move",
       "atype": "intraday",
-      "severity": "medium",
+      "severity": "low",
       "value": 4.545,
       "label": "-4.55% intraday",
       "evidence": {
@@ -303,8 +303,10 @@
         "high": 0.22,
         "low": 0.21
       },
-      "filingsLinked": 0,
-      "filingsTitles": []
+      "filingsLinked": 1,
+      "filingsTitles": [
+        "Notification the exercise of NRF-W2 (No.4)"
+      ]
     },
     {
       "tk": "TPIPL",
@@ -981,23 +983,6 @@
       ]
     },
     {
-      "tk": "NRF",
-      "sector": "FOOD",
-      "alertCount": 1,
-      "highestSeverity": "medium",
-      "filingsLinked": 0,
-      "alertTypes": [
-        {
-          "atype": "intraday",
-          "type": "Intraday move",
-          "severity": "medium"
-        }
-      ],
-      "summary": [
-        "Intraday move: -4.55% intraday"
-      ]
-    },
-    {
       "tk": "PRECHA",
       "sector": "PROP",
       "alertCount": 1,
@@ -1081,8 +1066,25 @@
       "summary": [
         "Price gap: +3.45% open gap"
       ]
+    },
+    {
+      "tk": "NRF",
+      "sector": "FOOD",
+      "alertCount": 1,
+      "highestSeverity": "low",
+      "filingsLinked": 1,
+      "alertTypes": [
+        {
+          "atype": "intraday",
+          "type": "Intraday move",
+          "severity": "low"
+        }
+      ],
+      "summary": [
+        "Intraday move: -4.55% intraday"
+      ]
     }
   ],
-  "_built_at": "2026-09-13T02:35:54.975012+00:00",
+  "_built_at": "2026-09-14T02:35:51.320739+00:00",
   "_coverage_size": 232
 }
