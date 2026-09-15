@@ -1,393 +1,235 @@
-# IS1 Coverage Dashboard — Redesign Brief for Claude Design
+# IS1 Coverage Dashboard — Navigation Regrouping Brief
 
 Audit date: 2026-09-15. Everything below was read out of this repo, not assumed.
 If you change the codebase, update this file in the same commit.
 
-**How to use this file:** paste §0 into Claude Design as the prompt. Attach or
-paste §1–§10 as the reference dossier. §11 is the acceptance checklist.
+**Scope of this brief: the top-level navigation grouping only.**
+Not a redesign. No page layout, no body content, no palette change, no
+component restyling. The twenty pages stay exactly as they are.
+
+Paste §1–§2 into the design tool as the prompt. §3–§6 are the reference it
+needs to stay inside what is actually buildable. §7 is the acceptance bar.
 
 ---
 
-## §0 — THE PROMPT (paste this)
+## §1 — THE PROMPT (paste this)
 
-> Redesign the theme and interface of an internal equity-surveillance dashboard
-> used by six analysts at the Stock Exchange of Thailand, Issuer Department 1.
-> It covers 232 SET-listed companies across six sectors and is read every
-> weekday morning before the market opens, mostly on a 1440px+ desktop, in a
-> bright office, for 5–15 minutes at a time.
+> I have an internal equity-surveillance dashboard used by six analysts at the
+> Stock Exchange of Thailand, Issuer Department 1. Twenty pages covering 232
+> listed companies. It works. I am not redesigning it.
 >
-> It is a working instrument, not a marketing site. The user is a professional
-> analyst reading dense numeric tables. Priorities in order: scan speed,
-> numeric legibility, signal-vs-noise, then aesthetics. Decoration that costs a
-> row of data is a bad trade.
+> **The one thing I want fixed: the top-level navigation groups are not clear.**
+> Today there are six groups — Workspace, Market, Companies, News flow,
+> Surveillance, Bond data — and the boundaries between them do not match how
+> anyone actually thinks about the work. "Surveillance" holds both price
+> anomalies and governance data. "Bond data" is a whole top-level group for two
+> pages. Nobody can predict which group a page lives in.
 >
-> **Hard constraints — a design that violates these cannot ship:**
-> 1. Static HTML/CSS/JS only. No React, no Vue, no Tailwind, no build step, no
->    npm. Cloudflare Pages serves the files as-is. Only external requests
->    allowed: Google Fonts and one `marked.min.js` CDN script.
-> 2. Every color, radius, shadow and spacing value must be a CSS custom
->    property defined once in a single `theme.css`. No hard-coded hex anywhere
->    else. A runtime script flips `data-theme="light"|"dark"` on `<html>`, so
->    both palettes must be complete and defined at the same specificity.
-> 3. Bilingual EN/TH. Thai (Sarabun) runs ~15% wider and taller than the
->    English string at the same size. No fixed-width labels, no single-line
->    truncation on anything a Thai string lands in, no ALL-CAPS treatment that
->    Thai script cannot take.
-> 4. Every number is `font-variant-numeric: tabular-nums` and right-aligned in
->    tables. Percentages, prices, ratios and counts must align down the column.
-> 5. Accessible: 4.5:1 body contrast in both themes, visible `:focus-visible`,
->    `prefers-reduced-motion` honored, semantic color never the only carrier of
->    meaning (add a glyph or label alongside red/green).
-> 6. Must survive being wrong. Data is a daily JSON snapshot that sometimes
->    goes stale or fails. Loading, empty, stale and error states are first-class
->    design work here, not afterthoughts.
+> The mental model I want the navigation to express is three kinds of question:
 >
-> **What I want from you:**
-> - A design language: palette (light + dark), type scale, spacing scale,
->   radius/elevation scale, border treatment, data-density rules.
-> - The app shell: a left icon rail + module sidebar + topbar + right context
->   drawer. I want this rethought, not repainted — tell me if the four-surface
->   shell is wrong for this workload.
-> - Three page archetypes designed to pixel level: (a) the morning-overview
->   home, (b) a dense sortable/filterable 232-row data table, (c) a
->   single-company detail page with nine tabs.
-> - The repeating components: KPI tile, filing/news feed row, alert card,
->   ticker chip, severity badge, RM badge, sector tag, inline sparkline, tab
->   bar, filter bar, freshness pill, drawer, empty/stale/error state.
-> - A full `theme.css` token block I can drop in, both themes.
+> 1. **ราคาและตลาด — price and market.** What moved, how it trades, what it is
+>    worth.
+> 2. **ข่าวและการเปิดเผยข้อมูล — news and disclosure.** What was announced,
+>    filed, or reported.
+> 3. **ข้อมูลบริษัท — company data.** What a company *is*: fundamentals,
+>    governance, debt, meetings.
 >
-> **Deliver as:** a design canvas with artboards, plus the token CSS as copyable
-> code. Annotate the rationale for each major decision — I will be defending
-> these choices to a department head.
+> Regroup all twenty pages against those three, design how the groups are
+> presented, and tell me where you disagree with the three-way split.
 >
-> The current build is functional but incoherent: eighteen of twenty pages
-> redefine the same design tokens locally, and the shared stylesheet fights
-> them back with 87 `!important` declarations. Assume nothing about the current
-> look is load-bearing except the information architecture. See the attached
-> dossier for the current state, the data, and the page inventory.
+> **Hard constraints:**
+> - Bilingual EN/TH. Every group label needs both. Thai runs ~15% wider and
+>   taller than English at the same size — no fixed-width labels, no
+>   truncation on a group name.
+> - The navigation is built at runtime from a single JavaScript array. You are
+>   editing that array and the CSS that styles the shell. You are not editing
+>   the twenty pages, so anything requiring per-page markup is out of scope.
+> - Colours, fonts, spacing and components stay as they are. If a group's
+>   accent colour has to change because groups merged, say so — but do not
+>   propose a new palette.
+> - Keep the existing shell behaviour: collapse toggle, ticker search with `/`
+>   hotkey, RM selector, language toggle, theme switch, right context drawer,
+>   mobile drawer under 840px.
+>
+> **Deliver:**
+> - The full page-to-group mapping for all twenty pages, with a one-line
+>   reason for every page you move.
+> - The group labels in EN and TH, plus an icon choice per group from a
+>   Lucide-style 24×24 stroke set.
+> - A layout for how the groups are presented — see the open question below.
+> - Annotated artboards at 1440px and at 390px.
+>
+> **The open question I want you to answer:** today the groups are a fixed 64px
+> icon rail on the far left, with a 228px sidebar next to it listing that
+> group's pages. With only three or four groups instead of six, is the icon
+> rail still earning its 64px? Show me both — (a) keep the rail, (b) drop the
+> rail and put the groups as a horizontal tab row in the existing 66px topbar,
+> freeing 64px of horizontal space on every page. Recommend one and say why.
+>
+> **What I am not asking for:** a visual refresh, a new colour system, new page
+> layouts, or anything that touches the content area of any page.
 
 ---
 
-## §1 — What the product is
+## §2 — The regrouping, as I would do it
 
-A daily-refreshed intelligence desk for **232 Thai SET-listed companies** under
-IS1 (Issuer Department 1) coverage. Static HTML + JSON snapshots on Cloudflare
-Pages; a Cloudflare Worker (`worker.js`) serves `/api/chat`, `/api/feedback`
-and `/api/efinance-news` for the embedded agent console.
+Start from this and argue with it. Twenty pages; the "Now" column is the group
+the page sits in today.
 
-There is no backend and no build step. GitHub Actions rebuilds the JSON
-snapshots on cron, commits them, and Cloudflare auto-deploys on push.
+**ราคาและตลาด · Market & Price**
+| Page | Now | Why here |
+|---|---|---|
+| `price-movement.html` | Market | unchanged |
+| `sector-intelligence.html` | Market | unchanged |
+| `multiples-comparison.html` | Market | unchanged |
+| `multiples-band.html` | Market | unchanged |
+| Daily market board (external) | Market | unchanged |
+| `unusual-trading.html` | **Surveillance** | volume and price anomalies — this is price data, not a separate discipline |
+| `trading-signs.html` | **Surveillance** | SP/NP/H trading status — how the stock trades |
 
-**Coverage shape** (`data/tickers.json`, 232 entries):
+**ข่าวและการเปิดเผยข้อมูล · News & Disclosure**
+| Page | Now | Why here |
+|---|---|---|
+| `disclosure-pulse.html` | News flow | unchanged |
+| `external-news.html` | News flow | unchanged |
+| `efinance-news.html` | News flow | unchanged |
+| Global-macro brief (external) | News flow | unchanged |
+| `sec-enforcement.html` | **Surveillance** | an enforcement action is a published event — you read it like news |
 
-| Sector | Tickers |
+**ข้อมูลบริษัท · Company Data**
+| Page | Now | Why here |
+|---|---|---|
+| `company-summary.html` | Companies | unchanged |
+| `oppday-minutes.html` | Companies | unchanged |
+| `sec-form59.html` | Companies | unchanged |
+| `governance-screen.html` | **Surveillance** | auditor fees, AGM timing, board independence — this is company attribute data |
+| `bond-summary.html` | **Bond data** | a company's debt is company data; two pages do not need a top-level group |
+| `bond-data-sec.html` | **Bond data** | same |
+
+Net effect: Surveillance and Bond data disappear as groups, their six pages
+redistributed. Nothing is removed from the product.
+
+**The problem with a pure three-way split**, and you should push back on this:
+three pages are neither price, news, nor company data — they are the analyst's
+own workspace.
+
+| Page | What it is |
 |---|---|
-| PROP | 60 |
-| FOOD | 58 |
-| PF&REIT | 47 |
-| CONS | 32 |
-| CONMAT | 21 |
-| AGRI | 14 |
+| `index.html` | the morning overview — the landing page |
+| `visits.html` | the RM's own visit planning |
+| `ai-insights.html` | daily generated commentary across coverage |
 
-**Six RMs** own the book: C (51), O (44), K (38), T (36), P (35), G (28).
-RM identity is a first-class filter on almost every page — the shell holds a
-selected RM in `localStorage` (`is1_rm`, default `C`) and pages filter to it.
+Two ways to handle it:
 
-## §2 — Who reads it and when
+- **A — three groups, no fourth.** `index.html` becomes the home link on the
+  logo (it already is). `visits.html` and `ai-insights.html` move into the
+  right-hand context drawer, which is already the analyst's personal panel.
+  Purest three-way split; costs two pages some discoverability.
+- **B — three groups plus a small "งานของฉัน · My desk".** Holds those three.
+  The three content groups stay genuinely pure.
 
-- Six analysts. Primary session: 08:30–09:30 BKK, before the SET open.
-- Desktop-first, 1440–1920px. Mobile is a real but secondary path (the shell
-  has a full mobile mode under 840px).
-- The reader knows the domain cold. No explanatory chrome, no tooltips
-  defining what P/E means, no onboarding.
-- They are looking for exceptions: what moved, what filed, what is silent,
-  what is flagged. The design job is to make exceptions surface without the
-  reader hunting.
+**I lean B.** The three content groups are only clear if nothing workflow-shaped
+is stuffed into them, and a fourth group of three items is cheaper than
+burying two pages in a drawer. Disagree if you see it differently.
 
-## §3 — Tech constraints (non-negotiable)
+## §3 — How the navigation is actually built
 
-| Constraint | Detail |
-|---|---|
-| Framework | None. Vanilla HTML/CSS/JS. Each page is a self-contained file with an inline `<style>` and inline `<script>`. |
-| Build | None. Files are served verbatim. `.assetsignore` ships only root HTML + `data/*.json` to the edge. |
-| External deps | `fonts.googleapis.com` (Sarabun 400/500/600/700, JetBrains Mono 500/600/700) and `cdn.jsdelivr.net/npm/marked/marked.min.js` (one page). Nothing else. |
-| Charts | Zero chart libraries. All charts are hand-rolled inline SVG (`<polyline>`/`<path>` sparklines, bar rows built from divs). A redesign that assumes Chart.js/D3 is unbuildable here. |
-| Icons | Inline SVG path strings in a JS lookup table (Lucide-style, 24×24 viewBox, `stroke-width:1.8`, `fill:none`, `currentColor`). Two separate tables: `nav.js` (~30 icons) and `chat-dock.js` (~13). |
-| Cache-busting | Assets are versioned by query string (`theme.css?v=8`). Bumping the version is a manual edit in all 20 HTML files. |
+This is the part that makes the change cheap, and the part a designer will get
+wrong if nobody says it.
 
-## §4 — Current shell anatomy
+**The entire navigation is generated at runtime from one array in `nav.js`.**
+No page contains its own menu markup. Regrouping is a data edit.
 
-Every page loads the same five shared assets. Order matters and is identical
-on all 20 pages:
+`nav.js` line ~20, `GROUPS` — the whole menu:
 
-```html
-<head>
-  <style> …page-local CSS, includes its own :root{} … </style>   <!-- the problem -->
-  <script src="theme.js?v=8"></script>      <!-- blocking, pre-paint -->
-  <link rel="stylesheet" href="theme.css?v=8">
-  <script src="i18n.js?v=9"></script>
-</head>
-<body>
-  …page markup…
-  <script src="nav.js?v=9" defer></script>
-  <script src="chat-dock.js?v=8" defer></script>
-</body>
+```js
+var GROUPS = [
+  {
+    id:"market", label:["Market","ตลาด"], icon:"chart-no-axes-combined", color:"#5d96ff",
+    pages:[
+      ["price-movement.html","Price movement","ความเคลื่อนไหวราคา","trending-up"],
+      // [href, EN label, TH label, icon, optional count key]
+    ],
+  },
+  // …five more groups
+];
 ```
 
-**`theme.js`** (6.6 KB) — reads `localStorage.is1_theme` (`system`/`light`/
-`dark`), sets `data-theme` + `data-theme-mode` on `<html>` before paint, injects
-the three-button theme switch into the topbar, and runs a scroll-reveal motion
-system (IntersectionObserver, `.motion-reveal` → `.is-revealed`, staggered
-38ms). Uses the View Transition API for theme flips when available. Exposes
-`window.IS1Theme`.
+Each page entry is `[href, labelEn, labelTh, iconName]` with an optional fifth
+element (`"filings"`, `"news"`, `"alerts"`) that renders a live count badge in
+the sidebar.
 
-**`theme.css`** (45 KB, 1299 lines) — three jobs fused into one file:
-1. the token definitions for both themes,
-2. the entire app-shell layout (179 `.is1s-*` rules) and the home dashboard
-   panels (`.is1-home-*`),
-3. a "legacy correction" layer that overrides page-local hard-coded colors with
-   **87 `!important` declarations**.
+Three couplings must move together, or the UI contradicts itself:
 
-**`i18n.js`** (98 KB) — EN/TH dictionary. Static text uses `data-i18n="key"`
-attributes; JS-generated text calls `I18N.t(key)`. Dictionary values are plain
-text only — several pages interpolate them into `innerHTML`, so markup in the
-dictionary would render unescaped. Body carries `lang-en`/`lang-th`; `.lx-th`
-and `.lx-en` classes gate per-language spans.
-
-**`nav.js`** (55 KB) — the app shell, injected at runtime into every page:
-
-| Surface | Width/height | Behavior |
+| # | Where | What it holds |
 |---|---|---|
-| Icon rail `.is1s-rail` | `--is1-rail-w: 64px`, fixed left, full height | 6 module buttons, each with its own accent color; hard-coded near-black `#0b0d10` background in **both** themes |
-| Module sidebar `.is1s-modules` | `--is1-module-w: 228px` | Per-module page list, live counts, collapse toggle (persisted), freshness footer with live dot |
-| Topbar `.is1s-topbar` | `66px`, sticky | Breadcrumb, ticker search with `/` hotkey + datalist of all 232, RM selector, language toggle, theme switch, context toggle |
-| Context drawer `.is1s-context` | `--is1-context-w: 310px`, fixed right, slide-in | Three tabs: My book / Alerts / Agents |
-| Embedded workspace | full-bleed overlay | iframes two external dashboards with `?embedded=1`, which makes `nav.js` and `chat-dock.js` self-disable |
+| 1 | `nav.js` → `GROUPS` | group id, EN/TH label, icon name, accent hex, page list |
+| 2 | `nav.js` → `PAGE_META` | per-page header strip: `["Market","desc EN","desc TH","#5d96ff","icon"]`. **Field 0 is the group's display label** — if a page changes group, this changes too, or the page header names a group the menu no longer has. |
+| 3 | `theme.css` lines 377–388 | `[data-module="<id>"] { --module-accent:… }`, twelve rules — six dark, six light. New group ids need new rules; removed ids leave dead ones. |
 
-Body padding is driven by `.is1-shell-ready { padding-left: calc(rail + module) }`
-and `.is1s-context-open { padding-right: 310px }`. Under 840px both panels
-become scrim-backed drawers.
+The accent hex is currently written in all three places. Worth collapsing to
+one source while the file is open, but that is a cleanup, not the task.
 
-**`chat-dock.js`** (30 KB) — "REX" agent console. Injects its own `<style>`
-block (does not use `theme.css`). Bottom-right FAB → 460×680 panel with four
-agent tabs: **Hermes** (news/disclosures, amber `#f59e0b`), **Atlas**
-(prices/alerts, blue `#3b82f6`), **Pythia** (sector screens, violet `#8b5cf6`),
-**Lex** (SET/SEC regulations, green `#10b981`). Threads in `sessionStorage`,
-credentials in `localStorage`, calls the Worker. Also a text-selection "Ask"
-button. Renders bot replies as bold/bullets/tables, with thumbs feedback.
+Group ids are **not** persisted anywhere — `localStorage` holds only
+`is1_rm`, `is1_shell_modules`, `is1_shell_context`, `is1_theme`. Renaming or
+deleting a group id breaks no stored state.
 
-## §5 — Current design tokens (`theme.css`)
+Icons come from an `ICONS` lookup in `nav.js` (~30 entries, Lucide-style,
+24×24 viewBox, `fill:none`, `stroke:currentColor`, `stroke-width:1.8`).
+A new icon is a new path string in that table.
 
-Dark (`:root`, `:root[data-theme="dark"]`, `color-scheme: dark`):
+**Nothing above touches an HTML page.** Twenty pages, zero edits.
 
-```
---bg #0c0e12   --bg2 #11141a   --card #171a20   --card2 #1d2129  --panel2 #12151a
---border #2a2f39  --border2 #373d49  --line #2a2f39  --line-soft #20242c
---text #f0f2f5  --text2 #c9ced7  --muted #9aa3b2  --dim #6f7887
---accent #817cf3  --accent-strong #9b97ff  --accent-soft rgba(129,124,243,.13)
---accent-border rgba(129,124,243,.36)  --glow rgba(129,124,243,.20)
---green #35c979  --red #ff6262  --yellow #f5ad42  --blue #5c92ff  --violet #b17cff
---header-bg rgba(12,14,18,.88)  --overlay rgba(0,0,0,.58)
---shadow-sm 0 1px 2px rgba(0,0,0,.24)
---shadow-md 0 10px 30px rgba(0,0,0,.28)
---shadow-lg 0 20px 56px rgba(0,0,0,.38)
---surface-hover #20242c  --scroll-track #0c0e12  --scroll-thumb #3c4350
-```
+## §4 — The shell as it stands
 
-Light (`:root[data-theme="light"]`, `color-scheme: light`):
-
-```
---bg #f3f5f8   --bg2 #e9edf2   --card #ffffff   --card2 #f7f8fa
---border #d9dee7  --border2 #c8d0dc
---text #171a21  --text2 #343a46  --muted #5f6878  --dim #7b8493
---accent #5855c9  --accent-strong #4542b7
---green #168449  --red #d23f43  --yellow #a96000  --blue #2463d4  --violet #7f46c8
---header-bg rgba(255,255,255,.90)  --overlay rgba(18,22,30,.38)
---surface-hover #f0f2f6  --scroll-track #edf0f4  --scroll-thumb #b9c1cd
-```
-
-Aliases kept for legacy markup: `--body`/`--ink` = `--text`, `--mut` = `--muted`,
-`--crit` = `--red`, `--mat` = `--yellow`, `--low` = `--green`,
-`--routine` = `--muted`, `--gov` = `--violet`.
-
-Module accents (hard-coded in both `nav.js` and `theme.css` — currently
-duplicated, should become tokens):
-
-```
-Workspace #f2aa1f · Market #5d96ff · Companies #35bdd0
-News flow #31c77b · Surveillance #ef6464 · Bond data #b17cff
-```
-
-Shell geometry: `--is1-rail-w 64px`, `--is1-module-w 228px`,
-`--is1-context-w 310px`. Radii are mostly 8px via a blanket
-`.card,.dash-card,.kpi,… { border-radius:8px !important }` rule.
-
-Typography: `'Sarabun','Segoe UI',system-ui,sans-serif` everywhere.
-`'JetBrains Mono'` is loaded globally but currently used **only** in
-`sector-intelligence.css` (9–18px numerics). There is no type scale — sizes
-are ad-hoc per page, roughly 8px→26px.
-
-## §6 — The CSS debt (what the redesign must actually fix)
-
-This is the reason for the project. Be explicit about it with the designer.
-
-1. **18 of 20 pages declare their own `:root{}`** with the same token names and
-   different values. `index.html` alone carries 171 lines of inline CSS and sets
-   `--accent:#6366f1` against `theme.css`'s `#817cf3`. Load order means
-   `theme.css` usually wins, but page-local *rules* (not tokens) like
-   `header{background:#0a0c12ee}` do not participate at all.
-2. **87 `!important` in `theme.css`** exist solely to beat those page-local
-   hard-coded colors back into token compliance. 110 across all CSS + HTML.
-3. **Page-local `:root` blocks have no light variant.** They were written
-   dark-only; light theme works only because `theme.css` defines
-   `:root[data-theme="light"]` at higher specificity. Any new page-local rule
-   with a literal hex silently breaks light mode.
-4. **Two competing home layouts coexist.** `index.html` ships a `.dash-card`
-   navigation grid; `nav.js` then injects a richer `.is1-home-control` panel
-   set and hides the old blocks by adding `.is1s-home-legacy`. The redesign
-   should collapse this to one.
-5. **The legacy `<header>` on every page is hidden** with
-   `.is1s-legacy-header{display:none !important}` once the shell loads — dead
-   markup on 20 pages.
-6. **The icon rail is hard-coded dark in light mode** (`#0b0d10`). Deliberate
-   today, but it should be a stated decision with a token, not a literal.
-7. **`chat-dock.js` styles itself independently** of `theme.css`, with
-   `var(--token, #fallback)` everywhere. It will drift from any new palette
-   unless the redesign covers it.
-
-## §7 — Data the interface renders
-
-All pages `fetch()` static JSON from `data/`. Shapes below are current.
-
-| File | Size | Cadence | Key shape |
-|---|---|---|---|
-| `tickers.json` | 23 KB | manual | `{version, tickers:[{tk,sector,rm,bucket}], rms, sectors, totals}` |
-| `morning-brief.json` | 128 KB | daily 09:15 BKK | `{asOf, rows:[{tk,last,pct1d,pct5d,pctMtd,pctYtd,volRatio,filings,hi52,lo52,path,sector}]}` — `path` is the sparkline point array |
-| `ticker-summary.json` | 1.7 MB | daily | 232 rows, ~45 fields each: price, PE/PBV/DY/mktcap, free float, foreign room, CG score, ESG rating, auditors, management list, financial highlights |
-| `disclosure-pulse.json` | 2.0 MB | daily + 14:00 + 18:00 | `{filings:[{tk,sector,ts,type,title,title_th,url,severity,_summary,_summary_th,…}]}` (1881 items, 90d) + `status:[{tk,lastFiledTs,n24h,n7d,n30d,silentDays,overdue}]` |
-| `sector-heatmap.json` | 117 KB | daily | 5 metrics × 232 rows + `sectorAgg` |
-| `unusual-trading.json` | 23 KB | daily | `{alerts:[{tk,type,severity,value,label,evidence,filingsLinked}], byTicker:[…]}` |
-| `external-news.json` | 203 KB | daily | 130 items from HOONSMART/KAOHOON, ticker-matched |
-| `ai-insights.json` | 3 KB | daily | `{headline, market_take, sector_notes[6], watchlist[8], risk_flags[]}` |
-| `company-reports.json` | 1.5 MB | **manual** | per-ticker narrative synthesis |
-| `vault-ticker-notes.json` | 6.0 MB | **manual, no CI trigger** | MD&A / FS-notes / call excerpts per ticker — the known silent-staleness trap |
-| `visits.json` | 369 KB | manual | 232 rows: priority, thesis, lastVisit, nextAction, flags, questions |
-| `oppday-minutes.json` | 713 KB | manual | earnings-call minutes, markdown bodies |
-| `bond-summary.json` / `sec-bonds.json` | 342 / 50 KB | monthly | outstanding bonds |
-| `sec-enforcement.json` / `sec-form59.json` | 149 KB / 300 B | daily | |
-| `source-health.json`, `diagnostics.json`, `build-status.json` | small | daily | feed health, RM staleness, unclassified queue |
-
-**Freshness is a designed concept, not a footnote.** The home page carries a
-snapshot bar with per-file `asOf` and a three-state color cycle: green ≤7d,
-yellow 7–14d, red >14d, plus a fourth grey "manual" state for files with no
-fixed cadence. Two snapshots are manual-only and go stale silently. The
-redesign must give staleness a stronger, more consistent visual treatment than
-a row of small text.
-
-**Severity vocabulary** (drives most color coding): `critical` / `material` /
-`routine` / `unclassified` on filings; `high` / `medium` on alerts.
-
-## §8 — Page inventory (20 pages, 6 modules)
-
-### Workspace (accent `#f2aa1f`)
-| Page | What it is | UI pattern |
+| Surface | Size | Notes |
 |---|---|---|
-| `index.html` | Morning overview. Today bar, AI take, mover chips, snapshot freshness bar, nav card grid, RM/sector stats, diagnostics fold | Mixed: chips, card grid, folds. **Two layouts fighting** (see §6.4) |
-| `visits.html` | Visit planner — 232 rows, priority/thesis/next action | Filterable table + KPI row + expandable rows |
-| `ai-insights.html` | Daily LLM commentary: headline, market take, 6 sector notes, watchlist, risk flags | Prose cards, two-column |
+| Icon rail `.is1s-rail` | `--is1-rail-w: 64px`, fixed left, full height | one button per group; hard-coded `#0b0d10` ground in both themes |
+| Module sidebar `.is1s-modules` | `--is1-module-w: 228px` | the selected group's page list, live counts, collapse toggle (persisted), freshness footer |
+| Topbar `.is1s-topbar` | `66px`, sticky | breadcrumb, ticker search + `/` hotkey + datalist of all 232, RM selector, language toggle, theme switch, context toggle |
+| Context drawer `.is1s-context` | `--is1-context-w: 310px`, right, slide-in | tabs: My book / Alerts / Agents |
 
-### Market (`#5d96ff`)
-| Page | What it is | UI pattern |
+Body padding is `calc(rail + module)` on the left, `310px` on the right when
+the drawer is open. Under 840px both panels become scrim-backed drawers.
+
+Option (b) in the open question — groups as topbar tabs — reclaims the 64px
+rail on every page. The topbar is already crowded with six controls, so the
+tab row probably needs its own 40px strip under the topbar rather than sitting
+inside it. Worth showing both.
+
+## §5 — The six groups today
+
+| Group | Accent (dark / light) | Pages |
 |---|---|---|
-| `price-movement.html` | Daily moves across 232 | Sortable table, tab bar, inline SVG sparklines, RM badges |
-| `sector-intelligence.html` | Meeting-ready FOOD/PROP briefing — the most designed page, own 55 KB CSS | Custom: lens grid, driver chains, market map, earnings charts, PE bands. All hand-rolled SVG/divs |
-| `multiples-comparison.html` | PE/PBV/DY side by side | Table + aggregate cards + legend bar |
-| `multiples-band.html` | Valuation ranges per sector | Per-metric sections with SVG band charts |
+| Workspace · พื้นที่ทำงาน | `#f2aa1f` / `#965700` | index, visits, ai-insights |
+| Market · ตลาด | `#5d96ff` / `#1f5fbd` | price-movement, sector-intelligence, multiples-comparison, multiples-band, daily board |
+| Companies · บริษัท | `#35bdd0` / `#08798a` | company-summary, oppday-minutes, sec-form59 |
+| News flow · ข่าวสาร | `#31c77b` / `#147947` | disclosure-pulse, external-news, efinance-news, macro brief |
+| Surveillance · เฝ้าระวัง | `#ef6464` / `#bd3440` | unusual-trading, trading-signs, sec-enforcement, governance-screen |
+| Bond data · ข้อมูลหุ้นกู้ | `#b17cff` / `#7039ae` | bond-summary, bond-data-sec |
 
-### Companies (`#35bdd0`)
-| Page | What it is | UI pattern |
-|---|---|---|
-| `company-summary.html` | 90 KB. The deepest page — 9 tabs: overview, company, financials, governance, disclosures, MD&A, notes, oppday, report | Hero + tab bar + drawer; SVG sparklines and hand-built financial charts |
-| `oppday-minutes.html` | Earnings-call minutes | List + filter bar + right drawer with markdown body (`marked.js`) |
-| `sec-form59.html` | Management/related-person trades | Feed list |
+Merging to three or four means three or four of these accents survive. Pick
+from the existing six rather than introducing new hues — the pages themselves
+carry these colours in their header strips via `PAGE_META`.
 
-### News flow (`#31c77b`)
-| Page | What it is | UI pattern |
-|---|---|---|
-| `disclosure-pulse.html` | Live SET filings ranked by severity | Feed with severity dots, ticker chips, TH/EN title toggle |
-| `external-news.html` | Ticker-matched wire headlines | Feed with excerpt |
-| `efinance-news.html` | eFinanceThai live (Worker-proxied) | Grouped feed + headline index sidebar — the most modern-looking page today |
+## §6 — Constraints the designer cannot see from a screenshot
 
-### Surveillance (`#ef6464`)
-| Page | What it is | UI pattern |
-|---|---|---|
-| `unusual-trading.html` | Volume/price anomalies with linked filings | Alert card grid, evidence rows |
-| `trading-signs.html` | SET trading signs (SP/NP/C/H…) | Compact grid + legend |
-| `sec-enforcement.html` | Thai SEC actions | Feed + filter note |
-| `governance-screen.html` | Auditor fees, AGM timing, board independence | Wide table + coverage grid + controls |
+- Static HTML/CSS/JS on Cloudflare Pages. No framework, no build step, no npm.
+- Two external dashboards are embedded as full-bleed iframes with `?embedded=1`,
+  which makes `nav.js` and `chat-dock.js` self-disable inside the frame. They
+  must stay reachable from whatever navigation replaces the current one.
+- A chat dock FAB sits bottom-right on every page and hides itself when a
+  mobile nav drawer is open. A new nav must keep that interaction.
+- Live count badges in the sidebar are fed by the daily JSON snapshots. If the
+  new design drops the sidebar, those counts need somewhere to go.
 
-### Bond data (`#b17cff`)
-| Page | What it is | UI pattern |
-|---|---|---|
-| `bond-summary.html` | Outstanding bonds across coverage | Table + SVG charts + rating/ESG badges |
-| `bond-data-sec.html` | SEC bond filings | Table + bar rows |
+## §7 — Acceptance
 
-Plus `404.html`, and two external dashboards embedded as workspaces
-(TradingView daily board, macro brief).
-
-## §9 — Components that repeat across pages
-
-Design these once, properly:
-
-`.rm-badge` · severity dot/pill (4 states) · ticker chip (links to
-`company-summary.html?tk=`) · sector tag · `.stale-pill` (3 states) ·
-`.kpi` / `.hstat` tile · `.dash-card` · `.filing` / `.item` feed row ·
-`.alert-card` · `.tab-bar` + `.tab` (with count) · `.filter-bar` ·
-`.table-wrap` + sortable `<th>` · `.drawer` + `#overlay` · inline sparkline
-(SVG, ~90×24 and 240×34) · `details.fold` disclosure · `details.howto`
-help block · `.is1s-empty` · loading spinner · `.legend` / `.legend-bar`.
-
-## §10 — Brand direction (pick one, tell me why)
-
-**Option A — evolve the current indigo terminal.** Keep `--accent` in the
-indigo/violet family, tighten everything else. Lowest migration risk; the
-six module accents already read as a system.
-
-**Option B — align to the SET house template.** The department's PPTX template
-is dark `#2E2E2E` / `#252525` ground, gold accent `#FFA300` / `#FFC000`, white
-text, Browallia New. Advantage: screenshots pasted into department decks stop
-looking foreign. Disadvantage: Browallia New is a weak screen face at small
-sizes and gold-on-dark is a harsh combination for 12px tabular data. If you go
-this way, treat gold as an accent only and keep Sarabun for UI text.
-
-**Option C — neutral instrument palette.** Near-monochrome surfaces, color
-reserved exclusively for semantic meaning (up/down, severity, freshness). The
-six module accents become the only chromatic wayfinding. This is what a
-professional terminal usually converges on and is my default recommendation —
-but argue against it if you disagree.
-
-State the tradeoff you are making. I will be defending this to a department
-head, so "it looks cleaner" is not an argument.
-
----
-
-## §11 — Acceptance checklist
-
-A redesign is accepted when:
-
-- [ ] One `theme.css` owns every token; zero literal hex outside it (the icon
-      rail's dark ground included — token it).
-- [ ] Zero `!important` in the new stylesheet. If one is needed, it is a bug
-      report against a page, not a solution.
-- [ ] Light and dark are both complete, both defined at the same specificity,
-      both pass 4.5:1 on body text and 3:1 on borders/icons.
-- [ ] Every page's inline `:root{}` block is deleted, not overridden.
-- [ ] A named type scale (no more ad-hoc 8px→26px) and spacing scale.
-- [ ] Thai strings at the longest realistic length do not break any layout.
-- [ ] All numerics tabular and column-aligned.
-- [ ] Loading / empty / stale / error states specified for feeds, tables and
-      KPI tiles.
-- [ ] `chat-dock.js`'s injected CSS is covered by the same tokens.
-- [ ] `prefers-reduced-motion` and `:focus-visible` preserved.
-- [ ] The three page archetypes (home, dense table, company detail) are
-      specified to pixel level, not just moodboarded.
+- [ ] All twenty pages mapped, every move justified in one line.
+- [ ] EN and TH labels for every group, Thai checked at its rendered width.
+- [ ] Both rail and topbar-tab options shown, one recommended with a reason.
+- [ ] The three `nav.js`/`theme.css` couplings in §3 all accounted for.
+- [ ] Zero changes proposed to any page's content area.
+- [ ] Existing shell behaviours preserved: collapse, `/` search, RM selector,
+      language toggle, theme switch, context drawer, 840px mobile drawers.
+- [ ] Embedded workspaces and live count badges still have a home.
