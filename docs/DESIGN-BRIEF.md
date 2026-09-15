@@ -7,67 +7,68 @@ If you change the codebase, update this file in the same commit.
 Not a redesign. No page layout, no body content, no palette change, no
 component restyling. The twenty pages stay exactly as they are.
 
-Paste §1–§2 into the design tool as the prompt. §3–§6 are the reference it
-needs to stay inside what is actually buildable. §7 is the acceptance bar.
+**This whole file is the brief.** Paste or attach it as-is — it is written to
+be read start to finish by whoever does the work. §1–§2 are the ask, §3–§6 the
+constraints that keep a proposal buildable, §7 the acceptance bar.
 
 ---
 
-## §1 — THE PROMPT (paste this)
+## §1 — What I want
 
-> I have an internal equity-surveillance dashboard used by six analysts at the
-> Stock Exchange of Thailand, Issuer Department 1. Twenty pages covering 232
-> listed companies. It works. I am not redesigning it.
->
-> **The one thing I want fixed: the top-level navigation groups are not clear.**
-> Today there are six groups — Workspace, Market, Companies, News flow,
-> Surveillance, Bond data — and the boundaries between them do not match how
-> anyone actually thinks about the work. "Surveillance" holds both price
-> anomalies and governance data. "Bond data" is a whole top-level group for two
-> pages. Nobody can predict which group a page lives in.
->
-> The mental model I want the navigation to express is three kinds of question:
->
-> 1. **ราคาและตลาด — price and market.** What moved, how it trades, what it is
->    worth.
-> 2. **ข่าวและการเปิดเผยข้อมูล — news and disclosure.** What was announced,
->    filed, or reported.
-> 3. **ข้อมูลบริษัท — company data.** What a company *is*: fundamentals,
->    governance, debt, meetings.
->
-> Regroup all twenty pages against those three, design how the groups are
-> presented, and tell me where you disagree with the three-way split.
->
-> **Hard constraints:**
-> - Bilingual EN/TH. Every group label needs both. Thai runs ~15% wider and
->   taller than English at the same size — no fixed-width labels, no
->   truncation on a group name.
-> - The navigation is built at runtime from a single JavaScript array. You are
->   editing that array and the CSS that styles the shell. You are not editing
->   the twenty pages, so anything requiring per-page markup is out of scope.
-> - Colours, fonts, spacing and components stay as they are. If a group's
->   accent colour has to change because groups merged, say so — but do not
->   propose a new palette.
-> - Keep the existing shell behaviour: collapse toggle, ticker search with `/`
->   hotkey, RM selector, language toggle, theme switch, right context drawer,
->   mobile drawer under 840px.
->
-> **Deliver:**
-> - The full page-to-group mapping for all twenty pages, with a one-line
->   reason for every page you move.
-> - The group labels in EN and TH, plus an icon choice per group from a
->   Lucide-style 24×24 stroke set.
-> - A layout for how the groups are presented — see the open question below.
-> - Annotated artboards at 1440px and at 390px.
->
-> **The open question I want you to answer:** today the groups are a fixed 64px
-> icon rail on the far left, with a 228px sidebar next to it listing that
-> group's pages. With only three or four groups instead of six, is the icon
-> rail still earning its 64px? Show me both — (a) keep the rail, (b) drop the
-> rail and put the groups as a horizontal tab row in the existing 66px topbar,
-> freeing 64px of horizontal space on every page. Recommend one and say why.
->
-> **What I am not asking for:** a visual refresh, a new colour system, new page
-> layouts, or anything that touches the content area of any page.
+I have an internal equity-surveillance dashboard used by six analysts at the
+Stock Exchange of Thailand, Issuer Department 1. Twenty pages covering 232
+listed companies. It works. I am not redesigning it.
+
+**The one thing I want fixed: the top-level navigation groups are not clear.**
+Today there are six groups — Workspace, Market, Companies, News flow,
+Surveillance, Bond data — and the boundaries between them do not match how
+anyone actually thinks about the work. "Surveillance" holds both price
+anomalies and governance data. "Bond data" is a whole top-level group for two
+pages. Nobody can predict which group a page lives in.
+
+The mental model I want the navigation to express is three kinds of question:
+
+1. **ราคาและตลาด — price and market.** What moved, how it trades, what it is
+   worth.
+2. **ข่าวและการเปิดเผยข้อมูล — news and disclosure.** What was announced,
+   filed, or reported.
+3. **ข้อมูลบริษัท — company data.** What a company *is*: fundamentals,
+   governance, debt, meetings.
+
+Regroup all twenty pages against those three, design how the groups are
+presented, and tell me where you disagree with the three-way split.
+
+**Hard constraints:**
+- Bilingual EN/TH. Every group label needs both. Thai runs ~15% wider and
+  taller than English at the same size — no fixed-width labels, no
+  truncation on a group name.
+- The navigation is built at runtime from a single JavaScript array. You are
+  editing that array and the CSS that styles the shell. You are not editing
+  the twenty pages, so anything requiring per-page markup is out of scope.
+- Colours, fonts, spacing and components stay as they are. If a group's
+  accent colour has to change because groups merged, say so — but do not
+  propose a new palette.
+- Keep the existing shell behaviour: collapse toggle, ticker search with `/`
+  hotkey, RM selector, language toggle, theme switch, right context drawer,
+  mobile drawer under 840px.
+
+**Deliver:**
+- The full page-to-group mapping for all twenty pages, with a one-line
+  reason for every page you move.
+- The group labels in EN and TH, plus an icon choice per group from a
+  Lucide-style 24×24 stroke set.
+- A layout for how the groups are presented — see the open question below.
+- Annotated artboards at 1440px and at 390px.
+
+**The open question I want you to answer:** today the groups are a fixed 64px
+icon rail on the far left, with a 228px sidebar next to it listing that
+group's pages. With only three or four groups instead of six, is the icon
+rail still earning its 64px? Show me both — (a) keep the rail, (b) drop the
+rail and put the groups as a horizontal tab row in the existing 66px topbar,
+freeing 64px of horizontal space on every page. Recommend one and say why.
+
+**What I am not asking for:** a visual refresh, a new colour system, new page
+layouts, or anything that touches the content area of any page.
 
 ---
 
@@ -134,8 +135,8 @@ burying two pages in a drawer. Disagree if you see it differently.
 
 ## §3 — How the navigation is actually built
 
-This is the part that makes the change cheap, and the part a designer will get
-wrong if nobody says it.
+This is the part that makes the change cheap, and the part you would get wrong
+if nobody told you.
 
 **The entire navigation is generated at runtime from one array in `nav.js`.**
 No page contains its own menu markup. Regrouping is a data edit.
@@ -212,7 +213,7 @@ Merging to three or four means three or four of these accents survive. Pick
 from the existing six rather than introducing new hues — the pages themselves
 carry these colours in their header strips via `PAGE_META`.
 
-## §6 — Constraints the designer cannot see from a screenshot
+## §6 — Constraints you cannot see from a screenshot
 
 - Static HTML/CSS/JS on Cloudflare Pages. No framework, no build step, no npm.
 - Two external dashboards are embedded as full-bleed iframes with `?embedded=1`,
