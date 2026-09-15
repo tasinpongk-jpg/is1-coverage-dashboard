@@ -58,6 +58,7 @@
         ["unusual-trading.html","Unusual trading","การซื้อขายผิดปกติ","siren","alerts"],
         ["trading-signs.html","Trading signs","เครื่องหมายซื้อขาย","flag"],
         ["sec-enforcement.html","SEC enforcement","การบังคับใช้กฎหมาย","shield-check"],
+        ["governance-screen.html","Governance screen","ตรวจสอบธรรมาภิบาล","scale"],
       ],
     },
     {
@@ -97,6 +98,7 @@
     "sec-form59":          ["Companies","Management and related-person trades","รายการซื้อขายของผู้บริหารและบุคคลที่เกี่ยวข้อง","#35bdd0","contact-round"],
     "bond-summary":        ["Bond data","Outstanding bonds across coverage","หุ้นกู้คงค้างใน coverage","#b17cff","chart-pie"],
     "bond-data-sec":       ["Bond data","Bond filings from the SEC","ข้อมูล filing หุ้นกู้จาก SEC","#b17cff","database"],
+    "governance-screen":   ["Surveillance","Auditor fees, AGM timing and board independence","ค่าสอบบัญชี กำหนดประชุมสามัญผู้ถือหุ้น และสัดส่วนกรรมการอิสระ","#ef6464","scale"],
     "visits":              ["Workspace","Plan and track company visits","วางแผนและติดตามการเยี่ยมบริษัท","#f2aa1f","calendar-days"],
   };
 
@@ -127,6 +129,7 @@
     "radio-tower":'<path d="M4.9 19.1C1 15.2 1 8.8 4.9 4.9M7.8 16.2a6 6 0 0 1 0-8.4M19.1 4.9c3.9 3.9 3.9 10.3 0 14.2M16.2 7.8a6 6 0 0 1 0 8.4"/><circle cx="12" cy="12" r="2"/><path d="m8.5 22 3.5-8 3.5 8M9 18h6"/>',
     "rss":'<path d="M4 11a9 9 0 0 1 9 9M4 4a16 16 0 0 1 16 16"/><circle cx="5" cy="19" r="1"/>',
     "search":'<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>',
+    "scale":'<path d="m16 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"/><path d="m2 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"/><path d="M7 21h10"/><path d="M12 3v18"/><path d="M3 7h2c2 0 5-1 7-2 2 1 5 2 7 2h2"/>',
     "shield-alert":'<path d="M20 13c0 5-3.5 7.5-7.7 9a1 1 0 0 1-.6 0C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.2-2.7a1.2 1.2 0 0 1 1.6 0C14.5 3.8 17 5 19 5a1 1 0 0 1 1 1z"/><path d="M12 8v4M12 16h.01"/>',
     "shield-check":'<path d="M20 13c0 5-3.5 7.5-7.7 9a1 1 0 0 1-.6 0C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.2-2.7a1.2 1.2 0 0 1 1.6 0C14.5 3.8 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/>',
     "siren":'<path d="M7 18v-6a5 5 0 0 1 10 0v6M5 22h14M5 18h14M12 2v3M4.9 4.9 7 7M19.1 4.9 17 7"/>',

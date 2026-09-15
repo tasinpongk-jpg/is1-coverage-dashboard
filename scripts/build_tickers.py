@@ -14,6 +14,9 @@ from pathlib import Path
 
 import openpyxl
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from rm_privacy import anonymise_rm
+
 ROOT = Path(__file__).resolve().parent.parent
 OUT = ROOT / "data" / "tickers.json"
 
@@ -39,8 +42,9 @@ def main():
         if not row[0]:
             continue
         tk, sector, rm = row[0], row[1], row[2]
-        # Anonymise RM to its initial (privacy): "Champ"->"C", "Orn"->"O", ...
-        rm = (str(rm).strip()[:1].upper() if rm not in (None, "") else rm)
+        # Anonymise RM to its initial (privacy). Shared rule so other
+        # builders reading an `rm` field cannot drift — see scripts/rm_privacy.py.
+        rm = anonymise_rm(rm)
         tickers.append({
             "tk": tk,
             "sector": sector,
