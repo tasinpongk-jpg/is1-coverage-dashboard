@@ -241,6 +241,43 @@ Output: `data/sec-onereport.json`, keyed by ticker, with `counts`,
 `unresolved`, and `errors` at the top level so a partial pull is visible rather
 than silent.
 
+### The governance screen
+
+`scripts/build_sec_governance.py` → `data/sec-governance.json` → `governance-screen.html`.
+
+A separate builder from `build_sec_onereport.py` because it needs **two**
+report years: auditor change is only visible by comparing this year's audit
+firm against last year's.
+
+```bash
+python3 scripts/build_sec_governance.py --year 2024            # 232 universe
+python3 scripts/build_sec_governance.py --year 2024 --rm C      # the 51-name book
+python3 scripts/build_sec_governance.py --year 2024 --no-prior  # skip Y-1
+```
+
+Five flags, in three kinds — the page labels which is which, because they are
+not the same sort of finding:
+
+| Flag | Kind | Basis |
+|---|---|---|
+| `low_independence` | rule | SEC/SET: independent directors at least one third of the board |
+| `late_agm` | rule | Public Limited Companies Act B.E. 2535 s.98 — AGM within 4 months of fiscal year end. Assumes a 31 Dec year end; a non-calendar filer is excluded and marked in `agm_basis`. |
+| `high_non_audit` | convention | non-audit fee exceeds audit fee. There is no Thai cap on the ratio — this is an independence-risk marker, not a limit. |
+| `thin_audit_cmte` | convention | fewer than 4 audit committee meetings. No statutory floor. |
+| `auditor_change` | prompt | audit firm differs from the prior report year. Not a breach — a question to ask. |
+
+A flag is `true`, `false`, or `null`. **`null` means SEC did not publish the
+figure, so the flag was never assessed** — it is never coerced to a pass. The
+page renders those as a dash, and the coverage banner at the top shows what
+share of the screened names carry each field, so a thin dataset reads as a
+sample rather than a clean bill of health.
+
+`auditor_change` compares the auditor code where both years have one, falling
+back to the Thai name — a firm rebrand must not read as an engagement change.
+
+Unit tests for the flag logic: `tests/test_sec_governance.py` (24 tests, no
+network).
+
 ## Provenance and what is unverified
 
 The endpoint catalogue below was reconstructed from an unofficial machine-readable
