@@ -251,11 +251,27 @@ blocked by this repo's cloud-session network policy.
 
 **Nothing here has been executed against the live API.** Paths, parameter names
 and response field names come from the mirrored catalogue, not from a response.
-Before trusting the snapshot:
 
-1. `python3 scripts/sec_api.py ping` — confirms the key and both API shapes.
-2. Confirm the v1 response is a bare array vs `{items:[...]}` — `get_v1()`
-   handles both, but the rest of the pipeline should know which it is.
-3. Confirm `01-SBO-Info` covers the report year you want. Portal examples use
-   2021; the latest published year is untested.
-4. Run the PF vs REIT test named above before building any PF&REIT feature.
+`scripts/probe_sec_api.py` settles all of it in one run, on a machine that can
+reach `api.sec.or.th`:
+
+```bash
+export SEC_API_KEY=<primary>
+python3 scripts/probe_sec_api.py              # rm=C book, 51 tickers, ~25 calls
+python3 scripts/probe_sec_api.py --rm all     # full 232 universe
+python3 scripts/probe_sec_api.py --json /tmp/sec-probe.json   # keep the evidence
+```
+
+Five rungs, each PASS / FAIL / WARN with the evidence printed under it:
+
+| Rung | Question it settles |
+|---|---|
+| 1 KEY | Does the key work, on both the v1 and the v2 shape? Prints whether v1 returns a bare array or a wrapped `{items:[...]}`. |
+| 2 YEAR | Which `report_year` actually has One Report data, and how many distinct symbols. Walks 2025 → 2021. |
+| 3 COVERAGE | How many of the book resolve to a `unique_id` at that year, broken out by bucket. A PF&REIT miss is expected — funds and trusts do not file a One Report. |
+| 4 PAYLOAD | Do `product_income`, `auditor`, `director_perf`, `board` and `financials` return rows for real tickers? Prints one concrete revenue line so the numbers are visible, not implied. |
+| 5 PF/REIT | Do property funds (TTLPF, HPF, TIF1) and REITs (FTREIT, WHART, CPNREIT) resolve in `/v2/fund/general-info/profiles`? |
+
+Exit 0 if no rung failed, 1 otherwise. Rung 3 is the one to read first: if
+coverage of the PROP and FOOD buckets is not near 100%, the report year is
+wrong before anything else is.
