@@ -11,6 +11,11 @@ duckdb==1.5.2
 # Pillow is installed alongside.
 pypdf==6.15.0
 
+# python-docx — DOCX text + table extraction for SET FS/NOTES bundles.
+# Imported lazily by scripts/harvest_download.py:_docx_text; without it that
+# helper returns "" and every DOCX-sourced filing lands with empty content.
+python-docx==1.2.0
+
 # pypdfium2 — pure-Python PDF page renderer for OCR fallback (scanned PDFs).
 # Used by scripts/harvest_download.py when pypdf returns 0 text from a
 # scanned/image-only PDF. Without pypdfium2, those filings fall back to
