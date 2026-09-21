@@ -1,5 +1,5 @@
 {
-  "asOf": "2026-09-20",
+  "asOf": "2026-09-21",
   "source": "SETSMART intraday API · 57 alerts across 45 tickers",
   "thresholds": {
     "vol_spike": {
@@ -511,7 +511,7 @@
       "sector": "FOOD",
       "type": "Volume spike",
       "atype": "vol_spike",
-      "severity": "medium",
+      "severity": "low",
       "value": 2.394,
       "label": "2.4σ vs 20D avg",
       "evidence": {
@@ -519,8 +519,10 @@
         "vol20dAvg": 477603.5,
         "vol20dStd": 258586.95091912508
       },
-      "filingsLinked": 0,
-      "filingsTitles": []
+      "filingsLinked": 1,
+      "filingsTitles": [
+        "SEC News : สรุปแบบ 59 ประจำวันที่ 18 กันยายน 2569"
+      ]
     },
     {
       "tk": "CPF",
@@ -1656,23 +1658,6 @@
       ]
     },
     {
-      "tk": "KCG",
-      "sector": "FOOD",
-      "alertCount": 1,
-      "highestSeverity": "medium",
-      "filingsLinked": 0,
-      "alertTypes": [
-        {
-          "atype": "vol_spike",
-          "type": "Volume spike",
-          "severity": "medium"
-        }
-      ],
-      "summary": [
-        "Volume spike: 2.4σ vs 20D avg"
-      ]
-    },
-    {
       "tk": "ORN",
       "sector": "PROP",
       "alertCount": 1,
@@ -1773,8 +1758,25 @@
       "summary": [
         "Price gap: +3.45% open gap"
       ]
+    },
+    {
+      "tk": "KCG",
+      "sector": "FOOD",
+      "alertCount": 1,
+      "highestSeverity": "low",
+      "filingsLinked": 1,
+      "alertTypes": [
+        {
+          "atype": "vol_spike",
+          "type": "Volume spike",
+          "severity": "low"
+        }
+      ],
+      "summary": [
+        "Volume spike: 2.4σ vs 20D avg"
+      ]
     }
   ],
-  "_built_at": "2026-09-20T02:36:02.276197+00:00",
+  "_built_at": "2026-09-21T02:35:55.944205+00:00",
   "_coverage_size": 232
 }
