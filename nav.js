@@ -18,7 +18,7 @@
 
   var GROUPS = [
     {
-      id:"home", label:["Workspace","พื้นที่ทำงาน"], icon:"layout-dashboard", color:"#f2aa1f",
+      id:"home", label:["Workspace","พื้นที่ทำงาน"], short:["Home","หน้าหลัก"], icon:"layout-dashboard", color:"#f2aa1f",
       pages:[
         ["index.html","Morning overview","ภาพรวมเช้า","activity"],
         ["visits.html","Visit planner","แผนเยี่ยมบริษัท","calendar-days"],
@@ -26,7 +26,7 @@
       ],
     },
     {
-      id:"market", label:["Market","ตลาด"], icon:"chart-no-axes-combined", color:"#5d96ff",
+      id:"market", label:["Market","ตลาด"], short:["Market","ตลาด"], icon:"chart-no-axes-combined", color:"#5d96ff",
       pages:[
         ["price-movement.html","Price movement","ความเคลื่อนไหวราคา","trending-up"],
         ["sector-intelligence.html","Sector intelligence","บทวิเคราะห์รายกลุ่ม","chart-no-axes-combined"],
@@ -36,7 +36,7 @@
       ],
     },
     {
-      id:"companies", label:["Companies","บริษัท"], icon:"building-2", color:"#35bdd0",
+      id:"companies", label:["Companies","บริษัท"], short:["Companies","บริษัท"], icon:"building-2", color:"#35bdd0",
       pages:[
         ["company-summary.html","Company summary","ข้อมูลรายบริษัท","notebook-tabs"],
         ["oppday-minutes.html","Oppday minutes","สรุป Oppday","presentation"],
@@ -44,7 +44,7 @@
       ],
     },
     {
-      id:"news", label:["News flow","ข่าวสาร"], icon:"newspaper", color:"#31c77b",
+      id:"news", label:["News flow","ข่าวสาร"], short:["News","ข่าว"], icon:"newspaper", color:"#31c77b",
       pages:[
         ["disclosure-pulse.html","SET disclosures","ข่าวเปิดเผยข้อมูล","radio-tower","filings"],
         ["external-news.html","External news","ข่าวภายนอก","rss","news"],
@@ -53,7 +53,7 @@
       ],
     },
     {
-      id:"surveillance", label:["Surveillance","เฝ้าระวัง"], icon:"shield-alert", color:"#ef6464",
+      id:"surveillance", label:["Surveillance","เฝ้าระวัง"], short:["Risk","เฝ้าระวัง"], icon:"shield-alert", color:"#ef6464",
       pages:[
         ["unusual-trading.html","Unusual trading","การซื้อขายผิดปกติ","siren","alerts"],
         ["trading-signs.html","Trading signs","เครื่องหมายซื้อขาย","flag"],
@@ -62,7 +62,7 @@
       ],
     },
     {
-      id:"bonds", label:["Bond data","ข้อมูลหุ้นกู้"], icon:"landmark", color:"#b17cff",
+      id:"bonds", label:["Bond data","ข้อมูลหุ้นกู้"], short:["Bonds","หุ้นกู้"], icon:"landmark", color:"#b17cff",
       pages:[
         ["bond-summary.html","Bond summary","สรุปหุ้นกู้","chart-pie"],
         ["bond-data-sec.html","SEC bond filings","ข้อมูลหุ้นกู้ SEC","database"],
@@ -222,10 +222,12 @@
         var active = selectedModuleId === group.id;
         return '<button class="is1s-rail-btn' + (active ? " active" : "") +
           '" type="button" data-module="' + group.id + '" aria-label="' + esc(L(group.label[0],group.label[1])) +
-          '" aria-pressed="' + (active ? "true" : "false") + '" title="' + esc(L(group.label[0],group.label[1])) + '">' + icon(group.icon) + "</button>";
+          '" aria-pressed="' + (active ? "true" : "false") + '" title="' + esc(L(group.label[0],group.label[1])) + '">' + icon(group.icon) +
+          '<span class="is1s-rail-label">' + esc(L(group.short[0],group.short[1])) + "</span></button>";
       }).join("") +
     '</nav><div class="is1s-rail-bottom">' +
-      '<button class="is1s-rail-btn" type="button" data-shell-action="context" title="' + esc(L("Open context","เปิด context")) + '">' + icon("panel-right-open") + "</button>" +
+      '<button class="is1s-rail-btn" type="button" data-shell-action="context" title="' + esc(L("Open context","เปิด context")) + '">' + icon("panel-right-open") +
+        '<span class="is1s-rail-label">' + esc(L("Context","บริบท")) + "</span></button>" +
     "</div>";
 
   var modulePanel = document.createElement("aside");
