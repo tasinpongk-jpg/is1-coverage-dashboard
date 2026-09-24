@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>One-Page Summary — IS1 Coverage Desk</title>
+<script src="theme.js?v=8"></script>
+<link rel="stylesheet" href="theme.css?v=8">
+<style>
+/* Print document: always light "paper", sized in pt/mm so screen == print. */
+:root{
+  --op-paper:#ffffff;--op-desk:#e9ebf0;--op-ink:#161a23;--op-muted:#5b6474;--op-dim:#8a92a3;
+  --op-line:#e2e5eb;--op-soft:#f5f6f9;--op-accent:#4f46e5;--op-accent-soft:#eef0ff;
+  --op-pos:#15803d;--op-neg:#b91c1c;--op-warn:#b45309;--fs:8.5pt;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{font-family:'Inter','Sarabun','Segoe UI',system-ui,sans-serif;-webkit-font-smoothing:antialiased;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+a{color:inherit}
+
+/* toolbar (screen only) */
+.bar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:10px 16px;border-bottom:1px solid var(--border);font-size:13px}
+.bar a,.bar button{font:inherit;font-size:12px;padding:6px 11px;border-radius:6px;border:1px solid var(--border);background:var(--card);color:var(--text);text-decoration:none;cursor:pointer}
+.bar button.primary{background:var(--op-accent);border-color:var(--op-accent);color:#fff;font-weight:600}
+.bar input{font:inherit;font-size:12px;padding:6px 9px;border:1px solid var(--border);border-radius:6px;width:130px;text-transform:uppercase}
+.bar .grow{flex:1}
+.fitnote{font-size:11px;color:var(--muted)}
+.fitnote.trim{color:var(--op-warn)}
+.i18n-toggle{font-size:12px!important}
+.i18n-toggle [data-lang]{opacity:.45}.i18n-toggle [data-lang].active{opacity:1;font-weight:700}
+.i18n-toggle .sep{margin:0 4px;opacity:.3}
+
+.wrap{padding:18px 16px 40px;overflow-x:auto}
+/* system fonts only: a late-loading web font would change line wraps after fit() measured */
+.sheet{font-family:'Inter',system-ui,-apple-system,'Segoe UI','Noto Sans Thai','Leelawadee UI',Thonburi,sans-serif;width:190mm;margin:0 auto;background:var(--op-paper);color:var(--op-ink);box-shadow:0 2px 14px #0000001f;padding:0;font-size:var(--fs);line-height:1.38}
+.msg{max-width:520px;margin:60px auto;padding:0 16px;text-align:center;color:var(--op-muted);font-size:14px}
+
+/* header */
+.hd{display:flex;gap:10px;align-items:flex-start;padding:4mm 5mm 3mm;border-bottom:2px solid var(--op-accent)}
+.hd img{width:11mm;height:11mm;object-fit:contain;border-radius:2mm;border:1px solid var(--op-line);background:#fff}
+.hd-main{flex:1;min-width:0}
+.hd-tk{font-size:2.2em;font-weight:800;letter-spacing:-.02em;line-height:1}
+.hd-name{font-size:1.05em;font-weight:600;margin-top:1mm}
+.hd-meta{color:var(--op-muted);margin-top:.6mm}
+.pills{display:flex;gap:1.2mm;flex-wrap:wrap;margin-top:1.4mm}
+.pill{font-size:.85em;font-weight:700;padding:.3mm 1.8mm;border-radius:10mm;border:1px solid var(--op-line);background:var(--op-soft);white-space:nowrap}
+.pill.acc{background:var(--op-accent-soft);border-color:#c7cbff;color:var(--op-accent)}
+.pill.bad{background:#fdecec;border-color:#f6c4c4;color:var(--op-neg)}
+.pill.good{background:#e9f7ee;border-color:#bfe5cc;color:var(--op-pos)}
+.hd-asof{text-align:right;color:var(--op-muted);font-size:.9em;white-space:nowrap}
+.hd-asof b{display:block;color:var(--op-ink);font-size:1.1em}
+
+/* stats strip */
+.stats{display:grid;grid-template-columns:repeat(10,1fr);border-bottom:1px solid var(--op-line)}
+.st{padding:1.6mm 1.8mm;border-right:1px solid var(--op-line)}
+.st:last-child{border-right:0}
+.st-l{font-size:.78em;color:var(--op-muted);text-transform:uppercase;letter-spacing:.03em;white-space:nowrap}
+.st-v{font-weight:700;font-size:1.12em;font-variant-numeric:tabular-nums;white-space:nowrap}
+.rng{height:1.2mm;background:var(--op-line);border-radius:1mm;position:relative;margin-top:.9mm}
+.rng i{position:absolute;top:-.5mm;width:2.2mm;height:2.2mm;border-radius:50%;background:var(--op-accent);transform:translateX(-50%)}
+.rng-l{display:flex;justify-content:space-between;font-size:.72em;color:var(--op-dim);font-variant-numeric:tabular-nums}
+.pos{color:var(--op-pos)}.neg{color:var(--op-neg)}
+
+/* body */
+.body{padding:3mm 5mm 0}
+.sec{margin-bottom:2.8mm;break-inside:avoid}
+.h{font-size:.8em;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:var(--op-accent);margin-bottom:1.1mm;padding-bottom:.6mm;border-bottom:1px solid var(--op-line)}
+.thesis{border-left:1mm solid var(--op-accent);background:var(--op-accent-soft);padding:2mm 3mm;border-radius:0 1.5mm 1.5mm 0}
+.thesis p{font-size:1.05em;font-weight:600}
+.thesis .biz{font-weight:400;color:var(--op-muted);font-size:.95em;margin-top:1mm}
+.draft{font-size:.75em;font-weight:700;color:var(--op-warn);text-transform:uppercase;margin-left:1mm}
+.cols{display:grid;grid-template-columns:1fr 1fr;gap:5mm}
+.empty{color:var(--op-dim);font-style:italic}
+
+table.fin{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}
+table.fin th,table.fin td{padding:.55mm 1mm;text-align:right;border-bottom:1px solid var(--op-line);white-space:nowrap}
+table.fin th:first-child,table.fin td:first-child{text-align:left}
+table.fin thead th{font-size:.82em;color:var(--op-muted);font-weight:700}
+table.fin tr.partial td{color:var(--op-muted);font-style:italic}
+ul.b{list-style:none}
+ul.b li{position:relative;padding-left:3mm;margin:.6mm 0}
+ul.b li::before{content:'';position:absolute;left:.6mm;top:.62em;width:1.1mm;height:1.1mm;border-radius:50%;background:var(--op-dim)}
+ul.b li.hi::before{background:var(--op-neg)}
+ul.b li.hi b{color:var(--op-neg)}
+.snap{margin-top:1.4mm;color:var(--op-muted)}
+
+.ev{display:grid;grid-template-columns:14mm 12mm 1fr;gap:1.2mm;padding:.5mm 0;border-bottom:1px dotted var(--op-line);align-items:baseline}
+.ev:last-child{border-bottom:0}
+.ev-d{color:var(--op-dim);font-variant-numeric:tabular-nums;font-size:.9em;white-space:nowrap}
+.tag{font-size:.72em;font-weight:800;text-transform:uppercase;text-align:center;border-radius:1mm;padding:.2mm .6mm;background:var(--op-soft);color:var(--op-muted)}
+.tag.high,.tag.critical{background:#fdecec;color:var(--op-neg)}
+.tag.medium,.tag.material{background:#fff4e0;color:var(--op-warn)}
+.ev-t a{text-decoration:none}
+.ev-t a:hover{text-decoration:underline}
+
+.kv{display:flex;justify-content:space-between;gap:3mm;padding:.45mm 0;border-bottom:1px dotted var(--op-line)}
+.kv:last-child{border-bottom:0}
+.kv span:first-child{color:var(--op-muted);white-space:nowrap}
+.kv span:last-child{text-align:right;font-weight:600}
+.kv.long{display:block}
+.kv.long span:last-child{display:block;text-align:left;font-weight:400;color:var(--op-ink)}
+
+.meet{background:var(--op-soft);border-radius:1.5mm;padding:2mm 3mm}
+.meet-top{display:flex;gap:6mm;margin-bottom:1mm;flex-wrap:wrap}
+.meet-top b{font-weight:700}
+ol.q{padding-left:4.5mm}
+ol.q li{margin:.4mm 0}
+
+.cc{display:flex;flex-wrap:wrap;gap:1.2mm;align-items:center}
+.chip{font-size:.82em;padding:.3mm 1.6mm;border-radius:1mm;border:1px solid #bfe5cc;background:#e9f7ee;color:var(--op-pos);white-space:nowrap}
+.chip.no{border-color:#f6c4c4;background:#fdecec;color:var(--op-neg)}
+.chip.stale{border-color:#f5d9a8;background:#fff4e0;color:var(--op-warn)}
+.cc-note{font-size:.82em;color:var(--op-muted);margin-left:1mm}
+
+/* footer stays one line */
+.ft span:first-child{overflow:hidden;text-overflow:ellipsis}
+.ft{display:flex;justify-content:space-between;gap:4mm;white-space:nowrap;overflow:hidden;margin-top:1mm;padding:1.6mm 5mm 3mm;border-top:1px solid var(--op-line);color:var(--op-dim);font-size:.78em}
+
+/* theme.css transitions every property; fit() measures synchronously, so none here */
+.sheet,.sheet *{transition:none!important;animation:none!important}
+.sheet thead th{background:transparent}
+.sheet tbody tr:hover{background:transparent!important}
+.sheet .pos{color:var(--op-pos)!important}.sheet .neg{color:var(--op-neg)!important}
+
+@page{size:A4;margin:10mm}
+@media print{
+  html,body{background:#fff}
+  .bar,.i18n-toggle,#mm,.theme-floating,
+  .is1s-topbar,.is1s-page-head,.is1s-rail,.is1s-modules,.is1s-context,.is1s-scrim,.is1s-workspace-scrim,.is1s-workspace{display:none!important}
+  /* undo the app-shell body layout (rail padding, 100vh min-height) on paper */
+  html body,html body.is1-shell-ready{padding:0!important;margin:0!important;min-height:0!important;overflow:visible!important;background:#fff!important}
+  .wrap{padding:0;overflow:visible}
+  .sheet{box-shadow:none;margin:0}
+  a{text-decoration:none}
+}
+</style>
+</head>
+<body>
+<div class="bar">
+  <a id="back" href="company-summary.html" data-i18n="onepage.back">← Company Summary</a>
+  <input id="pick" list="tklist" data-i18n-placeholder="onepage.pickHint" placeholder="Ticker…" autocomplete="off" spellcheck="false">
+  <datalist id="tklist"></datalist>
+  <span class="grow"></span>
+  <span id="fitnote" class="fitnote"></span>
+  <span id="toggleHost"></span>
+  <button class="primary" type="button" onclick="window.print()" data-i18n="onepage.print">Print / Save PDF</button>
+</div>
+<div class="wrap"><div id="sheet" class="sheet"><div class="msg" data-i18n="onepage.loading">Loading…</div></div></div>
+<div id="mm" style="position:fixed;top:0;left:0;visibility:hidden;height:100mm;width:1px"></div>
+
+<script src="i18n.js?v=9"></script>
+<script src="one-page-model.js"></script>
+<script>
+const TT_FALLBACK = {
+  "onepage.notFound": "Ticker not found: {tk}. Pick one from the list above.",
+  "onepage.pickPrompt": "Choose a ticker above to build its one-page summary.",
+  "onepage.trimmed": "Trimmed to fit one A4 page: {n} lower-priority items hidden",
+  "onepage.fitOk": "Fits on one A4 page",
+  "onepage.asOf": "As of",
+  "onepage.price": "Price", "onepage.d1": "1D", "onepage.ytd": "YTD", "onepage.range52": "52W range",
+  "onepage.mktcap": "Mkt cap bn", "onepage.pe": "P/E", "onepage.pbv": "P/BV", "onepage.dy": "Div. yield",
+  "onepage.freeFloat": "Free float", "onepage.foreignRoom": "Foreign room",
+  "onepage.thesis": "Investment thesis", "onepage.draft": "draft", "onepage.business": "Business",
+  "onepage.financials": "Financials (THB mn)", "onepage.period": "Period", "onepage.revenue": "Revenue",
+  "onepage.netProfit": "Net profit", "onepage.npm": "NPM %", "onepage.roe": "ROE %", "onepage.de": "D/E", "onepage.eps": "EPS",
+  "onepage.risks": "Key risks & watch items", "onepage.events": "Recent events (90 days)",
+  "onepage.debt": "Debt / bonds", "onepage.noBonds": "No outstanding bonds",
+  "onepage.rating": "Rating", "onepage.outstanding": "Outstanding (THB bn)", "onepage.bondCount": "Issues (long / short)",
+  "onepage.nextMaturity": "Next maturity",
+  "onepage.governance": "Governance & listing", "onepage.cg": "CG score", "onepage.esg": "ESG rating", "onepage.cac": "CAC",
+  "onepage.audit": "Audit opinion", "onepage.auditor": "Auditor", "onepage.divPolicy": "Dividend policy",
+  "onepage.fye": "Fiscal year end", "onepage.listed": "Listed",
+  "onepage.meeting": "Meeting prep", "onepage.lastVisit": "Last visit", "onepage.nextAction": "Next action",
+  "onepage.questions": "Questions to ask", "onepage.never": "Never",
+  "onepage.completeness": "Data completeness", "onepage.targetPeriod": "Target period {p}",
+  "onepage.qualityFlags": "{n} data-quality flags to verify", "onepage.stale": "stale",
+  "onepage.noData": "No data", "onepage.yes": "Yes", "onepage.no": "No",
+  "onepage.tone": "Tone", "onepage.priority": "Priority", "onepage.sign": "Sign",
+  "onepage.kind.disclosure": "Filing", "onepage.kind.alert": "Alert", "onepage.kind.form59": "Form 59",
+  "onepage.kind.sign": "Sign", "onepage.kind.enforcement": "SEC", "onepage.kind.news": "News",
+  "onepage.cc.price": "Price", "onepage.cc.valuation": "Valuation", "onepage.cc.financials": "Financials",
+  "onepage.cc.report": "Company report", "onepage.cc.thesis": "Thesis", "onepage.cc.opp": "Opp Day / call",
+  "onepage.cc.mda": "MD&A", "onepage.cc.fsNotes": "FS notes", "onepage.cc.auditor": "Auditor",
+  "onepage.cc.disclosures90d": "Disclosures 90d", "onepage.cc.bonds": "Bonds", "onepage.cc.visit": "Visit log",
+  "onepage.footer": "IS1 Coverage Desk · internal use only · not investment advice",
+  "onepage.sources": "Sources: SET company data, SET disclosures, company filings, Opp Day notes, SEC data, IS1 visit log"
+};
+function tt(key){ const v = window.I18N ? I18N.t(key) : null; return v && v !== key ? v : (TT_FALLBACK[key] || key); }
+function tx(key, vars){ return tt(key).replace(/\{(\w+)\}/g, (_, k) => vars && vars[k] != null ? vars[k] : ''); }
+const esc = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+const safeUrl = u => /^https?:\/\//i.test(u || '') ? u : '';
+const N = (v, d=1) => v == null ? '—' : v.toLocaleString('en-US', { minimumFractionDigits: d, maximumFractionDigits: d });
+const P = (v, d=1) => v == null ? '—' : N(v, d) + '%';
+const SP = v => v == null ? '<span>—</span>' : `<span class="${v>0?'pos':v<0?'neg':''}">${v>0?'+':''}${N(v,2)}%</span>`;
+const clip = (s, n) => { s = String(s || ''); return s.length > n ? s.slice(0, n - 1).replace(/\s+\S*$/, '') + '…' : s; };
+const empty = () => `<div class="empty">${tt('onepage.noData')}</div>`;
+
+const TK = (new URLSearchParams(location.search).get('tk') || '').toUpperCase();
+const DEFAULT_LIMITS = { events: 6, snapshot: 3, questions: 5, risks: 5, biz: 320, fs: 8.5 };
+let MM_PX = 0, D = null, MODEL = null, LIMITS = { ...DEFAULT_LIMITS }, TRIMMED = 0;
+
+function header(m){
+  const id = m.identity, g = m.governance;
+  const pills = [];
+  if (id.tone) pills.push(`<span class="pill acc">${tt('onepage.tone')}: ${esc(id.tone)}</span>`);
+  if (id.priority) pills.push(`<span class="pill">${tt('onepage.priority')} ${esc(id.priority)}</span>`);
+  if (id.tradingSign) pills.push(`<span class="pill bad">${tt('onepage.sign')} ${esc(id.tradingSign.sign)}</span>`);
+  if (g.cgScore != null) pills.push(`<span class="pill">CG ${'★'.repeat(g.cgScore)}</span>`);
+  if (g.esgRating) pills.push(`<span class="pill good">ESG ${esc(g.esgRating)}</span>`);
+  if (g.cacFlag) pills.push(`<span class="pill good">CAC</span>`);
+  const logo = safeUrl(id.logoUrl) ? `<img src="${esc(id.logoUrl)}" alt="" onerror="this.remove()">` : '';
+  return `<div class="hd">${logo}
+    <div class="hd-main">
+      <div class="hd-tk">${esc(id.tk)}</div>
+      <div class="hd-name">${esc(id.name || '—')}</div>
+      <div class="hd-meta">${esc([id.sector, id.segment !== id.sector ? id.segment : '', id.rm ? 'RM ' + id.rm : ''].filter(Boolean).join(' · '))}</div>
+      <div class="pills">${pills.join('')}</div>
+    </div>
+    <div class="hd-asof">${tt('onepage.asOf')}<b>${esc(id.asOf || '—')}</b></div>
+  </div>`;
+}
+
+function stats(m){
+  const s = m.stats;
+  let rng = '<div class="st-v">—</div>';
+  if (s.hi52 != null && s.lo52 != null && s.last != null && s.hi52 > s.lo52) {
+    const p = Math.max(0, Math.min(100, (s.last - s.lo52) / (s.hi52 - s.lo52) * 100));
+    rng = `<div class="rng"><i style="left:${p.toFixed(1)}%"></i></div><div class="rng-l"><span>${N(s.lo52,2)}</span><span>${N(s.hi52,2)}</span></div>`;
+  }
+  const cell = (k, v) => `<div class="st"><div class="st-l">${tt(k)}</div><div class="st-v">${v}</div></div>`;
+  return `<div class="stats">
+    ${cell('onepage.price', s.last == null ? '—' : N(s.last, 2))}
+    ${cell('onepage.d1', SP(s.pct1d))}
+    ${cell('onepage.ytd', SP(s.pctYtd))}
+    <div class="st"><div class="st-l">${tt('onepage.range52')}</div>${rng}</div>
+    ${cell('onepage.mktcap', N(s.mktcapBn, 1))}
+    ${cell('onepage.pe', s.pe == null ? '—' : N(s.pe, 1) + '×')}
+    ${cell('onepage.pbv', s.pbv == null ? '—' : N(s.pbv, 2) + '×')}
+    ${cell('onepage.dy', P(s.dy, 2))}
+    ${cell('onepage.freeFloat', P(s.freeFloat, 1))}
+    ${cell('onepage.foreignRoom', P(s.foreignRoom, 1))}
+  </div>`;
+}
+
+function thesis(m){
+  return `<div class="sec thesis">
+    <div class="h" style="border:0;margin-bottom:.6mm">${tt('onepage.thesis')}${m.thesisIsDraft ? `<span class="draft">${tt('onepage.draft')}</span>` : ''}</div>
+    ${m.thesis ? `<p>${esc(m.thesis)}</p>` : empty()}
+    ${m.business && (LIMITS.biz || !m.thesis) ? `<div class="biz"><b>${tt('onepage.business')}:</b> ${esc(clip(m.business, LIMITS.biz || 320))}</div>` : ''}
+  </div>`;
+}
+
+function financials(m){
+  const f = m.financials;
+  let h = `<div class="sec"><div class="h">${tt('onepage.financials')}</div>`;
+  if (!f.rows.length) h += empty();
+  else {
+    h += `<table class="fin"><thead><tr><th>${tt('onepage.period')}</th><th>${tt('onepage.revenue')}</th><th>${tt('onepage.netProfit')}</th><th>${tt('onepage.npm')}</th><th>${tt('onepage.roe')}</th><th>${tt('onepage.de')}</th><th>${tt('onepage.eps')}</th></tr></thead><tbody>`;
+    f.rows.forEach(r => {
+      h += `<tr class="${r.partial ? 'partial' : ''}"><td>${esc(r.period)}</td><td>${N(r.revenue,0)}</td><td class="${r.netProfit<0?'neg':''}">${N(r.netProfit,0)}</td><td>${N(r.npm,1)}</td><td>${N(r.roe,1)}</td><td>${N(r.deRatio,2)}</td><td>${N(r.eps,2)}</td></tr>`;
+    });
+    h += '</tbody></table>';
+  }
+  const snap = f.snapshot.slice(0, LIMITS.snapshot);
+  if (snap.length) h += `<ul class="b snap">${snap.map(s => `<li>${esc(clip(s, 170))}</li>`).join('')}</ul>`;
+  return h + '</div>';
+}
+
+function risks(m){
+  const r = m.risks.slice(0, LIMITS.risks);
+  return `<div class="sec"><div class="h">${tt('onepage.risks')}</div>${r.length ? `<ul class="b">${r.map(x => `<li class="${x.high?'hi':''}">${x.high?'<b>HIGH</b> · ':''}${esc(clip(x.text, 170))}</li>`).join('')}</ul>` : empty()}</div>`;
+}
+
+const KIND_KEY = { disclosure: 'onepage.kind.disclosure', alert: 'onepage.kind.alert', form59: 'onepage.kind.form59', sign: 'onepage.kind.sign', enforcement: 'onepage.kind.enforcement', news: 'onepage.kind.news' };
+function events(m){
+  const e = m.events.slice(0, LIMITS.events);
+  return `<div class="sec"><div class="h">${tt('onepage.events')}</div>${e.length ? e.map(x => {
+    const u = safeUrl(x.url);
+    const txt = esc(clip(x.text, 130));
+    return `<div class="ev"><span class="ev-d">${esc(x.date)}</span><span class="tag ${esc(x.severity)}">${tt(KIND_KEY[x.kind] || 'onepage.kind.disclosure')}</span><span class="ev-t">${u ? `<a href="${esc(u)}" target="_blank" rel="noopener">${txt}</a>` : txt}</span></div>`;
+  }).join('') : empty()}</div>`;
+}
+
+const kv = (k, v, long) => `<div class="kv${long?' long':''}"><span>${tt(k)}</span><span>${v === '' || v == null ? '—' : v}</span></div>`;
+
+function debt(m){
+  const d = m.debt;
+  let h = `<div class="sec"><div class="h">${tt('onepage.debt')}</div>`;
+  if (!d) return h + `<div class="empty">${tt('onepage.noBonds')}</div></div>`;
+  const nm = d.nextMaturity;
+  return h + kv('onepage.rating', esc(d.rating)) + kv('onepage.outstanding', N(d.outstandingBn, 2)) +
+    kv('onepage.bondCount', `${d.longCount} / ${d.shortCount}`) +
+    kv('onepage.nextMaturity', nm ? `${esc(nm.date)} · ${esc(nm.symbol)}${nm.amountMn != null ? ' · ' + N(nm.amountMn, 0) + ' mn' : ''}` : '—') + '</div>';
+}
+
+function governance(m){
+  const g = m.governance;
+  return `<div class="sec"><div class="h">${tt('onepage.governance')}</div>
+    ${kv('onepage.cg', g.cgScore == null ? '—' : '★'.repeat(g.cgScore) + ` (${g.cgScore}/5)`)}
+    ${kv('onepage.esg', esc(g.esgRating))}
+    ${kv('onepage.cac', g.cacFlag ? tt('onepage.yes') : tt('onepage.no'))}
+    ${kv('onepage.audit', esc(g.auditOpinion))}
+    ${kv('onepage.auditor', esc(g.auditorFirm))}
+    ${kv('onepage.fye', esc(g.fiscalYearEnd))}
+    ${kv('onepage.listed', esc(g.listedDate))}
+    ${kv('onepage.divPolicy', esc(g.dividendPolicy), true)}
+  </div>`;
+}
+
+function meeting(m){
+  const mt = m.meeting, q = mt.questions.slice(0, LIMITS.questions);
+  return `<div class="sec meet"><div class="h">${tt('onepage.meeting')}</div>
+    <div class="meet-top"><span>${tt('onepage.lastVisit')}: <b>${esc(mt.lastVisit) || tt('onepage.never')}</b></span>
+    <span>${tt('onepage.nextAction')}: <b>${esc(mt.nextAction) || '—'}</b></span></div>
+    <div style="font-weight:700;margin:.6mm 0 .3mm">${tt('onepage.questions')}</div>
+    ${q.length ? `<ol class="q">${q.map(x => `<li>${esc(clip(x, 180))}</li>`).join('')}</ol>` : empty()}
+  </div>`;
+}
+
+function completeness(m){
+  const chips = m.completeness.map(c => {
+    const cls = !c.ok ? 'no' : c.stale ? 'stale' : '';
+    const detail = c.detail && c.detail !== 'none' ? ' ' + esc(c.detail) : '';
+    return `<span class="chip ${cls}">${c.ok ? '✓' : '✗'} ${tt(c.labelKey)}${detail}${c.stale ? ' · ' + tt('onepage.stale') : ''}</span>`;
+  }).join('');
+  const notes = [];
+  if (m.targetPeriod) notes.push(tx('onepage.targetPeriod', { p: esc(m.targetPeriod) }));
+  if (m.qualityFlagsCount) notes.push(tx('onepage.qualityFlags', { n: m.qualityFlagsCount }));
+  return `<div class="sec"><div class="h">${tt('onepage.completeness')}</div><div class="cc">${chips}<span class="cc-note">${notes.join(' · ')}</span></div></div>`;
+}
+
+function render(){
+  const sheet = document.getElementById('sheet');
+  sheet.style.setProperty('--fs', LIMITS.fs + 'pt');
+  const m = MODEL;
+  sheet.innerHTML = header(m) + stats(m) + `<div class="body">
+    ${thesis(m)}
+    <div class="cols"><div>${financials(m)}${risks(m)}</div><div>${events(m)}${debt(m)}${governance(m)}</div></div>
+    ${meeting(m)}
+    ${completeness(m)}
+  </div>
+  <div class="ft"><span>${tt('onepage.sources')}</span><span>${tt('onepage.footer')}</span></div>`;
+}
+
+// Shrink optional lists (lowest priority first) until the sheet fits one A4 page.
+// Required fields and whole sections are never dropped.
+// biz 0 hides the business line, and only when a thesis is shown in its place
+const FIT_STEPS = [['snapshot',2],['events',5],['questions',4],['risks',4],['fs',8],['events',4],['questions',3],['risks',3],['events',3],['snapshot',1],['biz',180],['fs',7.5],['risks',2],['events',2],['questions',2],['biz',0],['snapshot',0]];
+function fit(){
+  if (!MODEL) return;
+  LIMITS = { ...DEFAULT_LIMITS };
+  render();
+  const sheet = document.getElementById('sheet');
+  // measured once on screen; the probe is display:none in print media
+  MM_PX = MM_PX || document.getElementById('mm').getBoundingClientRect().height / 100;
+  const maxPx = MM_PX * 272; // 277mm printable minus a small safety margin
+  const applied = [];
+  for (const [k, v] of FIT_STEPS) {
+    const before = sheet.scrollHeight;
+    if (before <= maxPx) break;
+    const prev = LIMITS[k];
+    if (v >= prev) continue;
+    LIMITS[k] = v;
+    render();
+    // trimming the shorter column saves nothing — keep those items
+    if (sheet.scrollHeight >= before) { LIMITS[k] = prev; render(); }
+    else applied.push([k, prev]);
+  }
+  // a late step (e.g. smaller font) may leave room: give back earlier trims that still fit
+  for (let i = applied.length - 1; i >= 0 && sheet.scrollHeight <= maxPx; i--) {
+    const [k, prev] = applied[i], cur = LIMITS[k];
+    LIMITS[k] = prev;
+    render();
+    if (sheet.scrollHeight > maxPx) { LIMITS[k] = cur; render(); }
+  }
+  // only count what fitting hid, not the long tail beyond the default list lengths
+  const count = (k, list) => Math.min(list.length, DEFAULT_LIMITS[k]) - Math.min(list.length, LIMITS[k]);
+  TRIMMED = count('events', MODEL.events) + count('snapshot', MODEL.financials.snapshot) +
+    count('questions', MODEL.meeting.questions) + count('risks', MODEL.risks);
+  const note = document.getElementById('fitnote');
+  const over = sheet.scrollHeight > maxPx;
+  note.className = 'fitnote' + (TRIMMED || over ? ' trim' : '');
+  note.textContent = over ? tx('onepage.trimmed', { n: TRIMMED }) + ' (!)' : TRIMMED ? tx('onepage.trimmed', { n: TRIMMED }) : tt('onepage.fitOk');
+}
+
+function showMsg(key, vars){
+  document.getElementById('sheet').innerHTML = `<div class="msg">${esc(tx(key, vars))}</div>`;
+}
+
+async function boot(){
+  const host = document.getElementById('toggleHost');
+  if (window.I18N && I18N.createToggle && !host.firstChild) host.appendChild(I18N.createToggle());
+  const pairs = await Promise.all(ONEPAGE_SOURCES.map(s =>
+    fetch('data/' + s + '.json').then(r => r.ok ? r.json() : null).catch(() => null).then(d => [s, d])));
+  D = Object.fromEntries(pairs);
+  const list = ((D['ticker-summary'] || {}).tickers || []).map(t => t.tk).sort();
+  document.getElementById('tklist').innerHTML = list.map(tk => `<option value="${esc(tk)}">`).join('');
+  if (TK) document.getElementById('back').href = 'company-summary.html?tk=' + encodeURIComponent(TK);
+  document.getElementById('pick').value = TK;
+  if (!TK) return showMsg('onepage.pickPrompt');
+  MODEL = buildOnePageModel(TK, D);
+  if (!MODEL) return showMsg('onepage.notFound', { tk: TK });
+  document.title = TK + ' — ' + document.title;
+  fit();
+  // theme.css pulls Sarabun from Google Fonts; re-measure once it swaps in
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(fit);
+}
+
+document.getElementById('pick').addEventListener('change', e => {
+  const v = e.target.value.trim().toUpperCase();
+  if (v && v !== TK) location.search = '?tk=' + encodeURIComponent(v);
+});
+window.addEventListener('beforeprint', fit);
+window.addEventListener('i18n:change', () => {
+  if (window.I18N) I18N.apply();
+  if (MODEL) { document.title = TK + ' — ' + document.title; fit(); }
+  else if (!TK) showMsg('onepage.pickPrompt');
+});
+boot();
+</script>
+<script src="nav.js?v=9" defer></script>
+</body>
+</html>
