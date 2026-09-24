@@ -426,9 +426,9 @@ def llm_report(context: dict[str, Any], generated: str, model: str) -> dict[str,
     except ImportError as exc:
         raise RuntimeError("Install anthropic or run with --llm never") from exc
 
-    key = os.environ.get("MINIMAX_API_KEY") or os.environ.get("ANTHROPIC_API_KEY")
+    key = os.environ.get("MINIMAX_API_KEY")
     if not key:
-        raise RuntimeError("MINIMAX_API_KEY (or ANTHROPIC_API_KEY fallback) is not set")
+        raise RuntimeError("MINIMAX_API_KEY is not set")
 
     system = (
         "You are an IS1 equity coverage analyst. Write concise, evidence-grounded "
@@ -598,7 +598,7 @@ def build_reports(args: argparse.Namespace) -> dict[str, Any]:
             reports[tk] = old
             continue
         try:
-            use_llm = args.llm == "always" or (args.llm == "auto" and (os.environ.get("MINIMAX_API_KEY") or os.environ.get("ANTHROPIC_API_KEY")))
+            use_llm = args.llm == "always" or (args.llm == "auto" and (os.environ.get("MINIMAX_API_KEY")))
             if use_llm:
                 report = llm_report(context, generated, args.model)
                 llm_used = True

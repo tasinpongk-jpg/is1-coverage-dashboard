@@ -148,7 +148,7 @@ tasks (`IS1-Coverage-Daily-Build`, `SET-Surveillance-Daily`) and the
 
 | Var | Value source | Used by |
 |---|---|---|
-| `MINIMAX_API_KEY` (or `ANTHROPIC_API_KEY` fallback) | console.minimax.io — your personal interactive key (Anthropic key works as fallback) | Local Claude Code, ad-hoc surveillance runs |
+| `MINIMAX_API_KEY` | console.minimax.io — your personal interactive key | Local Claude Code, ad-hoc surveillance runs |
 | `SETSMART_API_KEY` | SETSMART subscription | Local proxy + ad-hoc API calls |
 | `SURVEILLANCE_SQL` | 490-char SQL JOIN (news_items + classifications) | Proxy disclosure-pulse route |
 | `R2_ACCESS_KEY_ID` | Cloudflare R2 token | `update_vault.py` |

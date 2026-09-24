@@ -10,21 +10,15 @@
 
 ## 1. What this repo is
 
-A daily-refreshed dashboard for **232 Thai SET listed companies** under the IS1
-broker's coverage universe. The dashboard is **static HTML + JSON**, deployed
-to Cloudflare Pages, with a Cloudflare Worker chat dock (`chat-dock.js` →
-`worker.js`) for grounded Q&A against four named agents (Atlas, Hermes, Pythia, Lex).
+A daily-refreshed dashboard for **232 Thai SET listed companies** in the
+coverage universe of SET Issuer Department 1 (IS1). The dashboard is
+**static HTML + JSON**, deployed to Cloudflare Pages, with a Cloudflare
+Worker chat dock (`chat-dock.js` → `worker.js`) for grounded Q&A against
+four named agents (Atlas, Hermes, Pythia, Lex).
 
-| Sector | Count (approx) |
-|---|---|
-| FOOD (F1-F10) | ~50 |
-| PROP (P1-P5, includes PFREIT bucket) | ~80 |
-| CONS (C1-C3) | ~30 |
-| CONMAT (M1-M3) | ~30 |
-| AGRI (A1-A2) | ~20 |
-| Other | ~20 |
-
-Full ticker list in `data/tickers.json` (232 entries, hand-curated).
+Sector split (`sector` field in `data/tickers.json`, 232 entries, hand-curated):
+PROP, FOOD, PF&REIT, CONS, CONMAT, AGRI. PF&REIT is its own sector, not part
+of PROP. Count from the file when you need numbers; do not copy them here.
 
 ---
 
@@ -140,34 +134,33 @@ python scripts/build_daily_brief.py
 1. **Never invent data.** Every number must trace to a vault file, a JSON
    snapshot, a SET filing URL, or a documented script output. If you can't
    source it, write "not provided" — do NOT estimate.
-2. **Never run `python -c "..."` from the terminal tool bare.** Python 3.14
-   + MSYS bash non-TTY stdin hangs silently with exit 0. Always use
+2. **On the Windows laptop (Python 3.14 + MSYS bash), bare `python -c "..."`
+   hangs silently with exit 0** because non-TTY stdin blocks. Use
    `echo "" | python -c "..."` or write a `.py` file and invoke it.
-3. **Never use `execute_code` for cron-mode work.** It's blocked there. Use
-   standalone `.py` scripts invoked via `terminal` or `cronjob.script`.
+3. **Hermes agent harness only:** `execute_code` is blocked in cron mode, so
+   cron work runs as standalone `.py` scripts via `terminal` or `cronjob.script`.
 4. **Never commit `data/audit-*.md`.** Those are one-shot diagnostics.
 5. **Period strings compare lexicographically.** `'2024Q3' < '2025FY' < '2026Q1'`
    is correct — do not reach for `datetime` parsing.
 6. **`vault-ticker-notes.json` is the silent-staleness trap.** No CI
    trigger. Always check its `generated` field before trusting the
    `company-summary.html` drawer content.
-7. **One orphan dir as of 2026-08-08:** `MDA/CPALL/` exists but CPALL is
-   not in IS1 universe. Pull it into coverage or delete it — not re-fixed
-   in 2026-08-19 ship.
-8. **PFREIT bucket has no upstream parent / no Note 5 subsidiary table.**
+7. **PFREIT bucket has no upstream parent / no Note 5 subsidiary table.**
    47 tickers. Filter out before any Note-5 / shareholder extraction. List
    at `C:/Users/Tasinpong/data/pfreit_exclude.json`.
-9. **Filing alert cron (`is1-filing-alert`, id `0d496976df4a`) only posts
+8. **Filing alert cron (`is1-filing-alert`, id `0d496976df4a`) only posts
    `high` severity + RM C tickers.** A silent cron ≠ no filings.
-10. **Cloudflare Worker model contract: Hermes (MiniMax M3) only.** Pythia
-    is deterministic; Lex is MiniMax M3 + local retrieval. Do not route
-    any agent through a non-MiniMax provider without an explicit reason.
+9. **Cloudflare Worker model contract: MiniMax M3.** Atlas, Hermes and Lex
+   call MiniMax M3 (Lex adds deterministic local retrieval); Pythia is a
+   deterministic calculator with no model call. Do not route any agent
+   through a non-MiniMax provider without an explicit reason.
 
 ---
 
 ## 6. Subagent fan-out pattern (for Note 5 / shareholder extraction)
 
-Proven working pattern from 2026-08-28 shareholder extraction:
+Hermes agent harness settings (tool names below are Hermes tools, not Claude
+Code tools):
 - 3 concurrent subagents max (`delegation.max_concurrent_children=3`)
 - 15-22 tickers per subagent (~50 tool-call budget)
 - Orchestrator pre-extracts sections via `terminal` (NOT `execute_code`),
@@ -178,7 +171,7 @@ Proven working pattern from 2026-08-28 shareholder extraction:
 
 ---
 
-## 7. When NOT to use Codex for IS1 work
+## 7. When NOT to use Codex for IS1 work (Hermes harness)
 
 Deterministic Python scans (audit, count, regex, glob) → use `terminal` with
 inline `python`. Codex adds 100-200s sandbox startup vs ~10s of `python -c`.
@@ -189,7 +182,6 @@ or non-trivial refactoring.
 
 ## 8. Key references
 
-- `CLAUDE-INSTRUCTIONS.md` — chat-template for the 6M26 deck project
 - `AGENT-TRAINING.md` — how the 4 chat-dock agents were trained
 - `INTEGRATION.md` — how snapshots feed HTML pages
 - `docs/harvest/` — Q2/2026 harvest pipeline
