@@ -1222,8 +1222,8 @@ let STARRED = new Set(JSON.parse(localStorage.getItem('is1_starred')||'[]'));
 let DATA_META = { asOf: '', source: '', sourceKey: false, built: '' };
 
 function applyShellRm(rm){
-  if(!/^[CKOGPT]$/.test(rm||'')) return;
-  rmFilter=rm;
+  if(!/^(ALL|[CKOGPT])$/.test(rm||'')) return;
+  rmFilter=rm==='ALL'?'':rm;
   document.querySelectorAll('#rmFilter [data-rm]').forEach(x=>x.classList.toggle('active',x.dataset.rm===rm));
   render();
 }
@@ -1381,8 +1381,10 @@ function updateStale(asOf, built){
   if(!asOf){badge.textContent='● '+tt('common.unknown');return;}
   const ms=Date.now()-new Date(built||asOf).getTime();
   const h=ms/3600000;
-  badge.textContent=`● ${asOf}`;
-  badge.className=h>24?'stale warn':'stale';
+  const x=h<1?Math.round(h*60)+'m':Math.round(h)+'h';
+  badge.textContent=tx('common.dotUpdatedAgo',{x});
+  badge.classList.remove('unknown');
+  badge.classList.toggle('warn',h>24);
 }
 
 function updatePageMeta(){

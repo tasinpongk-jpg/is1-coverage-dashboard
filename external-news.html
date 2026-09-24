@@ -199,7 +199,7 @@ function setSrc(s) { activeSrc=s; buildAll(); }
 function setSector(s) { activeSector=s; buildAll(); }
 function setRm(r) { activeRm=r; buildAll(); }
 window.addEventListener('is1:rm-change', e => {
-  if (/^[CKOGPT]$/.test(e.detail?.rm || '')) setRm(e.detail.rm);
+  if (/^(ALL|[CKOGPT])$/.test(e.detail?.rm || '')) setRm(e.detail.rm);
 });
 function buildAll() { buildWindowTabs(); buildSrcTabs(); buildSectorTabs(); buildRmTabs(); updateStats(); render(); }
 function updateStats() {

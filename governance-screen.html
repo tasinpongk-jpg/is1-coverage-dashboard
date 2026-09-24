@@ -260,8 +260,8 @@ const state={sector:'all',rm:/^[CKOGPT]$/.test(savedRm)?savedRm:'all',q:'',
              flags:new Set(),sort:'flag_count',dir:-1};
 
 window.addEventListener('is1:rm-change',e=>{
-  if(!/^[CKOGPT]$/.test(e.detail?.rm||''))return;
-  state.rm=e.detail.rm;
+  if(!/^(ALL|[CKOGPT])$/.test(e.detail?.rm||''))return;
+  state.rm=e.detail.rm==='ALL'?'all':e.detail.rm;
   if(DATA){buildControls();render();}
 });
 
