@@ -32,6 +32,8 @@ assert.equal(buildOnePageModel("PRG", {}), null, "empty data -> null, no throw")
   assert.equal(m.thesis, "Good co", "draft suffix stripped");
   assert.equal(m.thesisIsDraft, true);
   assert.deepEqual(m.missingRequired, []);
+  syn["ticker-summary"].tickers[0].highlights[1] = { year: 2026, months: 12, quarter: "6M", revenue: 1 };
+  assert.deepEqual(buildOnePageModel("ZZ", syn).financials.rows.map((r) => r.period), ["FY2025", "6M/2026"], "6M row is partial, not FY");
 }
 
 // ── full coverage sweep ──

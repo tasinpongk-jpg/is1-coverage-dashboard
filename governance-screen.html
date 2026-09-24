@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Governance Screen — IS1 Coverage Desk</title>
+<style>
+:root{
+  --bg:#0a0c12;--bg2:#0f1117;--card:#14171f;--card2:#1a1d27;
+  --border:#232733;--border2:#2a2f3d;
+  --text:#e6e8ed;--muted:#8089a0;--dim:#5a627a;
+  --accent:#6366f1;--glow:#6366f130;
+  --green:#22c55e;--red:#ef4444;--yellow:#f59e0b;--blue:#3b82f6;
+  --food:#3b82f6;--agri:#10b981;--prop:#8b5cf6;
+  --cons:#f97316;--conmat:#ec4899;--pfreit:#06b6d4;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{background:var(--bg);color:var(--text);font-family:'Inter','Segoe UI',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+body{min-height:100vh;display:flex;flex-direction:column}
+body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellipse at top,#1a1d3022 0%,transparent 55%);pointer-events:none;z-index:0}
+
+header{padding:14px 24px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;background:#0a0c12ee;backdrop-filter:blur(14px)}
+.brand{display:flex;align-items:center;gap:10px;text-decoration:none;color:inherit}
+.brand-mark{width:26px;height:26px;border-radius:6px;background:linear-gradient(135deg,var(--accent),#8b5cf6);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:11px;flex-shrink:0;color:#fff}
+.brand-name{font-size:14px;font-weight:700;letter-spacing:-.2px}
+.brand-sub{font-size:10px;color:var(--muted);letter-spacing:.4px;text-transform:uppercase}
+nav.nav{display:flex;gap:2px;align-items:center;flex-wrap:wrap}
+nav.nav a{color:var(--muted);text-decoration:none;font-size:12px;padding:5px 8px;border-radius:5px;transition:color .12s,background .12s;white-space:nowrap}
+nav.nav a:hover{color:var(--text);background:var(--border)}
+nav.nav a.active{color:var(--text);background:#6366f118;border:1px solid #6366f133}
+.stale{font-size:11px;padding:4px 10px;border-radius:20px;background:#22c55e15;color:var(--green);border:1px solid #22c55e30;white-space:nowrap}
+.stale.warn{background:#f59e0b15;color:var(--yellow);border-color:#f59e0b30}
+.stale.unknown{background:#5a627a15;color:var(--muted);border-color:#5a627a30}
+
+main{flex:1;max-width:1560px;width:100%;margin:0 auto;padding:22px 24px 48px;position:relative;z-index:1}
+.pg-title{font-size:20px;font-weight:800;letter-spacing:-.4px}
+.pg-sub{font-size:12px;color:var(--muted);margin-top:2px}
+
+.hero{display:flex;gap:10px;margin:16px 0 14px;flex-wrap:wrap}
+.hstat{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px 18px;flex:1;min-width:132px;position:relative;overflow:hidden}
+.hstat::after{content:'';position:absolute;top:0;left:0;width:3px;height:100%;background:var(--hc,var(--accent))}
+.hstat-lbl{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin-bottom:5px}
+.hstat-val{font-size:22px;font-weight:800;font-variant-numeric:tabular-nums;letter-spacing:-.5px}
+.hstat-hint{font-size:10px;color:var(--dim);margin-top:3px}
+
+/* coverage banner — how much of the screen is actually filed */
+.cov{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px 18px;margin-bottom:14px}
+.cov-top{display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:11px}
+.cov-title{font-size:13px;font-weight:700}
+.cov-note{font-size:11px;color:var(--dim)}
+.cov-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(168px,1fr));gap:9px}
+.cov-item{font-size:11px}
+.cov-name{color:var(--muted);margin-bottom:4px;display:flex;justify-content:space-between;gap:6px}
+.cov-name b{color:var(--text);font-variant-numeric:tabular-nums}
+.cov-track{height:5px;background:var(--bg2);border-radius:3px;overflow:hidden}
+.cov-fill{height:100%;border-radius:3px;background:var(--green)}
+.cov-fill.mid{background:var(--yellow)}
+.cov-fill.low{background:var(--red)}
+
+.controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:14px;padding:14px 16px;background:var(--card);border:1px solid var(--border);border-radius:10px}
+.ctrl-lbl{font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:.5px;font-weight:600;white-space:nowrap}
+.ctrl-row{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.sbtn{padding:5px 11px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;border:1px solid var(--border);color:var(--muted);background:var(--bg2);transition:all .12s;user-select:none}
+.sbtn:hover{color:var(--text)}
+.sbtn.active{background:var(--accent);color:#fff;border-color:transparent}
+.sbtn[data-s="FOOD"].active{background:var(--food)}
+.sbtn[data-s="PROP"].active{background:var(--prop)}
+.sbtn[data-s="PFREIT"].active{background:var(--pfreit)}
+.sbtn[data-s="CONS"].active{background:var(--cons)}
+.sbtn[data-s="CONMAT"].active{background:var(--conmat)}
+.sbtn[data-s="AGRI"].active{background:var(--agri)}
+.search{padding:6px 11px;border-radius:6px;font-size:11px;border:1px solid var(--border);background:var(--bg2);color:var(--text);width:160px;outline:none}
+.search:focus{border-color:var(--accent)}
+.cnt-lbl{font-size:11px;color:var(--dim);margin-left:auto}
+
+/* flag filter chips */
+.fchip{padding:5px 10px;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid var(--border);background:var(--bg2);color:var(--muted);user-select:none;display:inline-flex;align-items:center;gap:5px}
+.fchip:hover{color:var(--text)}
+.fchip.on{background:#ef444418;color:#fca5a5;border-color:#ef444440}
+.fchip b{font-variant-numeric:tabular-nums}
+.fchip .kind{font-size:8.5px;text-transform:uppercase;letter-spacing:.4px;opacity:.72}
+
+/* TABLE */
+.twrap{background:var(--card);border:1px solid var(--border);border-radius:12px;overflow:auto}
+table{width:100%;border-collapse:collapse;font-size:11.5px}
+thead th{position:sticky;top:0;z-index:2;background:var(--card2);text-align:left;padding:9px 10px;color:var(--dim);font-weight:600;font-size:9.5px;text-transform:uppercase;letter-spacing:.4px;border-bottom:1px solid var(--border);white-space:nowrap;cursor:pointer;user-select:none}
+thead th:hover{color:var(--text)}
+thead th.num{text-align:right}
+thead th .ar{opacity:.45;font-size:9px}
+thead th.sorted{color:var(--text)}
+thead th.sorted .ar{opacity:1;color:var(--accent)}
+tbody td{padding:8px 10px;border-bottom:1px solid var(--border);color:var(--muted);vertical-align:top}
+tbody td.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+tbody tr:last-child td{border-bottom:none}
+tbody tr:hover td{background:#ffffff05}
+tbody tr[data-flags="0"] td{opacity:.72}
+.tk{color:var(--text);font-weight:700;font-size:13px;letter-spacing:-.2px}
+.co{font-size:10px;color:var(--dim);line-height:1.3;max-width:230px;margin-top:1px}
+.badge{display:inline-block;padding:2px 6px;border-radius:4px;font-size:9px;font-weight:700;white-space:nowrap}
+.b-FOOD{color:var(--food);background:#3b82f618}
+.b-PROP{color:var(--prop);background:#8b5cf618}
+.b-PFREIT{color:var(--pfreit);background:#06b6d418}
+.b-CONS{color:var(--cons);background:#f9731618}
+.b-CONMAT{color:var(--conmat);background:#ec489918}
+.b-AGRI{color:var(--agri);background:#10b98118}
+.aud{color:var(--text);max-width:230px;line-height:1.35}
+.aud-prev{font-size:9.5px;color:var(--yellow);margin-top:2px}
+.na{color:var(--dim)}
+.warn{color:var(--yellow)}
+.bad{color:var(--red)}
+.ok{color:var(--green)}
+.flags{display:flex;flex-wrap:wrap;gap:3px;justify-content:flex-end}
+thead th:last-child,tbody td:last-child{width:210px;min-width:210px}
+.fl{padding:2px 6px;border-radius:4px;font-size:9px;font-weight:700;white-space:nowrap;cursor:help}
+.fl.rule{color:#fca5a5;background:#ef444418;border:1px solid #ef444430}
+.fl.convention{color:var(--yellow);background:#f59e0b15;border:1px solid #f59e0b28}
+.fl.prompt{color:#a5b4fc;background:#6366f118;border:1px solid #6366f130}
+
+#loading{display:flex;align-items:center;justify-content:center;gap:10px;padding:60px;color:var(--muted);font-size:13px}
+.spinner{width:18px;height:18px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.empty{padding:50px;text-align:center;color:var(--dim);font-size:13px}
+.legend{font-size:10.5px;color:var(--dim);margin-top:12px;line-height:1.65}
+.legend b{color:var(--muted)}
+.legend .fl{margin-right:3px}
+
+footer{border-top:1px solid var(--border);padding:14px 24px;display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;font-size:11px;color:var(--dim);position:relative;z-index:1}
+@media(max-width:900px){.co{display:none}}
+</style>
+  <script src="theme.js?v=8"></script>
+  <link rel="stylesheet" href="theme.css?v=8">
+  <script src="i18n.js?v=9"></script>
+</head>
+<body>
+
+<header>
+  <a class="brand" href="index.html">
+    <div class="brand-mark">IS</div>
+    <div><div class="brand-name" data-i18n="brand.coverageDesk">Coverage Desk</div><div class="brand-sub" data-i18n="brand.setIssuerDept1">SET Issuer Dept 1</div></div>
+  </a>
+  <nav class="nav">
+    <a href="index.html" data-i18n="nav.index">Index</a>
+    <a href="unusual-trading.html" data-i18n="nav.alerts">Alerts</a>
+    <a href="sec-enforcement.html" data-i18n="nav.sec">SEC</a>
+    <a href="governance-screen.html" class="active" data-i18n="nav.governanceScreen">Governance</a>
+    <span class="stale unknown" id="staleBadge" data-i18n="common.loading">● loading</span>
+  </nav>
+</header>
+
+<main>
+  <div>
+    <div class="pg-title" data-i18n="page.governanceScreen">Governance Screen</div>
+    <div class="pg-sub" id="pgSub" data-i18n="gov.loading">Loading One Report governance data…</div>
+  </div>
+
+  <div class="hero" id="hero"></div>
+  <div class="cov" id="cov" style="display:none">
+    <div class="cov-top">
+      <div class="cov-title" data-i18n="gov.coverageTitle">Field coverage</div>
+      <div class="cov-note" id="covNote"></div>
+    </div>
+    <div class="cov-grid" id="covGrid"></div>
+  </div>
+
+  <div class="controls" id="controls" style="display:none">
+    <div class="ctrl-row"><span class="ctrl-lbl" data-i18n="common.sector">Sector</span><div id="sectFilter"></div></div>
+    <div class="ctrl-row"><span class="ctrl-lbl">RM</span><div id="rmFilter"></div></div>
+    <div class="ctrl-row" id="flagFilter"></div>
+    <input class="search" id="search" placeholder="Search ticker / auditor…" data-i18n-placeholder="gov.searchPlaceholder">
+    <span class="cnt-lbl" id="cntLbl">—</span>
+  </div>
+
+  <div id="loading"><div class="spinner"></div><span data-i18n="gov.fetching">Fetching governance data…</span></div>
+  <div class="twrap" id="twrap" style="display:none">
+    <table>
+      <thead><tr id="thead"></tr></thead>
+      <tbody id="tbody"></tbody>
+    </table>
+  </div>
+  <div class="legend" id="legend" style="display:none"></div>
+</main>
+
+<footer>
+  <span id="fsrc">IS1 Coverage Desk · Governance Screen</span>
+  <span><span data-i18n="common.source">Source</span>: SEC Open API <code>/v1/one-report/cgs/*</code> · build_sec_governance.py</span>
+</footer>
+
+<script>
+const TT_FALLBACK = {
+  "page.governanceScreen": "Governance Screen",
+  "nav.governanceScreen": "Governance",
+  "brand.coverageDesk": "Coverage Desk",
+  "gov.loading": "Loading One Report governance data…",
+  "gov.fetching": "Fetching governance data…",
+  "gov.fetchError": "sec-governance.json not found — run scripts/build_sec_governance.py first",
+  "gov.meta": "One Report {year} · {n} names screened · {flagged} with at least one flag",
+  "gov.coverageTitle": "Field coverage",
+  "gov.coverageNote": "Share of the {n} screened names where SEC actually published the figure. A thin bar means the flag below it is assessed on few names — read it as a sample, not a screen.",
+  "gov.searchPlaceholder": "Search ticker / auditor…",
+  "gov.screened": "Screened",
+  "gov.screenedHint": "resolved to a SEC unique_id",
+  "gov.flagged": "Flagged",
+  "gov.flaggedHint": "at least one flag raised",
+  "gov.auditorChanges": "Auditor changes",
+  "gov.auditorChangesHint": "vs prior report year",
+  "gov.highNonAudit": "Non-audit > audit",
+  "gov.highNonAuditHint": "fee ratio above 1.00",
+  "gov.unresolved": "Unresolved",
+  "gov.unresolvedHint": "no One Report filed",
+  "common.all": "All",
+  "common.sector": "Sector",
+  "common.source": "Source",
+  "gov.count": "{shown} of {total} names",
+  "gov.empty": "No names match the current filters.",
+  "gov.thTicker": "Ticker",
+  "gov.thAuditor": "Auditor",
+  "gov.thAuditFee": "Audit fee",
+  "gov.thNonAudit": "Non-audit",
+  "gov.thRatio": "Ratio",
+  "gov.thIndep": "Indep %",
+  "gov.thAgm": "AGM",
+  "gov.thBoardMtg": "Board mtg",
+  "gov.thAuditMtg": "Audit mtg",
+  "gov.thFlags": "Flags",
+  "gov.legendTitle": "Flag basis",
+  "gov.notAssessed": "not filed — flag not assessed",
+  "gov.legendKinds": "rule = a written requirement · convention = practice marker, not a breach · prompt = a question to ask, not a finding.",
+  "gov.noPriorYear": "Prior year not pulled — auditor change is unassessed for every name.",
+  "gov.was": "was",
+  "gov.flag.auditor_change": "Auditor change",
+  "gov.flag.high_non_audit": "Non-audit > audit",
+  "gov.flag.low_independence": "Independents < 1/3",
+  "gov.flag.late_agm": "Late AGM",
+  "gov.flag.thin_audit_cmte": "Audit cmte < 4",
+};
+function tt(k){ return window.I18N ? I18N.t(k) : (TT_FALLBACK[k] || k); }
+function tx(k,v){ return tt(k).replace(/\{(\w+)\}/g,(_,x)=> v && v[x]!=null ? v[x] : ''); }
+
+const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+// THB at 0 dp with thousands separators; ratios at 2 dp; percentages at 1 dp.
+const fmtTHB=n=>n==null?null:Math.round(n).toLocaleString('en-US');
+const fmtRatio=n=>n==null?null:n.toFixed(2);
+const fmtPct=n=>n==null?null:n.toFixed(1);
+
+// Explicit map, not a built key — tests/i18n-check.mjs scans these statically,
+// and a concatenated key would silently escape that check.
+const FLAG_LABEL_KEYS={
+  auditor_change:  'gov.flag.auditor_change',
+  high_non_audit:  'gov.flag.high_non_audit',
+  low_independence:'gov.flag.low_independence',
+  late_agm:        'gov.flag.late_agm',
+  thin_audit_cmte: 'gov.flag.thin_audit_cmte',
+};
+const FLAG_KEYS=Object.keys(FLAG_LABEL_KEYS);
+const flagLabel=f=>tt(FLAG_LABEL_KEYS[f]);
+
+let DATA=null;
+const savedRm = localStorage.getItem('is1_rm') || '';
+const state={sector:'all',rm:/^[CKOGPT]$/.test(savedRm)?savedRm:'all',q:'',
+             flags:new Set(),sort:'flag_count',dir:-1};
+
+window.addEventListener('is1:rm-change',e=>{
+  if(!/^(ALL|[CKOGPT])$/.test(e.detail?.rm||''))return;
+  state.rm=e.detail.rm==='ALL'?'all':e.detail.rm;
+  if(DATA){buildControls();render();}
+});
+
+const COLS=[
+  {k:'ticker',        label:'gov.thTicker',   num:false},
+  {k:'auditor_name',  label:'gov.thAuditor',  num:false},
+  {k:'audit_fee',     label:'gov.thAuditFee', num:true},
+  {k:'non_audit_fee', label:'gov.thNonAudit', num:true},
+  {k:'non_audit_ratio',label:'gov.thRatio',   num:true},
+  {k:'board_independent_pct',label:'gov.thIndep',num:true},
+  {k:'agm_date',      label:'gov.thAgm',      num:false},
+  {k:'board_meetings',label:'gov.thBoardMtg', num:true},
+  {k:'audit_meetings',label:'gov.thAuditMtg', num:true},
+  {k:'flag_count',    label:'gov.thFlags',    num:true},
+];
+
+function updateMeta(){
+  document.title = tt('page.governanceScreen')+' — '+tt('brand.coverageDesk');
+  if(!DATA){document.getElementById('pgSub').textContent=tt('gov.loading');return;}
+  const badge=document.getElementById('staleBadge');
+  const gen=DATA.generated ? new Date(DATA.generated) : null;
+  if(gen && !isNaN(gen)){
+    const days=(Date.now()-gen.getTime())/86400000;
+    badge.textContent='● '+DATA.generated.slice(0,10);
+    // One Report is annual — a 90-day-old pull is still current, a year is not.
+    badge.className = days>330 ? 'stale warn' : 'stale';
+  }else{
+    badge.textContent='● unknown';badge.className='stale unknown';
+  }
+  document.getElementById('pgSub').textContent=tx('gov.meta',{
+    year:DATA.report_year,
+    n:DATA.counts.resolved,
+    flagged:DATA.rows.filter(r=>r.flag_count>0).length,
+  });
+  document.getElementById('fsrc').textContent='IS1 Coverage Desk · '+tt('page.governanceScreen');
+}
+
+function renderHero(){
+  const rows=DATA.rows, ft=DATA.flag_totals||{};
+  const cards=[
+    ['gov.screened','gov.screenedHint',DATA.counts.resolved,'var(--accent)'],
+    ['gov.flagged','gov.flaggedHint',rows.filter(r=>r.flag_count>0).length,'var(--red)'],
+    ['gov.auditorChanges','gov.auditorChangesHint',(ft.auditor_change||{}).true ?? 0,'var(--yellow)'],
+    ['gov.highNonAudit','gov.highNonAuditHint',(ft.high_non_audit||{}).true ?? 0,'var(--yellow)'],
+    ['gov.unresolved','gov.unresolvedHint',DATA.counts.unresolved,'var(--dim)'],
+  ];
+  document.getElementById('hero').innerHTML=cards.map(([l,h,v,c])=>
+    `<div class="hstat" style="--hc:${c}"><div class="hstat-lbl">${esc(tt(l))}</div>`+
+    `<div class="hstat-val">${v}</div><div class="hstat-hint">${esc(tt(h))}</div></div>`).join('');
+}
+
+function renderCoverage(){
+  const cov=DATA.coverage||{}, n=DATA.counts.resolved||1;
+  const order=['auditor_name','audit_fee','non_audit_fee','board_independent_pct',
+               'agm_date','audit_meetings','auditor_prior_name'];
+  document.getElementById('covNote').textContent=tx('gov.coverageNote',{n:DATA.counts.resolved});
+  document.getElementById('covGrid').innerHTML=order.filter(k=>cov[k]!=null).map(k=>{
+    const v=cov[k], pct=100*v/n;
+    const cls=pct>=80?'':pct>=40?'mid':'low';
+    return `<div class="cov-item"><div class="cov-name"><span>${esc(k)}</span>`+
+      `<b>${v}/${n}</b></div><div class="cov-track">`+
+      `<div class="cov-fill ${cls}" style="width:${pct.toFixed(1)}%"></div></div></div>`;
+  }).join('');
+  document.getElementById('cov').style.display='';
+}
+
+function chip(label,val,cur,attr){
+  return `<span class="sbtn ${val===cur?'active':''}" data-v="${esc(val)}" ${attr||''}>${esc(label)}</span>`;
+}
+
+function buildControls(){
+  const rows=DATA.rows;
+  const sectors=[...new Set(rows.map(r=>r.bucket).filter(Boolean))].sort();
+  document.getElementById('sectFilter').innerHTML=
+    chip(tt('common.all'),'all',state.sector)+
+    sectors.map(s=>chip(s,s,state.sector,`data-s="${esc(s)}"`)).join('');
+  const rms=[...new Set(rows.map(r=>r.rm).filter(Boolean))].sort();
+  document.getElementById('rmFilter').innerHTML=
+    chip(tt('common.all'),'all',state.rm)+rms.map(r=>chip(r,r,state.rm)).join('');
+
+  const ft=DATA.flag_totals||{}, basis=DATA.flag_basis||{};
+  document.getElementById('flagFilter').innerHTML=FLAG_KEYS.map(f=>{
+    const t=(ft[f]||{}).true ?? 0, a=(ft[f]||{}).assessed ?? 0;
+    const kind=(basis[f]||{}).kind||'';
+    return `<span class="fchip ${state.flags.has(f)?'on':''}" data-f="${f}" `+
+      `title="${esc((basis[f]||{}).note||'')} — assessed on ${a} names">`+
+      `${esc(flagLabel(f))} <b>${t}</b><span class="kind">${esc(kind)}</span></span>`;
+  }).join('');
+
+  document.getElementById('sectFilter').onclick=e=>{
+    const el=e.target.closest('.sbtn'); if(!el)return;
+    state.sector=el.dataset.v; buildControls(); render();
+  };
+  document.getElementById('rmFilter').onclick=e=>{
+    const el=e.target.closest('.sbtn'); if(!el)return;
+    state.rm=el.dataset.v; buildControls(); render();
+  };
+  document.getElementById('flagFilter').onclick=e=>{
+    const el=e.target.closest('.fchip'); if(!el)return;
+    const f=el.dataset.f;
+    state.flags.has(f)?state.flags.delete(f):state.flags.add(f);
+    buildControls(); render();
+  };
+}
+
+function renderHead(){
+  document.getElementById('thead').innerHTML=COLS.map(c=>{
+    const on=state.sort===c.k;
+    const ar=on?(state.dir<0?'▼':'▲'):'↕';
+    return `<th class="${c.num?'num':''} ${on?'sorted':''}" data-k="${c.k}">`+
+      `${esc(tt(c.label))} <span class="ar">${ar}</span></th>`;
+  }).join('');
+  document.getElementById('thead').onclick=e=>{
+    const th=e.target.closest('th'); if(!th)return;
+    const k=th.dataset.k;
+    if(state.sort===k){state.dir=-state.dir;}else{state.sort=k;state.dir=-1;}
+    renderHead(); render();
+  };
+}
+
+function flagPills(r){
+  const basis=DATA.flag_basis||{};
+  return FLAG_KEYS.filter(f=>r.flags[f]===true).map(f=>{
+    const b=basis[f]||{};
+    return `<span class="fl ${esc(b.kind||'prompt')}" title="${esc(b.note||'')}">`+
+      `${esc(flagLabel(f))}</span>`;
+  }).join('');
+}
+
+// A missing figure renders as a dash with a tooltip, never as 0 and never as
+// an implied pass. The screen must not turn a non-filing into a clean bill.
+function cell(v,fmt,cls){
+  if(v==null) return `<td class="num na" title="${esc(tt('gov.notAssessed'))}">—</td>`;
+  return `<td class="num ${cls||''}">${esc(fmt?fmt(v):v)}</td>`;
+}
+
+function render(){
+  let rows=DATA.rows.slice();
+  if(state.sector!=='all') rows=rows.filter(r=>r.bucket===state.sector);
+  if(state.rm!=='all')     rows=rows.filter(r=>r.rm===state.rm);
+  if(state.flags.size)     rows=rows.filter(r=>[...state.flags].every(f=>r.flags[f]===true));
+  if(state.q){
+    const q=state.q.toLowerCase();
+    rows=rows.filter(r=>(r.ticker||'').toLowerCase().includes(q)
+      ||(r.auditor_name||'').toLowerCase().includes(q)
+      ||(r.auditor_name_en||'').toLowerCase().includes(q)
+      ||(r.corp_name||'').toLowerCase().includes(q));
+  }
+  const k=state.sort, d=state.dir;
+  rows.sort((a,b)=>{
+    let x=a[k], y=b[k];
+    // nulls always sort last, whichever direction — a non-filer is not a
+    // top-of-screen finding.
+    if(x==null&&y==null) return a.ticker.localeCompare(b.ticker);
+    if(x==null) return 1;
+    if(y==null) return -1;
+    if(typeof x==='string') return d*x.localeCompare(y);
+    return d*(x-y) || a.ticker.localeCompare(b.ticker);
+  });
+
+  document.getElementById('cntLbl').textContent=
+    tx('gov.count',{shown:rows.length,total:DATA.rows.length});
+
+  const tb=document.getElementById('tbody');
+  if(!rows.length){
+    tb.innerHTML=`<tr><td colspan="${COLS.length}" class="empty">${esc(tt('gov.empty'))}</td></tr>`;
+    return;
+  }
+  tb.innerHTML=rows.map(r=>{
+    const ratioCls=r.non_audit_ratio==null?'':r.non_audit_ratio>1?'warn':'';
+    const indepCls=r.board_independent_pct==null?'':r.board_independent_pct<33.3?'bad':'';
+    const amCls=r.audit_meetings==null?'':r.audit_meetings<4?'warn':'';
+    const agmCls=r.flags.late_agm===true?'warn':'';
+    return `<tr data-flags="${r.flag_count}">`+
+      `<td><div class="tk">${esc(r.ticker)}</div>`+
+        `<div><span class="badge b-${esc(r.bucket||'')}">${esc(r.bucket||'')}</span></div>`+
+        `<div class="co">${esc(r.corp_name||'')}</div></td>`+
+      `<td><div class="aud">${r.auditor_name?esc(r.auditor_name):'<span class="na">—</span>'}</div>`+
+        (r.flags.auditor_change===true&&r.auditor_prior_name
+          ? `<div class="aud-prev">${esc(tt('gov.was'))}: ${esc(r.auditor_prior_name)}</div>`:'')+
+        `</td>`+
+      cell(r.audit_fee,fmtTHB)+
+      cell(r.non_audit_fee,fmtTHB)+
+      cell(r.non_audit_ratio,fmtRatio,ratioCls)+
+      cell(r.board_independent_pct,fmtPct,indepCls)+
+      (r.agm_date?`<td class="num ${agmCls}">${esc(r.agm_date)}</td>`
+                 :`<td class="num na" title="${esc(tt('gov.notAssessed'))}">—</td>`)+
+      cell(r.board_meetings)+
+      cell(r.audit_meetings,null,amCls)+
+      `<td class="num"><div class="flags">${flagPills(r)||'<span class="na">—</span>'}</div></td>`+
+    `</tr>`;
+  }).join('');
+}
+
+function renderLegend(){
+  const basis=DATA.flag_basis||{};
+  const parts=FLAG_KEYS.map(f=>{
+    const b=basis[f]||{};
+    return `<span class="fl ${esc(b.kind||'prompt')}">${esc(flagLabel(f))}</span> `+
+      `<b>${esc(b.kind||'')}</b> — ${esc(b.note||'')}`;
+  });
+  const el=document.getElementById('legend');
+  el.innerHTML=`<b>${esc(tt('gov.legendTitle'))}</b><br>`+parts.join('<br>')+
+    `<br><br>${esc(tt('gov.legendKinds'))}`+
+    (DATA.prior_year?``:`<br>${esc(tt('gov.noPriorYear'))}`);
+  el.style.display='';
+}
+
+async function init(){
+  let d;
+  try{
+    const r=await fetch('data/sec-governance.json');
+    if(!r.ok) throw new Error(tt('gov.fetchError'));
+    d=await r.json();
+  }catch(e){
+    document.getElementById('loading').innerHTML='⚠ '+esc(e.message);
+    return;
+  }
+  DATA=d;
+  updateMeta(); renderHero(); renderCoverage(); buildControls(); renderHead(); renderLegend();
+  document.getElementById('loading').style.display='none';
+  document.getElementById('controls').style.display='';
+  document.getElementById('twrap').style.display='';
+  document.getElementById('search').addEventListener('input',e=>{
+    state.q=e.target.value.trim(); render();
+  });
+  render();
+}
+
+init();
+
+window.addEventListener('i18n:change',()=>{
+  if(window.I18N) I18N.apply();
+  updateMeta();
+  if(DATA){renderHero();renderCoverage();buildControls();renderHead();renderLegend();render();}
+});
+</script>
+<script src="nav.js?v=9" defer></script>
+<script src="chat-dock.js?v=8" defer></script>
+</body>
+</html>

@@ -64,8 +64,9 @@
   .desc { margin-top: 6px; font-size: 12px; color: var(--muted); line-height: 1.4; }
   .empty, .loading { text-align: center; padding: 60px; color: var(--muted); }
 </style>
-  <link rel="stylesheet" href="theme.css">
-  <script src="i18n.js"></script>
+  <script src="theme.js?v=8"></script>
+  <link rel="stylesheet" href="theme.css?v=8">
+  <script src="i18n.js?v=9"></script>
 
 </head>
 <body>
@@ -125,8 +126,11 @@
 let ITEMS = [], activeScope = 'ALL', activeType = 'ALL', activeWindow = 0, activeQuery = '', sortMode = 'latest';
 let latestActionMs = 0;
 let DATA_META = null;
+let ACTIVE_RM = /^[CKOGPT]$/.test(localStorage.getItem('is1_rm') || '') ? localStorage.getItem('is1_rm') : 'C';
 const TT_FALLBACK = {
   "common.updatedAgo": "updated {x} ago",
+  "common.dataStaleAsOf": "● data as of {date} ({x}d old)",
+  "common.dataNeverIngested": "● no data ingested",
   "sec.latestAction": "latest action {date}",
   "common.showing": "Showing",
   "sec.latestInView": "Latest in view",
@@ -177,6 +181,17 @@ function freshnessLabel(builtAt) {
   const x = ageH < 1 ? Math.round(ageH * 60) + 'm' : Math.round(ageH) + 'h';
   return { txt: tx('common.updatedAgo', { x }), warn: ageH > 36 };
 }
+function dataFreshnessLabel(payload) {
+  // _built_at only records when the file was last rewritten, and the daily job
+  // rewrites it even when the upstream SEC scrape returned nothing. Badge the
+  // age of the rows themselves so a dead ingest stops reading as "updated 2h ago".
+  if (payload && payload.stale) {
+    return payload.dataAsOf
+      ? { txt: tx('common.dataStaleAsOf', { date: payload.dataAsOf, x: payload.dataAgeDays }), warn: true }
+      : { txt: tt('common.dataNeverIngested'), warn: true };
+  }
+  return freshnessLabel(payload && payload._built_at);
+}
 function decodeHtml(s) {
   const el = document.createElement('textarea');
   el.innerHTML = s || '';
@@ -186,6 +201,10 @@ function escapeHtml(s) {
   return String(s ?? '').replace(/[&<>"']/g, ch => ({
     '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
   })[ch]);
+}
+function safeHttpUrl(value) {
+  try { const u = new URL(String(value || ''), location.href); return /^(https?):$/.test(u.protocol) ? u.href : ''; }
+  catch { return ''; }
 }
 function truncate(s, n = 420) {
   const txt = decodeHtml(s);
@@ -257,6 +276,7 @@ function filterRows(overrides = {}) {
   };
   const q = state.query.trim().toLowerCase();
   return ITEMS.filter(it => {
+    if (it.rm !== ACTIVE_RM) return false;
     if (!inWindow(it, state.window)) return false;
     if (state.scope === 'COVERAGE' && !it.matched_ticker) return false;
     if (state.type !== 'ALL' && it._typeGroup !== state.type) return false;
@@ -286,7 +306,7 @@ function buildScopeTabs() {
   }).join('');
 }
 function buildTypeTabs() {
-  const present = new Set(ITEMS.map(it => it._typeGroup));
+  const present = new Set(ITEMS.filter(it=>it.rm===ACTIVE_RM).map(it => it._typeGroup));
   const keys = ['ALL', ...TYPE_ORDER.filter(k => present.has(k))];
   document.getElementById('typeTabs').innerHTML = keys.map(k => {
     const cnt = filterRows({ type: k }).length;
@@ -351,6 +371,7 @@ function render() {
   }
   feed.innerHTML = rows.map(it => {
     const typeCls = TYPE_TAG_CLASS[it._typeGroup] || 'tag-type';
+    const detailUrl = safeHttpUrl(it.url);
     return `<div class="item ${it.matched_ticker ? 'matched' : ''}">
     <div class="item-top">
       <div class="item-date">${formatActionDate(it.action_date)}</div>
@@ -362,7 +383,7 @@ function render() {
           ${it.case_no ? `<span class="tag tag-case">${it.case_no}</span>` : ''}
           ${it._type ? `<span class="tag ${typeCls}">${escapeHtml(it._type)}</span>` : ''}
           ${it._law ? `<span class="tag tag-law">${escapeHtml(it._law)}</span>` : ''}
-          ${it.url ? `<a href="${it.url}" target="_blank" rel="noopener" style="font-size:11px;color:var(--accent)">${tt('sec.detail')}</a>` : ''}
+          ${detailUrl ? `<a href="${escapeHtml(detailUrl)}" target="_blank" rel="noopener" style="font-size:11px;color:var(--accent)">${tt('sec.detail')}</a>` : ''}
         </div>
         ${it._facts ? `<div class="desc">${escapeHtml(truncate(it._facts))}</div>` : ''}
         ${it._details ? `<div class="desc">${escapeHtml(truncate(it._details, 240))}</div>` : ''}
@@ -377,7 +398,7 @@ async function init() {
     DATA_META = dj;
     ITEMS = (dj.items || []).filter(it => !isHeaderRow(it)).map(hydrateItem);
     latestActionMs = ITEMS.reduce((m, it) => Math.max(m, it._dateMs || 0), 0);
-    const fresh = freshnessLabel(dj._built_at);
+    const fresh = dataFreshnessLabel(dj);
     const badge = document.getElementById('staleBadge');
     badge.textContent = fresh.txt;
     if (fresh.warn) badge.classList.add('warn');
@@ -393,14 +414,20 @@ async function init() {
 init();
 function updateMeta() {
   if (!DATA_META) return;
-  const coverageCount = ITEMS.filter(i => i.matched_ticker).length;
+  const scoped = ITEMS.filter(i => i.rm === ACTIVE_RM);
+  const coverageCount = scoped.filter(i => i.matched_ticker).length;
   document.getElementById('meta').textContent = tx('sec.meta', {
-    n: ITEMS.length,
+    n: scoped.length,
     coverage: coverageCount,
     latest: formatActionDate(latestActionMs),
     asOf: DATA_META.asOf || ''
   });
 }
+window.addEventListener('is1:rm-change',e=>{
+  if(!/^[CKOGPT]$/.test(e.detail?.rm||''))return;
+  ACTIVE_RM=e.detail.rm;
+  buildControls();updateStats();render();updateMeta();
+});
 window.addEventListener('i18n:change', () => {
   if (window.I18N) I18N.apply();
   updateMeta();
@@ -409,7 +436,7 @@ window.addEventListener('i18n:change', () => {
   render();
 });
 </script>
-<script src="nav.js" defer></script>
-<script src="chat-dock.js" defer></script>
+<script src="nav.js?v=9" defer></script>
+<script src="chat-dock.js?v=8" defer></script>
 </body>
 </html>

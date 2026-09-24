@@ -1,386 +1,840 @@
 /**
- * IS1 grouped navigation — shared across all dashboard pages.
+ * IS1 Modular Control Room shell.
  *
- * Replaces each page's flat <nav class="nav"> with color-coded group
- * dropdowns matching the index page's sections (Market / News /
- * Surveillance / Bond Data / Visits). The original flat links remain in the
- * HTML as a no-JS fallback; this script swaps them out at load.
- *
- * The page's stale badge (and any other non-link elements inside the nav)
- * are MOVED, not recreated, so page scripts holding references keep working.
- *
- * Included by every page: <script src="nav.js" defer></script>
+ * Every page already loads nav.js, so this file is the single app-shell
+ * runtime for desktop and mobile navigation, ticker search, RM context and
+ * the right-side analyst drawer. Existing page markup and data logic remain
+ * untouched behind the shell.
  */
 (function () {
   "use strict";
 
-  function tr(key, fallback) {
-    return (typeof I18N !== "undefined" && I18N && I18N.t) ? I18N.t(key) : fallback;
+  if (new URLSearchParams(location.search).get("embedded") === "1") {
+    document.documentElement.classList.add("is1-embedded");
+    return;
   }
 
-  // ponytail: dictionary values are plain text, but they still flow into
-  // innerHTML below — escape before interpolating so a bad translation
-  // string can never inject markup.
-  function esc(s) {
-    return String(s).replace(/[&<>"']/g, function (c) {
-      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
-    });
-  }
+  if (document.querySelector(".is1s-rail")) return;
 
   var GROUPS = [
     {
-      label: "Market", labelKey: "group.market", color: "#3b82f6",
-      pages: [
-        ["price-movement.html", "Price Movement", "page.priceMovement"],
-        ["company-summary.html", "Company Summary", "page.companySummary"],
-        ["multiples-comparison.html", "Multiples Comparison", "page.multiplesComparison"],
-        ["multiples-band.html", "Multiples Band", "page.multiplesBand"],
-        ["https://tradingview-daily-dashboard.tasinpong-k.workers.dev/", "Daily Market Board", "page.dailyMarketBoard"], // external (separate worker, opens new tab)
+      id:"home", label:["Home","หน้าหลัก"], short:["Home","หน้าหลัก"], icon:"layout-dashboard", color:"#f2aa1f",
+      pages:[
+        ["index.html","Morning overview","ภาพรวมเช้า","activity"],
+        ["visits.html","Visit planner","แผนเยี่ยมบริษัท","calendar-days"],
+        ["ai-insights.html","AI insights","AI insights","sparkles"],
       ],
     },
     {
-      label: "News", labelKey: "group.news", color: "#f59e0b",
-      pages: [
-        ["disclosure-pulse.html", "Disclosure Pulse", "page.disclosurePulse"],
-        ["external-news.html", "External News", "page.externalNews"],
-        ["oppday-minutes.html", "Oppday Minutes", "page.oppdayMinutes"],
-        ["ai-insights.html", "AI Insights", "page.aiInsights"],
-        ["https://macro-brief-buy.pages.dev", "Global-Macro Brief", "page.globalMacroBrief"], // external (Cloudflare Pages, opens new tab)
+      id:"market", label:["Market","ตลาด"], short:["Market","ตลาด"], icon:"chart-no-axes-combined", color:"#5d96ff",
+      pages:[
+        ["price-movement.html","Price movement","ความเคลื่อนไหวราคา","trending-up"],
+        ["sector-intelligence.html","Sector intelligence","บทวิเคราะห์รายกลุ่ม","chart-no-axes-combined"],
+        ["multiples-comparison.html","Multiples comparison","เปรียบเทียบ multiples","columns-3"],
+        ["multiples-band.html","Multiples band","ช่วง multiples","chart-spline"],
+        ["https://tradingview-daily-dashboard.tasinpong-k.workers.dev/","Daily market board","กระดานตลาดรายวัน","monitor-up"],
       ],
     },
     {
-      label: "Surveillance", labelKey: "group.surveillance", color: "#ef4444",
-      pages: [
-        ["unusual-trading.html", "Unusual Trading", "page.unusualTrading"],
-        ["trading-signs.html", "Trading Signs", "page.tradingSigns"],
-        ["sec-enforcement.html", "SEC Enforcement", "page.secEnforcement"],
-        ["sec-form59.html", "SEC Form 59", "page.secForm59"],
+      id:"companies", label:["Companies","บริษัท"], short:["Companies","บริษัท"], icon:"building-2", color:"#35bdd0",
+      pages:[
+        ["company-summary.html","Company summary","ข้อมูลรายบริษัท","notebook-tabs"],
+        ["oppday-minutes.html","Oppday minutes","สรุป Oppday","presentation"],
+        ["sec-form59.html","SEC Form 59","แบบ 59","contact-round"],
       ],
     },
     {
-      label: "Bond Data", labelKey: "group.bondData", color: "#06b6d4",
-      pages: [
-        ["bond-summary.html", "Bond Summary", "page.bondSummary"],
-        ["bond-data-sec.html", "BOND Data from SEC", "page.bondDataSec"],
+      id:"news", label:["News","ข่าว"], short:["News","ข่าว"], icon:"newspaper", color:"#31c77b",
+      pages:[
+        ["disclosure-pulse.html","SET disclosures","ข่าวเปิดเผยข้อมูล","radio-tower","filings"],
+        ["external-news.html","External news","ข่าวภายนอก","rss","news"],
+        ["efinance-news.html","eFinanceThai live","ข่าว eFinanceThai","newspaper"],
+        ["https://macro-brief-buy.pages.dev","Global-macro brief","สรุปมหภาคโลก","globe-2"],
       ],
     },
     {
-      label: "Visits", labelKey: "group.visits", color: "#22c55e",
-      pages: [
-        ["visits.html", "Visit Planner", "page.visitPlanner"],
+      id:"surveillance", label:["Risk & surveillance","เฝ้าระวัง"], short:["Risk","เฝ้าระวัง"], icon:"shield-alert", color:"#ef6464",
+      pages:[
+        ["unusual-trading.html","Unusual trading","การซื้อขายผิดปกติ","siren","alerts"],
+        ["trading-signs.html","Trading signs","เครื่องหมายซื้อขาย","flag"],
+        ["sec-enforcement.html","SEC enforcement","การบังคับใช้กฎหมาย","shield-check"],
+        ["governance-screen.html","Governance screen","ตรวจสอบธรรมาภิบาล","scale"],
+      ],
+    },
+    {
+      id:"bonds", label:["Bonds","หุ้นกู้"], short:["Bonds","หุ้นกู้"], icon:"landmark", color:"#b17cff",
+      pages:[
+        ["bond-summary.html","Bond summary","สรุปหุ้นกู้","chart-pie"],
+        ["bond-data-sec.html","SEC bond filings","ข้อมูลหุ้นกู้ SEC","database"],
       ],
     },
   ];
 
-  // Per-page line icon + one-line description for the title banner.
-  // Page NAME and COLOR come from GROUPS above (single source of truth, so the
-  // banner title can never drift from the menu label).
-  var META = {
-    "price-movement.html":      { ic: '<path d="M3 17l6-6 4 4 7-7"/><path d="M17 8h4v4"/>',                                                                  desc: "Daily price moves across coverage", descKey: "meta.priceMovement" },
-    "company-summary.html":     { ic: '<path d="M3 21h18"/><path d="M5 21V4a1 1 0 0 1 1-1h8a1 1 0 0 1 1 1v17"/><path d="M19 21V9a1 1 0 0 0-1-1h-3"/><path d="M9 7h2M9 11h2M9 15h2"/>', desc: "Fundamentals and profile per company", descKey: "meta.companySummary" },
-    "multiples-comparison.html":{ ic: '<path d="M3 3v18h18"/><path d="M7 14v3"/><path d="M12 9v8"/><path d="M17 5v12"/>',                                     desc: "Valuation multiples side by side", descKey: "meta.multiplesComparison" },
-    "multiples-band.html":      { ic: '<path d="M3 12l4-4 4 3 4-6 6 5"/><path d="M3 18l4-4 4 3 4-6 6 5"/>',                                              desc: "Valuation ranges over time", descKey: "meta.multiplesBand" },
-    "disclosure-pulse.html":    { ic: '<path d="M22 12h-4l-3 9L9 3l-3 9H2"/>',                                                                          desc: "Live SET filings, ranked by importance", descKey: "meta.disclosurePulse" },
-    "external-news.html":       { ic: '<path d="M4 4h13a1 1 0 0 1 1 1v13a2 2 0 0 0 2 2H6a2 2 0 0 1-2-2V4Z"/><path d="M8 8h6M8 12h6M8 16h4"/>',          desc: "Wire & RSS headlines matched to coverage", descKey: "meta.externalNews" },
-    "oppday-minutes.html":      { ic: '<path d="M2 4h20"/><path d="M3 4v10a1 1 0 0 0 1 1h16a1 1 0 0 0 1-1V4"/><path d="M12 15v5"/><path d="M9 20h6"/>', desc: "Earnings-call notes and takeaways", descKey: "meta.oppdayMinutes" },
-    "ai-insights.html":         { ic: '<path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3Z"/>', desc: "Model-written commentary on the coverage", descKey: "meta.aiInsights" },
-    "unusual-trading.html":     { ic: '<path d="M10.3 3.3 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.3a2 2 0 0 0-3.4 0Z"/><path d="M12 9v4"/><path d="M12 17h.01"/>', desc: "Volume and price anomalies flagged", descKey: "meta.unusualTrading" },
-    "trading-signs.html":       { ic: '<path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><path d="M4 22v-7"/>',                       desc: "Current SET trading signs on coverage", descKey: "meta.tradingSigns" },
-    "sec-enforcement.html":     { ic: '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/><path d="M12 8v4"/><path d="M12 16h.01"/>',                desc: "Thai SEC enforcement actions", descKey: "meta.secEnforcement" },
-    "sec-form59.html":          { ic: '<path d="M3 3v18h18"/><path d="M7 15l3-3 3 2 4-6"/><path d="M17 8h3v3"/>',                                      desc: "Management and related-person trades", descKey: "meta.secForm59" },
-    "bond-summary.html":        { ic: '<path d="M3 22h18"/><path d="M4 10l8-6 8 6"/><path d="M6 22v-9M10 22v-9M14 22v-9M18 22v-9"/>',                    desc: "Outstanding bonds across coverage", descKey: "meta.bondSummary" },
-    "bond-data-sec.html":       { ic: '<path d="M12 7c4.4 0 8-1.1 8-2.5S16.4 2 12 2 4 3.1 4 4.5 7.6 7 12 7Z"/><path d="M4 4.5v15C4 20.9 7.6 22 12 22s8-1.1 8-2.5v-15"/><path d="M4 12c0 1.4 3.6 2.5 8 2.5s8-1.1 8-2.5"/>', desc: "Bond filings from the SEC", descKey: "meta.bondDataSec" },
-    "visits.html":              { ic: '<path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><path d="M12 12a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5Z"/>', desc: "Plan and track company visits", descKey: "meta.visitPlanner" },
+  var EMBEDDED_WORKSPACES = {
+    "https://tradingview-daily-dashboard.tasinpong-k.workers.dev/": {
+      title:["Daily market board","กระดานตลาดรายวัน"],
+      description:["Live market dashboard","Dashboard ตลาดแบบ live"],
+    },
+    "https://macro-brief-buy.pages.dev": {
+      title:["Global-macro brief","สรุปมหภาคโลก"],
+      description:["Macro signals and global context","สัญญาณมหภาคและบริบทตลาดโลก"],
+    },
   };
 
-  var css = "\
-nav.nav{display:flex;align-items:center;gap:2px;position:relative}\
-.gnav-home{font-size:12.5px;color:var(--muted,#8089a0);text-decoration:none;padding:7px 10px;border-radius:7px}\
-.gnav-home:hover{color:var(--text,#e6e8ed);background:var(--card2,#1a1d27)}\
-.gnav-group{position:relative}\
-.gnav-btn{display:flex;align-items:center;gap:6px;background:none;border:none;cursor:pointer;\
- font:600 12.5px/1 'Inter','Segoe UI',system-ui,sans-serif;color:var(--muted,#8089a0);\
- padding:7px 10px;border-radius:7px;border-bottom:2px solid transparent}\
-.gnav-btn:hover{color:var(--text,#e6e8ed);background:var(--card2,#1a1d27)}\
-.gnav-btn .dot{width:7px;height:7px;border-radius:50%;background:var(--gn);flex-shrink:0}\
-.gnav-btn .chev{font-size:9px;opacity:.6}\
-.gnav-group.active .gnav-btn{color:var(--text,#e6e8ed);border-bottom-color:var(--gn)}\
-.gnav-panel{position:absolute;top:calc(100% + 6px);left:0;min-width:185px;display:none;z-index:300;\
- background:var(--card,#14171f);border:1px solid var(--border2,#2a2f3d);border-radius:10px;\
- box-shadow:0 10px 34px #000a;padding:6px;flex-direction:column}\
-.gnav-panel::before{content:'';position:absolute;top:-10px;left:0;right:0;height:10px}\
-.gnav-group.open .gnav-panel{display:flex}\
-.gnav-panel a{font-size:12.5px;color:var(--muted,#8089a0);text-decoration:none;padding:8px 12px;\
- border-radius:7px;display:flex;align-items:center;gap:8px;white-space:nowrap}\
-.gnav-panel a:hover{color:var(--text,#e6e8ed);background:var(--card2,#1a1d27)}\
-.gnav-panel a.here{color:var(--gn);font-weight:700;background:color-mix(in srgb,var(--gn) 10%,transparent)}\
-.gnav-panel a .pdot{width:5px;height:5px;border-radius:50%;background:var(--gn);opacity:.55;flex-shrink:0}\
-.gnav-panel a .ext{margin-left:auto;padding-left:12px;font-size:11px;opacity:.5}\
-.gnav-panel a:hover .ext{opacity:.8}\
-@media(max-width:760px){\
- .gnav-panel{position:fixed;left:10px;right:10px;top:auto;min-width:0}\
- .gnav-btn{padding:7px 7px}.gnav-home{padding:7px 7px}}\
-\
-/* ── PAGE TITLE BANNER (full-width colored band, below the top bar) ── */\
-.phbanner{position:relative;overflow:hidden;display:flex;align-items:center;gap:16px;padding:18px 32px;color:#fff;\
- background:linear-gradient(120deg,var(--ph) 0%,color-mix(in srgb,var(--ph) 42%,#0a0c12) 100%);\
- border-bottom:1px solid color-mix(in srgb,var(--ph) 45%,#0a0c12);animation:phin .4s ease both}\
-.phbanner::before{content:'';position:absolute;inset:0;pointer-events:none;\
- background:radial-gradient(circle at 13% 25%,rgba(255,255,255,.20),transparent 45%)}\
-.phbanner::after{content:'';position:absolute;right:-50px;top:-70px;width:260px;height:260px;border-radius:50%;pointer-events:none;\
- background:radial-gradient(circle,rgba(255,255,255,.13),transparent 70%)}\
-.ph-ico{position:relative;width:46px;height:46px;border-radius:12px;flex-shrink:0;display:flex;align-items:center;justify-content:center;\
- background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.28)}\
-.ph-ico svg{width:24px;height:24px;fill:none;stroke:#fff;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}\
-.ph-txt{position:relative;min-width:0}\
-.ph-cat{display:inline-flex;align-items:center;gap:6px;font-size:10px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;\
- color:#fff;background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.24);padding:3px 9px;border-radius:20px}\
-.ph-title{font-size:24px;font-weight:800;letter-spacing:-.4px;margin-top:8px;line-height:1.1;color:#fff;text-shadow:0 1px 12px rgba(0,0,0,.22)}\
-.ph-desc{font-size:12.5px;margin-top:4px;color:rgba(255,255,255,.82)}\
-@keyframes phin{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}\
-@media(prefers-reduced-motion:reduce){.phbanner{animation:none}}\
-@media(max-width:760px){.phbanner{padding:14px 16px;gap:12px}.ph-title{font-size:20px}.ph-ico{width:40px;height:40px}.ph-ico svg{width:21px;height:21px}}\
-\
-/* ── UNIFIED TOP BAR (identical to homepage: IS mark + The Terminal + status) ── */\
-.gtopbar{display:flex;align-items:center;justify-content:space-between;gap:18px;padding:18px 32px;\
- border-bottom:1px solid var(--border,#232733);position:sticky;top:0;z-index:200;\
- background:#0a0c12ee;backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);\
- font-family:'Inter','Segoe UI',system-ui,sans-serif}\
-.gtopbar.ext-bar{position:relative;top:auto}\
-.gbrand{display:flex;align-items:center;gap:14px;text-decoration:none;color:inherit;flex-shrink:0}\
-.gbrand-mark{width:34px;height:34px;border-radius:9px;flex-shrink:0;display:flex;align-items:center;justify-content:center;\
- background:linear-gradient(135deg,#6366f1,#8b5cf6);font-weight:800;font-size:14px;letter-spacing:-.5px;color:#fff}\
-.gbrand-text h1{font-size:16px;font-weight:700;letter-spacing:-.2px;color:var(--text,#e6e8ed);display:flex;align-items:center;border:0;margin:0;padding:0}\
-.gbrand-text .sub{font-size:10px;color:var(--muted,#8089a0);margin-top:2px;letter-spacing:.4px;text-transform:uppercase}\
-.gbrand .cursor{display:inline-block;width:8px;height:14px;margin-left:4px;border-radius:1px;background:#6366f1;vertical-align:-1px;animation:termblink 1.1s steps(1) infinite}\
-@keyframes termblink{50%{opacity:0}}\
-@media(prefers-reduced-motion:reduce){.gbrand .cursor{animation:none}}\
-.gtopbar .stale,.gtopbar .stale-pill{font-size:11px;padding:5px 12px;border-radius:20px;white-space:nowrap;flex-shrink:0;\
- background:#22c55e15;color:#22c55e;border:1px solid #22c55e30}\
-.gtopbar .stale.warn,.gtopbar .stale-pill.warn{background:#f59e0b15;color:#f59e0b;border-color:#f59e0b30}\
-.gtopbar .stale.unknown,.gtopbar .stale-pill.unknown{background:#5a627a15;color:var(--muted,#8089a0);border-color:#5a627a30}\
-.phbanner .ph-desc{display:flex;flex-wrap:wrap;align-items:baseline;gap:6px}\
-.phbanner .meta{display:inline;font-size:12.5px;color:rgba(255,255,255,.72);margin:0}\
-.phbanner .meta::before{content:'\\00b7 ';opacity:.7}\
-@media(max-width:760px){.gtopbar{padding:14px 16px;gap:12px}.gbrand-text h1{font-size:15px}}";
-  var style = document.createElement("style");
-  style.textContent = css;
-  document.head.appendChild(style);
+  var PAGE_META = {
+    "price-movement":      ["Market","Daily price moves across coverage","ความเคลื่อนไหวราคารายวันใน coverage","#5d96ff","trending-up"],
+    "sector-intelligence": ["Market","Meeting-ready FOOD and PROP sector briefing","บทวิเคราะห์ FOOD และ PROP สำหรับนำเสนอในที่ประชุม","#f2aa1f","chart-no-axes-combined"],
+    "company-summary":     ["Companies","Fundamentals and profile per company","ข้อมูลพื้นฐานและ profile รายบริษัท","#35bdd0","notebook-tabs"],
+    "multiples-comparison":["Market","Valuation multiples side by side","เปรียบเทียบ valuation multiples","#5d96ff","columns-3"],
+    "multiples-band":      ["Market","Valuation ranges across all sectors","ช่วง valuation ของทุก sector","#5d96ff","chart-spline"],
+    "disclosure-pulse":    ["News","Live SET filings ranked by importance","ข่าว SET ล่าสุดเรียงตามความสำคัญ","#31c77b","radio-tower"],
+    "external-news":       ["News","Ticker-matched external headlines","ข่าวภายนอกที่จับคู่กับ ticker","#31c77b","rss"],
+    "efinance-news":       ["News","Live headlines from eFinanceThai","พาดหัวข่าวล่าสุดจาก eFinanceThai","#31c77b","newspaper"],
+    "oppday-minutes":      ["Companies","Earnings-call notes and takeaways","สรุปประเด็นจาก Oppday","#35bdd0","presentation"],
+    "ai-insights":         ["Home","Validated commentary from daily snapshots","บทวิเคราะห์จาก daily snapshots","#f2aa1f","sparkles"],
+    "unusual-trading":     ["Risk & surveillance","Volume and price anomalies","ความผิดปกติด้านราคาและปริมาณซื้อขาย","#ef6464","siren"],
+    "trading-signs":       ["Risk & surveillance","Current SET trading signs","เครื่องหมายซื้อขายของ SET","#ef6464","flag"],
+    "sec-enforcement":     ["Risk & surveillance","Thai SEC enforcement actions","การบังคับใช้กฎหมายของ SEC","#ef6464","shield-check"],
+    "sec-form59":          ["Companies","Management and related-person trades","รายการซื้อขายของผู้บริหารและบุคคลที่เกี่ยวข้อง","#35bdd0","contact-round"],
+    "bond-summary":        ["Bonds","Outstanding bonds across coverage","หุ้นกู้คงค้างใน coverage","#b17cff","chart-pie"],
+    "bond-data-sec":       ["Bonds","Bond filings from the SEC","ข้อมูล filing หุ้นกู้จาก SEC","#b17cff","database"],
+    "governance-screen":   ["Risk & surveillance","Auditor fees, AGM timing and board independence","ค่าสอบบัญชี กำหนดประชุมสามัญผู้ถือหุ้น และสัดส่วนกรรมการอิสระ","#ef6464","scale"],
+    "visits":              ["Home","Plan and track company visits","วางแผนและติดตามการเยี่ยมบริษัท","#f2aa1f","calendar-days"],
+  };
 
-  // Where this nav.js is served from. Lets the menu link back to the main
-  // dashboard even when this script is loaded on another site (the Market Board).
-  var BASE = "", offsite = false;
-  try {
-    var selfScript = document.currentScript;
-    if (!selfScript) {
-      var ss = document.querySelectorAll("script[src]");
-      for (var i = 0; i < ss.length; i++) if (/nav\.js(\?|$)/.test(ss[i].src)) selfScript = ss[i];
-    }
-    if (selfScript && selfScript.src) {
-      var u = new URL(selfScript.src);
-      BASE = u.origin;
-      offsite = (u.origin !== location.origin);
-    }
-  } catch (e) {}
-  function link(href) { // absolute back to the dashboard when off-site; pass external URLs through
-    return /^https?:\/\//.test(href) ? href : (BASE ? BASE + "/" + href : href);
+  var ICONS = {
+    "activity":'<path d="M22 12h-4l-3 9L9 3l-3 9H2"/>',
+    "arrow-right":'<path d="M5 12h14"/><path d="m12 5 7 7-7 7"/>',
+    "arrow-up-right":'<path d="M7 17 17 7"/><path d="M7 7h10v10"/>',
+    "building-2":'<path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18"/><path d="M6 12H4a2 2 0 0 0-2 2v8h20v-8a2 2 0 0 0-2-2h-2"/><path d="M10 6h4M10 10h4M10 14h4M10 18h4"/>',
+    "calendar-days":'<path d="M8 2v4M16 2v4M3 10h18"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01"/>',
+    "chart-no-axes-combined":'<path d="M12 16v5M16 14v7M20 10v11M4 18v3M8 14v7"/><path d="m3 7 5 5 4-4 5 5 4-4"/>',
+    "chart-pie":'<path d="M21 12c.552 0 1.005-.449.95-.998a10 10 0 0 0-8.953-8.953C12.449 1.995 12 2.448 12 3v8a1 1 0 0 0 1 1z"/><path d="M21.21 15.89A10 10 0 1 1 8.11 2.79"/>',
+    "chart-spline":'<path d="M3 3v18h18"/><path d="M7 16c.5-2 1.5-3 3-3 2 0 2 3 4 3 1.5 0 2.5-2 3-4 .5-2 1.5-3 3-3"/>',
+    "columns-3":'<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 3v18M15 3v18"/>',
+    "contact-round":'<path d="M16 2v2M17.915 22a6 6 0 0 0-12 0"/><circle cx="12" cy="12" r="4"/><rect width="18" height="18" x="3" y="4" rx="2"/>',
+    "database":'<ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14c0 1.7 4 3 9 3s9-1.3 9-3V5"/><path d="M3 12c0 1.7 4 3 9 3s9-1.3 9-3"/>',
+    "flag":'<path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><path d="M4 22v-7"/>',
+    "globe-2":'<path d="M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20Z"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 0 20M12 2a15.3 15.3 0 0 0 0 20"/>',
+    "landmark":'<path d="M3 22h18M6 18v-7M10 18v-7M14 18v-7M18 18v-7M12 2l9 5H3z"/>',
+    "layout-dashboard":'<rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/>',
+    "menu":'<path d="M4 12h16M4 6h16M4 18h16"/>',
+    "monitor-up":'<path d="m9 10 2 2 4-4"/><rect width="20" height="14" x="2" y="3" rx="2"/><path d="M12 17v4M8 21h8"/>',
+    "newspaper":'<path d="M4 22h16a2 2 0 0 0 2-2V4H6v16a2 2 0 0 1-4 0V6h4"/><path d="M10 8h8M10 12h8M10 16h5"/>',
+    "notebook-tabs":'<path d="M2 6h4M2 10h4M2 14h4M2 18h4"/><rect width="16" height="20" x="4" y="2" rx="2"/><path d="M15 2v20M15 7h5M15 12h5M15 17h5"/>',
+    "panel-left-close":'<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 3v18M16 15l-3-3 3-3"/>',
+    "panel-right-close":'<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M15 3v18M8 9l3 3-3 3"/>',
+    "panel-right-open":'<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M15 3v18M10 15l-3-3 3-3"/>',
+    "presentation":'<path d="M2 3h20M3 3v11a1 1 0 0 0 1 1h16a1 1 0 0 0 1-1V3M12 15v6M8 21h8"/>',
+    "radio-tower":'<path d="M4.9 19.1C1 15.2 1 8.8 4.9 4.9M7.8 16.2a6 6 0 0 1 0-8.4M19.1 4.9c3.9 3.9 3.9 10.3 0 14.2M16.2 7.8a6 6 0 0 1 0 8.4"/><circle cx="12" cy="12" r="2"/><path d="m8.5 22 3.5-8 3.5 8M9 18h6"/>',
+    "rss":'<path d="M4 11a9 9 0 0 1 9 9M4 4a16 16 0 0 1 16 16"/><circle cx="5" cy="19" r="1"/>',
+    "search":'<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>',
+    "scale":'<path d="m16 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"/><path d="m2 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"/><path d="M7 21h10"/><path d="M12 3v18"/><path d="M3 7h2c2 0 5-1 7-2 2 1 5 2 7 2h2"/>',
+    "shield-alert":'<path d="M20 13c0 5-3.5 7.5-7.7 9a1 1 0 0 1-.6 0C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.2-2.7a1.2 1.2 0 0 1 1.6 0C14.5 3.8 17 5 19 5a1 1 0 0 1 1 1z"/><path d="M12 8v4M12 16h.01"/>',
+    "shield-check":'<path d="M20 13c0 5-3.5 7.5-7.7 9a1 1 0 0 1-.6 0C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.2-2.7a1.2 1.2 0 0 1 1.6 0C14.5 3.8 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/>',
+    "siren":'<path d="M7 18v-6a5 5 0 0 1 10 0v6M5 22h14M5 18h14M12 2v3M4.9 4.9 7 7M19.1 4.9 17 7"/>',
+    "sparkles":'<path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3z"/><path d="M5 3v4M3 5h4M19 17v4M17 19h4"/>',
+    "trending-up":'<path d="m3 17 6-6 4 4 8-8"/><path d="M14 7h7v7"/>',
+  };
+
+  var RMS = ["C","K","O","G","P","T"];
+  var RM_CHOICES = ["ALL"].concat(RMS);
+  var state = {
+    rm:localStorage.getItem("is1_rm") || "C",
+    context:"coverage",
+    selectedTicker:null,
+    data:null,
+  };
+  if (RM_CHOICES.indexOf(state.rm) < 0) state.rm = "C";
+
+  var script = document.currentScript;
+  if (!script) {
+    var scripts = document.querySelectorAll('script[src*="nav.js"]');
+    script = scripts[scripts.length - 1];
   }
-
-  // On the main site each page provides <nav class="nav">. When loaded on
-  // another origin, there is none — build a Terminal top bar and prepend it.
-  var nav = document.querySelector("nav.nav");
-  if (!nav) {
-    if (!offsite) return; // same-origin page without a nav (e.g. index) keeps its own layout
-    var extBar = document.createElement("header");
-    extBar.className = "gtopbar ext-bar";
-    var xbrand = document.createElement("a");
-    xbrand.className = "gbrand";
-    xbrand.href = link("index.html");
-    xbrand.innerHTML =
-      '<div class="gbrand-mark">IS</div>' +
-      '<div class="gbrand-text"><h1>The Terminal<span class="cursor"></span></h1>' +
-      '<div class="sub">' + esc(tr("brand.subtitle", "IS1 Coverage Desk · SET Issuer Department 1")) + '</div></div>';
-    nav = document.createElement("nav");
-    nav.className = "nav";
-    extBar.appendChild(xbrand);
-    extBar.appendChild(nav);
-    document.body.insertBefore(extBar, document.body.firstChild);
-  }
-
+  var base = "";
+  try { base = new URL(script.src).origin; } catch (e) {}
   var here = location.pathname.split("/").pop() || "index.html";
-  // Live URLs are extensionless (/price-movement), local ones keep .html —
-  // compare on the stem so both resolve to the same page.
-  var hereKey = here.replace(/\.html$/, "");
-  var header = nav.closest("header") || document.querySelector("header");
+  var hereKey = here.replace(/\.html$/,"") || "index";
+  var isHome = hereKey === "index" || hereKey === "";
+
+  function L(en,th) { return window.I18N && I18N.lang === "th" ? th : en; }
+  function rmLabel(rm) { return rm === "ALL" ? L("All RMs","ทุก RM") : "RM " + rm; }
+  // Same windows the News pages open with, so a badge matches the list behind it:
+  // SET disclosures default to 1d, External news to 7d.
+  function withinHours(ts,hours) {
+    var t = Date.parse(ts);
+    return Number.isFinite(t) && Date.now() - t <= hours * 3600 * 1000;
+  }
+  function icon(name,cls) {
+    return '<svg class="' + (cls || "is1s-icon") + '" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">' +
+      (ICONS[name] || ICONS.activity) + "</svg>";
+  }
+  function esc(value) {
+    return String(value == null ? "" : value).replace(/[&<>"']/g,function (c) {
+      return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];
+    });
+  }
+  function safeHttpUrl(value) {
+    try {
+      var parsed = new URL(String(value || ""),location.href);
+      return parsed.protocol === "http:" || parsed.protocol === "https:" ? parsed.href : "";
+    } catch (e) {
+      return "";
+    }
+  }
+  function href(path) {
+    if (/^https?:\/\//.test(path)) return path;
+    return base ? base + "/" + path : path;
+  }
+  function finite(value) { return value !== null && value !== "" && Number.isFinite(Number(value)); }
+  function average(values) {
+    var nums = values.filter(finite).map(Number);
+    return nums.length ? nums.reduce(function (sum,value) { return sum + value; },0) / nums.length : null;
+  }
+  function fmtPct(value,digits) {
+    if (!finite(value)) return "n/a";
+    var n = Number(value);
+    return (n > 0 ? "+" : "") + n.toFixed(digits == null ? 2 : digits) + "%";
+  }
+  function canonicalSector(value) { return value === "PFREIT" ? "PF&REIT" : value; }
+  function firstPage(group) {
+    var local = group.pages.filter(function (page) { return !/^https?:/.test(page[0]); });
+    return (local[0] || group.pages[0])[0];
+  }
+  function currentPage() {
+    var found = null;
+    GROUPS.some(function (group) {
+      return group.pages.some(function (page) {
+        if (/^https?:/.test(page[0])) return false;
+        if (page[0].replace(/\.html$/,"") === hereKey) {
+          found = { group:group, page:page };
+          return true;
+        }
+        return false;
+      });
+    });
+    return found;
+  }
+
+  var pageInfo = currentPage();
+  var selectedModuleId = pageInfo ? pageInfo.group.id : "home";
+  var legacyHeader = Array.prototype.find.call(document.body.children,function (node) { return node.tagName === "HEADER"; });
+  if (legacyHeader) legacyHeader.classList.add("is1s-legacy-header");
+  document.body.classList.add("is1-shell-ready");
+  document.body.classList.add("is1s-page-" + hereKey.replace(/[^a-z0-9-]/g,""));
+
+  var rail = document.createElement("aside");
+  rail.className = "is1s-rail";
+  rail.setAttribute("aria-label",L("Primary modules","เมนูหลัก"));
+  rail.innerHTML =
+    '<a class="is1s-mark" href="' + href("index.html") + '" aria-label="IS1 Control Room">IS</a>' +
+    '<nav class="is1s-rail-nav">' +
+      GROUPS.map(function (group) {
+        var active = selectedModuleId === group.id;
+        var name = esc(L(group.label[0],group.label[1]));
+        var inner = icon(group.icon) + '<span class="is1s-rail-label">' + esc(L(group.short[0],group.short[1])) + "</span>";
+        // The current page's group toggles the page panel; any other group
+        // opens that group's first page, so one click always goes somewhere.
+        if (!active) {
+          return '<a class="is1s-rail-btn" data-module="' + group.id + '" href="' + esc(href(firstPage(group))) +
+            '" aria-label="' + name + '" title="' + name + '">' + inner + "</a>";
+        }
+        return '<button class="is1s-rail-btn active" type="button" data-module="' + group.id + '" aria-label="' + name +
+          '" aria-pressed="true" title="' + name + '">' + inner + "</button>";
+      }).join("") +
+    '</nav><div class="is1s-rail-bottom">' +
+      '<button class="is1s-rail-btn" type="button" data-shell-action="context" title="' + esc(L("My book: coverage, alerts and REX agents","งานของฉัน: บริษัทที่ดูแล การแจ้งเตือน และ REX agents")) + '">' + icon("panel-right-open") +
+        '<span class="is1s-rail-label">' + esc(L("My book","งานของฉัน")) + "</span></button>" +
+    "</div>";
+
+  var modulePanel = document.createElement("aside");
+  modulePanel.className = "is1s-modules";
+  modulePanel.setAttribute("aria-label",L("Dashboard pages","รายการหน้า"));
+
+  function moduleMarkup() {
+    return '<div class="is1s-module-head"><div><strong>Control Room</strong><span>IS1 Coverage Desk</span></div>' +
+      '<button class="is1s-icon-btn" type="button" data-shell-action="collapse" title="' + esc(L("Collapse sidebar","ย่อ sidebar")) + '">' + icon("panel-left-close") + "</button></div>" +
+      '<div class="is1s-module-scroll">' +
+      GROUPS.map(function (group) {
+        return '<section class="is1s-nav-section' + (selectedModuleId === group.id ? " is-selected" : "") +
+          '" data-module-section="' + group.id + '" aria-label="' + esc(L(group.label[0],group.label[1])) +
+          '"><div class="is1s-nav-label">' + esc(L(group.label[0],group.label[1])) + "</div>" +
+          group.pages.map(function (page) {
+            var active = !/^https?:/.test(page[0]) && page[0].replace(/\.html$/,"") === hereKey;
+            var embedded = EMBEDDED_WORKSPACES[page[0]];
+            var tag = embedded ? "button" : "a";
+            var target = embedded ? ' type="button" data-shell-embed="' + esc(page[0]) + '"' : ' href="' + esc(href(page[0])) + '"';
+            return '<' + tag + ' class="is1s-module-link' + (active ? " active" : "") + '"' + target +
+              (active ? ' aria-current="page"' : "") + '>' +
+              icon(page[3]) + '<span>' + esc(L(page[1],page[2])) + '</span>' +
+              (page[4] ? '<span class="is1s-count" data-count="' + page[4] + '">—</span>' : "") +
+              (embedded ? icon("panel-right-open","is1s-link-arrow") : "") + "</" + tag + ">";
+          }).join("") + "</section>";
+      }).join("") + '<div class="is1s-module-spacer" aria-hidden="true"></div></div><div class="is1s-module-foot"><span class="is1s-live-dot"></span><span data-shell-freshness>' +
+      esc(L("Loading snapshot","กำลังโหลด snapshot")) + "</span></div>";
+  }
+  modulePanel.innerHTML = moduleMarkup();
+
+  var topbar = document.createElement("header");
+  topbar.className = "is1s-topbar";
+  var pageTitle = pageInfo ? L(pageInfo.page[1],pageInfo.page[2]) : L("Control Room","Control Room");
+  topbar.innerHTML =
+    '<button class="is1s-icon-btn is1s-mobile-menu" type="button" data-shell-action="mobile-menu" title="' + esc(L("Open menu","เปิดเมนู")) + '">' + icon("menu") + "</button>" +
+    '<div class="is1s-crumb"><strong>' + esc(pageTitle) + '</strong><span>/ IS1</span></div>' +
+    '<form class="is1s-search" data-shell-search>' + icon("search") +
+      '<input list="is1s-ticker-list" autocomplete="off" placeholder="' + esc(L("Search ticker","ค้นหา ticker")) + '" aria-label="' + esc(L("Search ticker","ค้นหา ticker")) + '">' +
+      '<datalist id="is1s-ticker-list"></datalist><span class="is1s-kbd">/</span>' +
+      '<button type="submit" title="' + esc(L("Open ticker","เปิดข้อมูล ticker")) + '">' + icon("arrow-right") + "</button></form>" +
+    '<select class="is1s-rm" aria-label="' + esc(L("Context RM","เลือก RM")) + '">' +
+      RM_CHOICES.map(function (rm) { return '<option value="' + rm + '"' + (state.rm === rm ? " selected" : "") + '>' + esc(rmLabel(rm)) + "</option>"; }).join("") +
+    '</select><div class="is1s-controls"></div>' +
+    '<button class="is1s-icon-btn" type="button" data-shell-action="context" title="' + esc(L("My book: coverage, alerts and REX agents","งานของฉัน: บริษัทที่ดูแล การแจ้งเตือน และ REX agents")) + '">' + icon("panel-right-open") + "</button>";
+
+  var pageHead = null;
+  if (!isHome && PAGE_META[hereKey]) {
+    var meta = PAGE_META[hereKey];
+    pageHead = document.createElement("section");
+    pageHead.className = "is1s-page-head";
+    pageHead.style.setProperty("--page-accent",meta[3]);
+    pageHead.innerHTML =
+      '<span class="is1s-page-icon">' + icon(meta[4]) + '</span><div><span class="is1s-page-group">' + esc(L(meta[0],meta[0])) +
+      '</span><h1>' + esc(pageTitle) + '</h1><p><span>' + esc(L(meta[1],meta[2])) + '</span></p></div>';
+    var existingMeta = document.getElementById("meta");
+    if (existingMeta) pageHead.querySelector("p").appendChild(existingMeta);
+  }
+
+  var contextPanel = document.createElement("aside");
+  contextPanel.className = "is1s-context";
+  contextPanel.setAttribute("aria-label",L("Analyst context","ข้อมูลประกอบ"));
+  contextPanel.innerHTML =
+    '<div class="is1s-context-head"><div><strong data-context-title>' + esc(rmLabel(state.rm)) + ' workspace</strong><span>' + esc(L("Context follows your selection","Context ตามสิ่งที่เลือก")) + '</span></div>' +
+      '<button class="is1s-icon-btn" type="button" data-shell-action="close-context" title="' + esc(L("Close my book","ปิดงานของฉัน")) + '">' + icon("panel-right-close") + "</button></div>" +
+    '<div class="is1s-context-tabs"><button class="active" type="button" data-context="coverage">' + esc(L("My book","My book")) + '</button>' +
+      '<button type="button" data-context="alerts">Alerts</button><button type="button" data-context="agents">REX agents</button></div>' +
+    '<div class="is1s-context-body"><div class="is1s-empty">' + esc(L("Loading coverage","กำลังโหลด coverage")) + "</div></div>";
+
+  var scrim = document.createElement("div");
+  scrim.className = "is1s-scrim";
+  var workspaceScrim = document.createElement("div");
+  workspaceScrim.className = "is1s-workspace-scrim";
+  workspaceScrim.setAttribute("data-shell-workspace-close","");
+  var workspace = document.createElement("section");
+  workspace.className = "is1s-workspace";
+  workspace.setAttribute("role","dialog");
+  workspace.setAttribute("aria-modal","true");
+  workspace.setAttribute("aria-hidden","true");
+  workspace.setAttribute("aria-label",L("Embedded workspace","พื้นที่ทำงานด้านขวา"));
+  workspace.innerHTML =
+    '<header class="is1s-workspace-head"><div><strong data-workspace-title></strong><span data-workspace-description></span></div>' +
+      '<div class="is1s-workspace-actions"><button class="is1s-icon-btn" type="button" data-shell-workspace-reload title="' +
+        esc(L("Reload workspace","โหลดพื้นที่ทำงานใหม่")) + '">' + icon("activity") + '</button>' +
+      '<button class="is1s-icon-btn" type="button" data-shell-workspace-close title="' + esc(L("Close workspace","ปิดพื้นที่ทำงาน")) + '">' +
+        icon("panel-right-close") + '</button></div></header>' +
+    '<div class="is1s-workspace-stage"><div class="is1s-workspace-loading"><span></span>' + esc(L("Loading workspace","กำลังโหลดพื้นที่ทำงาน")) +
+      '</div><iframe title="' + esc(L("Embedded dashboard","Dashboard ที่ฝังในหน้านี้")) + '" loading="eager" referrerpolicy="strict-origin-when-cross-origin" ' +
+      'sandbox="allow-forms allow-modals allow-popups allow-popups-to-escape-sandbox allow-same-origin allow-scripts allow-downloads"></iframe></div>';
+  var insertPoint = legacyHeader || document.body.firstChild;
+  document.body.insertBefore(topbar,insertPoint);
+  if (pageHead) document.body.insertBefore(pageHead,insertPoint);
+  document.body.appendChild(rail);
+  document.body.appendChild(modulePanel);
+  document.body.appendChild(contextPanel);
+  document.body.appendChild(scrim);
+  document.body.appendChild(workspaceScrim);
+  document.body.appendChild(workspace);
+
   var staleNode = document.getElementById("staleBadge");
-  var metaNode = document.getElementById("meta");
+  if (staleNode) {
+    staleNode.classList.add("is1s-status");
+    topbar.querySelector(".is1s-controls").appendChild(staleNode);
+    // Pages write this badge in their own formats (a bare ISO date, "exported
+    // <timestamp>", "data as of ..."). Keep "updated Xh ago" as is and show any
+    // raw date as one format; also restore the shell class when a page resets
+    // className.
+    var tidyStale = function () {
+      if (!staleNode.classList.contains("is1s-status")) staleNode.classList.add("is1s-status");
+      var text = staleNode.textContent || "";
+      if (/ago|ที่แล้ว/.test(text) || staleNode.dataset.tidy === text) return;
+      var match = text.match(/(\d{4}-\d{2}-\d{2})/);
+      if (!match) return;
+      var tidy = "● " + L("data as of ","ข้อมูล ณ ") + thaiDate(match[1]);
+      staleNode.dataset.tidy = tidy;
+      staleNode.textContent = tidy;
+    };
+    new MutationObserver(tidyStale).observe(staleNode,{ childList:true, characterData:true, subtree:true, attributes:true, attributeFilter:["class"] });
+    tidyStale();
+  }
+  if (window.I18N && I18N.createToggle && !topbar.querySelector(".i18n-toggle")) {
+    topbar.querySelector(".is1s-controls").appendChild(I18N.createToggle());
+  }
 
-  // keep non-link extras (stale badge etc.) to re-append after rebuild
-  var extras = Array.prototype.filter.call(nav.children, function (el) {
-    return el.tagName !== "A" && el.id !== "staleBadge" && !el.classList.contains("i18n-toggle");
+  var savedCollapsed = localStorage.getItem("is1_shell_modules") === "collapsed";
+  if (savedCollapsed) document.body.classList.add("is1s-modules-collapsed");
+  var savedContext = localStorage.getItem("is1_shell_context");
+  if (isHome && (savedContext === "open" || savedContext == null) && innerWidth > 1250) {
+    document.body.classList.add("is1s-context-open");
+  }
+
+  function closeOverlays() {
+    document.body.classList.remove("is1s-mobile-modules","is1s-mobile-context");
+  }
+  function closeWorkspace() {
+    document.body.classList.remove("is1s-workspace-open");
+    workspace.setAttribute("aria-hidden","true");
+  }
+  function openWorkspace(url) {
+    var meta = EMBEDDED_WORKSPACES[url];
+    if (!meta) return;
+    closeOverlays();
+    if (window.IS1Dock) window.IS1Dock.close();
+    workspace.querySelector("[data-workspace-title]").textContent = L(meta.title[0],meta.title[1]);
+    workspace.querySelector("[data-workspace-description]").textContent = L(meta.description[0],meta.description[1]);
+    var frame = workspace.querySelector("iframe");
+    var embeddedUrl = new URL(url);
+    embeddedUrl.searchParams.set("embedded","1");
+    embeddedUrl = embeddedUrl.toString();
+    workspace.classList.add("loading");
+    if (frame.dataset.src !== embeddedUrl) {
+      frame.dataset.src = embeddedUrl;
+      frame.src = embeddedUrl;
+    }
+    document.body.classList.add("is1s-workspace-open");
+    workspace.removeAttribute("aria-hidden");
+    workspace.querySelector("[data-shell-workspace-close]").focus();
+  }
+  workspace.querySelector("iframe").addEventListener("load",function () { workspace.classList.remove("loading"); });
+  workspace.querySelector("[data-shell-workspace-reload]").addEventListener("click",function () {
+    var frame = workspace.querySelector("iframe");
+    if (!frame.dataset.src) return;
+    workspace.classList.add("loading");
+    frame.src = frame.dataset.src;
   });
-
-  function pageText(p) { return tr(p[2], p[1]); }
-  function groupText(g) { return tr(g.labelKey, g.label); }
-  function metaText(meta) { return meta ? tr(meta.descKey, meta.desc) : ""; }
-
-  function placeLangToggle() {
-    if (typeof I18N === "undefined" || !I18N || !I18N.createToggle) return;
-    var host = (staleNode && staleNode.parentNode) || header || nav;
-    if (!host || host.querySelector(".i18n-toggle")) {
-      if (I18N.updateToggles) I18N.updateToggles();
+  workspace.querySelector("[data-shell-workspace-close]").addEventListener("click",closeWorkspace);
+  workspaceScrim.addEventListener("click",closeWorkspace);
+  function toggleContext(open) {
+    if (innerWidth <= 1250) {
+      document.body.classList.toggle("is1s-mobile-context",open == null ? !document.body.classList.contains("is1s-mobile-context") : open);
       return;
     }
-    var btn = I18N.createToggle();
-    if (staleNode && staleNode.parentNode === host) staleNode.insertAdjacentElement("afterend", btn);
-    else host.appendChild(btn);
-    if (I18N.updateToggles) I18N.updateToggles();
+    var next = open == null ? !document.body.classList.contains("is1s-context-open") : open;
+    document.body.classList.toggle("is1s-context-open",next);
+    localStorage.setItem("is1_shell_context",next ? "open" : "closed");
   }
-
-  function setBrandSub() {
-    var sub = document.querySelector(".gbrand-text .sub");
-    if (sub) sub.textContent = tr("brand.subtitle", "IS1 Coverage Desk · SET Issuer Department 1");
-  }
-
-  function buildNav() {
-    closeAll();
-    nav.innerHTML = "";
-    var home = document.createElement("a");
-    home.className = "gnav-home";
-    home.href = link("index.html");
-    home.textContent = tr("nav.home", "The Terminal");
-    nav.appendChild(home);
-
-    var heroTitle = null, heroColor = null, heroGroup = null, heroFile = null;
-    GROUPS.forEach(function (g) {
-      var wrap = document.createElement("div");
-      wrap.className = "gnav-group";
-      wrap.style.setProperty("--gn", g.color);
-
-      var btn = document.createElement("button");
-      btn.type = "button";
-      btn.className = "gnav-btn";
-      btn.setAttribute("aria-haspopup", "true");
-      btn.setAttribute("aria-expanded", "false");
-      btn.innerHTML = '<span class="dot"></span>' + esc(groupText(g)) + '<span class="chev">▾</span>';
-
-      var panel = document.createElement("div");
-      panel.className = "gnav-panel";
-      g.pages.forEach(function (p) {
-        var a = document.createElement("a");
-        a.href = link(p[0]);
-        var external = /^https?:\/\//.test(p[0]);
-        // Every dashboard — including the external workers/Pages sites (Daily
-        // Market Board, Global-Macro Brief) — navigates in the SAME tab so moving
-        // between them feels like one app rather than spawning new windows.
-        a.innerHTML = '<span class="pdot"></span>' + esc(pageText(p));
-        if (!external && p[0].replace(/\.html$/, "") === hereKey) {
-          a.classList.add("here");
-          wrap.classList.add("active");
-          heroTitle = pageText(p);
-          heroColor = g.color;
-          heroGroup = groupText(g);
-          heroFile = p[0];
-        }
-        panel.appendChild(a);
-      });
-
-      btn.addEventListener("click", function (e) {
-        e.stopPropagation();
-        var was = wrap.classList.contains("open");
-        closeAll();
-        if (!was) {
-          wrap.classList.add("open");
-          btn.setAttribute("aria-expanded", "true");
-        }
-      });
-      // hover with forgiveness: a short close delay so crossing the gap (or
-      // briefly overshooting) doesn't snap the menu shut mid-click
-      var closeTimer = null;
-      wrap.addEventListener("mouseenter", function () {
-        clearTimeout(closeTimer);
-        closeAll();
-        wrap.classList.add("open");
-        btn.setAttribute("aria-expanded", "true");
-      });
-      wrap.addEventListener("mouseleave", function () {
-        clearTimeout(closeTimer);
-        closeTimer = setTimeout(function () {
-          wrap.classList.remove("open");
-          btn.setAttribute("aria-expanded", "false");
-        }, 350);
-      });
-
-      wrap.appendChild(btn);
-      wrap.appendChild(panel);
-      nav.appendChild(wrap);
+  function setModuleActive(id) {
+    selectedModuleId = id;
+    rail.querySelectorAll("[data-module]").forEach(function (button) {
+      var active = button.dataset.module === id;
+      button.classList.toggle("active",active);
+      button.setAttribute("aria-pressed",active ? "true" : "false");
     });
-
-    extras.forEach(function (el) { nav.appendChild(el); });
-
-    // ── Unified top bar + page title banner (subpages only; index keeps its own) ──
-    if (heroTitle && header) {
-      if (!header.classList.contains("gtopbar")) {
-        // Rebuild the bar to match the homepage: IS mark · The Terminal
-        // (blinking) · menu · status. The old page-specific title is dropped —
-        // the colored banner below now carries the page identity.
-        header.classList.add("gtopbar");
-        header.innerHTML = "";
-
-        var brand = document.createElement("a");
-        brand.className = "gbrand";
-        brand.href = "index.html";
-        brand.innerHTML =
-          '<div class="gbrand-mark">IS</div>' +
-          '<div class="gbrand-text"><h1>The Terminal<span class="cursor"></span></h1>' +
-          '<div class="sub"></div></div>';
-        header.appendChild(brand);
-        header.appendChild(nav);
-        if (staleNode) header.appendChild(staleNode); // status pill, far right
-      }
-      setBrandSub();
-
-      // Colored page banner directly below the bar; the live detail line
-      // (counts / as-of) rides along next to the description.
-      var meta = META[heroFile] || { ic: "", desc: "" };
-      var banner = document.querySelector(".phbanner");
-      if (!banner) {
-        banner = document.createElement("div");
-        banner.className = "phbanner";
-        banner.innerHTML =
-          '<div class="ph-ico"><svg viewBox="0 0 24 24" aria-hidden="true"></svg></div>' +
-          '<div class="ph-txt">' +
-            '<span class="ph-cat"></span>' +
-            '<div class="ph-title"></div>' +
-            '<div class="ph-desc"><span class="ph-d"></span></div>' +
-          '</div>';
-        header.parentNode.insertBefore(banner, header.nextSibling);
-      }
-      banner.style.setProperty("--ph", heroColor);
-      banner.querySelector(".ph-ico svg").innerHTML = meta.ic || "";
-      banner.querySelector(".ph-cat").textContent = heroGroup;
-      banner.querySelector(".ph-title").textContent = heroTitle;
-      banner.querySelector(".ph-d").textContent = metaText(meta);
-      if (metaNode && metaNode.parentNode !== banner.querySelector(".ph-desc")) {
-        banner.querySelector(".ph-desc").appendChild(metaNode);
-      }
-    } else {
-      setBrandSub();
+    modulePanel.querySelectorAll("[data-module-section]").forEach(function (candidate) {
+      candidate.classList.toggle("is-selected",candidate.dataset.moduleSection === id);
+    });
+    var section = modulePanel.querySelector('[data-module-section="' + id + '"]');
+    var scroller = modulePanel.querySelector(".is1s-module-scroll");
+    if (section && scroller) {
+      var spacer = scroller.querySelector(".is1s-module-spacer");
+      if (spacer) spacer.style.height = "0px";
+      var target = section.getBoundingClientRect().top - scroller.getBoundingClientRect().top + scroller.scrollTop;
+      var available = Math.max(0,scroller.scrollHeight - scroller.clientHeight);
+      if (spacer && target > available) spacer.style.height = Math.ceil(target - available) + "px";
+      var reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      requestAnimationFrame(function () {
+        scroller.scrollTo({ top:Math.max(0,target), behavior:reduceMotion ? "auto" : "smooth" });
+      });
     }
-    placeLangToggle();
+    if (innerWidth <= 840) document.body.classList.add("is1s-mobile-modules");
+    else document.body.classList.remove("is1s-modules-collapsed");
   }
 
-  buildNav();
-  window.addEventListener("i18n:change", buildNav);
+  rail.querySelectorAll("button[data-module]").forEach(function (button) {
+    button.addEventListener("click",function () { setModuleActive(button.dataset.module); });
+  });
+  modulePanel.querySelectorAll("[data-shell-embed]").forEach(function (button) {
+    button.addEventListener("click",function () { openWorkspace(button.dataset.shellEmbed); });
+  });
+  document.querySelectorAll("[data-shell-action]").forEach(function (button) {
+    button.addEventListener("click",function () {
+      var action = button.dataset.shellAction;
+      if (action === "context") toggleContext();
+      if (action === "close-context") toggleContext(false);
+      if (action === "mobile-menu") document.body.classList.add("is1s-mobile-modules");
+      if (action === "collapse") {
+        if (innerWidth <= 840) document.body.classList.remove("is1s-mobile-modules");
+        else {
+          var collapsed = document.body.classList.toggle("is1s-modules-collapsed");
+          localStorage.setItem("is1_shell_modules",collapsed ? "collapsed" : "open");
+        }
+      }
+    });
+  });
+  scrim.addEventListener("click",closeOverlays);
+  document.addEventListener("keydown",function (event) {
+    if (event.key === "Escape" && document.body.classList.contains("is1s-workspace-open")) closeWorkspace();
+    else if (event.key === "Escape") closeOverlays();
+    if (event.key === "/" && !/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName)) {
+      event.preventDefault();
+      topbar.querySelector(".is1s-search input").focus();
+    }
+  });
 
-  function closeAll() {
-    nav.querySelectorAll(".gnav-group.open").forEach(function (w) {
-      w.classList.remove("open");
-      w.querySelector(".gnav-btn").setAttribute("aria-expanded", "false");
+  var rmSelect = topbar.querySelector(".is1s-rm");
+  function dispatchRmChange() {
+    window.dispatchEvent(new CustomEvent("is1:rm-change",{ detail:{ rm:state.rm } }));
+  }
+  rmSelect.addEventListener("change",function () {
+    state.rm = rmSelect.value;
+    state.selectedTicker = null;
+    localStorage.setItem("is1_rm",state.rm);
+    renderShellData();
+    dispatchRmChange();
+  });
+  topbar.querySelector("[data-shell-search]").addEventListener("submit",function (event) {
+    event.preventDefault();
+    var value = event.currentTarget.querySelector("input").value.trim().toUpperCase();
+    if (!value || !state.data || !state.data.tickerMap.has(value)) return;
+    state.selectedTicker = value;
+    state.context = "coverage";
+    contextPanel.querySelectorAll("[data-context]").forEach(function (tab) { tab.classList.toggle("active",tab.dataset.context === "coverage"); });
+    renderContext();
+    toggleContext(true);
+  });
+  contextPanel.querySelectorAll("[data-context]").forEach(function (button) {
+    button.addEventListener("click",function () {
+      state.context = button.dataset.context;
+      contextPanel.querySelectorAll("[data-context]").forEach(function (tab) { tab.classList.toggle("active",tab === button); });
+      renderContext();
+    });
+  });
+
+  function asset(name) { return href("data/" + name + ".json"); }
+  var dataPromise = Promise.all([
+    fetch(asset("tickers")).then(function (r) { if (!r.ok) throw new Error("tickers"); return r.json(); }),
+    fetch(asset("morning-brief")).then(function (r) { if (!r.ok) throw new Error("morning-brief"); return r.json(); }),
+    fetch(asset("unusual-trading")).then(function (r) { if (!r.ok) throw new Error("unusual-trading"); return r.json(); }),
+    fetch(asset("disclosure-pulse")).then(function (r) { if (!r.ok) throw new Error("disclosure-pulse"); return r.json(); }),
+    fetch(asset("external-news")).then(function (r) { if (!r.ok) throw new Error("external-news"); return r.json(); }),
+  ]).then(function (items) {
+    state.data = { tickers:items[0], brief:items[1], unusual:items[2], pulse:items[3], news:items[4] };
+    state.data.tickerMap = new Map(state.data.tickers.tickers.map(function (ticker) { return [ticker.tk,ticker]; }));
+    topbar.querySelector("#is1s-ticker-list").innerHTML = state.data.tickers.tickers.map(function (ticker) {
+      return '<option value="' + esc(ticker.tk) + '">' + esc(ticker.sector) + " · RM " + esc(ticker.rm) + "</option>";
+    }).join("");
+    var queryTicker = new URLSearchParams(location.search).get("tk");
+    if (queryTicker && state.data.tickerMap.has(queryTicker.toUpperCase())) state.selectedTicker = queryTicker.toUpperCase();
+    renderShellData();
+  }).catch(function () {
+    contextPanel.querySelector(".is1s-context-body").innerHTML = '<div class="is1s-empty">' + esc(L("Snapshot unavailable","โหลด snapshot ไม่สำเร็จ")) + "</div>";
+  });
+
+  function ownedSet() {
+    return new Set(state.data.tickers.tickers.filter(function (ticker) { return state.rm === "ALL" || ticker.rm === state.rm; }).map(function (ticker) { return ticker.tk; }));
+  }
+  function rmRows() {
+    var owned = ownedSet();
+    return state.data.brief.rows.filter(function (row) { return owned.has(row.tk); });
+  }
+  function rmAlerts() {
+    var owned = ownedSet();
+    return state.data.unusual.alerts.filter(function (alert) { return owned.has(alert.tk); });
+  }
+  function rmFilings() {
+    var owned = ownedSet();
+    return state.data.pulse.filings.filter(function (filing) { return owned.has(filing.tk); });
+  }
+  function rmNews() {
+    var owned = ownedSet();
+    return state.data.news.items.filter(function (item) { return owned.has(item.tk); });
+  }
+  function movers(limit) {
+    return rmRows().filter(function (row) { return finite(row.pct1d); })
+      .sort(function (a,b) { return Math.abs(Number(b.pct1d)) - Math.abs(Number(a.pct1d)); }).slice(0,limit);
+  }
+  function sectorMetrics() {
+    var grouped = new Map();
+    state.data.brief.rows.forEach(function (row) {
+      var sector = canonicalSector(row.sector);
+      if (!grouped.has(sector)) grouped.set(sector,[]);
+      grouped.get(sector).push(row);
+    });
+    return Array.from(grouped.entries()).map(function (entry) {
+      var rows = entry[1];
+      var oneDay = rows.map(function (row) { return row.pct1d; }).filter(finite).map(Number);
+      return {
+        sector:entry[0],
+        count:rows.length,
+        avg1d:average(oneDay),
+        avg5d:average(rows.map(function (row) { return row.pct5d; })),
+        avgYtd:average(rows.map(function (row) { return row.pctYtd; })),
+        up:oneDay.filter(function (value) { return value > 0; }).length,
+        valid:oneDay.length,
+      };
+    }).sort(function (a,b) { return (b.avg1d || 0) - (a.avg1d || 0); });
+  }
+  function thaiDate(value) {
+    if (!value) return "?";
+    return new Intl.DateTimeFormat(I18N && I18N.lang === "th" ? "th-TH" : "en-GB",{ day:"numeric",month:"short",year:"numeric",timeZone:"Asia/Bangkok" }).format(new Date(value + "T00:00:00+07:00"));
+  }
+  function feedTime(value) {
+    if (!value) return "";
+    var date = new Date(value);
+    if (!Number.isFinite(date.getTime())) return "";
+    return new Intl.DateTimeFormat(I18N && I18N.lang === "th" ? "th-TH" : "en-GB",{
+      day:"numeric",month:"short",hour:"2-digit",minute:"2-digit",timeZone:"Asia/Bangkok",
+    }).format(date);
+  }
+  function severityDot(value) { return '<span class="is1s-severity ' + (value === "high" || value === "critical" ? "high" : "medium") + '"></span>'; }
+
+  function renderContext() {
+    if (!state.data) return;
+    var body = contextPanel.querySelector(".is1s-context-body");
+    contextPanel.querySelector("[data-context-title]").textContent = state.selectedTicker ? state.selectedTicker + " context" : rmLabel(state.rm) + " workspace";
+    if (state.context === "agents") {
+      var agents = [
+        ["H","Hermes","#d98e16",L("SET filings, external news and Oppday","ข่าว SET, external news และ Oppday"),"hermes"],
+        ["A","Atlas","#3f7fdc",L("Movers, alerts and threshold checks","Movers, alerts และ threshold checks"),"atlas"],
+        ["P","Pythia","#14899a",L("Sector performance and breadth","Sector performance และ breadth"),"pythia"],
+        ["L","Lex","#238d60",L("Rules cited to PDF and page","กฎเกณฑ์พร้อม PDF และเลขหน้า"),"lex"],
+      ];
+      body.innerHTML = '<div class="is1s-context-summary"><strong>4</strong><span>' + esc(L("specialist agents","บอตเฉพาะทาง")) + "</span></div>" +
+        agents.map(function (agent) {
+          return '<button class="is1s-agent-row" type="button" data-agent="' + agent[4] + '"><span style="background:' + agent[2] + '">' + agent[0] +
+            '</span><div><strong>' + agent[1] + '</strong><small>' + esc(agent[3]) + '</small></div>' + icon("arrow-up-right") + "</button>";
+        }).join("");
+      body.querySelectorAll("[data-agent]").forEach(function (button) {
+        button.addEventListener("click",function () {
+          if (window.IS1Dock) window.IS1Dock.open(button.dataset.agent);
+        });
+      });
+      return;
+    }
+    if (state.context === "alerts") {
+      var alerts = rmAlerts().slice(0,24);
+      body.innerHTML = '<div class="is1s-context-summary"><strong>' + alerts.filter(function (alert) { return alert.severity === "high"; }).length +
+        '</strong><span>' + esc(L("high-severity alerts","high-severity alerts")) + "</span></div>" +
+        alerts.map(function (alert) {
+          return '<button class="is1s-watch-row" type="button" data-ticker="' + esc(alert.tk) + '">' +
+            severityDot(alert.severity) + '<div><strong>' + esc(alert.tk) + '</strong><small>' + esc(alert.type) + '</small></div><b>' + esc(alert.label) + "</b></button>";
+        }).join("") || '<div class="is1s-empty">' + esc(L("No alerts","ไม่มี alert")) + "</div>";
+    } else {
+      var rows = movers(24);
+      var selected = "";
+      if (state.selectedTicker) {
+        var quote = state.data.brief.rows.find(function (row) { return row.tk === state.selectedTicker; });
+        var ticker = state.data.tickerMap.get(state.selectedTicker);
+        if (quote && ticker) {
+          selected = '<div class="is1s-selected"><h3>' + esc(quote.tk) + '</h3><p>' + esc(ticker.sector) + " · RM " + esc(ticker.rm) +
+            '</p><div><span>Last<strong>' + esc(quote.last == null ? "n/a" : quote.last) + '</strong></span><span>1 day<strong class="' +
+            (quote.pct1d >= 0 ? "positive" : "negative") + '">' + fmtPct(quote.pct1d) + '</strong></span><span>5 days<strong>' +
+            fmtPct(quote.pct5d) + '</strong></span><span>YTD<strong>' + fmtPct(quote.pctYtd) + "</strong></span></div></div>";
+        }
+      }
+      body.innerHTML = selected + '<div class="is1s-context-summary"><strong>' + rmRows().length + '</strong><span>' +
+        esc(L("covered names sorted by movement","หลักทรัพย์เรียงตาม movement")) + "</span></div>" +
+        rows.map(function (row) {
+          return '<button class="is1s-watch-row" type="button" data-ticker="' + esc(row.tk) + '"><div><strong>' + esc(row.tk) +
+            '</strong><small>' + esc(canonicalSector(row.sector)) + '</small></div><span class="is1s-mini-bar"><i style="width:' +
+            Math.min(100,Math.max(4,Math.abs(Number(row.pct1d)) * 10)) + '%"></i></span><b class="' + (row.pct1d >= 0 ? "positive" : "negative") +
+            '">' + fmtPct(row.pct1d) + "</b></button>";
+        }).join("");
+    }
+    body.querySelectorAll("[data-ticker]").forEach(function (button) {
+      button.addEventListener("click",function () {
+        state.selectedTicker = button.dataset.ticker;
+        state.context = "coverage";
+        contextPanel.querySelectorAll("[data-context]").forEach(function (tab) { tab.classList.toggle("active",tab.dataset.context === "coverage"); });
+        renderContext();
+      });
     });
   }
-  document.addEventListener("click", closeAll);
-  document.addEventListener("keydown", function (e) {
-    if (e.key === "Escape") closeAll();
-  });
+
+  function renderCounts() {
+    var counts = {
+      filings:rmFilings().filter(function (filing) { return withinHours(filing.ts,24); }).length,
+      news:rmNews().filter(function (item) { return withinHours(item.ts,24 * 7); }).length,
+      alerts:rmAlerts().filter(function (alert) { return alert.severity === "high"; }).length,
+    };
+    modulePanel.querySelectorAll("[data-count]").forEach(function (node) { node.textContent = counts[node.dataset.count]; });
+    var fresh = modulePanel.querySelector("[data-shell-freshness]");
+    if (fresh) fresh.textContent = L("Prices as of ","ราคา ณ ") + thaiDate(state.data.brief.asOf);
+  }
+
+  function renderHome() {
+    var host = document.querySelector(".is1-home-control");
+    if (!host || !state.data) return;
+    var rows = rmRows();
+    var highAlerts = rmAlerts().filter(function (alert) { return alert.severity === "high"; });
+    var todayFilings = rmFilings().filter(function (filing) { return withinHours(filing.ts,24); });
+    var avg = average(rows.map(function (row) { return row.pct1d; }));
+    host.querySelector("[data-home-date]").textContent = L("Prices as of ","ราคา ณ ") + thaiDate(state.data.brief.asOf);
+    host.querySelector("[data-home-kpis]").innerHTML =
+      '<div><span>' + esc(L("My coverage","My coverage")) + '</span><strong>' + rows.length + '</strong><small>' + esc(rmLabel(state.rm)) + "</small></div>" +
+      '<div><span>High alerts</span><strong class="negative">' + highAlerts.length + '</strong><small>' + esc(L("review today","ต้องตรวจสอบวันนี้")) + "</small></div>" +
+      '<div><span>' + esc(L("SET filings · 24h","SET filings · 24 ชม.")) + '</span><strong class="' + (todayFilings.length ? "gold" : "") + '">' + todayFilings.length + '</strong><small>' + esc(L("current coverage","ใน coverage ปัจจุบัน")) + "</small></div>" +
+      '<div><span>Average 1-day move</span><strong class="' + (avg >= 0 ? "positive" : "negative") + '">' + fmtPct(avg) + '</strong><small>' +
+      rows.filter(function (row) { return finite(row.pct1d) && Math.abs(Number(row.pct1d)) >= 2; }).length + " " + esc(L("names beyond ±2%","ตัวเกิน ±2%")) + "</small></div>";
+
+    var metrics = sectorMetrics();
+    var maxAbs = Math.max.apply(null,metrics.map(function (metric) { return Math.abs(metric.avg1d || 0); }).concat([1]));
+    host.querySelector("[data-home-sectors]").innerHTML = metrics.map(function (metric,index) {
+      return '<div class="is1-home-sector"><strong>' + esc(metric.sector) + '</strong><span><i style="--sector-width:' +
+        Math.max(5,Math.abs(metric.avg1d || 0) / maxAbs * 100) + '%;--sector-color:' + (metric.avg1d >= 0 ? "var(--green)" : "var(--red)") +
+        ';--sector-delay:' + index * 55 + 'ms"></i></span><b class="' + (metric.avg1d >= 0 ? "positive" : "negative") + '">' +
+        fmtPct(metric.avg1d) + '</b><small>' + metric.up + "/" + metric.valid + "</small></div>";
+    }).join("");
+
+    host.querySelector("[data-home-movers]").innerHTML = movers(7).map(function (row) {
+      return '<button type="button" data-home-ticker="' + esc(row.tk) + '"><span><strong>' + esc(row.tk) + '</strong><small>' +
+        esc(canonicalSector(row.sector)) + '</small></span><b>' + esc(row.last == null ? "n/a" : row.last) + '</b><em class="' +
+        (row.pct1d >= 0 ? "positive" : "negative") + '">' + fmtPct(row.pct1d) + "</em></button>";
+    }).join("");
+
+    var attention = highAlerts.slice(0,5).map(function (alert) {
+      return { tk:alert.tk, severity:alert.severity, title:alert.type + " · " + alert.label, meta:canonicalSector(alert.sector) };
+    });
+    rmFilings().filter(function (filing) { return filing.severity === "critical" || filing.severity === "material"; }).slice(0,5).forEach(function (filing) {
+      attention.push({ tk:filing.tk, severity:filing.severity, title:filing.title_th || filing.title, meta:"SET · " + canonicalSector(filing.sector) });
+    });
+    host.querySelector("[data-home-attention]").innerHTML = attention.slice(0,8).map(function (item) {
+      return '<div>' + severityDot(item.severity) + '<strong>' + esc(item.tk) + '</strong><span>' + esc(item.title) + '</span><small>' + esc(item.meta) + "</small></div>";
+    }).join("") || '<p class="is1s-empty">' + esc(L("No urgent items","ไม่มีรายการเร่งด่วน")) + "</p>";
+
+    host.querySelector("[data-home-market-table]").innerHTML =
+      '<table><thead><tr><th>Sector</th><th>1 day</th><th>5 days</th><th>YTD</th><th>Breadth</th></tr></thead><tbody>' +
+      metrics.map(function (metric) {
+        return "<tr><td><strong>" + esc(metric.sector) + "</strong><small>" + metric.count + "</small></td><td class='" +
+          (metric.avg1d >= 0 ? "positive" : "negative") + "'>" + fmtPct(metric.avg1d) + "</td><td>" + fmtPct(metric.avg5d) +
+          "</td><td>" + fmtPct(metric.avgYtd) + "</td><td>" + metric.up + "/" + metric.valid + "</td></tr>";
+      }).join("") + "</tbody></table>";
+
+    host.querySelector("[data-home-filing-list]").innerHTML = rmFilings().slice(0,12).map(function (filing) {
+      var filingUrl = safeHttpUrl(filing.url_th || filing.url) || href("disclosure-pulse.html");
+      return '<a href="' + esc(filingUrl) + '" target="_blank" rel="noopener">' + severityDot(filing.severity) + '<strong>' +
+        esc(filing.tk) + '</strong><span>' + esc(filing.title_th || filing.title) + '<small>SET · ' + esc(canonicalSector(filing.sector)) + "</small></span></a>";
+    }).join("") || '<p class="is1s-empty">' + esc(L("No filings","ไม่มี filing")) + "</p>";
+
+    var disclosureRows = rmFilings().slice().sort(function (a,b) { return String(b.ts || "").localeCompare(String(a.ts || "")); }).slice(0,6);
+    var externalRows = rmNews().slice().sort(function (a,b) { return String(b.ts || "").localeCompare(String(a.ts || "")); }).slice(0,6);
+    host.querySelector("[data-home-news-rm]").textContent = rmLabel(state.rm);
+    host.querySelector("[data-home-disclosure-count]").textContent = disclosureRows.length;
+    host.querySelector("[data-home-external-count]").textContent = externalRows.length;
+    host.querySelector("[data-home-disclosures]").innerHTML = disclosureRows.map(function (filing) {
+      var filingUrl = safeHttpUrl(filing.url_th || filing.url) || href("disclosure-pulse.html");
+      return '<a class="is1-home-feed-row" data-home-feed="disclosure" data-home-feed-ticker="' + esc(filing.tk) + '" href="' + esc(filingUrl) +
+        '" target="_blank" rel="noopener">' + severityDot(filing.severity) + '<div><div class="is1-home-feed-meta"><strong>' +
+        esc(filing.tk) + '</strong><span>SET · ' + esc(canonicalSector(filing.sector)) + '</span><time>' + esc(feedTime(filing.ts)) +
+        '</time></div><p>' + esc(filing.title_th || filing.title) + "</p></div></a>";
+    }).join("") || '<p class="is1s-empty">' + esc(L("No disclosures for this RM","ไม่มีข่าวเปิดเผยข้อมูลของ RM นี้")) + "</p>";
+    host.querySelector("[data-home-external]").innerHTML = externalRows.map(function (item) {
+      var newsUrl = safeHttpUrl(item.url) || href("external-news.html");
+      return '<a class="is1-home-feed-row" data-home-feed="external" data-home-feed-ticker="' + esc(item.tk) + '" href="' + esc(newsUrl) +
+        '" target="_blank" rel="noopener"><span class="is1-home-source-dot"></span><div><div class="is1-home-feed-meta"><strong>' +
+        esc(item.tk) + '</strong><span>' + esc(item.source || L("External","ภายนอก")) + ' · ' + esc(canonicalSector(item.sector)) + '</span><time>' +
+        esc(feedTime(item.ts)) + '</time></div><p>' + esc(item.title) + "</p></div></a>";
+    }).join("") || '<p class="is1s-empty">' + esc(L("No external news for this RM","ไม่มีข่าวภายนอกของ RM นี้")) + "</p>";
+
+    host.querySelectorAll("[data-home-ticker]").forEach(function (button) {
+      button.addEventListener("click",function () {
+        state.selectedTicker = button.dataset.homeTicker;
+        renderContext();
+        toggleContext(true);
+      });
+    });
+  }
+
+  function renderShellData() {
+    if (!state.data) return;
+    renderCounts();
+    renderContext();
+    renderHome();
+  }
+
+  function buildHome() {
+    if (!isHome) return;
+    var main = document.querySelector("main");
+    if (!main || main.querySelector(".is1-home-control")) return;
+    document.body.classList.add("is1s-home");
+    var oldBlocks = [main.querySelector(".today-bar"),main.querySelector("#aiTake"),main.querySelector("#moverChips"),main.querySelector("#actionChips"),main.querySelector(".agent-strip")];
+    oldBlocks.forEach(function (node) { if (node) node.classList.add("is1s-home-legacy"); });
+    var agentStrip = main.querySelector(".agent-strip");
+    if (agentStrip && agentStrip.previousElementSibling) agentStrip.previousElementSibling.classList.add("is1s-home-legacy");
+    var control = document.createElement("section");
+    control.className = "is1-home-control";
+    control.innerHTML =
+      '<div class="is1-home-head"><div><span>' + esc(L("Daily command center","Daily command center")) + '</span><h1>' +
+      esc(L("What matters before the day starts","สิ่งที่ต้องรู้ก่อนเริ่มวัน")) + '</h1><p>' +
+      esc(L("Market pulse, urgent work and RM coverage in one workspace","ภาพรวมตลาด งานเร่งด่วน และ coverage ของ RM ในหน้าจอเดียว")) +
+      '</p></div><b data-home-date>' + esc(L("Loading snapshot","กำลังโหลด snapshot")) + '</b></div>' +
+      '<div class="is1-home-tabs"><button class="active" type="button" data-home-view="overview">' + esc(L("Overview","ภาพรวม")) +
+      '</button><button type="button" data-home-view="market">Market pulse</button><button type="button" data-home-view="filings">Filing flow</button></div>' +
+      '<div class="is1-home-view active" data-home-panel="overview"><div class="is1-home-kpis" data-home-kpis></div>' +
+        '<div class="is1-home-grid"><section class="is1-home-panel"><header><div><strong>Sector pulse</strong><span>Equal-weight return · market breadth</span></div>' +
+        '<button type="button" data-home-jump="market">' + esc(L("Details","รายละเอียด")) + '</button></header><div class="is1-home-sectors" data-home-sectors></div></section>' +
+        '<section class="is1-home-panel"><header><div><strong>' + esc(L("Top movers in coverage","Top movers ใน coverage")) +
+        '</strong><span>Previous close · RM context</span></div><a href="price-movement.html">' + esc(L("Full page","หน้าเต็ม")) +
+        '</a></header><div class="is1-home-movers" data-home-movers></div></section>' +
+        '<section class="is1-home-panel wide"><header><div><strong>Attention queue</strong><span>' +
+        esc(L("High-severity alerts and material filings","High-severity alerts และ material filings")) +
+        '</span></div><a href="unusual-trading.html">' + esc(L("Review all","ตรวจทั้งหมด")) + '</a></header><div class="is1-home-attention" data-home-attention></div></section></div></div>' +
+      '<div class="is1-home-view" data-home-panel="market"><section class="is1-home-panel"><header><div><strong>All-sector leaderboard</strong>' +
+        '<span>1 day · 5 days · YTD · breadth</span></div><a href="price-movement.html">Price movement</a></header><div class="is1-home-table" data-home-market-table></div></section></div>' +
+      '<div class="is1-home-view" data-home-panel="filings"><section class="is1-home-panel"><header><div><strong>Latest SET disclosures</strong>' +
+        '<span>Newest first · current RM</span></div><a href="disclosure-pulse.html">Disclosure pulse</a></header><div class="is1-home-filings" data-home-filing-list></div></section></div>';
+    var news = document.createElement("section");
+    news.className = "is1-home-news";
+    news.innerHTML =
+      '<header class="is1-home-news-head"><div><span>' + esc(L("RM coverage flow","ข่าวใน coverage ของ RM")) + '</span><h2>' +
+      esc(L("Latest disclosures and external news","ข่าวเปิดเผยข้อมูลและข่าวภายนอกล่าสุด")) + '</h2><p>' +
+      esc(L("The feed follows the RM selected in the top bar","รายการจะเปลี่ยนตาม RM ที่เลือกด้านบน")) +
+      '</p></div><b data-home-news-rm>' + esc(rmLabel(state.rm)) + '</b></header><div class="is1-home-news-grid">' +
+      '<section class="is1-home-news-panel"><header><div><span class="is1-home-news-icon disclosure">' + icon("radio-tower") + '</span><div><strong>' +
+      esc(L("SET disclosures","ข่าวเปิดเผยข้อมูล")) + '</strong><small>' + esc(L("Newest coverage filings","ข่าว coverage ล่าสุด")) +
+      '</small></div></div><div><span data-home-disclosure-count>0</span><a href="disclosure-pulse.html">' + esc(L("View all","ดูทั้งหมด")) +
+      '</a></div></header><div class="is1-home-feed" data-home-disclosures></div></section>' +
+      '<section class="is1-home-news-panel"><header><div><span class="is1-home-news-icon external">' + icon("rss") + '</span><div><strong>' +
+      esc(L("External news","ข่าวภายนอก")) + '</strong><small>' + esc(L("Ticker-matched sources","ข่าวที่จับคู่ ticker")) +
+      '</small></div></div><div><span data-home-external-count>0</span><a href="external-news.html">' + esc(L("View all","ดูทั้งหมด")) +
+      '</a></div></header><div class="is1-home-feed" data-home-external></div></section></div></section>';
+    control.appendChild(news);
+    main.insertBefore(control,main.firstChild);
+    control.querySelectorAll("[data-home-view]").forEach(function (button) {
+      button.addEventListener("click",function () {
+        control.querySelectorAll("[data-home-view]").forEach(function (tab) { tab.classList.toggle("active",tab === button); });
+        control.querySelectorAll("[data-home-panel]").forEach(function (panel) { panel.classList.toggle("active",panel.dataset.homePanel === button.dataset.homeView); });
+      });
+    });
+    control.querySelectorAll("[data-home-jump]").forEach(function (button) {
+      button.addEventListener("click",function () {
+        var tab = control.querySelector('[data-home-view="' + button.dataset.homeJump + '"]');
+        if (tab) tab.click();
+      });
+    });
+  }
+
+  buildHome();
+
+  function rerenderLanguage() {
+    modulePanel.innerHTML = moduleMarkup();
+    location.reload();
+  }
+  window.addEventListener("i18n:change",rerenderLanguage,{ once:true });
+  window.IS1Shell = {
+    openContext:function (ticker) {
+      if (ticker) state.selectedTicker = String(ticker).toUpperCase();
+      if (state.data) renderContext();
+      toggleContext(true);
+    },
+    setRm:function (rm) {
+      if (RM_CHOICES.indexOf(rm) < 0) return;
+      state.rm = rm;
+      rmSelect.value = rm;
+      localStorage.setItem("is1_rm",rm);
+      renderShellData();
+      dispatchRmChange();
+    },
+    openWorkspace:openWorkspace,
+    closeWorkspace:closeWorkspace,
+  };
+  setTimeout(dispatchRmChange,0);
 })();

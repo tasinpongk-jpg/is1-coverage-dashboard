@@ -170,16 +170,26 @@ async def fetch_stock_profile(client: httpx.AsyncClient, tk: str, sem: asyncio.S
     }
 
 async def fetch_company_profile(client: httpx.AsyncClient, tk: str, sem: asyncio.Semaphore) -> dict:
-    d = await _set_get(client, f"/api/set/company/{tk}/profile?lang=en", sem, tk)
-    if not isinstance(d, dict): return {}
+    d, d_th = await asyncio.gather(
+        _set_get(client, f"/api/set/company/{tk}/profile?lang=en", sem, tk),
+        _set_get(client, f"/api/set/company/{tk}/profile?lang=th", sem, tk),
+    )
+    if not isinstance(d, dict):
+        d = {}
+    if not isinstance(d_th, dict):
+        d_th = {}
+    if not d and not d_th:
+        return {}
     return {
-        "name":           d.get("name"),
-        "logoUrl":        d.get("logoUrl"),
+        "name":           d.get("name") or d_th.get("name"),
+        "nameTh":         d_th.get("name"),
+        "logoUrl":        d.get("logoUrl") or d_th.get("logoUrl"),
         "businessType":   (d.get("businessType") or "").strip(),
-        "website":        d.get("url"),
-        "address":        d.get("address"),
-        "tel":            d.get("telephone"),
-        "dividendPolicy": d.get("dividendPolicy"),
+        "businessTypeTh": (d_th.get("businessType") or "").strip(),
+        "website":        d.get("url") or d_th.get("url"),
+        "address":        d.get("address") or d_th.get("address"),
+        "tel":            d.get("telephone") or d_th.get("telephone"),
+        "dividendPolicy": d.get("dividendPolicy") or d_th.get("dividendPolicy"),
         "cgScore":        d.get("cgScore"),
         "cacFlag":        d.get("cacFlag"),
         "esgRating":      d.get("setesgRating"),

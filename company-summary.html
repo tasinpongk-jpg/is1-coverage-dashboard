@@ -179,7 +179,7 @@ main{flex:1;max-width:1540px;width:100%;margin:0 auto;padding:22px 24px 48px;pos
 
 .ds{margin-bottom:20px}
 .ds-title{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;font-weight:600;margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid var(--border)}
-.ds-row{display:flex;justify-content:space-between;align-items:baseline;padding:5px 0;border-bottom:1px dashed #1e2233;font-size:12px}
+.ds-row{display:flex;justify-content:space-between;align-items:baseline;padding:5px 0;border-bottom:1px dashed var(--line-soft,var(--border));font-size:12px}
 .ds-row:last-child{border-bottom:none}
 .ds-lbl{color:var(--muted)}
 .ds-val{font-weight:600;font-variant-numeric:tabular-nums;text-align:right;max-width:260px;word-break:break-word}
@@ -204,7 +204,7 @@ main{flex:1;max-width:1540px;width:100%;margin:0 auto;padding:22px 24px 48px;pos
 .fin-table{width:100%;border-collapse:collapse;font-size:11px}
 .fin-table th{text-align:right;padding:5px 6px;color:var(--muted);font-weight:600;font-size:10px;border-bottom:1px solid var(--border);font-variant-numeric:tabular-nums}
 .fin-table th:first-child{text-align:left}
-.fin-table td{text-align:right;padding:5px 6px;border-bottom:1px dashed #1e2233;font-variant-numeric:tabular-nums}
+.fin-table td{text-align:right;padding:5px 6px;border-bottom:1px dashed var(--line-soft,var(--border));font-variant-numeric:tabular-nums}
 .fin-table td:first-child{text-align:left;color:var(--muted);font-size:10px}
 .fin-table tr:last-child td{border-bottom:none}
 .fin-table .pos{color:var(--green)}.fin-table .neg{color:var(--red)}
@@ -223,7 +223,7 @@ main{flex:1;max-width:1540px;width:100%;margin:0 auto;padding:22px 24px 48px;pos
 .esg-c{color:var(--red);background:#ef444420;border:2px solid #ef444440}
 
 /* auditor/mgmt list */
-.person-row{padding:7px 0;border-bottom:1px dashed #1e2233;font-size:12px}
+.person-row{padding:7px 0;border-bottom:1px dashed var(--line-soft,var(--border));font-size:12px}
 .person-row:last-child{border-bottom:none}
 .person-pos{font-size:10px;color:var(--muted);margin-bottom:2px}
 .person-name{font-weight:600}
@@ -273,7 +273,7 @@ main{flex:1;max-width:1540px;width:100%;margin:0 auto;padding:22px 24px 48px;pos
 .disc-title{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1}
 
 /* ── drawer disclosures tab ── */
-.disc-row{padding:8px 0;border-bottom:1px dashed #1e2233;display:flex;gap:8px;align-items:flex-start}
+.disc-row{padding:8px 0;border-bottom:1px dashed var(--line-soft,var(--border));display:flex;gap:8px;align-items:flex-start}
 .disc-row:last-child{border-bottom:none}
 .disc-row-left{display:flex;flex-direction:column;gap:3px;flex-shrink:0;width:46px}
 .disc-row-sev{font-size:9px;font-weight:700;padding:2px 5px;border-radius:3px;text-align:center}
@@ -285,7 +285,7 @@ main{flex:1;max-width:1540px;width:100%;margin:0 auto;padding:22px 24px 48px;pos
 .disc-row-meta{font-size:10px;color:var(--dim);margin-top:2px}
 
 /* drawer notes tab */
-.note-row{padding:9px 0;border-bottom:1px dashed #1e2233}
+.note-row{padding:9px 0;border-bottom:1px dashed var(--line-soft,var(--border))}
 .note-row:last-child{border-bottom:none}
 .note-row-top{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:4px}
 .note-title{font-size:12px;font-weight:700;line-height:1.35}
@@ -298,12 +298,13 @@ main{flex:1;max-width:1540px;width:100%;margin:0 auto;padding:22px 24px 48px;pos
 .note-badge-mda{color:#60a5fa;background:#3b82f618}
 .note-badge-fs{color:#34d399;background:#22c55e18}
 .note-badge-review{color:#f87171;background:#ef444418}
+.note-badge-fyoffset{color:#fbbf24;background:#f59e0b18;border:1px solid #f59e0b44;font-weight:600}
 .note-link{color:var(--accent);text-decoration:none;font-size:10px}
 .note-link:hover{text-decoration:underline}
-.note-takeaway{margin-top:6px;padding:7px 9px;border-radius:6px;background:#171b26;border:1px solid #252b3b;font-size:11px;line-height:1.55;color:var(--text)}
+.note-takeaway{margin-top:6px;padding:7px 9px;border-radius:6px;background:var(--card2);border:1px solid var(--border);font-size:11px;line-height:1.55;color:var(--text)}
 .note-takeaway span{display:block;font-size:9px;font-weight:800;color:var(--dim);text-transform:uppercase;letter-spacing:.5px;margin-bottom:2px}
 .note-chip-row{display:flex;gap:5px;flex-wrap:wrap;margin-top:6px}
-.note-chip{font-size:9px;color:var(--muted);background:#1a1f2d;border:1px solid #272e41;border-radius:4px;padding:2px 6px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.note-chip{font-size:9px;color:var(--muted);background:var(--card2);border:1px solid var(--border);border-radius:4px;padding:2px 6px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .note-tone-watch{color:#fbbf24;background:#f59e0b18;border-color:#f59e0b30}
 .note-tone-positive{color:#34d399;background:#22c55e18;border-color:#22c55e30}
 .note-tone-neutral{color:#a5b4fc;background:#6366f118;border-color:#6366f130}
@@ -313,20 +314,24 @@ main{flex:1;max-width:1540px;width:100%;margin:0 auto;padding:22px 24px 48px;pos
 .note-list-title{font-size:9px;font-weight:800;color:var(--dim);text-transform:uppercase;letter-spacing:.45px;margin-top:7px}
 
 /* agent company report */
-.report-hero{padding:12px 13px;border:1px solid #2b3347;background:#151a26;border-radius:9px;margin-bottom:12px}
+.report-hero{padding:12px 13px;border:1px solid var(--border2);background:var(--card2);border-radius:9px;margin-bottom:12px}
 .report-kicker{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:8px}
 .report-tone{font-size:9px;font-weight:900;letter-spacing:.35px;text-transform:uppercase;padding:2px 7px;border-radius:4px}
 .report-tone-watch{color:#fbbf24;background:#f59e0b18}
 .report-tone-positive{color:#34d399;background:#22c55e18}
 .report-tone-neutral{color:#a5b4fc;background:#6366f118}
 .report-model{font-size:9px;color:var(--dim)}
-.report-thesis{font-size:13px;line-height:1.55;font-weight:700}
+.report-thesis{font-size:13px;line-height:1.55;font-weight:700;color:var(--text)}
 .report-summary{font-size:12px;color:var(--muted);line-height:1.65;margin-top:8px}
 .report-list{display:flex;flex-direction:column;gap:6px}
-.report-point{font-size:11px;line-height:1.55;color:var(--muted);padding:7px 9px;border-radius:6px;background:#121722;border:1px solid #22293a}
-.report-source{font-size:10px;line-height:1.45;color:var(--dim);padding:6px 0;border-bottom:1px dashed #1e2233}
+.report-point{font-size:11px;line-height:1.55;color:var(--text2,var(--muted));padding:7px 9px;border-radius:6px;background:var(--card2);border:1px solid var(--border)}
+.report-source{font-size:10px;line-height:1.45;color:var(--dim);padding:6px 0;border-bottom:1px dashed var(--line-soft,var(--border))}
 .report-source:last-child{border-bottom:none}
 .report-path{display:block;margin-top:2px;font-family:ui-monospace,Consolas,monospace;word-break:break-word}
+/* Tone badges: the dark-theme tints wash out on white, so light mode uses the theme's darker hues. */
+:root[data-theme="light"] .report-tone-watch,:root[data-theme="light"] .note-tone-watch{color:var(--yellow);background:color-mix(in srgb,var(--yellow) 12%,transparent)}
+:root[data-theme="light"] .report-tone-positive,:root[data-theme="light"] .note-tone-positive{color:var(--green);background:color-mix(in srgb,var(--green) 12%,transparent)}
+:root[data-theme="light"] .report-tone-neutral,:root[data-theme="light"] .note-tone-neutral{color:var(--accent);background:var(--accent-soft)}
 
 footer{padding:14px 24px;border-top:1px solid var(--border);font-size:11px;color:var(--dim);display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;position:relative;z-index:1}
 footer a{color:var(--muted);text-decoration:none}
@@ -339,8 +344,9 @@ footer a{color:var(--muted);text-decoration:none}
   #drawer{width:100vw}
 }
 </style>
-  <link rel="stylesheet" href="theme.css">
-  <script src="i18n.js"></script>
+  <script src="theme.js?v=8"></script>
+  <link rel="stylesheet" href="theme.css?v=8">
+  <script src="i18n.js?v=9"></script>
 
 </head>
 <body>
@@ -553,6 +559,10 @@ const fmb = v => v == null ? null : v >= 1000 ? (v/1000).toFixed(1)+'B' : v.toFi
 const pct = v => v == null ? null : (v>0?'+':'')+v.toFixed(2)+'%';
 const dash = v => v ?? '—';
 const esc = s => (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+const safeHttpUrl = value => {
+  try { const u = new URL(String(value || ''), location.href); return /^(https?):$/.test(u.protocol) ? u.href : ''; }
+  catch { return ''; }
+};
 const trimText = (s,n=220) => !s ? '' : (s.length>n?s.slice(0,n-1).trimEnd()+'…':s);
 
 const SCOL = {FOOD:'#3b82f6',AGRI:'#10b981',PROP:'#8b5cf6',CONS:'#f97316',CONMAT:'#ec4899',PFREIT:'#06b6d4','PF&REIT':'#06b6d4'};
@@ -840,10 +850,16 @@ function noteAnalysis(n){
 function noteItem(n, kind, label){
   const cls={call:'note-badge-call',opp:'note-badge-opp',mda:'note-badge-mda',fs:'note-badge-fs'}[kind]||'note-badge-call';
   const status=n.needsReview?`<span class="note-badge note-badge-review">${tt('company.review')}</span>`:(n.verified?`<span class="note-badge note-badge-fs">${tt('company.verified')}</span>`:'');
+  // Fiscal-year offset warning: REITs and known FY-offset companies
+  // (IMPACT Jul-Jun, BH/BDMS/CHG/RJH Apr-Mar) report by their internal
+  // fiscal calendar, not the calendar year. Their "Quarter N/YYYY"
+  // labels don't always match SET's standard Q1/Q2/Q3/Q4 cadence.
+  const fyCaveat = (window.FY_OFFSET_TICKERS || []).includes((n.ticker||'').toUpperCase());
+  const fyBadge = fyCaveat ? `<span class="note-badge note-badge-fyoffset" title="Fiscal year may not align with calendar (REIT or non-calendar fiscal year). Period label is per the company's internal fiscal calendar.">FY</span>` : '';
   const meta=noteMeta([n.period,n.eventDate,n.eventType,n.language]);
   const analyzed=!!(n.analysis&&Object.keys(n.analysis).length);
   return `<div class="note-row">
-    <div class="note-row-top"><span class="note-badge ${cls}">${label}</span>${status}${meta?`<span style="font-size:10px;color:var(--dim)">${meta}</span>`:''}</div>
+    <div class="note-row-top"><span class="note-badge ${cls}">${label}</span>${status}${fyBadge}${meta?`<span style="font-size:10px;color:var(--dim)">${meta}</span>`:''}</div>
     <div class="note-title">${esc(n.title||label)}</div>
     ${analyzed?noteAnalysis(n):(n.snippet?`<div class="note-snippet">${esc(trimText(n.snippet,360))}</div>`:'')}
     ${analyzed&&n.snippet?`<div class="note-snippet note-excerpt">${tt('company.sourceExcerpt')} ${esc(trimText(n.snippet,220))}</div>`:''}
@@ -1016,12 +1032,13 @@ function openDrawer(idx, tab='overview'){
 
   // footer
   const setUrl=`https://www.set.or.th/en/market/product/stock/quote/${encodeURIComponent(t.tk)}/factsheet`;
+  const websiteUrl=t.website?safeHttpUrl(t.website.startsWith('http')?t.website:'http://'+t.website):'';
   document.getElementById('dfooter').innerHTML = `
     <a class="dfoot-link" href="one-page.html?tk=${encodeURIComponent(t.tk)}" target="_blank">${tt('company.onePage')}</a>
     <a class="dfoot-link" href="${setUrl}" target="_blank" rel="noopener">${tt('company.setFactsheet')}</a>
-    ${t.website?`<a class="dfoot-link" href="${esc(t.website.startsWith('http')?t.website:'http://'+t.website)}" target="_blank" rel="noopener">${tt('company.companySite')}</a>`:''}
-    <a class="dfoot-link" href="disclosure-pulse.html?ticker=${encodeURIComponent(t.tk)}" target="_blank">${tt('common.disclosures')} ↗</a>
-    <a class="dfoot-link" href="unusual-trading.html?ticker=${encodeURIComponent(t.tk)}" target="_blank">${tt('company.alerts')}</a>`;
+    ${websiteUrl?`<a class="dfoot-link" href="${esc(websiteUrl)}" target="_blank" rel="noopener">${tt('company.companySite')}</a>`:''}
+    <a class="dfoot-link" href="disclosure-pulse.html?ticker=${encodeURIComponent(t.tk)}" target="_blank" rel="noopener">${tt('common.disclosures')} ↗</a>
+    <a class="dfoot-link" href="unusual-trading.html?ticker=${encodeURIComponent(t.tk)}" target="_blank" rel="noopener">${tt('company.alerts')}</a>`;
 
   document.getElementById('overlay').classList.add('show');
   document.getElementById('drawer').classList.add('show');
@@ -1036,6 +1053,7 @@ function closeDrawer(){
 
 function renderTab(tab){
   const t=CURRENT; if(!t) return;
+  const websiteUrl=t.website?safeHttpUrl(t.website.startsWith('http')?t.website:'http://'+t.website):'';
   const hl=t.highlights||[];
   let html='';
 
@@ -1116,7 +1134,7 @@ function renderTab(tab){
   if(tab==='company'){
     html+=`<div class="ds"><div class="ds-title">${tt('company.business')}</div>
       ${t.businessType?`<div style="font-size:12px;line-height:1.65;color:var(--muted);margin-bottom:10px">${esc(t.businessType)}</div>`:''}
-      <div class="ds-row"><span class="ds-lbl">${tt('company.website')}</span><span class="ds-val">${t.website?`<a href="${esc(t.website.startsWith('http')?t.website:'http://'+t.website)}" target="_blank" rel="noopener">${esc(t.website)}</a>`:'—'}</span></div>
+      <div class="ds-row"><span class="ds-lbl">${tt('company.website')}</span><span class="ds-val">${websiteUrl?`<a href="${esc(websiteUrl)}" target="_blank" rel="noopener">${esc(t.website)}</a>`:'—'}</span></div>
       <div class="ds-row"><span class="ds-lbl">${tt('company.address')}</span><span class="ds-val" style="font-size:11px">${dash(t.address?esc(t.address):null)}</span></div>
       <div class="ds-row"><span class="ds-lbl">${tt('company.telephone')}</span><span class="ds-val">${dash(t.tel?esc(t.tel):null)}</span></div>
       <div class="ds-row"><span class="ds-lbl">${tt('company.established')}</span><span class="ds-val">${dash(t.established)}</span></div>
@@ -1164,7 +1182,8 @@ function renderTab(tab){
       filings.forEach(f=>{
         const sev=(f.severity||'low').toLowerCase();
         const title=esc(f.title||f.headline||'—');
-        const linked=f.url?`<a href="${esc(f.url)}" target="_blank" rel="noopener">${title}</a>`:title;
+        const filingUrl=safeHttpUrl(f.url);
+        const linked=filingUrl?`<a href="${esc(filingUrl)}" target="_blank" rel="noopener">${title}</a>`:title;
         const summ=f._summary||f.summary||'';
         html+=`<div class="disc-row">
           <div class="disc-row-left">
@@ -1186,9 +1205,31 @@ function renderTab(tab){
 }
 
 // ── state & render ───────────────────────────────────────────────────────────
-let ALL=[], SECTOR_STATS={}, DISC_MAP={}, OPP_MAP={}, VAULT_MAP={}, REPORT_MAP={}, sectFilter='ALL', rmFilter='', sortKey='tk', searchQ='';
+let ALL=[], SECTOR_STATS={}, DISC_MAP={}, OPP_MAP={}, VAULT_MAP={}, REPORT_MAP={}, sectFilter='ALL', rmFilter=/^[CKOGPT]$/.test(localStorage.getItem('is1_rm') || '') ? localStorage.getItem('is1_rm') : '', sortKey='tk', searchQ='';
+// Tickers whose fiscal year is not Jan-Dec. Seeded with the well-known
+// FY-offset companies; REITs (ticker ends in REIT/PFREIT) get appended
+// after the tickers.json fetch in fetchData() because the REIT universe
+// isn't known at module-load time.
+window.FY_OFFSET_TICKERS = [
+  // Specific known FY-offset tickers (suffix is too generic to catch these):
+  'IMPACT',   // FY = Jul-Jun
+  'BH',       // FY = Apr-Mar (Bumrungrad)
+  'BDMS',     // FY = Apr-Mar (Bangkok Dusit Medical)
+  'CHG',      // FY = Apr-Mar
+  'RJH',      // FY = Apr-Mar
+];
+// REITs are appended in fetchData() after tickers.json loads — see
+// the line marked "REIT auto-append" below.
 let STARRED = new Set(JSON.parse(localStorage.getItem('is1_starred')||'[]'));
 let DATA_META = { asOf: '', source: '', sourceKey: false, built: '' };
+
+function applyShellRm(rm){
+  if(!/^(ALL|[CKOGPT])$/.test(rm||'')) return;
+  rmFilter=rm==='ALL'?'':rm;
+  document.querySelectorAll('#rmFilter [data-rm]').forEach(x=>x.classList.toggle('active',x.dataset.rm===rm));
+  render();
+}
+window.addEventListener('is1:rm-change',e=>applyShellRm(e.detail?.rm));
 
 function refreshOpenTab(){
   if(!CURRENT) return;
@@ -1342,8 +1383,10 @@ function updateStale(asOf, built){
   if(!asOf){badge.textContent='● '+tt('common.unknown');return;}
   const ms=Date.now()-new Date(built||asOf).getTime();
   const h=ms/3600000;
-  badge.textContent=`● ${asOf}`;
-  badge.className=h>24?'stale warn':'stale';
+  const x=h<1?Math.round(h*60)+'m':Math.round(h)+'h';
+  badge.textContent=tx('common.dotUpdatedAgo',{x});
+  badge.classList.remove('unknown');
+  badge.classList.toggle('warn',h>24);
 }
 
 function updatePageMeta(){
@@ -1370,6 +1413,20 @@ async function loadData(){
   const SEGS={TU:'Seafood',ASIAN:'Seafood',CFRESH:'Seafood',ITC:'Pet Food',AAI:'Pet Food',TFMAMA:'Noodles',SST:'Noodles',PRG:'Snacks/Bakery',SNP:'Snacks/Bakery',SSF:'Snacks/Bakery',PB:'Snacks/Bakery',M:'Restaurant',ZEN:'Restaurant',OKJ:'Restaurant',MADAME:'Restaurant',PQS:'Other Food',TWPC:'Other Food',CHOTI:'Other Food',TC:'Other Food',XBIO:'Other Food',CPN:'Retail',MBK:'Retail',PLAT:'Retail',WHA:'IE',AMATA:'IE',AMATAV:'IE',ROJNA:'IE',NNCL:'IE',PIN:'IE',AWC:'Mixed/Hosp',J:'Residential',BLAND:'Residential',JCK:'Residential',WIN:'Residential',WHART:'Industrial REIT',FTREIT:'Industrial REIT',WHAIR:'Industrial REIT',AMATAR:'Industrial REIT',TIF1:'Industrial PF',TTLPF:'Industrial PF',TNPF:'Industrial PF',CPNREIT:'Retail REIT',LHSC:'Retail REIT',ALLY:'Retail REIT',AIMCG:'Office REIT',IMPACT:'Office REIT',SSTRT:'Hospitality REIT',HPF:'Other PF',MJLF:'Other PF',AXTRART:'Other REIT'};
   const [brief,heat,tkr]=await Promise.all([fetch('data/morning-brief.json').then(r=>r.json()),fetch('data/sector-heatmap.json').then(r=>r.json()).catch(()=>({rows:[]})),fetch('data/tickers.json').then(r=>r.json())]);
   const rmMap={};(tkr.tickers||[]).forEach(t=>{rmMap[t.tk]=t.rm;});
+  // Expose the ticker universe for downstream consumers.
+  window.__FY_TICKERS__ = tkr;
+  // REIT auto-append: any ticker in the universe ending in REIT/PFREIT
+  // is likely on a non-calendar fiscal year. Done here (not at module
+  // load) because tickers.json hasn't been fetched yet at that point.
+  try {
+    for (const t of (tkr.tickers || [])) {
+      const tk = (t.tk || '').toUpperCase();
+      if ((tk.endsWith('REIT') || tk.endsWith('PFREIT')) &&
+          !window.FY_OFFSET_TICKERS.includes(tk)) {
+        window.FY_OFFSET_TICKERS.push(tk);
+      }
+    }
+  } catch (e) { /* safe to ignore — caveat list is best-effort */ }
   const hm={};(heat.rows||[]).forEach(r=>{hm[r.tk]=r.values||{};});
   const tickers=(brief.rows||[]).map(r=>({tk:r.tk,sector:r.sector,segment:SEGS[r.tk]||r.sector,rm:rmMap[r.tk]||'—',last:r.last,pct1d:r.pct1d,pct5d:r.pct5d,pctMtd:r.pctMtd,pctYtd:r.pctYtd,sparkline:r.path,volRatio:r.volRatio,atHi52:r.hi52,atLo52:r.lo52,hi52:r.path?Math.max(...r.path):null,lo52:r.path?Math.min(...r.path):null,pe:hm[r.tk]?.PE,pbv:hm[r.tk]?.PBV,dy:hm[r.tk]?.DY,evebitda:hm[r.tk]?.EVEBITDA,mktcap:null}));
   return{tickers,asOf:brief.asOf,source:'company.fallbackSource',sourceKey:true,built:brief._built_at};
@@ -1454,7 +1511,7 @@ window.addEventListener('i18n:change',()=>{
   }
 });
 </script>
-<script src="nav.js" defer></script>
-<script src="chat-dock.js" defer></script>
+<script src="nav.js?v=9" defer></script>
+<script src="chat-dock.js?v=8" defer></script>
 </body>
 </html>

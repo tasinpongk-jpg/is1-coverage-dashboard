@@ -71,7 +71,11 @@
     var business = clip((report && report.business) || t.businessType || '', 320);
 
     // financials: last 3 full years + a newer partial period if one exists
-    var hl = arr(t.highlights).slice().sort(function (a, b) {
+    // SET labels some year-to-date rows as quarter "6M"/"9M" while reporting months=12
+    var hl = arr(t.highlights).map(function (h) {
+      var m = /^(\d+)M$/.exec(h.quarter || '');
+      return m && +m[1] < 12 ? Object.assign({}, h, { months: +m[1] }) : h;
+    }).sort(function (a, b) {
       return (a.year - b.year) || ((a.months || 12) - (b.months || 12));
     });
     // some SET rows are placeholders for a year not yet reported (all figures null)

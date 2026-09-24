@@ -18,6 +18,9 @@ import re
 import sys
 from datetime import datetime, timezone
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from rm_privacy import anonymise_rm
+
 DEFAULT_SRC = os.path.expanduser(
     "~/Library/CloudStorage/OneDrive2-TheStockExchangeofThailand/Claude-Vault/"
     "Work-SET/Listed Company/1-Raw/06-Market-Data/SEC-Bonds"
@@ -95,7 +98,9 @@ def main():
             "companyId": fm.get("company_id"),
             "company": fm.get("company_name"),
             "sector": fm.get("sector"),
-            "rm": fm.get("rm"),
+            # Vault frontmatter carries the RM nickname; every published
+            # surface uses the code. See scripts/rm_privacy.py.
+            "rm": anonymise_rm(fm.get("rm")),
             "bondsTotal": num(fm.get("bonds_total"), int) or 0,
             "bondsOutstanding": num(fm.get("bonds_outstanding"), int) or 0,
             "outstandingThbBn": num(fm.get("outstanding_thb_bn")) or 0.0,

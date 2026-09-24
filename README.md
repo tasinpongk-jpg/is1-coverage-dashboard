@@ -14,7 +14,7 @@ auto-deploys on push. See `SYSTEM.md` for the full system reference.
 
 ```
   Cloudflare Worker Cron Triggers (cloudflare-cron/)            GitHub Actions cron
-   09:50 BKK ──► daily.yml                  ──┐                  (redundant backup)
+   09:15 BKK ──► daily.yml                  ──┐                  (redundant backup)
    14:00 BKK ──► disclosure-refresh.yml     ──┤                   same times in each YAML
    18:00 BKK ──► disclosure-refresh.yml     ──┤
                                               │ workflow_dispatch (Cloudflare path)
@@ -37,22 +37,23 @@ auto-deploys on push. See `SYSTEM.md` for the full system reference.
 The Cloudflare Worker is the reliable primary scheduler for **all three**
 fire times. GHA's built-in `schedule:` events in both workflows are kept as
 redundant backups — `concurrency:group=daily` (shared between the two
-workflows) prevents simultaneous runs. See `cloudflare-cron/README.md`
-for deploy steps and the per-cron routing table.
+workflows) serialises them, and the `guard` job in `daily.yml` drops the
+backup when the dispatch already succeeded that day. See
+`cloudflare-cron/README.md` for deploy steps and the per-cron routing table.
 
 ## Agent chat (✦ Ask the agents)
 
 Every page carries a floating chat dock (`chat-dock.js`) talking to four
-named agents served by `worker.js` — the first three via Cloudflare Workers AI,
-Lex via Gemini File Search over the regulation PDFs — each grounded in a
-different slice of the daily snapshots:
+named agents served by `worker.js`. All four answer through MiniMax M3; Lex
+first retrieves page-level text from the local regulation corpus. Each agent is
+grounded in a different data slice:
 
 | Agent | Specialty | Grounded in |
 |---|---|---|
 | ⚡ Hermes | News & catalysts, Form 59 trades, silent filers, Oppday | `external-news`, `disclosure-pulse`, `sec-form59`, `oppday-minutes` |
 | 🗺 Atlas | Prices, movers, alerts, threshold math | `morning-brief`, `tickers`, `unusual-trading` |
-| 🔮 Pythia | Macro & sector view | sector aggregates, `ai-insights` |
-| ⚖️ Lex | SET/SEC rules & disclosure obligations | regulation PDFs (page-cited) |
+| Pythia | IS1 sector performance, breadth and relative ranking | verified calculator over `morning-brief` |
+| ⚖️ Lex | SET/SEC rules & disclosure obligations | `lex-regulations.json` built from regulation PDFs (page-cited) |
 
 This dashboard pairs with a private local CLI (`~/VSCoder/AI Agent`) that reads
 these same snapshots and hands back `data/visits.json`. They are separate repos
@@ -63,34 +64,115 @@ Dock features: per-agent threads (survive navigation), RM picker for
 personalized suggestion chips, ticker chips in replies deep-linking to
 `company-summary.html?tk=X`, and select-any-text → "✦ ask". Token-gated by the
 `CHAT_TOKEN` worker secret (`localStorage is1_chat_token` client-side). The
+MiniMax credential stays server-side in the `MINIMAX_API_KEY` worker secret.
+Rebuild the Lex corpus after changing source PDFs with
+`python3 scripts/build_lex_corpus.py /path/to/regulations`.
 "Ask the agents" cards on `index.html` open the dock via `IS1Dock.open(name)`.
+
+## Live eFinanceThai headlines
+
+`efinance-news.html` calls `GET /api/efinance-news` for the fast headline list,
+then `GET /api/efinance-news/summaries` for three Thai bullet points per story.
+The Worker extracts public structured data, allows only canonical eFinanceThai
+article URLs, summarizes article text with MiniMax M3, and stores results by
+article ID in KV. If the model is unavailable, an honest extractive fallback is
+used. Article bodies and images remain on the source site.
 
 ## Files
 
 | Path | Purpose |
 |---|---|
-| `index.html` | Landing page with links to the 4 dashboards |
+| `index.html` | Landing page with links to the coverage dashboards |
 | `price-movement.html` | EOD prices + sparklines, RM/sector tabs |
+| `sector-intelligence.html` | Interactive FOOD/PROP meeting brief: segment earnings, market, valuation, drivers, risks, evidence and company drill-down |
 | `disclosure-pulse.html` | Recent SET filings, severity-tagged |
+| `efinance-news.html` | Live eFinanceThai headlines with Thai summaries, search, filters, and quick navigation |
 | `sec-form59.html` | SEC Form 59 management/related-person buy/sell reports |
 | `multiples-comparison.html` | PE/PBV/DY/EV-EBITDA/NPM heatmap |
 | `unusual-trading.html` | Volume / price / 52W alerts |
 | `data/tickers.json` | Master ticker → RM + sector map (rebuild via Excel) |
 | `data/*.json` | Daily snapshot files, including SEC Form 59 rows in `sec-form59.json` |
+| `data/regulations-manifest.json` | Expected SET rulebook PDF source list |
+| `data/lex-regulations.json` | Page-level Lex corpus deployed with the Worker |
 | `data/build-status.json` | Last build timestamp + per-route status |
 | `data/company-reports.json` | Generated per-company analyst reports for the ticker drawer Report tab |
 | `scripts/build_daily.py` | Calls SETSMART proxy in-process for all 232 tickers |
+| `scripts/build_sector_intelligence_audited.py` | Builds schema-v4 `data/sector-intelligence.json` from audited FY2024–25 panels, official SET EOD data, and claim-level FY2025 MD&A excerpts (no browser-side API key) |
 | `scripts/build_company_reports.py` | Local report agent; saves Markdown to Obsidian and dashboard JSON |
+| `scripts/build_lex_corpus.py` | Extracts the local regulation PDFs into the Lex corpus |
 | `scripts/setsmart_proxy.py` | Vendored FastAPI proxy used by `build_daily.py` |
 | `surveillance/` | Polling, classification, R2 sync, email routing |
-| `.github/workflows/daily.yml` | Consolidated CI: surveillance job + build job (09:50 BKK Mon–Fri) |
+| `.github/workflows/daily.yml` | Consolidated CI: surveillance job + build job (09:15 BKK Mon–Fri) |
 | `.github/workflows/disclosure-refresh.yml` | Intra-day disclosure-pulse refresh only (14:00 + 18:00 BKK Mon–Fri, no emails) |
 | `cloudflare-cron/` | Worker that triggers `daily.yml` via workflow_dispatch (replaces flaky GHA cron) |
+
+### Sector Intelligence data refresh
+
+The FOOD/PROP route is built from audited local project snapshots. It never calls
+SETSMART from the browser and never ships an API key. Pass both the pinned snapshot
+directory and its effective completed EOD explicitly:
+
+Refresh the official bilingual SET company profiles before rebuilding the sector
+payload. This patches only Thai company names and business descriptions; it does
+not touch price, valuation, or financial-history fields:
+
+```powershell
+py -3.11 scripts\refresh_sector_business_profiles_th.py
+```
+
+```powershell
+py -3 scripts\build_sector_intelligence_audited.py `
+  --theme-root "C:\Users\tasin\OneDrive - The Stock Exchange of Thailand\Claude-Vault\Work-SET\Listed Company\2-Analysis\AI-Generated\05-Themes\Sector-Review-6M26" `
+  --legacy-script scripts\build_sector_intelligence.py `
+  --snapshot-dir "C:\Users\tasin\OneDrive - The Stock Exchange of Thailand\Claude-Vault\Work-SET\Listed Company\2-Analysis\AI-Generated\05-Themes\Sector-Review-6M26\data\official-2026-08-08-eod-2026-08-07" `
+  --effective-eod 2026-08-07 `
+  --out data\sector-intelligence.json
+```
+
+The generated file carries its market-data cutoff, independent RFO/NPAT/margin
+coverage, definitions, source-file paths and SHA-256 hashes, claim-level source IDs,
+and a warning that price/valuation explanations remain inference unless a dated
+management or market source supports causation.
+
+Schema v4 records a per-company MD&A source state and evidence coverage. The current
+118-company perimeter has 117 usable FY2025 MD&A files and one missing annual MD&A
+(AKS). AP and ICHI were recovered from official issuer/SET image-only PDFs and
+OCR-extracted with source hashes. Each verified RFO/NPAT
+driver carries an exact source excerpt plus a SHA-256 hash for reproducible review.
+
+`scripts/build_sector_intelligence.py` is imported only for governed bilingual
+narrative scaffolding. Do not execute it directly for audited refreshes.
+
+Pre-deployment checks:
+
+```powershell
+node --test tests\theme.test.mjs tests\worker.test.mjs tests\sector-intelligence.test.mjs
+node tests\i18n-check.mjs
+py -3 "<theme-root>\verify_dashboard_against_audited_panels.py" `
+  --json data\sector-intelligence.json `
+  --company-csv "<snapshot-dir>\food_prop_company_fy2024_2025_audited_2026-08-07.csv" `
+  --segment-csv "<snapshot-dir>\food_prop_segment_fy2024_2025_audited_2026-08-07.csv" `
+  --sector-csv "<snapshot-dir>\food_prop_sector_fy2024_2025_audited_2026-08-07.csv" `
+  --qa-json "<snapshot-dir>\QA_SUMMARY_FY2024_2025_AUDITED_2026-08-08.json" `
+  --work-set-root "C:\Users\tasin\OneDrive - The Stock Exchange of Thailand\Claude-Vault\Work-SET" `
+  --market-reconciliation "<snapshot-dir>\food_prop_set_public_surface_reconciliation_2026-08-07.csv"
+py -3.11 "<theme-root>\qa_sector_dashboard_browser.py" `
+  --base-url http://127.0.0.1:8765 `
+  --report "<snapshot-dir>\QA_DASHBOARD_BROWSER_2026-08-08.json" `
+  --screenshot-dir "<snapshot-dir>\qa-screenshots"
+```
+
+Serve locally (for example `py -3 -m http.server 8765`) before browser QA; the
+browser suite checks desktop/mobile layout, both languages, navigation, evidence
+deep links, claim/source lineage and important null/coverage cases.
 
 > **SEC Form 59 scrape needs a real browser.** The SEC iDisc site
 > (`market.sec.or.th`) is behind an F5 bot-defense WAF — plain `httpx` gets a
 > JS challenge page, never the data table. `surveillance/external_sources.py`
 > therefore renders the Form 59 page with headless Chromium via Playwright.
+> It queries one transaction date at a time over a rolling window so the SEC
+> result cap cannot hide later tickers in the coverage universe. A stale or
+> empty snapshot triggers a 90-day backfill; subsequent runs refresh 7 days.
 > The daily workflow installs it with `python -m playwright install chromium`;
 > if the browser is missing the scrape logs a warning and skips (best-effort),
 > never breaking the rest of the pipeline.
@@ -120,13 +202,23 @@ personalized suggestion chips, ticker chips in replies deep-linking to
 
 | Trigger | Cron (UTC) | Bangkok local | Source | Reliability |
 |---|---|---|---|---|
-| **Primary** | `50 2 * * 1-5` | 09:50 | `cloudflare-cron/` Worker | Cloudflare cron — fires within seconds of the scheduled minute |
-| Backup | `50 2 * * 1-5` | 09:50 | `.github/workflows/daily.yml` schedule | GHA cron — best-effort, may drop or delay |
+| **Primary** | `15 2 * * 1-5` | 09:15 | `cloudflare-cron/` Worker | Cloudflare cron — fires within seconds of the scheduled minute |
+| Backup | `15 2 * * 1-5` | 09:15 | `.github/workflows/daily.yml` schedule | GHA cron — best-effort, may drop or delay |
 
-Both fire at the same minute. `concurrency:group=daily` in `daily.yml` queues
-the second arrival so only one pipeline runs end-to-end. On the rare day
-both trigger and the primary completes first, the backup's commit step is a
-no-op (data unchanged), so no duplicate snapshot commits.
+Both are scheduled for the same minute, but in practice only the Worker is
+punctual — GHA's `schedule:` has been landing 100–130 minutes late every day,
+which is why the Worker exists.
+
+`concurrency:group=daily` serialises the two but does **not** drop either:
+`cancel-in-progress: false` queues the late arrival and then runs it in full.
+Nor is its commit step a no-op — `asOf` and `_built_at` are restamped on every
+build, so the data always differs and a second `daily snapshot` commit lands.
+Both ran end-to-end every weekday until the `guard` job was added.
+
+The `guard` job at the top of `daily.yml` is what actually deduplicates: on a
+`schedule` run it asks the API whether a `workflow_dispatch` run already
+succeeded the same UTC day and skips if so. It fails open — if the query fails,
+the backup runs, because a missed day costs more than a duplicate one.
 
 Manual re-runs (no inputs): `gh workflow run daily.yml`.
 
@@ -190,7 +282,7 @@ python scripts\build_source_coverage.py --period 2026Q1
 # deterministic draft mode, no API key needed
 python scripts\build_company_reports.py --all --llm never
 
-# richer agent mode, when MINIMAX_API_KEY (or ANTHROPIC_API_KEY fallback) is available
+# richer agent mode, when MINIMAX_API_KEY is available
 python scripts\build_company_reports.py --all --llm auto
 ```
 

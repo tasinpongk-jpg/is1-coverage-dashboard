@@ -10,12 +10,12 @@ name: Daily Surveillance + Build
 #                         routes, commit data/*.json. Cloudflare auto-deploys.
 #
 # Schedule (Mon-Fri):
-#   02:50 UTC = 09:50 Bangkok — single morning run, full pipeline.
+#   02:15 UTC = 09:15 Bangkok — single morning run, full pipeline.
 #
 # Critical alerts are idempotent (only fire on UNSENT items) so re-running
 # manually via workflow_dispatch is safe.
 #
-# Secrets required: SETSMART_API_KEY, ANTHROPIC_API_KEY, SURVEILLANCE_SQL,
+# Secrets required: SETSMART_API_KEY, MINIMAX_API_KEY, SURVEILLANCE_SQL,
 #   EMAIL_USERNAME, EMAIL_APP_PASSWORD, EMAIL_FROM, EMAIL_TO,
 #   R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_ENDPOINT, R2_BUCKET.
 
@@ -26,12 +26,7 @@ on:
 
 permissions:
   contents: write
-
-# Run JavaScript actions on Node.js 24 ahead of GitHub's June 2, 2026 default
-# switch. Silences the Node 20 deprecation warning without bumping action
-# major versions. Remove once Node 24 becomes the runner default.
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
+  actions: read      # JOB 0 lists earlier runs to drop the redundant backup
 
 concurrency:
   group: daily
@@ -39,9 +34,65 @@ concurrency:
 
 jobs:
   # ------------------------------------------------------------------
+  # JOB 0 — Drop the redundant schedule run
+  #
+  # The Cloudflare dispatcher (cloudflare-cron/) fires this workflow punctually
+  # via workflow_dispatch; the `schedule:` trigger above is the backup for when
+  # that Worker is down or GitHub drops the cron. The `concurrency` group does
+  # NOT dedupe the two — cancel-in-progress: false queues the backup and then
+  # runs the whole ~20-minute pipeline a second time, which is why main was
+  # getting two "daily snapshot" commits every weekday.
+  #
+  # Queuing works in our favour here: by the time the backup leaves the queue
+  # the dispatch run has already concluded, so this check can see it.
+  # ------------------------------------------------------------------
+  guard:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    outputs:
+      run: ${{ steps.decide.outputs.run }}
+    steps:
+      - name: Decide whether this run is redundant
+        id: decide
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          EVENT: ${{ github.event_name }}
+        run: |
+          if [ "$EVENT" != "schedule" ]; then
+            echo "Triggered by $EVENT — running."
+            echo "run=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          today=$(date -u +%Y-%m-%d)
+          hits=$(curl -sS \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/workflows/daily.yml/runs?event=workflow_dispatch&status=success&per_page=30" \
+            | jq --arg d "$today" \
+                 '[.workflow_runs[] | select(.run_started_at | startswith($d))] | length') || hits=""
+
+          # Fail open: a missed day costs more than a duplicate one.
+          if ! [ "$hits" -ge 0 ] 2>/dev/null; then
+            echo "::warning::could not query earlier runs — running the backup to be safe"
+            echo "run=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if [ "$hits" -gt 0 ]; then
+            echo "Dispatcher already completed $hits successful run(s) today — skipping this backup."
+            echo "run=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "No successful dispatch run today — the backup earns its keep."
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          fi
+
+  # ------------------------------------------------------------------
   # JOB 1 — Surveillance (poll SET, classify, email alerts, upload DB)
   # ------------------------------------------------------------------
   surveillance:
+    needs: guard
+    if: needs.guard.outputs.run == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 25
     env:
@@ -55,10 +106,10 @@ jobs:
       R2_BUCKET: ${{ secrets.R2_BUCKET }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Setup Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: '3.11'
           cache: pip
@@ -92,17 +143,16 @@ jobs:
         working-directory: surveillance
         run: python poll.py --lookback-days 2
 
-      - name: Classify (rules first, Groq free-tier fall-through on misses)
+      - name: Classify (rules first, MiniMax fall-through on misses)
         working-directory: surveillance
         env:
-          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          MINIMAX_API_KEY: ${{ secrets.MINIMAX_API_KEY }}
         run: python classify_batch.py
 
       - name: Translate legacy EN-only headlines to Thai
         working-directory: surveillance
         env:
           MINIMAX_API_KEY: ${{ secrets.MINIMAX_API_KEY }}
-          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
         run: python translate_titles.py
         continue-on-error: true
 
@@ -141,12 +191,24 @@ jobs:
 
       - name: Upload surveillance.duckdb as artifact (handoff to build job + 30d audit trail)
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: surveillance-duckdb
           path: ${{ env.SURVEILLANCE_DB_PATH }}
           if-no-files-found: error
           retention-days: 30
+
+      # Per-source ingest status is written here but committed by the build
+      # job, which is the only job that pushes data/*.json. Without this
+      # handoff the file would die with this runner.
+      - name: Upload source-health.json (handoff to build job)
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: source-health
+          path: data/source-health.json
+          if-no-files-found: ignore
+          retention-days: 14
 
       # Run last so R2 upload + artifact upload above always complete first.
       # Without continue-on-error, this fails the job (and the workflow run UI)
@@ -181,23 +243,25 @@ jobs:
   # JOB 2 — Build (download DB artifact, generate 4 JSONs, commit)
   # ------------------------------------------------------------------
   build:
-    needs: surveillance
+    needs: [guard, surveillance]
     # Run even if surveillance failed (e.g. SMTP outage) — the artifact step
     # in surveillance is `if: always()` so the DuckDB is still available, and
     # JSON dashboards must keep refreshing regardless of email-channel health.
-    if: always() && needs.surveillance.result != 'cancelled'
+    # The guard clause is load-bearing: always() would otherwise let this job
+    # run even when JOB 0 skipped the pipeline as redundant.
+    if: always() && needs.guard.outputs.run == 'true' && needs.surveillance.result != 'cancelled'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
       SURVEILLANCE_DB_PATH: /tmp/surveillance.duckdb
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Setup Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: '3.11'
           cache: pip
@@ -207,10 +271,17 @@ jobs:
         run: pip install -r requirements.txt
 
       - name: Download surveillance.duckdb artifact (from job 1)
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           name: surveillance-duckdb
           path: /tmp
+
+      - name: Download source-health.json (from surveillance job)
+        continue-on-error: true
+        uses: actions/download-artifact@v7
+        with:
+          name: source-health
+          path: data
 
       # Fail fast on SETSMART auth/quota issues BEFORE the 15-min 232-ticker scan.
       # Uses the proxy's existing /probe/auth handler, which calls
@@ -244,6 +315,19 @@ jobs:
           PYTHONIOENCODING: utf-8
         run: python scripts/build_daily.py
 
+      # Rebuild vault-ticker-notes.json (MDA + FS-NOTES + calls + filingSummary
+      # + bizProfile excerpts from the OneDrive vault). The script is a no-op
+      # on runners where the vault path doesn't exist (exits 0 with a warning),
+      # so this is safe in CI even though the vault lives on Champ's laptop.
+      # On local laptop triggers (workflow_dispatch on a clone that DOES have
+      # the vault) this keeps the per-ticker drawer in company-summary.html
+      # fresh. ~3 minutes for 232 tickers on a 2020-era laptop.
+      - name: Rebuild vault ticker notes
+        env:
+          PYTHONIOENCODING: utf-8
+        run: python scripts/build_vault_ticker_notes.py
+        continue-on-error: true
+
       # Pure DB -> JSON, ~2 sec. Reads same DuckDB artifact already on disk.
       - name: Build external dashboard payloads
         env:
@@ -260,12 +344,12 @@ jobs:
         run: python scripts/build_ticker_summary.py
         continue-on-error: true
 
-      # AI morning commentary over the snapshots just built (Groq free tier,
-      # ~5 sec). Script exits 0 on any failure so commentary never blocks the
+      # AI morning commentary over the snapshots just built (MiniMax M3).
+      # Script exits 0 on any failure so commentary never blocks the
       # data deploy; the page falls back to the previous day's file.
       - name: Build AI insights commentary
         env:
-          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          MINIMAX_API_KEY: ${{ secrets.MINIMAX_API_KEY }}
           PYTHONIOENCODING: utf-8
         run: python scripts/build_ai_insights.py
         continue-on-error: true
@@ -278,7 +362,7 @@ jobs:
           EMAIL_APP_PASSWORD: ${{ secrets.EMAIL_APP_PASSWORD }}
           EMAIL_FROM: ${{ secrets.EMAIL_FROM }}
           EMAIL_TO: ${{ secrets.EMAIL_TO }}
-          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          MINIMAX_API_KEY: ${{ secrets.MINIMAX_API_KEY }}
           PYTHONIOENCODING: utf-8
         run: python scripts/build_morning_push.py
         continue-on-error: true
@@ -297,10 +381,10 @@ jobs:
             exit 0
           fi
           git commit -m "daily snapshot $(date -u +%Y-%m-%d)"
-          # Race-safe push: rebase on top of any commits that landed during the
-          # ~20-min build. The bot only touches data/*.json so conflicts are
-          # nearly impossible. Retry up to 3 times with linear backoff to absorb
-          # transient network errors and concurrent bot pushes.
+          # Another automation may update disclosure-pulse.json during this
+          # ~20-minute build. Auto-resolve only generated data/*.json conflicts.
+          # During a rebase, --theirs is this run's generated-data commit.
+          # Any conflict outside generated JSON still fails safely.
           for attempt in 1 2 3; do
             if git push origin main; then
               echo "Push succeeded on attempt $attempt."
@@ -308,7 +392,38 @@ jobs:
             fi
             echo "Push attempt $attempt rejected — rebasing and retrying..."
             git rebase --abort 2>/dev/null || true
-            git pull --rebase origin main
+            if ! git pull --rebase origin main; then
+              mapfile -t conflicts < <(git diff --name-only --diff-filter=U)
+              if (( ${#conflicts[@]} == 0 )); then
+                echo "Rebase failed without a content conflict; retrying."
+                git rebase --abort 2>/dev/null || true
+                sleep $((attempt * 5))
+                continue
+              fi
+
+              unsafe_conflict=false
+              for path in "${conflicts[@]}"; do
+                case "$path" in
+                  data/*.json) ;;
+                  *)
+                    echo "Refusing to auto-resolve non-generated conflict: $path"
+                    unsafe_conflict=true
+                    ;;
+                esac
+              done
+              if [[ "$unsafe_conflict" == "true" ]]; then
+                git rebase --abort 2>/dev/null || true
+                exit 1
+              fi
+
+              git checkout --theirs -- "${conflicts[@]}"
+              git add -- "${conflicts[@]}"
+              if ! GIT_EDITOR=true git rebase --continue; then
+                git rebase --abort 2>/dev/null || true
+                sleep $((attempt * 5))
+                continue
+              fi
+            fi
             sleep $((attempt * 5))
           done
           echo "Push failed after 3 attempts."
@@ -316,7 +431,7 @@ jobs:
 
       - name: Upload build status as artifact
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: build-status-${{ github.run_id }}
           path: data/build-status.json
@@ -344,18 +459,18 @@ jobs:
           fi
         continue-on-error: true
 
-      # Keep the Gemini key (for the Lex regulations agent) in sync with the
-      # GitHub secret. Idempotent; skipped when the secret isn't configured.
-      - name: Sync Gemini key to Worker secret
+      # Keep the MiniMax key used by all four chat agents in sync with the
+      # GitHub secret. The key is never shipped to the browser.
+      - name: Sync MiniMax key to Worker secret
         if: github.ref == 'refs/heads/main'
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          GEMINI_KEY_VALUE: ${{ secrets.GEMINI_API_KEY }}
+          MINIMAX_KEY_VALUE: ${{ secrets.MINIMAX_API_KEY }}
         run: |
-          if [ -z "$GEMINI_KEY_VALUE" ]; then
-            echo "GEMINI_API_KEY secret not set — Lex returns a config hint."
+          if [ -z "$MINIMAX_KEY_VALUE" ]; then
+            echo "MINIMAX_API_KEY secret not set; all four chat agents return a config error."
           else
-            printf '%s' "$GEMINI_KEY_VALUE" | npx wrangler secret put GEMINI_API_KEY
+            printf '%s' "$MINIMAX_KEY_VALUE" | npx wrangler secret put MINIMAX_API_KEY
           fi
         continue-on-error: true
 

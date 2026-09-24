@@ -12,22 +12,22 @@ Every dashboard page carries a chat dock talking to four named agents
 
 | Agent | Job | Model |
 |---|---|---|
-| 🗺 **Atlas** | prices, % moves, movers, threshold checks | Workers AI `llama-3.3-70b-instruct-fp8-fast` |
-| ⚡ **Hermes** | external news + SET disclosures, silent filers, filing summaries | Workers AI Llama (+ Gemini for PDFs) |
-| 🔮 **Pythia** | sector aggregates + daily AI commentary | Workers AI Llama |
-| ⚖️ **Lex** | SET/SEC rules, cited to the source PDF | Gemini File Search |
+| 🗺 **Atlas** | prices, % moves, movers, threshold checks | MiniMax M3 |
+| ⚡ **Hermes** | external news + SET disclosure metadata, silent filers, Oppday | MiniMax M3 |
+| 🔮 **Pythia** | verified sector performance, breadth and relative screens | deterministic calculator |
+| ⚖️ **Lex** | SET/SEC rules, cited to the source PDF | MiniMax M3 + local page retrieval |
 
 Each is grounded in the same daily JSON snapshots the dashboard shows, so the
 chat never diverges from the pages.
 
 ## 2. The core thesis
 
-**You cannot fine-tune Workers AI models. So "training" = prompt + context +
-evaluation engineering.** The single highest-leverage principle we proved over
-and over:
+**No application-specific fine-tune is configured. So "training" = prompt +
+context + evaluation engineering.** The single highest-leverage principle we
+proved over and over:
 
-> **Move work *out* of the weak model and into deterministic code.** A 70B model
-> is unreliable at filtering, counting, sorting, and date math. Every time we did
+> **Move structured work out of the model and into deterministic code.** A model
+> is not the authority for filtering, counting, sorting, and date math. Every time we did
 > those *for* it — handing it a pre-filtered, pre-sorted, scoped context — answer
 > quality jumped. Every time we relied on a prompt rule alone, it eventually
 > failed.
@@ -46,7 +46,7 @@ into a structured intent and filters the context server-side:
 - **Price screens** (`parsePriceQuery`) — `threshold` ("beyond ±2%"), `range`
   ("between −2% and −1.5%"), `top-N` ("top 5 by YTD", "worst 3") over a chosen
   metric (1d/5d/YTD/volume). Rows are hard-filtered & sorted; the model lists
-  only what survives. **This fixed the flagship failure** where Llama listed
+  only what survives. **This fixed the flagship failure** where the model listed
   sub-threshold names as "movers."
 - **Sector scope** (`parseSector`) — a named sector scopes prices/news/filings.
 - **Recency** (`parseRecency`) — "today / this week / last N days" date-filters
@@ -58,18 +58,23 @@ into a structured intent and filters the context server-side:
 - **Rank-then-cap** (`relevanceRank`) — topical keywords re-rank news/filings so a
   relevant item *beyond* the recency cap still surfaces, instead of the model
   hunting through recency-ordered noise.
+- **Lex page retrieval** (`retrieveLexChunks`) — `build_lex_corpus.py` extracts
+  all rulebook PDFs page by page, records each source hash, and builds one
+  deployable JSON asset. The worker expands Thai/English rule aliases, scores
+  title and page text deterministically, caps pages per document, then sends
+  only the selected pages to MiniMax M3. A source list is appended in code.
 
-### 3.3 Route weak tasks away from the weak model
-- **Lex → Gemini File Search** over the regulation PDFs (page-cited answers).
-- **Hermes filing summaries → Gemini.** A "summarize CPN's filing" request reads
-  the *actual filed PDF*: the worker resolves the SET newsdetails page → the
-  `weblink.set.or.th` PDF → hands the bytes to Gemini (which reads PDFs natively,
-  no JS parser) → returns the summary **directly, bypassing Llama** (which mangled
-  injected summaries). Cached by news-id + language.
+### 3.3 Keep one provider contract and explicit capability boundaries
+- **All generative REX replies use MiniMax M3.** Hermes receives only deployed
+  news, filing metadata, Form 59 rows and Oppday summaries. It must not claim to
+  have read a filed PDF when no extracted document text is in its context.
+- **Pythia is calculator-backed.** Supported sector screens are computed in the
+  Worker. Questions requiring SET Index, fund flow, macro forecasts, target
+  prices or future data return the exact screens that current data supports.
 
 ### 3.4 Persona engineering + few-shot
 Each persona has explicit rules **plus one worked example** — few-shot locks in
-format far better than rules for a 70B model. Shared rules enforce: tickers-only
+format far better than rules alone. Shared rules enforce: tickers-only
 (never hallucinate company names; the data has no name field), strict threshold
 math ("−1.93 is NOT beyond −2"), RM-scoping, reply in the user's language.
 
@@ -90,15 +95,16 @@ snapshot if the fetch is blocked.
   worker and runs property checks per agent (no sub-threshold rows; both news
   sections present; figures + breadth; cited rule; off-topic refusal). Exit code =
   failures.
-- **LLM-judge** (`--judge`) — an independent model (Groq, a *different* family than
-  the Llama under test) grades each reply 0–100 on directness/specificity/
-  consistency/role. `--gate N` blocks a deploy if the mean drops below N.
+- **LLM-judge** (`--judge`) — MiniMax M3 grades each reply 0–100 on directness/
+  specificity/consistency/role. It is the same model family as the agents under
+  test, so read scores as a run-over-run regression signal, not an independent
+  quality measure. `--gate N` blocks a deploy if the mean drops below N.
 
 ### 3.8 Feedback loop
 - Dock **👍/👎** on every reply → `POST /api/feedback` → durable **KV**.
 - `scripts/mine_feedback.mjs` pulls the votes (`GET /api/feedback`), reports the
   positive-rate + per-agent breakdown, lists the 👎s, and with `--themes` clusters
-  them into recurring failure modes via Groq. Downvotes become the next eval cases
+  them into recurring failure modes via MiniMax M3. Downvotes become the next eval cases
   / few-shots — improvement driven by real questions, not guesses.
 
 ## 4. Failure-and-fix log (what the rigor looked like)
@@ -107,13 +113,15 @@ Real bugs found by **live-testing the deployed model**, not assuming:
 
 | Symptom | Root cause | Fix |
 |---|---|---|
-| "Movers beyond ±2%" listed +0.9%, +1.7% names | Llama won't self-truncate at a numeric cutoff | Parse threshold; hard-filter rows server-side |
+| "Movers beyond ±2%" listed +0.9%, +1.7% names | A chat model should not own numeric filtering | Parse threshold; hard-filter rows server-side |
 | Range query output was a garbled table | model free-handing a 2-sided numeric filter | `range` mode in `parsePriceQuery` |
 | Atlas said company names, not tickers | data has **no** name field → model guessed from pretraining | "tickers-only, never names" rule + grounding check |
 | "News on CPN" showed J/TIF1/BLAND filings | model padded an empty section | ticker-focus filters context; empty ⇒ honest "none" |
-| Filing summaries were a generic half-sentence | Llama won't faithfully reproduce injected text | bypass Llama; serve Gemini's summary directly |
-| Gemini summaries truncated to "…filed" | `gemini-2.5-flash` is a **thinking model**; thinking tokens ate the `maxOutputTokens` budget | `thinkingConfig.thinkingBudget=0` + bigger cap |
-| Thai user got an English cached summary | cache key ignored language | key includes `lang` |
+| Pythia answered broad market questions from coverage-only data | role implied macro data the snapshot does not contain | narrow role to IS1 sector screens and redirect unsupported questions |
+| Sector averages treated missing values as zero | null values passed a loose numeric check | include only finite, non-null observations per metric |
+| Lex depended on a second model provider | generation and retrieval had different deployment contracts | build a page-level corpus locally; retrieve in the Worker; answer through MiniMax M3 |
+| Lex returned an empty Thai free-float answer | MiniMax reasoning consumed the default 2,200-token output budget | use a Lex-specific 5,000-token budget and constrain the final answer to 350 words |
+| A normal Hermes sample intermittently returned an empty answer | MiniMax can spend the whole output budget on reasoning for any agent | retry empty-only responses once at 5,000 tokens; Lex retries at 8,000 |
 | A passing test silently broke | persona text contained the literal string a test split on (`SET DISCLOSURES`, `FILED-DOCUMENT…`) | anchor tests on data-only markers |
 | Feedback verification looked broken for ~40 min | the deploy CLI's KV reads were an unreliable narrator (sandbox/consistency); data was always landing | confirmed in dashboard + via the worker's own export endpoint |
 
@@ -124,8 +132,8 @@ Real bugs found by **live-testing the deployed model**, not assuming:
 
 1. **Determinism beats prompting** for filtering/counting/sorting/dates — parse
    the intent, compute the answer, let the model narrate.
-2. **Route by capability** — keep the cheap model for grounded lookups; send PDFs,
-   long context, and cited reasoning to a stronger/specialized model.
+2. **Route by capability** — use deterministic retrieval for static rulebooks
+   and state plainly when deployed context does not contain document text.
 3. **Make "none" first-class** — scoping + honest empty sections kill the model's
    urge to pad/fabricate.
 4. **Verify the output, not just the input** — a grounding check catches the last
@@ -138,17 +146,21 @@ Real bugs found by **live-testing the deployed model**, not assuming:
 
 ## 6. Results
 
-- 4 agents live-validated end-to-end; eval harness **16/16** property checks pass;
-  LLM-judge sample **99/100** on Lex.
+- All 13 suggestion-chip questions across the 4 agents are covered by the live
+  eval harness; the latest production MiniMax M3 run passed **50/50** property checks.
+- Lex indexes 79 source PDFs into 560 page records and 561 retrieval chunks;
+  all 3 Lex suggestion questions return page citations through MiniMax M3.
 - Atlas threshold/range/top-N now deterministically correct; intraday answered.
 - Hermes merges both news sources, scopes per-ticker, summarizes real PDFs
   (verified rich numeric output in EN + TH).
-- 25 unit tests (deterministic context logic), green throughout.
+- 42 unit tests cover theme assets, chat routing, empty-answer recovery, source retrieval, citation
+  validation and deterministic context logic.
 - Measurement (eval + judge + gate) and feedback (votes + miner) loops in place.
 
 ## 7. Operating it
 
 ```bash
+python3 scripts/build_lex_corpus.py /path/to/regulations
 node scripts/eval_agents.mjs --judge --gate 80   # measure before/after a change
 node scripts/mine_feedback.mjs --themes          # see what real users downvoted
 ```

@@ -21,6 +21,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import re
 import sys
 import traceback
@@ -46,9 +47,22 @@ HEADERS = {
     "Accept-Language": "th,en-US;q=0.7,en;q=0.3",
 }
 TIMEOUT = httpx.Timeout(20.0, connect=10.0)
+# Some Thai wire feeds are slow rather than down; one retry on a longer budget
+# recovers them without holding the whole run hostage.
+RSS_RETRY_TIMEOUT = httpx.Timeout(45.0, connect=15.0)
 
 
 BKK = timezone(timedelta(hours=7))
+
+# Hard failures (a render that never returned HTML, a feed that never
+# answered) recorded per source. A source that returns 0 rows because the day
+# was quiet and one that returns 0 rows because the site is unreachable look
+# identical in the summary line — this is what tells them apart.
+SOURCE_FAILURES: dict[str, list[str]] = {}
+
+
+def _note_failure(source: str, reason: str) -> None:
+    SOURCE_FAILURES.setdefault(source, []).append(reason)
 
 
 # ---------------------------------------------------------------------------
@@ -177,8 +191,19 @@ def fetch_external_news(client: httpx.Client) -> tuple[int, int]:
             r.raise_for_status()
             items = _parse_rss(r.text)
         except Exception as e:  # noqa: BLE001
-            print(f"  [rss/{feed['source']}] FAIL {type(e).__name__}: {e}", flush=True)
-            continue
+            print(
+                f"  [rss/{feed['source']}] {type(e).__name__}: {e} — retrying "
+                f"on a longer timeout",
+                flush=True,
+            )
+            try:
+                r = client.get(feed["url"], timeout=RSS_RETRY_TIMEOUT)
+                r.raise_for_status()
+                items = _parse_rss(r.text)
+            except Exception as e2:  # noqa: BLE001
+                print(f"  [rss/{feed['source']}] FAIL {type(e2).__name__}: {e2}", flush=True)
+                _note_failure("external_news", f"{feed['source']}: {type(e2).__name__}")
+                continue
         sources_ok += 1
         matched_rows: list[tuple[Any, ...]] = []
         for it in items:
@@ -432,9 +457,10 @@ def fetch_sec_enforcement(client: httpx.Client) -> int:  # noqa: ARG001 (WAF nee
 # ---------------------------------------------------------------------------
 #
 # The daily SET disclosure "SEC News : Form 59 summary" is only a pointer. The
-# structured rows live on SEC iDisc's Form 59 page. The default page renders the
-# latest daily snapshot server-side, so a daily scrape is enough for monitoring
-# coverage names without calling every company page.
+# structured rows live on SEC iDisc's Form 59 page. The default page renders
+# only the current day, while the search result is capped at 100 rows. The
+# scraper therefore queries one transaction date at a time: 90 days when the
+# store is empty or stale, then a 7-day overlap for incremental refreshes.
 
 SEC_R59_PAGES = [
     ("en", "https://market.sec.or.th/public/idisc/en/r59"),
@@ -581,7 +607,10 @@ def _extract_form59_rows(html: str, *, lang: str, source_url: str) -> list[dict[
     parser = _HtmlTableParser()
     parser.feed(html)
     page_text = _strip_html(html)
-    filing_date = _parse_snapshot_date(page_text, lang)
+    # The page label is the SEC snapshot refresh date, not each row's filing
+    # date. Treating it as filing_date makes historical searches look as though
+    # every transaction was filed today and also destabilizes row IDs.
+    source_as_of = _parse_snapshot_date(page_text, lang)
     rows: list[dict[str, Any]] = []
     for cells in parser.rows:
         texts = [c["text"] for c in cells]
@@ -606,7 +635,7 @@ def _extract_form59_rows(html: str, *, lang: str, source_url: str) -> list[dict[
         revoked = bool(re.search(r"\b(revoked|cancel|ยกเลิก)\b", row_text, re.I))
         transaction_date = _parse_form59_date(texts[4] if len(texts) > 4 else "")
         rid = _hash(
-            "R59", symbol, filing_date or "", transaction_date or "",
+            "R59", symbol, transaction_date or "",
             texts[1] if len(texts) > 1 else "", texts[2] if len(texts) > 2 else "",
             texts[3] if len(texts) > 3 else "", texts[5] if len(texts) > 5 else "",
             texts[6] if len(texts) > 6 else "", texts[7] if len(texts) > 7 else "",
@@ -620,7 +649,7 @@ def _extract_form59_rows(html: str, *, lang: str, source_url: str) -> list[dict[
             "relationship": (texts[2] if len(texts) > 2 else "")[:300],
             "security_type": (texts[3] if len(texts) > 3 else "")[:200],
             "transaction_date": transaction_date,
-            "filing_date": filing_date,
+            "filing_date": None,
             "amount": amount,
             "price": price,
             "side": side[:40],
@@ -630,6 +659,7 @@ def _extract_form59_rows(html: str, *, lang: str, source_url: str) -> list[dict[
             "detail_url": links[0] if links else "",
             "source_url": source_url,
             "source_lang": lang,
+            "source_as_of": source_as_of,
             "raw": texts,
         })
     return rows
@@ -688,29 +718,184 @@ def _fetch_idisc_html_via_browser(url: str) -> str:
             return html
     except Exception as e:  # noqa: BLE001
         print(f"  [idisc] browser render failed {type(e).__name__}: {e}", flush=True)
+        _note_failure("sec_enforcement", f"idisc render: {type(e).__name__}")
         return ""
+
+
+def _form59_lookback_days() -> int:
+    """Use a deep backfill for an empty/stale store, then a cheap overlap."""
+    override = os.environ.get("SEC_FORM59_LOOKBACK_DAYS")
+    if override:
+        try:
+            return max(1, min(365, int(override)))
+        except ValueError:
+            print(f"  [sec_form59] invalid SEC_FORM59_LOOKBACK_DAYS={override!r}; using auto", flush=True)
+    latest: str | None = None
+    try:
+        with conn() as c:
+            row = c.execute(
+                "SELECT MAX(COALESCE(transaction_date, filing_date)) FROM sec_form59"
+            ).fetchone()
+            latest = row[0] if row else None
+    except Exception:  # noqa: BLE001
+        latest = None
+    if latest:
+        try:
+            age = datetime.now(BKK).date() - datetime.fromisoformat(str(latest)).date()
+            if age.days <= 14:
+                return 7
+        except ValueError:
+            pass
+    return 90
+
+
+def _fetch_form59_history_via_browser(
+    url: str, *, lookback_days: int
+) -> list[tuple[str, str]]:
+    """Render one SEC transaction-date result page per weekday.
+
+    The SEC result table is capped at 100 rows and sorted by company. A single
+    90-day request therefore silently drops most names. Day-by-day requests
+    stay below that cap in normal operation and let an empty database bootstrap
+    a useful rolling history.
+    """
+    try:
+        from playwright.sync_api import sync_playwright
+    except ImportError:
+        print("  [idisc] playwright not installed — cannot pass SEC WAF", flush=True)
+        return []
+
+    today = datetime.now(BKK).date()
+    days = [
+        today - timedelta(days=offset)
+        for offset in range(lookback_days)
+        if (today - timedelta(days=offset)).weekday() < 5
+    ]
+    pages: list[tuple[str, str]] = []
+    try:
+        with sync_playwright() as p:
+            browser = p.chromium.launch(
+                headless=True,
+                args=["--no-sandbox", "--disable-blink-features=AutomationControlled"],
+            )
+            context = browser.new_context(
+                user_agent=UA,
+                locale="en-US",
+                viewport={"width": 1366, "height": 900},
+            )
+            context.add_init_script(
+                "Object.defineProperty(navigator, 'webdriver', {get: () => undefined});"
+            )
+            page = context.new_page()
+            page.goto(url, wait_until="domcontentloaded", timeout=60000)
+            page.wait_for_selector("table", timeout=45000)
+            page.check("#ctl00_CPH_rblDateType_0")
+
+            for index, day in enumerate(days):
+                display_date = day.strftime("%d/%m/%Y")
+                try:
+                    page.fill("#BSDateFrom", display_date)
+                    page.fill("#BSDateTo", display_date)
+                    page.click("#ctl00_CPH_btSearch", timeout=15000)
+                    page.wait_for_load_state("domcontentloaded", timeout=60000)
+                    page.wait_for_selector("table", timeout=30000)
+                    html = page.content()
+                    parser = _HtmlTableParser()
+                    parser.feed(html)
+                    data_rows = max(0, len(parser.rows) - 1)
+                    if data_rows >= 100:
+                        print(
+                            f"  [sec_form59] warning: SEC result cap reached on {day.isoformat()}",
+                            flush=True,
+                        )
+                    pages.append((day.isoformat(), html))
+                    if (index + 1) % 15 == 0:
+                        print(
+                            f"  [sec_form59] fetched {index + 1}/{len(days)} weekdays",
+                            flush=True,
+                        )
+                except Exception as e:  # noqa: BLE001
+                    print(
+                        f"  [sec_form59] {day.isoformat()} render FAIL "
+                        f"{type(e).__name__}: {e}",
+                        flush=True,
+                    )
+                    page.goto(url, wait_until="domcontentloaded", timeout=60000)
+                    page.wait_for_selector("table", timeout=45000)
+                    page.check("#ctl00_CPH_rblDateType_0")
+            browser.close()
+    except Exception as e:  # noqa: BLE001
+        print(f"  [sec_form59] history render failed {type(e).__name__}: {e}", flush=True)
+        _note_failure("sec_form59", f"r59 render: {type(e).__name__}")
+    return pages
+
+
+def _dedupe_form59_store(c: Any) -> int:
+    """Remove legacy duplicates whose old IDs included the page refresh date."""
+    duplicate_ids = [
+        row[0]
+        for row in c.execute(
+            """
+            SELECT id
+            FROM sec_form59
+            QUALIFY ROW_NUMBER() OVER (
+                PARTITION BY symbol,
+                             COALESCE(transaction_date, ''),
+                             COALESCE(reporter, ''),
+                             COALESCE(relationship, ''),
+                             COALESCE(security_type, ''),
+                             amount,
+                             price,
+                             COALESCE(side, ''),
+                             COALESCE(side_label, ''),
+                             COALESCE(remark, ''),
+                             is_revoked,
+                             COALESCE(detail_url, '')
+                ORDER BY scraped_at DESC NULLS LAST, id DESC
+            ) > 1
+            """
+        ).fetchall()
+    ]
+    if duplicate_ids:
+        c.execute("DELETE FROM sec_form59 WHERE id = ANY (?)", [duplicate_ids])
+    return len(duplicate_ids)
 
 
 def fetch_sec_form59(client: httpx.Client) -> int:  # noqa: ARG001 (WAF needs a real browser, not httpx)
     parsed: list[dict[str, Any]] = []
     source_used = ""
+    lookback_days = _form59_lookback_days()
+    print(f"  [sec_form59] querying {lookback_days}-day rolling history", flush=True)
     for lang, url in SEC_R59_PAGES:
-        html = _fetch_idisc_html_via_browser(url)
-        if not html:
+        rendered_pages = _fetch_form59_history_via_browser(
+            url, lookback_days=lookback_days
+        )
+        if not rendered_pages:
             continue
-        try:
-            parsed = _extract_form59_rows(html, lang=lang, source_url=url)
-            source_used = url
-        except Exception as e:  # noqa: BLE001
-            print(f"  [sec_form59/{lang}] parse FAIL {type(e).__name__}: {e}", flush=True)
-            parsed = []
-        # EN and TH carry the same rows. Once a page renders, stop — even if it
-        # had zero coverage matches today (retrying TH would just re-render the
-        # same data and launch a second browser for nothing).
+        for query_date, html in rendered_pages:
+            try:
+                rows = _extract_form59_rows(html, lang=lang, source_url=url)
+                for row in rows:
+                    row["query_date"] = query_date
+                parsed.extend(rows)
+            except Exception as e:  # noqa: BLE001
+                print(
+                    f"  [sec_form59/{lang}] {query_date} parse FAIL "
+                    f"{type(e).__name__}: {e}",
+                    flush=True,
+                )
+        source_used = url
+        # EN and TH carry the same rows. Once EN rendered successfully, parsing
+        # zero coverage rows is a valid result and must not launch another full
+        # history run in Thai.
         break
 
+    parsed = list({row["id"]: row for row in parsed}.values())
     if not parsed:
-        print("  [sec_form59] no rows parsed from SEC Form 59 page", flush=True)
+        print(
+            f"  [sec_form59] no coverage rows in the {lookback_days}-day SEC history",
+            flush=True,
+        )
         return 0
 
     with conn() as c:
@@ -741,11 +926,12 @@ def fetch_sec_form59(client: httpx.Client) -> int:  # noqa: ARG001 (WAF needs a 
                     for r in new
                 ],
             )
+        removed = _dedupe_form59_store(c)
     buys = sum(1 for r in parsed if r["side"] == "buy")
     sells = sum(1 for r in parsed if r["side"] == "sell")
     print(
         f"  [sec_form59] {len(parsed)} coverage rows ({buys} buy, {sells} sell), "
-        f"{len(new)} new via {source_used}",
+        f"{len(new)} new, {removed} legacy duplicates removed via {source_used}",
         flush=True,
     )
     return len(new)
@@ -754,6 +940,57 @@ def fetch_sec_form59(client: httpx.Client) -> int:  # noqa: ARG001 (WAF needs a 
 # ---------------------------------------------------------------------------
 # Entry point
 # ---------------------------------------------------------------------------
+
+def _source_health_path() -> str:
+    return os.path.join(
+        os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+        "data",
+        "source-health.json",
+    )
+
+
+def _write_source_health(results: dict[str, Any], path: str | None = None) -> None:
+    """Publish per-source ingest status so a dead scraper is visible off-log.
+
+    Every fetcher swallows its own errors and returns 0 so that one dead site
+    cannot take the run down. The cost is that "no news today" and "this site
+    has been unreachable for weeks" print the same summary line. This file
+    keeps the two apart, and survives a --only run by merging rather than
+    replacing the sources it did not touch.
+    """
+    path = path or _source_health_path()
+    try:
+        with open(path, encoding="utf-8") as f:
+            sources = (json.load(f) or {}).get("sources", {})
+    except (OSError, json.JSONDecodeError):
+        sources = {}
+
+    for label, value in results.items():
+        rows = value[0] if isinstance(value, tuple) else value
+        failures = SOURCE_FAILURES.get(label) or []
+        sources[label] = {
+            "rows": rows,
+            "ok": not failures and rows != -1,
+            "failures": failures,
+            "checkedAt": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        }
+
+    payload = {
+        "asOf": datetime.now(BKK).date().isoformat(),
+        "checkedAt": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "failingCount": sum(1 for s in sources.values() if not s.get("ok")),
+        "sources": sources,
+    }
+    try:
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(payload, f, ensure_ascii=False, indent=2)
+        print(
+            f"  -> wrote source-health.json ({payload['failingCount']} failing)",
+            flush=True,
+        )
+    except OSError as e:  # noqa: BLE001
+        print(f"  [source_health] write FAIL {type(e).__name__}: {e}", flush=True)
+
 
 def main() -> None:
     p = argparse.ArgumentParser()
@@ -788,7 +1025,16 @@ def main() -> None:
 
     print("\n=== summary ===")
     for k, v in results.items():
-        print(f"  {k:20s}  {v}")
+        failures = SOURCE_FAILURES.get(k) or []
+        print(f"  {k:20s}  {v}" + (f"   FAILED: {'; '.join(failures)}" if failures else ""))
+
+    # GitHub renders these in the run summary, so an unreachable source stops
+    # looking like a quiet day in a green build.
+    for k, failures in SOURCE_FAILURES.items():
+        print(f"::warning::{k} did not ingest — {'; '.join(failures)}", flush=True)
+
+    _write_source_health(results)
+
     elapsed = (datetime.now() - started).total_seconds()
     print(f"=== done in {elapsed:.1f}s ===")
 

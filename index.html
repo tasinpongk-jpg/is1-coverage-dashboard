@@ -26,6 +26,18 @@ header{padding:18px 32px;border-bottom:1px solid var(--border);display:flex;alig
 .stale-pill{font-size:11px;padding:5px 12px;border-radius:20px;background:#22c55e15;color:var(--green);border:1px solid #22c55e30}
 .stale-pill.warn{background:#f59e0b15;color:var(--yellow);border-color:#f59e0b30}
 .stale-pill.unknown{background:#5a627a15;color:var(--muted);border-color:#5a627a30}
+/* Snapshot freshness bar (B: shows asOf of all 5 critical data snapshots) */
+.snapshots-bar{font-size:11px;padding:6px 18px;display:flex;flex-wrap:wrap;gap:14px;align-items:center;background:#0e1320;border-bottom:1px solid var(--border);color:var(--muted)}
+.snapshots-bar .sb-label{color:var(--muted);text-transform:uppercase;letter-spacing:.5px;font-size:10px}
+.snapshots-bar .sb-row em{font-style:normal;color:var(--text);margin-left:2px;font-variant-numeric:tabular-nums}
+.snapshots-bar .sb-row.fresh em{color:var(--green)}
+.snapshots-bar .sb-row.warn em{color:var(--yellow)}
+.snapshots-bar .sb-row.stale em{color:#ef4444;font-weight:600}
+/* Manual-curated snapshots (Opus synthesis, no fixed cadence).
+   Show the date but skip the red/green/warn colour cycle — see
+   CLAUDE.md §2 (company-reports.json is in-session LLM synthesis). */
+.snapshots-bar .sb-row.manual em{color:var(--muted);font-style:italic}
+.snapshots-bar .sb-row.manual::before{content:'●';color:var(--muted);font-size:8px;margin-right:4px;vertical-align:1px}
 
 /* ── MAIN ── */
 main{flex:1;max-width:1360px;width:100%;margin:0 auto;padding:36px 32px 56px;position:relative;z-index:1}
@@ -152,8 +164,9 @@ footer a{color:var(--muted);text-decoration:none}
   .dash-grid{grid-template-columns:1fr}
 }
 </style>
-  <link rel="stylesheet" href="theme.css">
-  <script src="i18n.js"></script>
+  <script src="theme.js?v=8"></script>
+  <link rel="stylesheet" href="theme.css?v=8">
+  <script src="i18n.js?v=9"></script>
 
 </head>
 <body>
@@ -175,6 +188,17 @@ footer a{color:var(--muted);text-decoration:none}
     <span class="t-date" id="todayDate">—</span>
     <span class="t-asof" id="todayAsOf"></span>
     <span class="t-asof" style="margin-left:auto" id="introMeta" data-i18n="common.loadingCoverageData">loading coverage data…</span>
+  </div>
+
+  <!-- Snapshot freshness bar: shows asOf of all 5 critical data snapshots.
+       See CLAUDE.md §2 for which JSON drives which HTML. -->
+  <div class="snapshots-bar" id="snapshotsBar" title="asOf timestamp of each critical data snapshot (CLAUDE.md §2). Red = >14d stale, yellow = 7-14d, green = ≤7d. Grey ● = manual (Opus synthesis, no fixed cadence).">
+    <span class="sb-label">snapshots:</span>
+    <span class="sb-row" data-snap="vault-ticker-notes">vault: <em>…</em></span>
+    <span class="sb-row" data-snap="disclosure-pulse">disclosure: <em>…</em></span>
+    <span class="sb-row" data-snap="morning-brief">brief: <em>…</em></span>
+    <span class="sb-row" data-snap="company-reports">reports: <em>…</em></span>
+    <span class="sb-row" data-snap="tickers">tickers: <em>v…</em></span>
   </div>
 
   <a class="ai-take" href="ai-insights.html" id="aiTake" style="display:none">
@@ -216,8 +240,8 @@ footer a{color:var(--muted);text-decoration:none}
     <button type="button" class="agent-card" style="--agc:#8b5cf6;--agc-bg:#8b5cf62e;--agc-bd:#8b5cf673" onclick="IS1Dock&&IS1Dock.open('pythia')">
       <div class="agent-avatar">🔮</div>
       <div><div class="agent-name">Pythia</div>
-        <div class="agent-role" data-i18n="index.pythiaRole">Macro &amp; sectors — breadth, daily AI commentary</div>
-        <div class="agent-eg" data-i18n="index.pythiaEg">Which sector leads and which lags?</div></div>
+        <div class="agent-role" data-i18n="index.pythiaRole">IS1 sector screens — performance, breadth and relative ranking</div>
+        <div class="agent-eg" data-i18n="index.pythiaEg">Rank all 6 IS1 sectors by return and breadth</div></div>
     </button>
     <button type="button" class="agent-card" style="--agc:#10b981;--agc-bg:#10b9812e;--agc-bd:#10b98173" onclick="IS1Dock&&IS1Dock.open('lex')">
       <div class="agent-avatar">⚖️</div>
@@ -267,6 +291,32 @@ footer a{color:var(--muted);text-decoration:none}
       </div>
     </a>
 
+    <!-- Sector Intelligence -->
+    <a class="dash-card" href="sector-intelligence.html" style="--cc:#f2aa1f">
+      <div class="card-top-bar"></div>
+      <div class="card-body">
+        <div class="card-head">
+          <div class="card-icon-wrap">
+            <svg width="28" height="28" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+              <rect x="2" y="4" width="24" height="20" rx="4" fill="#f2aa1f" opacity=".10"/>
+              <line x1="6" y1="9" x2="22" y2="9" stroke="#f2aa1f" stroke-width="2" stroke-linecap="round"/>
+              <line x1="6" y1="14" x2="22" y2="14" stroke="#f2aa1f" stroke-width="2" stroke-linecap="round" opacity=".72"/>
+              <line x1="6" y1="19" x2="22" y2="19" stroke="#f2aa1f" stroke-width="2" stroke-linecap="round" opacity=".48"/>
+              <circle cx="17" cy="9" r="2.2" fill="#22c55e"/>
+              <circle cx="12" cy="14" r="2.2" fill="#2f8c91"/>
+              <circle cx="9" cy="19" r="2.2" fill="#64748b"/>
+            </svg>
+          </div>
+          <span class="card-cat" data-i18n="index.intelligence">Intelligence</span>
+        </div>
+        <div class="card-title" data-i18n="page.sectorIntelligence">Sector Intelligence</div>
+        <div class="card-desc" data-i18n="index.sectorIntelligenceDesc">Meeting-ready FOOD and PROP briefing with segment drivers, valuation, price action and evidence.</div>
+        <div class="card-footer">
+          <div class="card-meta"><span>14 segments</span><span>FY2025 / YTD</span></div>
+          <div class="card-arrow">→</div>
+        </div>
+      </div>
+    </a>
     <!-- Company Summary -->
     <a class="dash-card" href="company-summary.html" style="--cc:#6366f1">
       <div class="card-top-bar"></div>
@@ -459,6 +509,29 @@ footer a{color:var(--muted);text-decoration:none}
         </div>
       </div>
     </a>
+    <!-- eFinanceThai Live News -->
+    <a class="dash-card" href="efinance-news.html" style="--cc:#10b981">
+      <div class="card-top-bar"></div>
+      <div class="card-body">
+        <div class="card-head">
+          <div class="card-icon-wrap">
+            <svg width="28" height="28" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+              <path d="M5 5.5h18v17H7.5A2.5 2.5 0 0 1 5 20V5.5Z" stroke="#10b981" stroke-width="1.5" opacity=".75"/>
+              <path d="M5 9H3v11a2.5 2.5 0 0 0 2.5 2.5" stroke="#10b981" stroke-width="1.5" opacity=".45"/>
+              <rect x="9" y="9" width="5" height="5" rx="1" fill="#10b981" opacity=".8"/>
+              <path d="M16.5 9.5H20M16.5 12.5H20M9 17.5h11" stroke="#10b981" stroke-width="1.5" stroke-linecap="round"/>
+            </svg>
+          </div>
+          <span class="card-cat" data-i18n="index.intelligence">Intelligence</span>
+        </div>
+        <div class="card-title" data-i18n="page.efinanceNews">eFinanceThai News</div>
+        <div class="card-desc" data-i18n="meta.efinanceNews">Latest Thai market headlines with direct links to the original stories. Headlines refresh from the public source every five minutes.</div>
+        <div class="card-footer">
+          <div class="card-meta"><span>eFinanceThai</span><span>5 min cache</span></div>
+          <div class="card-arrow">→</div>
+        </div>
+      </div>
+    </a>
     <!-- AI Insights -->
     <a class="dash-card" href="ai-insights.html" style="--cc:#10b981">
       <div class="card-top-bar"></div>
@@ -477,7 +550,7 @@ footer a{color:var(--muted);text-decoration:none}
         <div class="card-title" data-i18n="page.aiInsights">AI Insights</div>
         <div class="card-desc" data-i18n="index.aiInsightsDesc">Model-written morning commentary: headline, sector notes, watchlist and risk flags synthesized from today's brief, alerts and filings.</div>
         <div class="card-footer">
-          <div class="card-meta"><span data-i18n="index.groqFreeTier">Groq free tier</span><span data-i18n="index.dailyAt">daily 09:15</span></div>
+          <div class="card-meta"><span data-i18n="index.aiModel">MiniMax M3</span><span data-i18n="index.dailyAt">daily 09:15</span></div>
           <div class="card-arrow">→</div>
         </div>
       </div>
@@ -815,6 +888,49 @@ async function initToday(){
 }
 initToday();
 
+// Snapshot freshness bar (B): shows asOf of all 5 critical data snapshots.
+// See CLAUDE.md §2 for which JSON drives which HTML.
+async function renderSnapshotsBar(){
+  const SNAPS = [
+    { key:'vault-ticker-notes', file:'vault-ticker-notes.json', timeField:'generated' },
+    { key:'disclosure-pulse',   file:'disclosure-pulse.json',   timeField:'asOf' },
+    { key:'morning-brief',      file:'morning-brief.json',      timeField:'asOf' },
+    // company-reports.json is in-session LLM synthesis (Opus) with no
+    // fixed cadence — see CLAUDE.md §2. Don't colour it red just because
+    // it's been 90+ days; that's by design, not drift.
+    { key:'company-reports',    file:'company-reports.json',    timeField:'generated', manual:true },
+    { key:'tickers',            file:'tickers.json',            timeField:'version' },
+  ];
+  const results = await Promise.all(SNAPS.map(s =>
+    fetch('./data/'+s.file).then(r=>r.ok?r.json():null).catch(()=>null)
+  ));
+  SNAPS.forEach((s, i) => {
+    const row = document.querySelector(`[data-snap="${s.key}"] em`);
+    if (!row) return;
+    const data = results[i];
+    if (!data) { row.textContent = 'missing'; row.parentElement.classList.add('stale'); return; }
+    const stamp = data[s.timeField];
+    if (!stamp) { row.textContent = 'no '+s.timeField; row.parentElement.classList.add('warn'); return; }
+    if (s.timeField === 'version') { row.textContent = 'v'+stamp; return; }
+    const d = new Date(stamp);
+    if (isNaN(d.getTime())) { row.textContent = stamp; return; }
+    const ageD = (Date.now() - d.getTime()) / 86400000;
+    const rowEl = row.parentElement;
+    rowEl.classList.remove('fresh','warn','stale','manual');
+    if (s.manual) {
+      // Manual-curated: always show the date, never red. The ● marker
+      // (CSS ::before) tells the reader "this is by design, not drift".
+      row.textContent = 'manual · ' + String(stamp).slice(0,10);
+      rowEl.classList.add('manual');
+    } else {
+      row.textContent = relAge(stamp) + (ageD >= 1 ? ` (${stamp.slice(0,10)})` : '');
+      if (ageD > 14)      rowEl.classList.add('stale');
+      else if (ageD > 7)  rowEl.classList.add('warn');
+      else                rowEl.classList.add('fresh');
+    }
+  });
+}
+
 async function init(){
   let tj=null, status=null;
   try{
@@ -849,6 +965,11 @@ async function init(){
   }else{
     document.getElementById('statFreshness').textContent=tt('common.unknown');
   }
+
+  // Snapshot freshness bar (B): fetch all 5 critical data snapshots in
+  // parallel, render their asOf / version with age-based colour. Mirrors
+  // the staleness contract in CLAUDE.md §2 and the cron probe (item C).
+  renderSnapshotsBar();
 
   // RM grid
   const rmSectors={};
@@ -913,7 +1034,7 @@ init();
 })();
 window.addEventListener('i18n:change',()=>{if(window.I18N)I18N.apply();initToday();init();});
 </script>
-<script src="nav.js" defer></script>
-<script src="chat-dock.js" defer></script>
+<script src="nav.js?v=9" defer></script>
+<script src="chat-dock.js?v=8" defer></script>
 </body>
 </html>

@@ -2,36 +2,51 @@
  * IS1 coverage dashboard worker.
  *
  * Static assets are served by the assets pipeline (this code only runs for
- * paths that don't match an asset). One API route:
+ * paths that don't match an asset). API routes:
  *
- *   POST /api/chat   { agent: "atlas"|"hermes"|"pythia", messages: [...] }
+ *   POST /api/chat   { agent: "atlas"|"hermes"|"pythia"|"lex", messages: [...] }
  *     -> { reply: "...", agent: "...", model: "..." }
+ *   GET /api/efinance-news
+ *   GET /api/efinance-news/summaries
+ *     -> latest public eFinanceThai headlines and canonical article links
  *
- * Three named agents, each grounded in a different slice of the daily
- * snapshot JSONs (read back from the deployed assets, so they always answer
- * from the same data the dashboard shows):
+ * Four named agents, each grounded in the deployed JSON assets so they answer
+ * from the same data and rulebook pages the dashboard uses:
  *
  *   atlas  — market data: prices, movers, alerts, strict threshold math
  *   hermes — news messenger: external news, disclosures, oppday minutes
- *   pythia — macro/sector: AI commentary, sector aggregates
+ *   pythia — IS1 sector screens: performance, breadth, relative ranking
+ *   lex     — SET/SEC rules: deterministic retrieval over page-level PDF text
  *
  * Gated by a shared token: Authorization: Bearer <CHAT_TOKEN worker secret>.
- * Inference: Cloudflare Workers AI (free-tier neuron allocation).
+ * Inference: MiniMax M3, called server-side with the MINIMAX_API_KEY secret.
  */
 
-const CHAT_MODEL = "@cf/meta/llama-3.3-70b-instruct-fp8-fast";
+const CHAT_MODEL = "MiniMax-M3";
+const MINIMAX_CHAT_URL = "https://api.minimax.io/v1/text/chatcompletion_v2";
+const MINIMAX_TIMEOUT_MS = 60_000;
 const MAX_HISTORY = 12; // user+assistant turns kept from the client
 const MAX_USER_CHARS = 2000;
 const MAX_JSON_BODY_BYTES = 64 * 1024;
 const VALID_AGENTS = new Set(["atlas", "hermes", "pythia", "lex"]);
 const VALID_RMS = new Set(["C", "K", "O", "G", "P", "T"]);
+const EFINANCE_NEWS_URL = "https://www.efinancethai.com/LastestNews/AllLatestNews.aspx";
+const EFINANCE_TIMEOUT_MS = 10_000;
+const EFINANCE_MAX_HTML_BYTES = 2 * 1024 * 1024;
+const EFINANCE_SUMMARY_VERSION = 2;
+const EFINANCE_SUMMARY_BODY_CHARS = 1100;
+const EFINANCE_SUMMARY_CONCURRENCY = 5;
+const EFINANCE_SUMMARY_HYDRATE_LIMIT = 5;
+const EFINANCE_SUMMARY_TIMEOUT_MS = 15_000;
+const EFINANCE_SUMMARY_TTL_SECONDS = 60 * 60 * 24 * 7;
+const EFINANCE_FALLBACK_TTL_SECONDS = 60 * 60 * 6;
 
-// Lex — the rules & regulations agent. Unlike the other three, it does NOT use
-// Workers AI: Gemini File Search does the retrieval AND generation over the
-// regulation PDFs indexed by scripts/index_regulations.py, returning page-level
-// citations. The store name is read from data/regulations-index.json (built by
-// that script); only the GEMINI_API_KEY is a worker secret.
-const LEX_MODEL = "gemini-2.5-flash"; // generation model; bump as newer flash ships
+// Lex uses the same MiniMax M3 endpoint as the other agents. Retrieval stays
+// deterministic inside the Worker over page-level text extracted from the SET
+// rulebook PDFs by scripts/build_lex_corpus.py.
+const LEX_CORPUS = "lex-regulations";
+const LEX_MAX_CHUNKS = 8;
+const LEX_MAX_CHUNKS_PER_DOCUMENT = 3;
 const LEX_SYSTEM =
   "You are Lex, the rules & regulations agent on the IS1 coverage dashboard. " +
   "You answer questions about SET/SEC listing rules, disclosure obligations and " +
@@ -39,6 +54,7 @@ const LEX_SYSTEM =
   "retrieved for you. If the documents do not cover the question, say so plainly " +
   "— never guess or cite outside knowledge. Be concise and quote the rule's own " +
   "wording where it matters. Reply in the user's language (Thai or English). " +
+  "Keep the final answer under 350 words and use no more than eight bullets. " +
   "You are not a lawyer; surface what the documents say, not legal advice.\n" +
   "ANSWER SHAPE: lead with the direct answer in one line, then the basis — the " +
   "rule's own wording (quoted) and any numeric trigger (thresholds, %, day " +
@@ -46,12 +62,53 @@ const LEX_SYSTEM =
   "apply, list them as short bullets. If two retrieved rules differ or the " +
   "documents are ambiguous, say so rather than smoothing it over. When the " +
   "answer hinges on a defined term (e.g. 'connected person', 'material'), give " +
-  "the document's definition before applying it. The page-level citations are " +
-  "appended automatically — do not fabricate rule or clause numbers.";
+  "the document's definition before applying it. Every material number, " +
+  "threshold, deadline and condition MUST cite one of the retrieved source " +
+  "IDs exactly as [S1], [S2], etc. Use only IDs shown in the context. Do not " +
+  "write or shorten document names yourself; the Worker expands valid source " +
+  "IDs after generation. Never fabricate a rule, clause, source or page.\n" +
+  "SAMPLE FORMAT — user asks when shareholder approval is required:\n" +
+  "Direct answer in one line.\n" +
+  "• Trigger or threshold, stated exactly [S1]\n" +
+  "• Approval condition or exemption [S2]\n" +
+  "If the retrieved pages do not establish the answer, state that the corpus " +
+  "does not establish it and name the missing rule topic.";
 
 export default {
-  async fetch(request, env) {
+  async fetch(request, env, ctx) {
     const url = new URL(request.url);
+    if (url.pathname === "/api/efinance-news/summaries") {
+      if (request.method !== "GET") {
+        return json({ error: "GET only" }, 405, { Allow: "GET" });
+      }
+      try {
+        return await handleEfinanceSummaries(env, ctx);
+      } catch (e) {
+        console.error("eFinanceThai summaries failed", e);
+        const timedOut = e?.name === "AbortError" || e?.name === "TimeoutError";
+        return json(
+          { error: timedOut ? "eFinanceThai summaries timed out" : "eFinanceThai summaries unavailable" },
+          timedOut ? 504 : (e?.status || 502),
+          { "Cache-Control": "no-store" },
+        );
+      }
+    }
+    if (url.pathname === "/api/efinance-news") {
+      if (request.method !== "GET") {
+        return json({ error: "GET only" }, 405, { Allow: "GET" });
+      }
+      try {
+        return await handleEfinanceNews(env);
+      } catch (e) {
+        console.error("eFinanceThai news fetch failed", e);
+        const timedOut = e?.name === "AbortError";
+        return json(
+          { error: timedOut ? "eFinanceThai timed out" : "eFinanceThai feed unavailable" },
+          timedOut ? 504 : 502,
+          { "Cache-Control": "no-store" },
+        );
+      }
+    }
     if (url.pathname === "/api/chat") {
       if (request.method !== "POST") {
         return json({ error: "POST only" }, 405);
@@ -59,7 +116,7 @@ export default {
       try {
         return await handleChat(request, env, url.origin);
       } catch (e) {
-        return json({ error: `chat failed: ${e.message}` }, 500);
+        return json({ error: `chat failed: ${e.message}` }, e.status || 500);
       }
     }
     if (url.pathname === "/api/feedback") {
@@ -120,13 +177,453 @@ async function handleFeedbackExport(request, env) {
   return json({ count: out.length, votes: out });
 }
 
-function json(obj, status = 200) {
+function json(obj, status = 200, extraHeaders = {}) {
   return new Response(JSON.stringify(obj), {
     status,
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json; charset=utf-8",
+      "X-Content-Type-Options": "nosniff",
+      ...extraHeaders,
+    },
   });
 }
 
+function extractAssignedJson(html, variableName) {
+  const marker = new RegExp(`\\bvar\\s+${variableName}\\s*=\\s*`, "i").exec(html);
+  if (!marker) throw new Error(`${variableName} assignment not found`);
+
+  const start = marker.index + marker[0].length;
+  const opening = html[start];
+  if (opening !== "{" && opening !== "[") throw new Error(`${variableName} is not JSON`);
+
+  let depth = 0;
+  let inString = false;
+  let escaped = false;
+  for (let index = start; index < html.length; index += 1) {
+    const char = html[index];
+    if (inString) {
+      if (escaped) escaped = false;
+      else if (char === "\\") escaped = true;
+      else if (char === '"') inString = false;
+      continue;
+    }
+    if (char === '"') {
+      inString = true;
+      continue;
+    }
+    if (char === "{" || char === "[") depth += 1;
+    if (char === "}" || char === "]") depth -= 1;
+    if (depth === 0) return JSON.parse(html.slice(start, index + 1));
+  }
+  throw new Error(`${variableName} JSON is incomplete`);
+}
+
+function cleanHeadline(value, maxLength = 500) {
+  return String(value || "").replace(/[\u0000-\u001f\u007f]+/g, " ").replace(/\s+/g, " ").trim().slice(0, maxLength);
+}
+
+function safeEfinanceUrl(value) {
+  try {
+    const url = new URL(String(value || ""), EFINANCE_NEWS_URL);
+    const validHost = url.hostname === "www.efinancethai.com" || url.hostname === "efinancethai.com";
+    const validPath = /^\/LastestNews\/LatestNewsMain\.aspx$/i.test(url.pathname);
+    return url.protocol === "https:" && validHost && validPath ? url.href : "";
+  } catch {
+    return "";
+  }
+}
+
+function efinancePublishedAt(value) {
+  const match = String(value || "").match(/^(\d{4}-\d{2}-\d{2})[ T](\d{2}:\d{2}:\d{2})$/);
+  if (!match) return "";
+  const date = new Date(`${match[1]}T${match[2]}+07:00`);
+  return Number.isNaN(date.getTime()) ? "" : date.toISOString();
+}
+
+export function parseEfinanceNewsHtml(html) {
+  const payload = extractAssignedJson(String(html || ""), "jsonscript");
+  const items = (Array.isArray(payload?.Data) ? payload.Data : []).map((item) => ({
+    id: Number.isFinite(Number(item?.id)) ? Number(item.id) : null,
+    title: cleanHeadline(item?.title),
+    ticker: cleanHeadline(item?.security, 40).toUpperCase(),
+    publishedAt: efinancePublishedAt(item?.LastUpdate),
+    url: safeEfinanceUrl(item?.full_path_link || item?.path_link),
+  })).filter((item) => item.id !== null && item.title && item.url);
+
+  if (!items.length) throw new Error("no valid eFinanceThai headlines found");
+  return {
+    source: "eFinanceThai",
+    sourceUrl: EFINANCE_NEWS_URL,
+    totalPages: Number(payload?.TotalPage) || null,
+    pageSize: Number(payload?.PageSize) || items.length,
+    count: items.length,
+    items,
+  };
+}
+
+async function handleEfinanceNews(env) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), EFINANCE_TIMEOUT_MS);
+  const fetcher = typeof env.EFINANCE_FETCH === "function" ? env.EFINANCE_FETCH : fetch;
+  let response;
+  try {
+    response = await fetcher(EFINANCE_NEWS_URL, {
+      headers: {
+        Accept: "text/html,application/xhtml+xml",
+        "Accept-Language": "th-TH,th;q=0.9,en;q=0.7",
+        "User-Agent": "IS1-Coverage-News/2.0 (+headlines and Thai summaries)",
+      },
+      signal: controller.signal,
+      cf: { cacheEverything: true, cacheTtl: 300 },
+    });
+  } finally {
+    clearTimeout(timer);
+  }
+  if (!response.ok) throw new Error(`upstream returned ${response.status}`);
+
+  const html = await response.text();
+  if (new TextEncoder().encode(html).length > EFINANCE_MAX_HTML_BYTES) {
+    throw new Error("eFinanceThai response too large");
+  }
+  return json(
+    { ...parseEfinanceNewsHtml(html), fetchedAt: new Date().toISOString() },
+    200,
+    { "Cache-Control": "public, max-age=60, s-maxage=300, stale-while-revalidate=600" },
+  );
+}
+
+
+function decodeHtmlEntities(value) {
+  const named = {
+    amp: "&", apos: "'", gt: ">", lt: "<", nbsp: " ", quot: '"',
+  };
+  return String(value || "")
+    .replace(/&#x([0-9a-f]+);?/gi, (_all, hex) => {
+      const code = Number.parseInt(hex, 16);
+      return Number.isFinite(code) && code <= 0x10ffff ? String.fromCodePoint(code) : " ";
+    })
+    .replace(/&#(\d+);?/g, (_all, digits) => {
+      const code = Number.parseInt(digits, 10);
+      return Number.isFinite(code) && code <= 0x10ffff ? String.fromCodePoint(code) : " ";
+    })
+    .replace(/&([a-z]+);/gi, (all, name) => named[name.toLowerCase()] ?? all);
+}
+
+function stripEfinanceBoilerplate(value, maxLength = 500) {
+  return cleanHeadline(
+    String(value || "")
+      .replace(/^\s*สำนักข่าวอีไฟแนนซ์ไทย\s*(?:[-–—]\s*)*\d{1,2}\s+\S+\s+\d{2,4}\s+\d{1,2}:\d{2}:?\s*น\.?\s*/i, "")
+      .replace(/^\s*สำนักข่าวอีไฟแนนซ์ไทย\s*\([^)]*\)\s*[-–—]*/i, ""),
+    maxLength,
+  );
+}
+
+function efinanceHtmlBlocks(value) {
+  const text = String(value || "")
+    .replace(/<script\b[\s\S]*?<\/script>/gi, " ")
+    .replace(/<style\b[\s\S]*?<\/style>/gi, " ")
+    .replace(/<(?:br|hr)\b[^>]*>/gi, "\n")
+    .replace(/<\/(?:p|li|tr|div|section|article|h[1-6])>/gi, "\n")
+    .replace(/<[^>]+>/g, " ");
+  const seen = new Set();
+  const blocks = [];
+  for (const part of decodeHtmlEntities(text).split(/\n+/)) {
+    const cleaned = stripEfinanceBoilerplate(part, 4000);
+    const key = cleaned.toLocaleLowerCase();
+    if (cleaned.length < 12 || seen.has(key)) continue;
+    seen.add(key);
+    blocks.push(cleaned);
+  }
+  return blocks;
+}
+
+export function parseEfinanceArticleHtml(html) {
+  const payload = extractAssignedJson(String(html || ""), "jsonscript");
+  const title = cleanHeadline(payload?.title);
+  const description = stripEfinanceBoilerplate(payload?.description, 1200);
+  const blocks = efinanceHtmlBlocks(payload?.content);
+  const parts = [];
+  const seen = new Set();
+  for (const value of [description, ...blocks]) {
+    const cleaned = cleanHeadline(value, 4000);
+    const key = cleaned.toLocaleLowerCase();
+    if (!cleaned || seen.has(key)) continue;
+    seen.add(key);
+    parts.push(cleaned);
+  }
+  const body = parts.join("\n").slice(0, 16_000);
+  if (!title || !body) throw new Error("eFinanceThai article content not found");
+  return { title, description, body };
+}
+
+function conciseSummaryBullet(value) {
+  const text = cleanHeadline(String(value || "").replace(/^[•·\-–—]+\s*/, ""), 500);
+  if (text.length <= 180) return text;
+  const clipped = text.slice(0, 177).replace(/\s+\S*$/, "").trim();
+  return `${clipped || text.slice(0, 177).trim()}…`;
+}
+
+function importantFigures(text) {
+  return [...new Set(
+    (String(text || "").match(/[+-]?\d[\d,.]*(?:%|\s*(?:แสนล้านบาท|ล้านบาท|บาท|จุด|เมกะวัตต์|โครงการ|เท่า|ราย|ปี|เดือน))/g) || [])
+      .map((value) => cleanHeadline(value, 60)),
+  )].filter(Boolean).slice(0, 6);
+}
+
+export function fallbackThaiSummary(article) {
+  const primary = [];
+  const secondary = [];
+  const combined = [...(String(article?.body || "").split(/\n+/)), article?.description, article?.title];
+  for (const block of combined) {
+    const bullet = conciseSummaryBullet(block);
+    if (bullet.length < 20 || /\.{3}$/.test(bullet)) continue;
+    const target = /เปิดเผย(?:กับ|ต่อ)\s*["“]?สำนักข่าว/i.test(bullet) || /^(?:นาย|นาง|นางสาว|น\.ส\.).{0,180}เปิดเผย/u.test(bullet) ? secondary : primary;
+    target.push(bullet);
+  }
+  const candidates = [...primary, ...secondary];
+
+  const bullets = [];
+  for (const candidate of candidates) {
+    const normalized = candidate.toLocaleLowerCase().replace(/\s+/g, " ");
+    const duplicate = bullets.some((bullet) => {
+      const existing = bullet.toLocaleLowerCase().replace(/\s+/g, " ");
+      return existing === normalized || existing.includes(normalized) || normalized.includes(existing);
+    });
+    if (!duplicate) bullets.push(candidate);
+    if (bullets.length === 3) break;
+  }
+
+  if (bullets.length < 3) {
+    const figures = importantFigures(`${article?.description || ""} ${article?.body || ""}`);
+    if (figures.length) {
+      const figureBullet = `ตัวเลขสำคัญจากต้นทาง: ${figures.join(", ")}`;
+      if (!bullets.some((bullet) => bullet.includes("ตัวเลขสำคัญ"))) {
+        bullets.push(conciseSummaryBullet(figureBullet));
+      }
+    }
+  }
+  if (bullets.length < 3) {
+    bullets.push("ต้นทางเผยแพร่เป็นข่าวสั้นและไม่ได้ให้รายละเอียดเพิ่มเติม");
+  }
+  if (bullets.length < 3) {
+    bullets.push("ควรเปิดอ่านข่าวต้นฉบับเพื่อดูบริบทและเงื่อนไขทั้งหมด");
+  }
+  return bullets.slice(0, 3);
+}
+
+function validSummaryBullets(value) {
+  if (!Array.isArray(value)) return null;
+  const bullets = value.map(conciseSummaryBullet).filter((item) => item.length >= 12);
+  return bullets.length === 3 ? bullets : null;
+}
+
+export function parseEfinanceSummaryReply(reply, articleIds) {
+  const source = String(reply || "").replace(/^\s*```(?:json)?/i, "").replace(/```\s*$/i, "").trim();
+  const start = source.indexOf("{");
+  const end = source.lastIndexOf("}");
+  if (start < 0 || end <= start) return {};
+  let parsed;
+  try {
+    parsed = JSON.parse(source.slice(start, end + 1));
+  } catch {
+    return {};
+  }
+  const allowed = new Set(articleIds.map(String));
+  const summaries = {};
+  for (const [id, bullets] of Object.entries(parsed || {})) {
+    if (!allowed.has(String(id))) continue;
+    const valid = validSummaryBullets(bullets);
+    if (valid) summaries[String(id)] = valid;
+  }
+  return summaries;
+}
+
+async function fetchEfinanceArticleHtml(env, url) {
+  if (!safeEfinanceUrl(url)) throw new Error("invalid eFinanceThai article URL");
+  const fetcher = typeof env.EFINANCE_FETCH === "function" ? env.EFINANCE_FETCH : fetch;
+  const response = await fetcher(url, {
+    headers: {
+      Accept: "text/html,application/xhtml+xml",
+      "Accept-Language": "th-TH,th;q=0.9,en;q=0.7",
+      "User-Agent": "IS1-Coverage-News/2.0 (+headline summaries and links)",
+    },
+    signal: AbortSignal.timeout(EFINANCE_TIMEOUT_MS),
+    cf: { cacheEverything: true, cacheTtl: 86_400 },
+  });
+  if (!response.ok) throw new Error(`article returned ${response.status}`);
+  const html = await response.text();
+  if (new TextEncoder().encode(html).length > EFINANCE_MAX_HTML_BYTES) {
+    throw new Error("eFinanceThai article response too large");
+  }
+  return html;
+}
+
+function efinanceSummaryStore(env) {
+  return env.NEWS_CACHE || env.FEEDBACK || null;
+}
+
+function efinanceSummaryCacheKey(id) {
+  return `efin-summary:v${EFINANCE_SUMMARY_VERSION}:${id}`;
+}
+
+async function readEfinanceSummary(env, id) {
+  const store = efinanceSummaryStore(env);
+  if (!store) return null;
+  try {
+    const raw = await store.get(efinanceSummaryCacheKey(id));
+    const record = typeof raw === "string" ? JSON.parse(raw) : raw;
+    const bullets = validSummaryBullets(record?.bullets);
+    return bullets ? { id: Number(id), bullets, generatedBy: record.generatedBy || "cache" } : null;
+  } catch {
+    return null;
+  }
+}
+
+async function writeEfinanceSummary(env, record) {
+  const store = efinanceSummaryStore(env);
+  if (!store) return;
+  const expirationTtl = record.generatedBy !== "extractive"
+    ? EFINANCE_SUMMARY_TTL_SECONDS
+    : EFINANCE_FALLBACK_TTL_SECONDS;
+  await store.put(
+    efinanceSummaryCacheKey(record.id),
+    JSON.stringify(record),
+    { expirationTtl },
+  );
+}
+
+async function mapWithConcurrency(items, limit, mapper) {
+  const output = new Array(items.length);
+  let cursor = 0;
+  async function worker() {
+    while (cursor < items.length) {
+      const index = cursor;
+      cursor += 1;
+      output[index] = await mapper(items[index], index);
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, () => worker()));
+  return output;
+}
+
+async function generateThaiSummaryRecords(env, articles) {
+  const fallbackRecords = Object.fromEntries(articles.map((article) => [
+    String(article.id),
+    {
+      id: article.id,
+      bullets: fallbackThaiSummary(article),
+      generatedBy: "extractive",
+    },
+  ]));
+  if (!env.MINIMAX_API_KEY || !articles.length) return fallbackRecords;
+
+  const articleText = articles.map((article) =>
+    `ID: ${article.id}\nหัวข้อ: ${article.title}\nเนื้อหา: ${cleanHeadline(article.body, EFINANCE_SUMMARY_BODY_CHARS)}`,
+  ).join("\n\n---\n\n");
+  const system =
+    "คุณเป็นบรรณาธิการข่าวการเงินภาษาไทย สรุปข่าวแต่ละชิ้นจากข้อความที่ให้เท่านั้น " +
+    "ห้ามเติมข้อเท็จจริง ความเห็น คำแนะนำลงทุน หรือคาดการณ์ที่ต้นทางไม่ได้ระบุ " +
+    "คงตัวเลข หน่วย ชื่อบริษัท และทิศทางการเปลี่ยนแปลงให้ถูกต้อง " +
+    "ตอบเป็น JSON object เท่านั้น โดย key คือ ID ข่าว และ value คือ array ที่มีข้อความภาษาไทย 3 ข้อพอดี " +
+    "แต่ละข้อเป็นประโยคสั้นไม่เกิน 150 ตัวอักษร ไม่มีเครื่องหมาย bullet นำหน้า " +
+    "ถ้าข้อมูลสั้นมาก ให้แยกข้อเท็จจริงและตัวเลขที่มีอยู่ ห้ามแต่งข้อมูลเพื่อให้ครบ";
+  try {
+    const result = await runMiniMax(env, [
+      { role: "system", content: system },
+      { role: "user", content: articleText },
+    ], { maxTokens: 3500, temperature: 0.1, maxAttempts: 1, timeoutMs: EFINANCE_SUMMARY_TIMEOUT_MS });
+    const parsed = parseEfinanceSummaryReply(result.reply, articles.map((article) => article.id));
+    for (const article of articles) {
+      const bullets = parsed[String(article.id)];
+      if (bullets) {
+        fallbackRecords[String(article.id)] = {
+          id: article.id,
+          bullets,
+          generatedBy: result.model || CHAT_MODEL,
+        };
+      }
+    }
+  } catch (error) {
+    console.warn("MiniMax news summary fallback", { message: error?.message || String(error) });
+  }
+  return fallbackRecords;
+}
+
+async function hydrateEfinanceSummaries(env, items) {
+  const articles = await mapWithConcurrency(
+    items,
+    EFINANCE_SUMMARY_CONCURRENCY,
+    async (item) => {
+      try {
+        const detail = parseEfinanceArticleHtml(await fetchEfinanceArticleHtml(env, item.url));
+        return { id: item.id, title: item.title, ...detail };
+      } catch (error) {
+        console.warn("eFinanceThai article fallback", { id: item.id, message: error?.message || String(error) });
+        return { id: item.id, title: item.title, description: item.title, body: item.title };
+      }
+    },
+  );
+  const generated = await generateThaiSummaryRecords(env, articles);
+  await Promise.all(Object.values(generated).map((record) => writeEfinanceSummary(env, record)));
+  return generated;
+}
+
+async function handleEfinanceSummaries(env, ctx) {
+  const feedResponse = await handleEfinanceNews(env);
+  if (!feedResponse.ok) throw new Error("eFinanceThai feed unavailable");
+  const feed = await feedResponse.json();
+  const cached = await Promise.all(feed.items.map((item) => readEfinanceSummary(env, item.id)));
+  const records = {};
+  const missing = [];
+  feed.items.forEach((item, index) => {
+    if (cached[index]) records[String(item.id)] = cached[index];
+    else missing.push(item);
+  });
+
+  if (missing.length) {
+    const immediate = Object.fromEntries(missing.map((item) => [
+      String(item.id),
+      {
+        id: item.id,
+        bullets: fallbackThaiSummary({
+          title: item.title,
+          description: item.title,
+          body: item.title,
+        }),
+        generatedBy: "headline",
+      },
+    ]));
+    Object.assign(records, immediate);
+
+    const hydrate = hydrateEfinanceSummaries(
+      env,
+      missing.slice(0, EFINANCE_SUMMARY_HYDRATE_LIMIT),
+    );
+    if (ctx && typeof ctx.waitUntil === "function") {
+      ctx.waitUntil(hydrate.catch((error) => {
+        console.warn("eFinanceThai background summaries failed", {
+          message: error?.message || String(error),
+        });
+      }));
+    } else {
+      Object.assign(records, await hydrate);
+    }
+  }
+
+  const summaries = feed.items
+    .map((item) => records[String(item.id)])
+    .filter(Boolean);
+  return json(
+    {
+      source: "eFinanceThai",
+      generatedAt: new Date().toISOString(),
+      count: summaries.length,
+      summaries,
+    },
+    200,
+    { "Cache-Control": "public, max-age=60, s-maxage=300, stale-while-revalidate=900" },
+  );
+}
 function authorized(request, env) {
   const header = request.headers.get("Authorization") || "";
   const token = header.replace(/^Bearer\s+/i, "").trim();
@@ -177,16 +674,47 @@ async function loadJson(env, origin, name) {
   return r.ok ? r.json() : null;
 }
 
+async function chatResponseMeta(env, origin, agent) {
+  const files = agent === "atlas"
+    ? ["morning-brief", "unusual-trading"]
+    : agent === "hermes"
+      ? ["external-news", "disclosure-pulse", "sec-form59", "oppday-minutes"]
+      : agent === "pythia"
+        ? ["morning-brief"]
+        : [LEX_CORPUS];
+  const snapshots = await Promise.all(files.map((name) => loadJson(env, origin, name)));
+  const dates = snapshots
+    .map((data) => data?.asOf || data?.builtAt || data?._built_at || null)
+    .filter(Boolean)
+    .map((value) => String(value).slice(0, 10))
+    .sort();
+  return {
+    asOf: dates[0] || null,
+    sources: files,
+  };
+}
+
 async function loadCovered(env, origin) {
   const tickers = await loadJson(env, origin, "tickers");
   return new Set((tickers?.tickers || []).map((t) => t.tk));
 }
 
-// Covered ticker symbols appearing in a piece of text (uppercase tokens that are
-// real tickers, so plain English words never match).
+// Covered ticker symbols appearing in a piece of text. Normalize multi-letter
+// symbols so users can type cpn as naturally as CPN. Single-letter symbols must
+// stay uppercase so the m in contractions such as I'm is not treated as M.
 function coveredIn(text, covered) {
+  const source = String(text || "");
   const out = new Set();
-  for (const tok of String(text || "").match(/\b[A-Z][A-Z0-9]{1,7}\b/g) || []) {
+  for (const match of source.matchAll(/\b[A-Z][A-Z0-9]{0,7}\b/gi)) {
+    const raw = match[0];
+    if (raw.length === 1 && raw !== raw.toUpperCase()) continue;
+    if (raw.toUpperCase() === "PF" && /^\s*&\s*REIT\b/i.test(source.slice(match.index + raw.length))) continue;
+    if (raw.length === 1) {
+      const before = source[match.index - 1] || "";
+      const after = source[match.index + 1] || "";
+      if (before === "&" || before === "/" || after === "&" || after === "/") continue;
+    }
+    const tok = raw.toUpperCase();
     if (covered.has(tok)) out.add(tok);
   }
   return out;
@@ -270,13 +798,84 @@ function parsePriceQuery(text) {
 // date-filtered server-side instead of asking the model to compare dates.
 function parseRecency(text) {
   const t = String(text || "").toLowerCase();
-  if (/\b(today|วันนี้)\b/.test(t)) return { days: 1, label: "today" };
-  if (/\b(yesterday|เมื่อวาน)\b/.test(t)) return { days: 2, label: "the last 2 days" };
-  if (/\b(this week|past week|last 7 days|last week|สัปดาห์นี้|7 วัน)\b/.test(t)) return { days: 7, label: "the last 7 days" };
-  if (/\b(this month|past month|last 30 days|เดือนนี้|30 วัน)\b/.test(t)) return { days: 30, label: "the last 30 days" };
+  if (/\btoday\b|วันนี้/.test(t)) return { days: 1, label: "today" };
+  if (/\byesterday\b|เมื่อวาน/.test(t)) return { days: 2, label: "the last 2 days" };
+  if (/\b(?:this week|past week|last 7 days|last week)\b|สัปดาห์นี้|7 วัน/.test(t)) return { days: 7, label: "the last 7 days" };
+  if (/\b(?:this month|past month|last 30 days)\b|เดือนนี้|30 วัน/.test(t)) return { days: 30, label: "the last 30 days" };
   const m = t.match(/\b(?:last|past|in the last)\s+(\d{1,3})\s+days?\b/);
   if (m) { const d = parseInt(m[1], 10); if (d > 0) return { days: d, label: `the last ${d} days` }; }
   return null;
+}
+
+class ChatServiceError extends Error {
+  constructor(message, status) {
+    super(message);
+    this.status = status;
+  }
+}
+
+async function runMiniMax(env, messages, options = {}) {
+  if (!env.MINIMAX_API_KEY) {
+    throw new ChatServiceError(
+      "MiniMax M3 is not configured (missing MINIMAX_API_KEY worker secret)",
+      503,
+    );
+  }
+
+  const fetcher = typeof env.MINIMAX_FETCH === "function" ? env.MINIMAX_FETCH : fetch;
+  const firstBudget = options.maxTokens || 2200;
+  const budgets = [firstBudget, Math.min(Math.max(firstBudget * 2, 5000), 8000)];
+  const maxAttempts = Math.min(Math.max(Number(options.maxAttempts) || budgets.length, 1), budgets.length);
+  const timeoutMs = Number.isFinite(options.timeoutMs) ? Math.max(1, options.timeoutMs) : MINIMAX_TIMEOUT_MS;
+  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+    let response;
+    try {
+      response = await fetcher(MINIMAX_CHAT_URL, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${env.MINIMAX_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: CHAT_MODEL,
+          messages,
+          max_tokens: budgets[attempt],
+          temperature: options.temperature ?? 0.2,
+        }),
+        signal: AbortSignal.timeout(timeoutMs),
+      });
+    } catch (error) {
+      const timedOut = error?.name === "TimeoutError" || error?.name === "AbortError";
+      throw new ChatServiceError(
+        timedOut ? "MiniMax M3 timed out; retry the question" : "MiniMax M3 is temporarily unavailable",
+        timedOut ? 504 : 502,
+      );
+    }
+
+    const payload = await response.json().catch(() => null);
+    const apiStatus = payload?.base_resp?.status_code;
+    if (!response.ok || (apiStatus != null && apiStatus !== 0)) {
+      console.error("MiniMax M3 request failed", {
+        httpStatus: response.status,
+        apiStatus,
+        apiMessage: payload?.base_resp?.status_msg || "",
+      });
+      throw new ChatServiceError("MiniMax M3 rejected the request; retry shortly", 502);
+    }
+
+    const reply = payload?.choices?.[0]?.message?.content;
+    if (typeof reply === "string" && reply.trim()) {
+      return { reply: reply.trim(), model: payload.model || CHAT_MODEL };
+    }
+    if (attempt === 0 && maxAttempts > 1) {
+      console.warn("MiniMax M3 returned an empty answer; retrying with a larger budget", {
+        firstBudget,
+        retryBudget: budgets[1],
+        finishReason: payload?.choices?.[0]?.finish_reason || "",
+      });
+    }
+  }
+  throw new ChatServiceError("MiniMax M3 returned an empty answer; retry the question", 502);
 }
 
 // Keep items whose ts is within `days` of now (worker has real Date).
@@ -298,6 +897,12 @@ function parseSector(text) {
   if (/\bagri(business|culture)?\b/.test(t)) return "AGRI";
   if (/\bfood\b|beverage|\bf&b\b/.test(t)) return "FOOD";
   return null;
+}
+
+function canonicalSector(value) {
+  return String(value || "").toUpperCase().replace(/\s+/g, "") === "PFREIT"
+    ? "PF&REIT"
+    : String(value || "").toUpperCase();
 }
 
 // Structural/query words that must NOT count as topical keywords.
@@ -391,11 +996,11 @@ async function ctxPrices(env, origin, _userRm, focus, q) {
     return Number.isFinite(n) ? n : null;
   };
   const sortVal = (r) => mval(r) ?? 0;
-  // Llama can't reliably filter/sort a 230-row list. Pre-sort by |metric| so the
-  // model reads top-down; for a parsed screen, hard-filter so it can only narrate.
+  // The model should not filter/sort a 230-row list. Pre-sort by |metric| so it
+  // reads top-down; for a parsed screen, hard-filter so it can only narrate.
   let rows = (brief?.rows || []).slice().sort((a, b) => Math.abs(sortVal(b)) - Math.abs(sortVal(a)));
   if (focus && focus.size) rows = rows.filter((r) => focus.has(r.tk));
-  else if (q?.sector) rows = rows.filter((r) => (cov[r.tk]?.sector || r.sector) === q.sector);
+  else if (q?.sector) rows = rows.filter((r) => canonicalSector(cov[r.tk]?.sector || r.sector) === q.sector);
   let note = `Rows are sorted by |${mlabel}| descending (biggest movers first).` +
     (q?.sector && !(focus && focus.size) ? ` Scoped to the ${q.sector} sector.` : "");
   if (pq?.mode === "threshold") {
@@ -468,7 +1073,7 @@ async function ctxNews(env, origin, userRm, focus, q) {
   // model never pads "news on CPN" with unrelated names. Else, scope to a sector
   // if one was named.
   if (focused) items = items.filter((n) => focus.has(n.tk));
-  else if (q?.sector) items = items.filter((n) => n.sector === q.sector);
+  else if (q?.sector) items = items.filter((n) => canonicalSector(n.sector) === q.sector);
   const recency = q?.recency;
   if (recency) items = withinDays(items, recency.days, (n) => n.ts);
   // Rank-then-cap on topical keywords so a relevant item beyond the recency cap
@@ -498,7 +1103,7 @@ async function ctxFilings(env, origin, userRm, focus, q) {
   let filings = pulse?.filings || [];
   const focused = focus && focus.size;
   if (focused) filings = filings.filter((f) => focus.has(f.tk));
-  else if (q?.sector) filings = filings.filter((f) => f.sector === q.sector);
+  else if (q?.sector) filings = filings.filter((f) => canonicalSector(f.sector) === q.sector);
   const recency = q?.recency;
   if (recency) filings = withinDays(filings, recency.days, (f) => f.ts);
   const topic = !focused && q?.topic?.length ? q.topic : null;
@@ -580,25 +1185,373 @@ async function ctxInsights(env, origin) {
 
 async function ctxSectorAgg(env, origin) {
   const brief = await loadJson(env, origin, "morning-brief");
-  const by = {};
-  for (const r of brief?.rows || []) {
-    if (r.pct1d == null || !r.sector) continue;
-    (by[r.sector] ||= []).push(r);
-  }
+  const metrics = buildSectorMetrics(brief);
   const lines = [`SECTOR AGGREGATES (from morning brief, asOf ${brief?.asOf || "?"}):`];
-  for (const [sec, rows] of Object.entries(by)) {
-    const avg = (k) => (rows.reduce((s, r) => s + (r[k] || 0), 0) / rows.length).toFixed(2);
-    const up = rows.filter((r) => r.pct1d > 0).length;
-    lines.push(`${sec}: ${rows.length} names, avg 1d ${avg("pct1d")}%, avg ytd ${avg("pctYtd")}%, ` +
-      `breadth ${up}/${rows.length} up`);
+  for (const row of metrics) {
+    lines.push(`${row.sector}: ${row.count1d} names with 1d data, avg 1d ${fmtPct(row.avg1d)}, ` +
+      `median 1d ${fmtPct(row.median1d)}, avg 5d ${fmtPct(row.avg5d)}, ` +
+      `avg YTD ${fmtPct(row.avgYtd)}, breadth ${row.up}/${row.count1d} up`);
   }
   return lines.join("\n");
+}
+
+function finiteValues(rows, key) {
+  return rows
+    .map((row) => row[key])
+    .filter((value) => value !== null && value !== undefined && value !== "" && Number.isFinite(Number(value)))
+    .map(Number);
+}
+
+function hasFiniteValue(value) {
+  return value !== null && value !== undefined && value !== "" && Number.isFinite(Number(value));
+}
+
+function average(values) {
+  return values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : null;
+}
+
+function median(values) {
+  if (!values.length) return null;
+  const sorted = [...values].sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+}
+
+function fmtPct(value) {
+  if (!Number.isFinite(value)) return "n/a";
+  return `${value >= 0 ? "+" : ""}${value.toFixed(2)}%`;
+}
+
+export function buildSectorMetrics(brief) {
+  const grouped = new Map();
+  for (const row of brief?.rows || []) {
+    const sector = canonicalSector(row.sector);
+    if (!sector) continue;
+    if (!grouped.has(sector)) grouped.set(sector, []);
+    grouped.get(sector).push(row);
+  }
+  return [...grouped.entries()].map(([sector, rows]) => {
+    const oneDay = finiteValues(rows, "pct1d");
+    const fiveDay = finiteValues(rows, "pct5d");
+    const ytd = finiteValues(rows, "pctYtd");
+    const ranked = rows.filter((row) => hasFiniteValue(row.pct1d))
+      .sort((a, b) => Number(b.pct1d) - Number(a.pct1d));
+    return {
+      sector,
+      count: rows.length,
+      count1d: oneDay.length,
+      avg1d: average(oneDay),
+      median1d: median(oneDay),
+      avg5d: average(fiveDay),
+      avgYtd: average(ytd),
+      up: oneDay.filter((value) => value > 0).length,
+      down: oneDay.filter((value) => value < 0).length,
+      flat: oneDay.filter((value) => value === 0).length,
+      breadth: oneDay.length ? oneDay.filter((value) => value > 0).length / oneDay.length : null,
+      top: ranked[0] || null,
+      bottom: ranked.at(-1) || null,
+    };
+  }).sort((a, b) => (b.avg1d ?? -Infinity) - (a.avg1d ?? -Infinity));
+}
+
+function pythiaTable(metrics, lang) {
+  const thai = lang === "th";
+  const head = thai
+    ? "| Sector | เฉลี่ย 1 วัน | มัธยฐาน 1 วัน | เฉลี่ย 5 วัน | เฉลี่ย YTD | Breadth |"
+    : "| Sector | Avg 1d | Median 1d | Avg 5d | Avg YTD | Breadth |";
+  const align = "|---|---:|---:|---:|---:|---:|";
+  const rows = metrics.map((row) =>
+    `| ${row.sector} | ${fmtPct(row.avg1d)} | ${fmtPct(row.median1d)} | ${fmtPct(row.avg5d)} | ` +
+    `${fmtPct(row.avgYtd)} | ${row.up}/${row.count1d} |`);
+  return [head, align, ...rows].join("\n");
+}
+
+function pythiaSupportedPrompts(lang) {
+  return lang === "th"
+    ? [
+      "จัดอันดับ 6 sector ใน IS1 coverage ตามผลตอบแทน 1 วันและ breadth",
+      "เปรียบเทียบ FOOD, PROP และ PF&REIT ทั้ง 1 วัน 5 วัน และ YTD",
+      "Sector ไหนมี breadth อ่อนที่สุดวันนี้",
+    ]
+    : [
+      "Rank all 6 IS1 sectors by 1-day return and breadth",
+      "Compare FOOD, PROP and PF&REIT on 1-day, 5-day and YTD performance",
+      "Which sectors have the weakest breadth today",
+    ];
+}
+
+function pythiaScopeReply(lang, asOf) {
+  const prompts = pythiaSupportedPrompts(lang);
+  if (lang === "th") {
+    return `Pythia ไม่มีข้อมูล SET Index, fund flow, macro forecast หรือข้อมูลอนาคตใน snapshot ${asOf || "ล่าสุด"}\n\n` +
+      `คำถามที่ตอบได้จากข้อมูลจริง:\n${prompts.map((prompt) => `• ${prompt}`).join("\n")}`;
+  }
+  return `Pythia does not have SET Index, fund-flow, macro-forecast or future data in the ${asOf || "latest"} snapshot.\n\n` +
+    `Questions supported by the current data:\n${prompts.map((prompt) => `• ${prompt}`).join("\n")}`;
+}
+
+async function handlePythia(env, origin, cleaned) {
+  const question = cleaned.at(-1)?.content || "";
+  const lang = /[฀-๿]/.test(question) ? "th" : "en";
+  const brief = await loadJson(env, origin, "morning-brief");
+  const metrics = buildSectorMetrics(brief);
+  const unsupported = /\b(?:set\s*(?:index|50|100)|foreign (?:fund )?flow|fund flow|interest rate|gdp|fx|exchange rate|oil price|forecast|target price|next week|next month)\b|ต่างชาติ|ซื้อสุทธิ|ขายสุทธิ|ดอกเบี้ย|จีดีพี|ค่าเงินบาท|ราคาน้ำมัน|คาดการณ์|แนวโน้ม|ราคาเป้าหมาย|สัปดาห์หน้า|เดือนหน้า/iu;
+  if (unsupported.test(question)) {
+    return { reply: pythiaScopeReply(lang, brief?.asOf), model: "deterministic", asOf: brief?.asOf };
+  }
+
+  const coreCompare = /compare[\s\S]*(?:food|prop|reit)|เปรียบเทียบ[\s\S]*(?:food|prop|reit)/iu.test(question);
+  const weakBreadth = /weak(?:est)? breadth|breadth[\s\S]*(?:weak|low)|breadth[\s\S]*(?:อ่อน|แย่)|(?:อ่อน|แย่)[\s\S]*breadth/iu.test(question);
+  const leaderboard = /lead|lag|rank|leaderboard|sector[\s\S]*(?:today|performance)|จัดอันดับ|sector[\s\S]*(?:นำ|รั้งท้าย|วันนี้)|ภาพรวม[\s\S]*(?:coverage|sector)/iu.test(question);
+  const namedSector = parseSector(question);
+
+  let selected = metrics;
+  let lead = "";
+  if (coreCompare) {
+    const core = new Set(["FOOD", "PROP", "PF&REIT"]);
+    selected = metrics.filter((row) => core.has(row.sector));
+    lead = lang === "th"
+      ? `เปรียบเทียบ 3 กลุ่มหลักใน IS1 coverage ณ ${brief?.asOf || "?"}`
+      : `Core-sector comparison for IS1 coverage as of ${brief?.asOf || "?"}`;
+  } else if (weakBreadth) {
+    selected = [...metrics].sort((a, b) => (a.breadth ?? Infinity) - (b.breadth ?? Infinity));
+    lead = lang === "th"
+      ? `เรียงจาก breadth อ่อนที่สุด ณ ${brief?.asOf || "?"}`
+      : `Ranked from weakest breadth as of ${brief?.asOf || "?"}`;
+  } else if (namedSector) {
+    selected = metrics.filter((row) => row.sector === namedSector);
+    const row = selected[0];
+    if (row) {
+      const movers = row.top && row.bottom
+        ? `${row.top.tk} ${fmtPct(Number(row.top.pct1d))}; ${row.bottom.tk} ${fmtPct(Number(row.bottom.pct1d))}`
+        : "n/a";
+      lead = lang === "th"
+        ? `${namedSector} ณ ${brief?.asOf || "?"} ตัวเด่น/อ่อนสุด: ${movers}`
+        : `${namedSector} as of ${brief?.asOf || "?"}. Top/bottom 1d: ${movers}`;
+    }
+  } else if (leaderboard) {
+    lead = lang === "th"
+      ? `อันดับ sector ใน IS1 coverage ณ ${brief?.asOf || "?"} ตามค่าเฉลี่ย 1 วัน`
+      : `IS1 coverage sector ranking as of ${brief?.asOf || "?"}, sorted by equal-weight 1-day average`;
+  } else {
+    return {
+      reply: pythiaScopeReply(lang, brief?.asOf),
+      model: "deterministic",
+      asOf: brief?.asOf,
+    };
+  }
+
+  const note = lang === "th"
+    ? "คำนวณจากหุ้นที่มีข้อมูลในแต่ละ metric เท่านั้น จึงไม่แทนภาพ SET ทั้งตลาด"
+    : "Each metric uses only tickers with available values; this is not the full SET market.";
+  return {
+    reply: `${lead}\n\n${pythiaTable(selected, lang)}\n\n${note}`,
+    model: "deterministic",
+    asOf: brief?.asOf,
+  };
+}
+
+// ---------------------------------------------------------- Lex retrieval
+
+const LEX_STOPWORDS = new Set((
+  "a an and are as at be by do does for from how i in is it me of on or the " +
+  "this to what when which who why with company listed rule rules about after " +
+  "การ ของ ที่ ใน และ หรือ เป็น ให้ ได้ ต้อง มี เมื่อ กรณี บริษัท"
+).split(/\s+/));
+const LEX_CORPUS_CACHE = new WeakMap();
+const LEX_SEARCH_CACHE = new WeakMap();
+
+const LEX_QUERY_ALIASES = [
+  {
+    test: /connected|related[\s-]?party|connected person|รายการที่เกี่ยวโยง|บุคคลที่เกี่ยวโยง/iu,
+    terms: ["รายการที่เกี่ยวโยงกัน", "บุคคลที่เกี่ยวโยงกัน", "ผู้ถือหุ้น", "NTA", "3 ใน 4"],
+  },
+  {
+    test: /free[\s-]?float|ผู้ถือหุ้นรายย่อย|กระจายการถือหุ้น/iu,
+    terms: ["การกระจายการถือหุ้นโดยผู้ถือหุ้นรายย่อย", "free float", "ผู้ถือหุ้นรายย่อย"],
+  },
+  {
+    test: /board resolution|board meeting|มติคณะกรรมการ|ประชุมคณะกรรมการ/iu,
+    terms: ["การเปิดเผยข้อมูลตามเหตุการณ์", "มติคณะกรรมการ", "เปิดเผยสารสนเทศ", "ทันที"],
+  },
+  {
+    test: /acquisition|disposal|asset transaction|ได้มาหรือจำหน่าย|สินทรัพย์/iu,
+    terms: ["การได้มาหรือจำหน่ายไปซึ่งสินทรัพย์", "ขนาดรายการ", "ผู้ถือหุ้น"],
+  },
+  {
+    test: /dividend|ปันผล/iu,
+    terms: ["การจ่ายปันผล", "วันกำหนดรายชื่อผู้ถือหุ้น", "เปิดเผยสารสนเทศ"],
+  },
+  {
+    test: /share repurchase|treasury stock|ซื้อหุ้นคืน/iu,
+    terms: ["ซื้อหุ้นคืน", "จำหน่ายหุ้นที่ซื้อคืน", "เปิดเผยสารสนเทศ"],
+  },
+  {
+    test: /financial statement|งบการเงิน|annual report|รายงานประจำปี/iu,
+    terms: ["การจัดทำและส่งงบการเงิน", "เปิดเผยข้อมูลตามระยะเวลา", "กำหนดเวลา"],
+  },
+  {
+    test: /shareholder meeting|general meeting|ประชุมผู้ถือหุ้น/iu,
+    terms: ["การประชุมผู้ถือหุ้น", "หนังสือนัดประชุม", "มติผู้ถือหุ้น"],
+  },
+];
+
+function lexNormalize(value) {
+  return String(value || "").normalize("NFKC").toLowerCase().replace(/\s+/g, " ").trim();
+}
+
+function lexQueryParts(query) {
+  const phrases = [String(query || "")];
+  for (const alias of LEX_QUERY_ALIASES) {
+    if (alias.test.test(query)) phrases.push(...alias.terms);
+  }
+  const expanded = phrases.join(" ");
+  const tokens = new Set();
+  if (typeof Intl?.Segmenter === "function") {
+    const segmenter = new Intl.Segmenter("th", { granularity: "word" });
+    for (const part of segmenter.segment(lexNormalize(expanded))) {
+      const token = part.segment.replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}%]+$/gu, "");
+      if (part.isWordLike && token && !LEX_STOPWORDS.has(token) && (token.length > 1 || /^\d+$/.test(token))) {
+        tokens.add(token);
+      }
+    }
+  } else {
+    for (const match of lexNormalize(expanded).matchAll(/[\p{L}\p{N}][\p{L}\p{N}%.-]*/gu)) {
+      const token = match[0];
+      if (!LEX_STOPWORDS.has(token) && (token.length > 1 || /^\d+$/.test(token))) tokens.add(token);
+    }
+  }
+  for (const match of expanded.matchAll(/\d+(?:\.\d+)?%?/g)) tokens.add(match[0].toLowerCase());
+  return {
+    phrases: [...new Set(phrases.map(lexNormalize).filter((part) => part.length >= 3))],
+    tokens: [...tokens],
+  };
+}
+
+function countOccurrences(haystack, needle) {
+  if (!needle) return 0;
+  let count = 0;
+  let index = 0;
+  while (count < 4 && (index = haystack.indexOf(needle, index)) !== -1) {
+    count += 1;
+    index += needle.length;
+  }
+  return count;
+}
+
+export function retrieveLexChunks(corpus, query) {
+  const chunks = Array.isArray(corpus?.chunks) ? corpus.chunks : [];
+  const { phrases, tokens } = lexQueryParts(query);
+  const canCache = corpus !== null && (typeof corpus === "object" || typeof corpus === "function");
+  let searchable = canCache ? LEX_SEARCH_CACHE.get(corpus) : null;
+  if (!searchable) {
+    searchable = chunks.map((chunk, index) => ({
+      chunk,
+      index,
+      title: lexNormalize(chunk.title),
+      text: lexNormalize(chunk.text),
+    }));
+    if (canCache) LEX_SEARCH_CACHE.set(corpus, searchable);
+  }
+  const ranked = searchable.map(({ chunk, index, title, text }) => {
+    let score = 0;
+    for (const phrase of phrases) {
+      if (title.includes(phrase)) score += 48;
+      if (text.includes(phrase)) score += 20;
+    }
+    for (const token of tokens) {
+      const normalized = lexNormalize(token);
+      if (!normalized) continue;
+      if (title.includes(normalized)) score += 12;
+      score += countOccurrences(text, normalized) * 3;
+    }
+    return { ...chunk, score, index };
+  }).filter((chunk) => chunk.score > 0)
+    .sort((a, b) => b.score - a.score || a.document.localeCompare(b.document) || a.page - b.page || a.index - b.index);
+
+  const selected = [];
+  const perDocument = new Map();
+  for (const chunk of ranked) {
+    const count = perDocument.get(chunk.document) || 0;
+    if (count >= LEX_MAX_CHUNKS_PER_DOCUMENT) continue;
+    selected.push(chunk);
+    perDocument.set(chunk.document, count + 1);
+    if (selected.length >= LEX_MAX_CHUNKS) break;
+  }
+  return selected;
+}
+
+async function loadLexCorpus(env, origin) {
+  const assets = env?.ASSETS;
+  if (!assets || (typeof assets !== "object" && typeof assets !== "function")) {
+    return loadJson(env, origin, LEX_CORPUS);
+  }
+  let pending = LEX_CORPUS_CACHE.get(assets);
+  if (!pending) {
+    pending = loadJson(env, origin, LEX_CORPUS);
+    LEX_CORPUS_CACHE.set(assets, pending);
+  }
+  const corpus = await pending;
+  if (!corpus) LEX_CORPUS_CACHE.delete(assets);
+  return corpus;
+}
+
+function isLexDomainQuestion(text) {
+  return /\b(?:set|sec|rule|regulat|disclos|listed|shareholder|board|connected|related[\s-]?party|free[\s-]?float|dividend|capital|financial statement|acquisition|disposal|tender|audit|director)\b|กฎ|เกณฑ์|เปิดเผย|จดทะเบียน|ผู้ถือหุ้น|คณะกรรมการ|เกี่ยวโยง|รายการ|กระจายการถือหุ้น|ปันผล|ทุน|งบการเงิน|ได้มาหรือจำหน่าย|ประชุม|ตรวจสอบ|กรรมการ|ตลาดหลักทรัพย์|ก\.ล\.ต\.|มาตรา/iu.test(text);
+}
+
+function formatLexContext(chunks, corpus) {
+  const head = `REGULATION CORPUS: ${corpus?.documentCount || "?"} documents, ` +
+    `${corpus?.pageCount || "?"} pages, built ${corpus?.builtAt || "?"}.`;
+  const blocks = chunks.map((chunk, index) =>
+    `[SOURCE S${index + 1} | ${chunk.document} | p.${chunk.page}]\n${chunk.text}`);
+  return [head, ...blocks].join("\n\n");
+}
+
+export function resolveLexCitations(reply, chunks) {
+  const labels = chunks.map((chunk) => `${chunk.document} p.${chunk.page}`);
+  const allowed = new Set(labels);
+  let invalidCount = 0;
+  let output = String(reply || "").replace(/\[S(\d+)\]/gi, (_full, rawIndex) => {
+    const label = labels[Number(rawIndex) - 1];
+    if (!label) { invalidCount += 1; return ""; }
+    return `[${label}]`;
+  });
+
+  output = output.replace(/\[([^\]\n]+\.pdf\s+p\.\d+(?:\s*,\s*p\.\d+)*)\]/gi, (full, inner) => {
+    const match = inner.match(/^(.*\.pdf)\s+p\.(\d+(?:\s*,\s*p\.\d+)*)$/i);
+    if (!match) { invalidCount += 1; return ""; }
+    const document = match[1];
+    const pages = match[2].split(/\s*,\s*p\./).map((page) => Number(page));
+    const exact = pages.map((page) => `${document} p.${page}`);
+    if (!exact.every((label) => allowed.has(label))) {
+      invalidCount += 1;
+      return "";
+    }
+    return exact.map((label) => `[${label}]`).join(" ");
+  });
+
+  if (invalidCount) {
+    console.warn("Lex removed non-retrieved citation markers", { invalidCount });
+  }
+  return output.replace(/[ \t]+\n/g, "\n").replace(/ {2,}/g, " ").trim();
+}
+
+function appendLexSources(reply, chunks) {
+  const labels = [];
+  const seen = new Set();
+  for (const chunk of chunks) {
+    const label = `${chunk.document} p.${chunk.page}`;
+    if (!seen.has(label)) { seen.add(label); labels.push(label); }
+  }
+  if (!labels.length) return reply;
+  return `${reply.trim()}\n\nSources retrieved:\n${labels.map((label) => `• ${label}`).join("\n")}`;
 }
 
 // ---------------------------------------------------------------- agents
 
 const SHARED_RULES =
-  "IS1 is a relationship-manager team at a Thai securities firm covering " +
+  "IS1 is Issuer Department 1 of the Stock Exchange of Thailand; its RMs cover " +
   "SET-listed tickers in FOOD, PROP, PF&REIT, AGRI, CONS and CONMAT. " +
   "RMs: C, K, O, G, P, T.\n" +
   "Answer ONLY from the data below. If something is not in the data " +
@@ -680,206 +1633,119 @@ const AGENTS = {
   },
   pythia: {
     persona:
-      "You are Pythia, the macro and sector strategist on the IS1 coverage " +
-      "dashboard. You read sector aggregates and the daily AI commentary to " +
-      "answer top-down questions: which sectors lead or lag, what matters for " +
-      "FOOD/PROP/PF&REIT, what to watch this week.\n" +
+      "You are Pythia, the IS1 sector analyst on the coverage dashboard. " +
+      "You answer only from sector aggregates and daily coverage snapshots. " +
+      "You do not have SET Index, fund-flow, macro forecasts, target prices or " +
+      "future data. Redirect those requests to a supported sector screen.\n" +
       "RANK FROM THE NUMBERS: 'leads/lags' questions are answered by sorting " +
       "the SECTOR AGGREGATES on the metric asked (default avg 1d), naming the " +
       "exact figure and the breadth (e.g. 'FOOD +0.8%, breadth 9/12 up'). " +
       "Never assert a ranking the aggregates do not support.\n" +
-      "SEPARATE FACT FROM VIEW: numbers come from SECTOR AGGREGATES; any " +
-      "outlook, theme or 'watch' call must be attributed to TODAY'S AI " +
-      "COMMENTARY ('the daily AI take flags…'). If the commentary is silent on " +
-      "something, say it is your read of the aggregates, not a house view — " +
-      "and never invent a catalyst that is not in the data.\n" +
+      "SEPARATE FACT FROM VIEW: numbers come from SECTOR AGGREGATES. Do not " +
+      "convert relative performance into a market or macro conclusion. Never " +
+      "invent a catalyst that is not in the data.\n" +
       "EXAMPLE — user: 'which sector leads and which lags today?':\n" +
       "As of 2026-06-13: PF&REIT leads (avg 1d +0.9%, breadth 7/8 up); PROP " +
-      "lags (avg 1d -0.6%, breadth 3/11 up). The daily AI take ties PROP's " +
-      "softness to the BoT rate hold. FOOD is middling (+0.1%, 6/12 up).\n",
-    contexts: [ctxCoverage, ctxSectorAgg, ctxInsights],
+      "lags (avg 1d -0.6%, breadth 3/11 up). FOOD is middling (+0.1%, 6/12 up).\n",
+    contexts: [ctxCoverage, ctxSectorAgg],
   },
 };
 
-// Lex routes to Gemini File Search instead of Workers AI. Returns the same
-// { reply, ... } shape; citations are appended to the reply text so the dock
-// renders them with no client change.
-async function handleLex(env, origin, cleaned, rm) {
-  if (!env.GEMINI_API_KEY) {
-    return "Lex is not configured yet (missing GEMINI_API_KEY worker secret).";
+function needsHermesSections(text) {
+  return /\bnews\b|ข่าว/iu.test(String(text || ""));
+}
+
+function normalizeHermesSections(reply) {
+  let out = String(reply || "");
+  if (!out.includes("📰")) {
+    out = out.replace(
+      /(^|\n)(\s*(?:#{1,4}\s*)?)(?:external\s+news|ข่าวภายนอก|ข่าวจากภายนอก)(\s*[:：-]?)/iu,
+      "$1$2📰 External news$3",
+    );
   }
-  const index = await loadJson(env, origin, "regulations-index");
-  const store = index?.store;
-  if (!store) {
-    return "The regulations index is not built yet — run scripts/index_regulations.py.";
+  if (!out.includes("📄")) {
+    out = out.replace(
+      /(^|\n)(\s*(?:#{1,4}\s*)?)(?:set\s+disclosures?|disclosures?|การเปิดเผยข้อมูล(?:ต่อตลาดหลักทรัพย์)?|ข่าว\s*SET)(\s*[:：-]?)/iu,
+      "$1$2📄 SET disclosures$3",
+    );
   }
-  const sys = LEX_SYSTEM + (rm ? `\nThe user is RM ${rm}.` : "");
-  const body = {
-    contents: cleaned.map((m) => ({
-      role: m.role === "assistant" ? "model" : "user",
-      parts: [{ text: m.content }],
-    })),
-    systemInstruction: { parts: [{ text: sys }] },
-    tools: [{ file_search: { file_search_store_names: [store] } }],
-  };
-  const r = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${LEX_MODEL}:generateContent?key=${env.GEMINI_API_KEY}`,
-    { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
-  if (!r.ok) {
-    throw new Error(`Gemini ${r.status}: ${(await r.text()).slice(0, 200)}`);
-  }
-  const data = await r.json();
-  const cand = (data.candidates || [])[0] || {};
-  const reply = (cand.content?.parts || []).map((p) => p.text).filter(Boolean).join("");
-  // REST returns camelCase; tolerate snake_case defensively.
-  const meta = cand.groundingMetadata || cand.grounding_metadata || {};
-  const chunks = meta.groundingChunks || meta.grounding_chunks || [];
-  const seen = new Set(), cites = [];
-  for (const c of chunks) {
-    const rc = c.retrievedContext || c.retrieved_context;
-    if (!rc) continue;
-    const page = rc.pageNumber || rc.page_number;
-    const label = (rc.title || "source") + (page ? ` p.${page}` : "");
-    if (!seen.has(label)) { seen.add(label); cites.push(label); }
-  }
-  let out = reply || "No answer found in the regulation documents.";
-  if (cites.length) out += "\n\nSources:\n" + cites.map((c) => "• " + c).join("\n");
   return out;
 }
 
-// ---------------------------------------------------- on-demand PDF summaries
-//
-// Canonical recipe + gotchas: INTEGRATION.md §2 (shared with the AI Agent CLI's
-// filing_tools.py — keep the two in sync).
-//
-// Hermes can summarize the ACTUAL filed document, not just its headline. SET
-// serves a newsdetails HTML page (the filing.url) that links the real PDF on
-// weblink.set.or.th; the PDF goes straight to Gemini (which reads PDFs natively
-// — no JS PDF parser needed). Summaries are cached by SET news id so a document
-// is fetched once. Header-only fetch clears SET's bot wall from a normal IP;
-// if Cloudflare egress is challenged, every step fails soft and Hermes simply
-// reports it couldn't open the document.
-
-const SET_HEADERS = {
-  "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 " +
-    "(KHTML, like Gecko) Chrome/124.0 Safari/537.36",
-  "Referer": "https://www.set.or.th/en/market/news-and-alert/news",
-  "Origin": "https://www.set.or.th",
-};
-
-// "summarize / explain / detail / what does it say" — Thai and English.
-function wantsDocSummary(text) {
-  return /\b(summar(?:y|ise|ize|ising|izing)|explain|detail|details|breakdown|full text|what (?:does|do|did)\b.*\bsay)\b/i
-    .test(String(text || "")) || /สรุป|รายละเอียด|อธิบาย|เนื้อหา/.test(String(text || ""));
+function hasHermesSections(reply) {
+  return String(reply || "").includes("📰") && String(reply || "").includes("📄");
 }
 
-function bytesToBase64(bytes) {
-  let out = "";
-  const chunk = 0x8000;
-  for (let i = 0; i < bytes.length; i += chunk) {
-    out += String.fromCharCode.apply(null, bytes.subarray(i, i + chunk));
+function contextSectionRows(context, start, end) {
+  const source = String(context || "");
+  const from = source.indexOf(start);
+  if (from < 0) return [];
+  const tail = source.slice(from + start.length);
+  const to = end ? tail.indexOf(end) : -1;
+  return (to >= 0 ? tail.slice(0, to) : tail)
+    .split("\n")
+    .map((line) => line.trim().replace(/\s+rm=[A-Z]\b/g, ""))
+    .filter((line) => /^\d{4}-\d{2}-\d{2}\s/.test(line));
+}
+
+function hermesDeterministicFallback(context, question) {
+  const thai = /[฀-๿]/.test(String(question || ""));
+  const news = contextSectionRows(context, "EXTERNAL NEWS", "SET DISCLOSURES").slice(0, 8);
+  const filings = contextSectionRows(context, "SET DISCLOSURES", "SEC FORM 59").slice(0, 8);
+  const none = thai ? "• ไม่พบรายการใน snapshot ที่เลือก" : "• None in the selected snapshot";
+  const bullets = (rows) => rows.length ? rows.map((line) => `• ${line}`).join("\n") : none;
+  return `📰 External news\n${bullets(news)}\n\n📄 SET disclosures\n${bullets(filings)}`;
+}
+
+function ensureAsOf(reply, asOf, question) {
+  if (!asOf || String(reply || "").includes(asOf)) return reply;
+  const label = /[฀-๿]/.test(String(question || "")) ? "ข้อมูล ณ" : "Data as of";
+  return `${String(reply || "").trim()}\n\n${label} ${asOf}`;
+}
+
+// Lex retrieves the most relevant rulebook pages locally, then asks MiniMax M3
+// to answer only from those pages. The deterministic source list makes every
+// response auditable even when the model omits an inline citation.
+async function handleLex(env, origin, cleaned, rm) {
+  const question = cleaned[cleaned.length - 1]?.content || "";
+  if (!isLexDomainQuestion(question)) {
+    const thai = /[฀-๿]/.test(question);
+    return {
+      reply: thai
+        ? "Lex ตอบเฉพาะกฎเกณฑ์ SET/SEC การเปิดเผยข้อมูล และหน้าที่ของบริษัทจดทะเบียน"
+        : "Lex only answers SET/SEC rules, disclosure obligations and listed-company requirements.",
+      model: CHAT_MODEL,
+    };
   }
-  return btoa(out);
-}
+  const corpus = await loadLexCorpus(env, origin);
+  if (!corpus?.chunks?.length) {
+    throw new ChatServiceError(
+      "Lex regulation corpus is missing; run scripts/build_lex_corpus.py",
+      503,
+    );
+  }
+  const chunks = retrieveLexChunks(corpus, question);
+  if (!chunks.length) {
+    return {
+      reply: "The regulation corpus did not return a relevant source for this question.",
+      model: CHAT_MODEL,
+    };
+  }
 
-async function resolvePdfUrl(newsUrl) {
-  if (!newsUrl) return null;
-  const r = await fetch(newsUrl, { headers: SET_HEADERS });
-  if (!r.ok) return null;
-  const html = await r.text();
-  const m = html.match(/https?:\/\/weblink\.set\.or\.th\/[^\s"'<>]+\.pdf/i);
-  return m ? m[0] : null;
-}
-
-// Returns a short summary string for one filing, or null if the document can't
-// be retrieved. Cached in the colo Cache API by news id.
-async function summarizeFiling(env, filing, lang) {
-  if (!env.GEMINI_API_KEY || !filing?.url) return null;
-  const cache = caches.default;
-  // v2: v1 entries were truncated by gemini-2.5-flash thinking-token budget.
-  // Key includes lang so an EN and a TH asker each get their own summary.
-  const cacheKey = new Request(
-    `https://is1-doc-summary/v2/${lang}/${filing._id || encodeURIComponent(filing.url)}`);
-  const cached = await cache.match(cacheKey);
-  if (cached) return await cached.text();
-
-  const pdfUrl = await resolvePdfUrl(filing.url);
-  if (!pdfUrl) return null;
-  const pr = await fetch(pdfUrl, { headers: SET_HEADERS });
-  if (!pr.ok) return null;
-  const buf = new Uint8Array(await pr.arrayBuffer());
-  if (buf.length < 1000 || buf.length > 15_000_000) return null; // empty / too big
-
-  const prompt =
-    "Summarize this SET (Stock Exchange of Thailand) disclosure document for a " +
-    "relationship manager. Output ONLY 3-4 tight bullets — no preamble, no " +
-    "'here is a summary', start directly with the first '•'. Cover: what was " +
-    "filed, the key numbers / decisions / dates, and why a client might care. " +
-    "EACH bullet MUST carry a concrete figure, date or decision from the " +
-    "document (e.g. revenue/profit value, % change, THB amount, board resolution, " +
-    "ex-date) — no vague 'filed its MD&A' lines. Use only what the document says. " +
-    "Write in " + (lang === "th" ? "Thai." : "English.");
-  const body = {
-    contents: [{ role: "user", parts: [
-      { inline_data: { mime_type: "application/pdf", data: bytesToBase64(buf) } },
-      { text: prompt },
-    ] }],
-    // gemini-2.5-flash is a thinking model: thinking tokens count against
-    // maxOutputTokens, so a low cap starves the actual text. Disable thinking
-    // (summarization needs none) and give the output real room.
-    generationConfig: {
-      temperature: 0.2,
-      maxOutputTokens: 1024,
-      thinkingConfig: { thinkingBudget: 0 },
+  const sys = LEX_SYSTEM + (rm ? `\nThe user is RM ${rm}.` : "");
+  const result = await runMiniMax(env, [
+    { role: "system", content: `${sys}\n\n${formatLexContext(chunks, corpus)}` },
+    ...cleaned,
+  ], { maxTokens: 5000, temperature: 0.1 });
+  const citedReply = resolveLexCitations(result.reply, chunks);
+  return {
+    reply: appendLexSources(citedReply, chunks),
+    model: result.model,
+    meta: {
+      asOf: String(corpus.builtAt || "").slice(0, 10) || null,
+      sources: [LEX_CORPUS],
     },
   };
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${LEX_MODEL}:generateContent?key=${env.GEMINI_API_KEY}`;
-  const init = { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) };
-  let txt = "";
-  for (let attempt = 0; attempt < 2 && !txt; attempt++) { // one retry absorbs cold transients
-    try {
-      const gr = await fetch(url, init);
-      if (!gr.ok) continue;
-      const data = await gr.json();
-      txt = ((data.candidates || [])[0]?.content?.parts || [])
-        .map((p) => p.text).filter(Boolean).join("").trim();
-    } catch { /* retry */ }
-  }
-  if (!txt) return null;
-  await cache.put(cacheKey, new Response(txt, { headers: { "Cache-Control": "max-age=2592000" } }));
-  return txt;
-}
-
-// Build the full Hermes reply for a "summarize the filing" request directly
-// from Gemini's PDF summaries (newest 1-2 filings for the focused ticker), plus
-// an overdue-status line. Returns null if no PDF could be opened, so the caller
-// can fall back to the chat model. Summaries run in parallel; cached by news id.
-async function buildDocSummaryReply(env, origin, focus, lang) {
-  const pulse = await loadJson(env, origin, "disclosure-pulse");
-  const cand = (pulse?.filings || [])
-    .filter((f) => focus.has(f.tk))
-    .sort((a, b) => Date.parse(b.ts || 0) - Date.parse(a.ts || 0))
-    .slice(0, 2);
-  if (!cand.length) return null;
-  const sums = await Promise.all(cand.map(async (f) => {
-    const s = await summarizeFiling(env, f, lang);
-    return s ? { f, s } : null;
-  }));
-  const got = sums.filter(Boolean);
-  if (!got.length) return null;
-
-  const tks = [...focus].join(", ");
-  let reply = `📄 ${tks} — summarized from the filed PDF:\n`;
-  for (const { f, s } of got) {
-    reply += `\n${(f.ts || "").slice(0, 10)} — ${f.title}\n${s.trim()}\n`;
-  }
-  const overdue = (pulse?.status || []).filter((x) => x.overdue && focus.has(x.tk));
-  if (overdue.length) {
-    reply += "\n⏳ " + overdue
-      .map((x) => `${x.tk} silent ${x.silentDays}d (last filed ${(x.lastFiledTs || "?").slice(0, 10)})`)
-      .join("; ");
-  }
-  return reply.trim();
 }
 
 async function handleChat(request, env, origin) {
@@ -907,8 +1773,19 @@ async function handleChat(request, env, origin) {
     : "";
 
   if (agentName === "lex") {
-    const reply = await handleLex(env, origin, cleaned, rm);
-    return json({ reply, agent: "lex", model: LEX_MODEL });
+    const result = await handleLex(env, origin, cleaned, rm);
+    return json({ reply: result.reply, agent: "lex", model: result.model, meta: result.meta });
+  }
+  if (agentName === "pythia") {
+    const direct = await handlePythia(env, origin, cleaned);
+    if (direct) {
+      return json({
+        reply: direct.reply,
+        agent: "pythia",
+        model: direct.model,
+        meta: { asOf: direct.asOf || null, sources: ["morning-brief"] },
+      });
+    }
   }
 
   const agent = AGENTS[agentName];
@@ -937,27 +1814,24 @@ async function handleChat(request, env, origin) {
     if (sym) { const lq = await fetchLiveQuote(sym); if (lq) context = liveQuoteBlock(lq) + "\n\n" + context; }
   }
 
-  // On-demand: when a user asks Hermes to summarize a specific ticker's filing,
-  // read the actual PDF, summarize via Gemini, and return that DIRECTLY. The
-  // chat model won't faithfully reproduce an injected summary (it compresses to
-  // a generic line), so we bypass it and serve Gemini's output verbatim.
-  if (agentName === "hermes" && focus.size && wantsDocSummary(lastText)) {
-    const lang = /[฀-๿]/.test(lastText) ? "th" : "en";
-    const direct = await buildDocSummaryReply(env, origin, focus, lang);
-    if (direct) return json({ reply: direct, agent: "hermes", model: LEX_MODEL });
-    // couldn't open any PDF → fall through to the normal model, with a note
-    context += "\n\nNOTE: the user asked to summarize a filing but the PDF could " +
-      "not be opened; say so plainly and fall back to the disclosure title.";
-  }
-  const result = await env.AI.run(CHAT_MODEL, {
-    messages: [
-      { role: "system", content: agent.persona + SHARED_RULES + rmLine + "\n\nDATA:\n" + context },
+  const baseSystem = agent.persona + SHARED_RULES + rmLine + "\n\nDATA:\n" + context;
+  let result = await runMiniMax(env, [
+    { role: "system", content: baseSystem },
+    ...cleaned,
+  ]);
+  let reply = agentName === "hermes" ? normalizeHermesSections(result.reply) : result.reply;
+  if (agentName === "hermes" && needsHermesSections(lastText) && !hasHermesSections(reply)) {
+    result = await runMiniMax(env, [
+      {
+        role: "system",
+        content: baseSystem + "\n\nOUTPUT CONTRACT: Return both labelled sections exactly: " +
+          "📰 External news and 📄 SET disclosures. Include a section even when it has no rows.",
+      },
       ...cleaned,
-    ],
-    max_tokens: 1100,
-    temperature: 0.2,
-  });
-  let reply = result.response ?? "";
+    ], { temperature: 0.1 });
+    reply = normalizeHermesSections(result.reply);
+    if (!hasHermesSections(reply)) reply = hermesDeterministicFallback(context, lastText);
+  }
   // Output verification: flag any covered ticker the model named that wasn't in
   // its data — catches hallucinated / pretraining-leaked names before the user
   // (and the dock's ticker-chip linkifier) treats them as real.
@@ -966,5 +1840,12 @@ async function handleChat(request, env, origin) {
     reply += `\n\n⚠ Unverified: ${ungrounded.join(", ")} — not in the data I was ` +
       `given for this question. Treat with caution / re-ask naming the ticker.`;
   }
-  return json({ reply, agent: agentName, model: CHAT_MODEL });
+  const meta = await chatResponseMeta(env, origin, agentName);
+  reply = ensureAsOf(reply, meta.asOf, lastText);
+  return json({
+    reply,
+    agent: agentName,
+    model: result.model,
+    meta,
+  });
 }

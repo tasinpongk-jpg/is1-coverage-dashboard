@@ -65,8 +65,9 @@
   .summary { margin-top: 6px; font-size: 12px; color: var(--muted); line-height: 1.4; font-style: italic; }
   .empty, .loading { text-align: center; padding: 60px; color: var(--muted); }
 </style>
-  <link rel="stylesheet" href="theme.css">
-  <script src="i18n.js"></script>
+  <script src="theme.js?v=8"></script>
+  <link rel="stylesheet" href="theme.css?v=8">
+  <script src="i18n.js?v=9"></script>
 
 </head>
 <body>
@@ -116,7 +117,7 @@
 
 <script>
 let TICKERS = {}, FILINGS = [];
-let activeRm = 'ALL', activeSev = 'ALL', activeSector = 'ALL';
+let activeRm = /^[CKOGPT]$/.test(localStorage.getItem('is1_rm') || '') ? localStorage.getItem('is1_rm') : 'ALL', activeSev = 'ALL', activeSector = 'ALL';
 let activeWindow = 1;   // days; 0 = ALL
 let activeTicker = new URLSearchParams(location.search).get('ticker') || null;
 let DATA_META = null;
@@ -136,6 +137,10 @@ const TT_FALLBACK = {
 };
 function tt(key) { return window.I18N ? I18N.t(key) : (TT_FALLBACK[key] || key); }
 function esc(s) { return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function safeHttpUrl(value) {
+  try { const u = new URL(String(value || ''), location.href); return /^(https?):$/.test(u.protocol) ? u.href : ''; }
+  catch { return ''; }
+}
 function tx(key, vars) {
   return tt(key).replace(/\{(\w+)\}/g, (_, k) => vars && vars[k] != null ? vars[k] : '');
 }
@@ -220,6 +225,9 @@ function buildTabs() {
 }
 
 function setRm(r) { activeRm = r; document.querySelectorAll('[data-rm]').forEach(el => el.classList.toggle('active', el.dataset.rm === r)); render(); updateStats(); buildSectorTabs(); }
+window.addEventListener('is1:rm-change', e => {
+  if (/^(ALL|[CKOGPT])$/.test(e.detail?.rm || '')) setRm(e.detail.rm);
+});
 function setSev(s) { activeSev = s; document.querySelectorAll('[data-sev]').forEach(el => el.classList.toggle('active', el.dataset.sev === s)); render(); }
 function setSector(s) { activeSector = s; document.querySelectorAll('[data-sector]').forEach(el => el.classList.toggle('active', el.dataset.sector === s)); render(); }
 function setWindow(d) { activeWindow = +d; document.querySelectorAll('[data-window]').forEach(el => el.classList.toggle('active', +el.dataset.window === activeWindow)); render(); updateStats(); buildSectorTabs(); buildRmTabs(); }
@@ -299,7 +307,7 @@ function render() {
     const summ = isThai ? (f._summary_th || f._summary || f.summary || '') : (f._summary || f.summary || '');
     const safeSev = esc(sev);
     const safeTitle = esc(title);
-    const safeHref = href ? esc(href) : '';
+    const safeHref = esc(safeHttpUrl(href));
     const safeSumm = esc(summ);
     const safeTk = esc(f.tk || '');
     const safeRm = esc(t.rm || '');
@@ -362,7 +370,7 @@ window.addEventListener('i18n:change', () => {
   render();
 });
 </script>
-<script src="nav.js" defer></script>
-<script src="chat-dock.js" defer></script>
+<script src="nav.js?v=9" defer></script>
+<script src="chat-dock.js?v=8" defer></script>
 </body>
 </html>

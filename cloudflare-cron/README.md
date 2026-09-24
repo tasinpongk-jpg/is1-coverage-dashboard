@@ -4,13 +4,22 @@ A small Cloudflare Worker that POSTs to GitHub's `workflow_dispatch` API at
 each scheduled fire time. Replaces GitHub Actions' unreliable `schedule:`
 events as the primary trigger for both `daily.yml` and
 `disclosure-refresh.yml`. The GHA `schedule:` blocks stay in place as
-redundant backups (`concurrency:group=daily` prevents double-runs).
+redundant backups.
+
+Deduplication is done by the `guard` job at the top of `daily.yml`, **not** by
+the `concurrency` group. `concurrency: group=daily` with
+`cancel-in-progress: false` queues the backup rather than dropping it, so both
+triggers used to run the full ~20-minute pipeline and land two `daily snapshot`
+commits every weekday. The guard skips a `schedule` run once a
+`workflow_dispatch` run has already succeeded the same UTC day, and fails open
+(runs anyway) if it cannot reach the API — a missed day costs more than a
+duplicate one.
 
 ## What it dispatches
 
 | Cron (UTC) | Bangkok local | Workflow | Notes |
 |---|---|---|---|
-| `50 2 * * 1-5` | 09:50 | `daily.yml` | full pipeline (surveillance + emails + 4 dashboards) |
+| `15 2 * * 1-5` | 09:15 | `daily.yml` | full pipeline (surveillance + emails + 4 dashboards) |
 | `0 7 * * 1-5` | 14:00 | `disclosure-refresh.yml` | afternoon catch-up, disclosure-pulse only |
 | `0 11 * * 1-5` | 18:00 | `disclosure-refresh.yml` | end-of-day sweep, disclosure-pulse only |
 
@@ -21,7 +30,7 @@ requires one entry there plus one line in `wrangler.toml [triggers]`.
 
 ```
   Cloudflare Cron Trigger              GHA schedule (redundant backup)
-   09:50 / 14:00 / 18:00 BKK            same times in both YAML files
+   09:15 / 14:00 / 18:00 BKK            same times in both YAML files
         │                                       │
         ▼                                       │
   Worker.scheduled(event)                       │
@@ -56,7 +65,7 @@ Prereqs: `npm install -g wrangler`, Cloudflare account with Workers enabled.
 
 2. **(Optional) Create two healthchecks.io checks** at
    <https://healthchecks.io>:
-   - `is1-daily-dispatch` — cron `50 2 * * 1-5` UTC, grace 30 min
+   - `is1-daily-dispatch` — cron `15 2 * * 1-5` UTC, grace 30 min
    - `is1-disclosure-dispatch` — cron `0 7,11 * * 1-5` UTC, grace 15 min
    - Copy the two `hc-ping.com/<uuid>` URLs.
 

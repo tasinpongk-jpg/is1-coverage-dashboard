@@ -1,16 +1,18 @@
 // Tests for worker.js /api/chat — run with `node --test tests/` from repo root.
-// Stubs env.ASSETS (reads local data/*.json) and env.AI (echoes prompt stats),
+// Stubs env.ASSETS (reads local data/*.json) and the MiniMax HTTP endpoint,
 // so this exercises routing, auth, agent selection, context building and the
 // RM-priority slicing without touching Cloudflare.
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
-import worker from "../worker.js";
+import worker, { buildSectorMetrics, fallbackThaiSummary, parseEfinanceArticleHtml, parseEfinanceNewsHtml, parseEfinanceSummaryReply, resolveLexCitations, retrieveLexChunks } from "../worker.js";
 
 let lastSystem = "";
+let lastMiniMaxRequest = null;
 const env = {
   CHAT_TOKEN: "testtoken",
+  MINIMAX_API_KEY: "test-minimax-key",
   ASSETS: {
     fetch: async (req) => {
       const p = new URL(req.url).pathname;
@@ -18,11 +20,15 @@ const env = {
       catch { return new Response("not found", { status: 404 }); }
     },
   },
-  AI: {
-    run: async (_model, opts) => {
-      lastSystem = opts.messages[0].content;
-      return { response: "stub-reply" };
-    },
+  MINIMAX_FETCH: async (url, opts) => {
+    const body = JSON.parse(opts.body);
+    lastSystem = body.messages[0].content;
+    lastMiniMaxRequest = { url, opts, body };
+    return new Response(JSON.stringify({
+      model: "MiniMax-M3",
+      choices: [{ finish_reason: "stop", message: { role: "assistant", content: "stub-reply" } }],
+      base_resp: { status_code: 0, status_msg: "" },
+    }), { headers: { "Content-Type": "application/json" } });
   },
 };
 
@@ -36,15 +42,437 @@ function chatReq(body, token = "testtoken") {
   });
 }
 const userMsg = [{ role: "user", content: "hi" }];
+const lexCorpus = JSON.parse(await readFile("./data/lex-regulations.json", "utf-8"));
 
-test("each agent responds 200 and reports its name", async () => {
-  for (const agent of ["atlas", "hermes", "pythia"]) {
+test("Lex corpus records a complete page-level source set", () => {
+  assert.equal(lexCorpus.schemaVersion, 1);
+  assert.equal(lexCorpus.documentCount, 79);
+  assert.equal(lexCorpus.documents.length, 79);
+  assert.equal(lexCorpus.pageCount, 560);
+  assert.equal(lexCorpus.chunkCount, lexCorpus.chunks.length);
+  assert.ok(lexCorpus.documents.every((doc) => /^[a-f0-9]{64}$/.test(doc.sha256)));
+  assert.ok(lexCorpus.chunks.every((chunk) =>
+    chunk.document.endsWith(".pdf") && chunk.page > 0 && chunk.text.length > 0));
+});
+
+test("eFinanceThai parser extracts safe headline links from embedded JSON", () => {
+  const upstream = {
+    TotalPage: 36,
+    PageSize: 15,
+    Data: [
+      {
+        id: 7628623,
+        LastUpdate: "2026-08-06 10:01:00",
+        title: "CPN reports {growth} and says \"outlook strong\"",
+        security: "cpn",
+        full_path_link: "https://www.efinancethai.com/LastestNews/LatestNewsMain.aspx?id=abc",
+      },
+      {
+        id: 2,
+        LastUpdate: "2026-08-06 09:00:00",
+        title: "Unsafe host",
+        security: "BAD",
+        full_path_link: "https://example.com/LastestNews/LatestNewsMain.aspx?id=bad",
+      },
+    ],
+  };
+  const parsed = parseEfinanceNewsHtml(`<script>var jsonscript = ${JSON.stringify(upstream)};jQuery("ignored");</script>`);
+  assert.equal(parsed.totalPages, 36);
+  assert.equal(parsed.pageSize, 15);
+  assert.equal(parsed.count, 1);
+  assert.equal(parsed.items[0].id, 7628623);
+  assert.equal(parsed.items[0].ticker, "CPN");
+  assert.equal(parsed.items[0].publishedAt, "2026-08-06T03:01:00.000Z");
+  assert.match(parsed.items[0].url, /^https:\/\/www\.efinancethai\.com\/LastestNews\/LatestNewsMain\.aspx\?id=abc$/);
+});
+
+test("eFinanceThai article parser extracts clean body text and three fallback bullets", () => {
+  const detail = {
+    title: "CPN เปิดโครงการใหม่",
+    description: "สำนักข่าวอีไฟแนนซ์ไทย- -6 ส.ค. 69 10:18 น. CPN เปิดโครงการมูลค่า 5,000 ล้านบาท",
+    content: "<article><p>CPN เปิดโครงการมูลค่า 5,000 ล้านบาท</p><p>เริ่มเปิดบริการเดือนกันยายน</p><p>บริษัทคาดว่าจะช่วยเพิ่มรายได้ประจำ</p></article>",
+  };
+  const parsed = parseEfinanceArticleHtml(`<script>var jsonscript = ${JSON.stringify(detail)};var colTypeID = 21;</script>`);
+  assert.equal(parsed.title, "CPN เปิดโครงการใหม่");
+  assert.doesNotMatch(parsed.description, /สำนักข่าวอีไฟแนนซ์ไทย/);
+  assert.match(parsed.body, /5,000 ล้านบาท/);
+  const bullets = fallbackThaiSummary(parsed);
+  assert.equal(bullets.length, 3);
+  assert.ok(bullets.every((bullet) => bullet.length >= 12));
+  assert.ok(bullets.every((bullet) => !bullet.includes("สำนักข่าวอีไฟแนนซ์ไทย")));
+});
+
+test("eFinanceThai summary parser accepts only three-bullet records for requested IDs", () => {
+  const parsed = parseEfinanceSummaryReply(`\`\`\`json
+  {"7628623":["ประเด็นหนึ่งจากข่าว","ประเด็นสองพร้อมตัวเลข","ประเด็นสามที่ยืนยันแล้ว"],"999":["ไม่อนุญาต","ไม่อนุญาต","ไม่อนุญาต"]}
+  \`\`\``, [7628623]);
+  assert.deepEqual(parsed["7628623"], [
+    "ประเด็นหนึ่งจากข่าว",
+    "ประเด็นสองพร้อมตัวเลข",
+    "ประเด็นสามที่ยืนยันแล้ว",
+  ]);
+  assert.equal(parsed["999"], undefined);
+  assert.deepEqual(parseEfinanceSummaryReply('{"7628623":["มีเพียงข้อเดียว"]}', [7628623]), {});
+});
+
+test("GET /api/efinance-news returns cached headline-link JSON", async () => {
+  const upstream = {
+    TotalPage: 1,
+    PageSize: 15,
+    Data: [{
+      id: 7628623,
+      LastUpdate: "2026-08-06 10:01:00",
+      title: "Latest SET headline",
+      security: "CPN",
+      full_path_link: "https://www.efinancethai.com/LastestNews/LatestNewsMain.aspx?id=abc",
+    }],
+  };
+  let upstreamRequest = null;
+  const newsEnv = {
+    ...env,
+    EFINANCE_FETCH: async (url, options) => {
+      upstreamRequest = { url, options };
+      return new Response(`<script>var jsonscript = ${JSON.stringify(upstream)};jQuery("ok");</script>`);
+    },
+  };
+  const response = await worker.fetch(new Request("https://x.test/api/efinance-news"), newsEnv);
+  assert.equal(response.status, 200);
+  assert.match(response.headers.get("Cache-Control"), /s-maxage=300/);
+  assert.equal(response.headers.get("X-Content-Type-Options"), "nosniff");
+  assert.equal(upstreamRequest.url, "https://www.efinancethai.com/LastestNews/AllLatestNews.aspx");
+  assert.equal(upstreamRequest.options.cf.cacheTtl, 300);
+  const data = await response.json();
+  assert.equal(data.source, "eFinanceThai");
+  assert.equal(data.count, 1);
+  assert.equal(data.items[0].title, "Latest SET headline");
+  assert.ok(data.fetchedAt);
+});
+
+test("GET /api/efinance-news/summaries returns and caches three Thai bullets", async () => {
+  const upstream = {
+    TotalPage: 1,
+    PageSize: 15,
+    Data: [{
+      id: 7628623,
+      LastUpdate: "2026-08-06 10:01:00",
+      title: "CPN เปิดโครงการใหม่",
+      security: "CPN",
+      full_path_link: "https://www.efinancethai.com/LastestNews/LatestNewsMain.aspx?id=abc",
+    }],
+  };
+  const detail = {
+    title: "CPN เปิดโครงการใหม่",
+    description: "CPN เปิดโครงการมูลค่า 5,000 ล้านบาท",
+    content: "<p>CPN เปิดโครงการมูลค่า 5,000 ล้านบาท</p><p>เริ่มเปิดบริการเดือนกันยายน</p><p>บริษัทคาดว่าจะช่วยเพิ่มรายได้ประจำ</p>",
+  };
+  const cache = new Map();
+  let detailFetches = 0;
+  const summaryEnv = {
+    ...env,
+    MINIMAX_API_KEY: "",
+    FEEDBACK: {
+      get: async (key) => cache.get(key) || null,
+      put: async (key, value) => { cache.set(key, value); },
+    },
+    EFINANCE_FETCH: async (url) => {
+      if (String(url).includes("AllLatestNews")) {
+        return new Response(`<script>var jsonscript = ${JSON.stringify(upstream)};jQuery("ok");</script>`);
+      }
+      detailFetches += 1;
+      return new Response(`<script>var jsonscript = ${JSON.stringify(detail)};var colTypeID = 21;</script>`);
+    },
+  };
+  let response = await worker.fetch(new Request("https://x.test/api/efinance-news/summaries"), summaryEnv);
+  assert.equal(response.status, 200);
+  assert.match(response.headers.get("Cache-Control"), /s-maxage=300/);
+  let data = await response.json();
+  assert.equal(data.count, 1);
+  assert.equal(data.summaries[0].id, 7628623);
+  assert.equal(data.summaries[0].bullets.length, 3);
+  assert.equal(data.summaries[0].generatedBy, "extractive");
+
+  response = await worker.fetch(new Request("https://x.test/api/efinance-news/summaries"), summaryEnv);
+  data = await response.json();
+  assert.equal(data.summaries[0].bullets.length, 3);
+  assert.equal(detailFetches, 1, "second request must reuse the KV summary");
+});
+
+test("GET /api/efinance-news/summaries responds before background enrichment finishes", { timeout: 2000 }, async () => {
+  const upstream = {
+    TotalPage: 1,
+    PageSize: 15,
+    Data: [{
+      id: 7628623,
+      LastUpdate: "2026-08-06 10:01:00",
+      title: "CPN เปิดโครงการใหม่มูลค่า 5,000 ล้านบาท",
+      security: "CPN",
+      full_path_link: "https://www.efinancethai.com/LastestNews/LatestNewsMain.aspx?id=abc",
+    }],
+  };
+  const detail = {
+    title: "CPN เปิดโครงการใหม่",
+    description: "CPN เปิดโครงการมูลค่า 5,000 ล้านบาท",
+    content: "<p>เริ่มเปิดบริการเดือนกันยายน</p><p>บริษัทคาดว่าจะช่วยเพิ่มรายได้ประจำ</p>",
+  };
+  const cache = new Map();
+  let releaseDetail;
+  let background;
+  const summaryEnv = {
+    ...env,
+    MINIMAX_API_KEY: "",
+    FEEDBACK: {
+      get: async (key) => cache.get(key) || null,
+      put: async (key, value) => { cache.set(key, value); },
+    },
+    EFINANCE_FETCH: async (url) => {
+      if (String(url).includes("AllLatestNews")) {
+        return new Response('<script>var jsonscript = ' + JSON.stringify(upstream) + ';jQuery("ok");</script>');
+      }
+      return new Promise((resolve) => {
+        releaseDetail = () => resolve(
+          new Response('<script>var jsonscript = ' + JSON.stringify(detail) + ';var colTypeID = 21;</script>'),
+        );
+      });
+    },
+  };
+  const ctx = {
+    waitUntil(promise) {
+      background = promise;
+    },
+  };
+
+  const response = await worker.fetch(
+    new Request("https://x.test/api/efinance-news/summaries"),
+    summaryEnv,
+    ctx,
+  );
+  assert.equal(response.status, 200);
+  const data = await response.json();
+  assert.equal(data.count, 1);
+  assert.equal(data.summaries[0].generatedBy, "headline");
+  assert.equal(data.summaries[0].bullets.length, 3);
+  assert.ok(background, "article enrichment must continue in the background");
+
+  releaseDetail();
+  await background;
+  const cachedRecord = JSON.parse([...cache.values()][0]);
+  assert.equal(cachedRecord.generatedBy, "extractive");
+  assert.equal(cachedRecord.bullets.length, 3);
+});
+test("/api/efinance-news rejects non-GET methods", async () => {
+  for (const path of ["/api/efinance-news", "/api/efinance-news/summaries"]) {
+    const response = await worker.fetch(new Request("https://x.test" + path, { method: "POST" }), env);
+    assert.equal(response.status, 405);
+    assert.equal(response.headers.get("Allow"), "GET");
+  }
+});
+
+test("MiniMax-backed agents respond 200 and report grounded metadata", async () => {
+  for (const agent of ["atlas", "hermes"]) {
     const r = await worker.fetch(chatReq({ agent, messages: userMsg }), env);
     assert.equal(r.status, 200);
     const d = await r.json();
     assert.equal(d.agent, agent);
-    assert.equal(d.reply, "stub-reply");
+    assert.match(d.reply, /^stub-reply/);
+    assert.match(d.reply, /Data as of \d{4}-\d{2}-\d{2}/);
+    assert.equal(d.model, "MiniMax-M3");
+    assert.ok(d.meta.asOf);
+    assert.ok(d.meta.sources.length >= 2);
   }
+});
+
+test("Pythia redirects unsupported questions without calling an LLM", async () => {
+  lastMiniMaxRequest = null;
+  const r = await worker.fetch(chatReq({ agent: "pythia", messages: userMsg }), env);
+  assert.equal(r.status, 200);
+  const d = await r.json();
+  assert.equal(d.agent, "pythia");
+  assert.equal(d.model, "deterministic");
+  assert.match(d.reply, /Questions supported by the current data/);
+  assert.equal(lastMiniMaxRequest, null);
+});
+
+test("chat calls the MiniMax M3 server API with grounded messages", async () => {
+  const r = await worker.fetch(chatReq({ agent: "atlas", messages: userMsg }), env);
+  assert.equal(r.status, 200);
+  assert.equal(lastMiniMaxRequest.url, "https://api.minimax.io/v1/text/chatcompletion_v2");
+  assert.equal(lastMiniMaxRequest.opts.method, "POST");
+  assert.equal(lastMiniMaxRequest.opts.headers.Authorization, "Bearer test-minimax-key");
+  assert.equal(lastMiniMaxRequest.body.model, "MiniMax-M3");
+  assert.equal(lastMiniMaxRequest.body.messages.at(-1).content, "hi");
+  assert.match(lastMiniMaxRequest.body.messages[0].content, /DATA:/);
+  assert.equal(lastMiniMaxRequest.body.max_tokens, 2200);
+});
+
+test("sector metrics canonicalize PF&REIT and exclude null values from averages", () => {
+  const metrics = buildSectorMetrics({ rows: [
+    { tk: "A", sector: "PFREIT", pct1d: 2, pct5d: 4, pctYtd: null },
+    { tk: "B", sector: "PF&REIT", pct1d: null, pct5d: 8, pctYtd: 10 },
+    { tk: "C", sector: "FOOD", pct1d: -1, pct5d: null, pctYtd: -5 },
+  ] });
+  const reit = metrics.find((row) => row.sector === "PF&REIT");
+  assert.equal(reit.count, 2);
+  assert.equal(reit.count1d, 1);
+  assert.equal(reit.avg1d, 2);
+  assert.equal(reit.avg5d, 6);
+  assert.equal(reit.avgYtd, 10);
+  assert.equal(reit.up, 1);
+});
+
+test("Pythia answers supported sector screens deterministically", async () => {
+  lastMiniMaxRequest = null;
+  const r = await worker.fetch(chatReq({
+    agent: "pythia",
+    messages: [{ role: "user", content: "Rank all 6 IS1 sectors by 1-day return and breadth" }],
+  }), env);
+  assert.equal(r.status, 200);
+  const d = await r.json();
+  assert.equal(d.model, "deterministic");
+  const brief = JSON.parse(await readFile("./data/morning-brief.json", "utf-8"));
+  assert.equal(d.meta.asOf, brief.asOf);
+  assert.match(d.reply, /Median 1d/);
+  assert.match(d.reply, /Avg 5d/);
+  assert.match(d.reply, /PF&REIT/);
+  assert.equal(lastMiniMaxRequest, null);
+});
+
+test("Pythia rejects unsupported macro questions with answerable alternatives", async () => {
+  lastMiniMaxRequest = null;
+  const r = await worker.fetch(chatReq({
+    agent: "pythia",
+    messages: [{ role: "user", content: "What is the SET Index outlook and foreign fund flow today?" }],
+  }), env);
+  assert.equal(r.status, 200);
+  const d = await r.json();
+  assert.equal(d.model, "deterministic");
+  assert.match(d.reply, /does not have SET Index/i);
+  assert.match(d.reply, /Rank all 6 IS1 sectors/);
+  assert.equal(lastMiniMaxRequest, null);
+});
+
+test("Lex retrieves page-level rules and answers through MiniMax M3", async () => {
+  const r = await worker.fetch(chatReq({
+    agent: "lex",
+    messages: [{ role: "user", content: "When is a connected transaction subject to shareholder approval?" }],
+  }), env);
+  assert.equal(r.status, 200);
+  const d = await r.json();
+  assert.equal(d.agent, "lex");
+  assert.equal(d.model, "MiniMax-M3");
+  assert.match(d.reply, /Sources retrieved:/);
+  assert.match(lastSystem, /REGULATION CORPUS: 79 documents/);
+  assert.match(lastSystem, /รายการที่เกี่ยวโยงกัน\.pdf \| p\.6/);
+  assert.doesNotMatch(lastMiniMaxRequest.url, /googleapis|gemini/i);
+  assert.equal(lastMiniMaxRequest.body.max_tokens, 5000);
+  assert.equal(lastMiniMaxRequest.body.temperature, 0.1);
+});
+
+test("Lex retrieval finds the intended documents for every sample question", () => {
+  const cases = [
+    ["When is a connected transaction subject to shareholder approval?", /รายการที่เกี่ยวโยงกัน\.pdf/],
+    ["What must a listed company disclose after a board resolution?", /การเปิดเผยข้อมูลตามเหตุการณ์\.pdf/],
+    ["อธิบายเกณฑ์ free float ของ SET", /Free_Float\.pdf/],
+  ];
+  for (const [question, expected] of cases) {
+    const rows = retrieveLexChunks(lexCorpus, question);
+    assert.equal(rows.length, 8);
+    assert.match(rows[0].document, expected);
+    assert.ok(rows.every((row) => row.page > 0 && row.text.length > 0));
+  }
+});
+
+test("Lex expands source IDs and removes non-retrieved citation labels", () => {
+  const chunks = [
+    { document: "กฎหนึ่ง.pdf", page: 2 },
+    { document: "rule-two.pdf", page: 7 },
+  ];
+  const reply = resolveLexCitations(
+    "Threshold [S1]. Condition [S2]. Unknown [S9]. Fake [short-name.pdf p.4].",
+    chunks,
+  );
+  assert.match(reply, /\[กฎหนึ่ง\.pdf p\.2\]/);
+  assert.match(reply, /\[rule-two\.pdf p\.7\]/);
+  assert.doesNotMatch(reply, /S9|short-name/);
+});
+
+test("Lex rejects off-topic questions without calling an LLM", async () => {
+  lastMiniMaxRequest = null;
+  const r = await worker.fetch(chatReq({
+    agent: "lex",
+    messages: [{ role: "user", content: "How do I cook pad thai?" }],
+  }), env);
+  assert.equal(r.status, 200);
+  const d = await r.json();
+  assert.equal(d.model, "MiniMax-M3");
+  assert.match(d.reply, /only answers SET\/SEC rules/i);
+  assert.equal(lastMiniMaxRequest, null);
+});
+
+test("Lex reports a missing regulation corpus as 503", async () => {
+  const missingCorpusEnv = {
+    ...env,
+    ASSETS: {
+      fetch: async (req) => new URL(req.url).pathname === "/data/lex-regulations.json"
+        ? new Response("not found", { status: 404 })
+        : env.ASSETS.fetch(req),
+    },
+  };
+  const r = await worker.fetch(chatReq({
+    agent: "lex",
+    messages: [{ role: "user", content: "Explain the free float rule" }],
+  }), missingCorpusEnv);
+  assert.equal(r.status, 503);
+  assert.match((await r.json()).error, /regulation corpus is missing/);
+});
+
+test("chat reports missing MiniMax configuration without calling an alternate model", async () => {
+  const r = await worker.fetch(chatReq({ agent: "atlas", messages: userMsg }), {
+    ...env,
+    MINIMAX_API_KEY: "",
+  });
+  assert.equal(r.status, 503);
+  assert.match((await r.json()).error, /missing MINIMAX_API_KEY/);
+});
+
+test("chat converts MiniMax upstream failures and empty answers to 502", async () => {
+  let r = await worker.fetch(chatReq({ agent: "atlas", messages: userMsg }), {
+    ...env,
+    MINIMAX_FETCH: async () => new Response(JSON.stringify({
+      base_resp: { status_code: 1001, status_msg: "bad request" },
+    }), { status: 400, headers: { "Content-Type": "application/json" } }),
+  });
+  assert.equal(r.status, 502);
+
+  r = await worker.fetch(chatReq({ agent: "atlas", messages: userMsg }), {
+    ...env,
+    MINIMAX_FETCH: async () => new Response(JSON.stringify({
+      model: "MiniMax-M3",
+      choices: [{ message: { content: "" } }],
+      base_resp: { status_code: 0, status_msg: "" },
+    }), { headers: { "Content-Type": "application/json" } }),
+  });
+  assert.equal(r.status, 502);
+});
+
+test("chat retries an empty MiniMax answer with a larger token budget", async () => {
+  const budgets = [];
+  const r = await worker.fetch(chatReq({ agent: "atlas", messages: userMsg }), {
+    ...env,
+    MINIMAX_FETCH: async (_url, opts) => {
+      budgets.push(JSON.parse(opts.body).max_tokens);
+      return new Response(JSON.stringify({
+        model: "MiniMax-M3",
+        choices: [{
+          finish_reason: budgets.length === 1 ? "length" : "stop",
+          message: { content: budgets.length === 1 ? "" : "recovered-reply" },
+        }],
+        base_resp: { status_code: 0, status_msg: "" },
+      }), { headers: { "Content-Type": "application/json" } });
+    },
+  });
+  assert.equal(r.status, 200);
+  assert.match((await r.json()).reply, /^recovered-reply/);
+  assert.deepEqual(budgets, [2200, 5000]);
 });
 
 test("unknown agent falls back to atlas", async () => {
@@ -185,13 +613,29 @@ test("atlas persona enforces strict threshold math + table format", async () => 
   assert.ok(/EXAMPLE — user:/.test(lastSystem), "expected an Atlas few-shot example");
 });
 
-test("pythia persona ranks from aggregates + separates fact from AI view", async () => {
-  await worker.fetch(chatReq({ agent: "pythia", messages: userMsg }), env);
-  assert.ok(/RANK FROM THE NUMBERS/.test(lastSystem), "expected ranking-from-data rule");
-  assert.ok(/SEPARATE FACT FROM VIEW/.test(lastSystem), "expected fact-vs-commentary rule");
-  // both data blocks Pythia reasons over must be present
-  assert.ok(/SECTOR AGGREGATES/.test(lastSystem), "expected SECTOR AGGREGATES block");
-  assert.ok(/AI COMMENTARY/.test(lastSystem), "expected AI COMMENTARY reference");
+test("Pythia keeps unsupported market and macro questions inside its verified scope", async () => {
+  lastMiniMaxRequest = null;
+  const r = await worker.fetch(chatReq({
+    agent: "pythia",
+    messages: [{ role: "user", content: "Summarize the whole market and next-week outlook" }],
+  }), env);
+  const d = await r.json();
+  assert.equal(d.model, "deterministic");
+  assert.match(d.reply, /does not have SET Index/i);
+  assert.match(d.reply, /Rank all 6 IS1 sectors/);
+  assert.equal(lastMiniMaxRequest, null);
+});
+
+test("every generative agent prompt includes a worked response sample", async () => {
+  const cases = [
+    ["atlas", "top movers", /EXAMPLE — user:/],
+    ["hermes", "news today", /EXAMPLE — user:/],
+    ["lex", "Explain the free float rule", /SAMPLE FORMAT — user asks/],
+  ];
+  for (const [agent, question, marker] of cases) {
+    await worker.fetch(chatReq({ agent, messages: [{ role: "user", content: question }] }), env);
+    assert.match(lastSystem, marker, `expected a worked sample for ${agent}`);
+  }
 });
 
 test("naming a covered ticker filters Hermes context to that ticker", async () => {
@@ -206,15 +650,61 @@ test("naming a covered ticker filters Hermes context to that ticker", async () =
   assert.ok(!/FILTERED to/.test(lastSystem), "generic question should not filter");
 });
 
-test("plain 'news on X' does NOT trigger the on-demand PDF summary path", async () => {
-  // No summarize/explain intent -> docSummaryBlock must not run (no network fetch).
+test("Hermes news requests always use MiniMax M3", async () => {
   const tk = JSON.parse(await readFile("./data/tickers.json", "utf-8")).tickers[0].tk;
   const r = await worker.fetch(chatReq({ agent: "hermes", messages: [{ role: "user", content: `any news on ${tk}?` }] }), env);
   assert.equal(r.status, 200);
   const d = await r.json();
-  // The summarize path short-circuits to Gemini (model=gemini-*). A plain news
-  // query must take the normal chat-model path instead — proves it didn't fire.
-  assert.ok(/llama/i.test(d.model), `plain news should use the chat model, got ${d.model}`);
+  assert.equal(d.model, "MiniMax-M3", `plain news should use MiniMax M3, got ${d.model}`);
+  assert.deepEqual(d.meta.sources, ["external-news", "disclosure-pulse", "sec-form59", "oppday-minutes"]);
+});
+
+test("Hermes normalizes required news sections and always appends snapshot provenance", async () => {
+  let calls = 0;
+  const sectionEnv = {
+    ...env,
+    MINIMAX_FETCH: async () => {
+      calls += 1;
+      return new Response(JSON.stringify({
+        model: "MiniMax-M3",
+        choices: [{ message: { content: "External news\n• one item\n\nSET disclosures\n• one filing" } }],
+        base_resp: { status_code: 0 },
+      }), { headers: { "Content-Type": "application/json" } });
+    },
+  };
+  const r = await worker.fetch(chatReq({
+    agent: "hermes",
+    messages: [{ role: "user", content: "What news moved RM C coverage today?" }],
+  }), sectionEnv);
+  const d = await r.json();
+  assert.equal(calls, 1);
+  assert.match(d.reply, /📰 External news/);
+  assert.match(d.reply, /📄 SET disclosures/);
+  assert.match(d.reply, /Data as of \d{4}-\d{2}-\d{2}/);
+});
+
+test("Hermes falls back to grounded context when two model answers miss required sections", async () => {
+  let calls = 0;
+  const fallbackEnv = {
+    ...env,
+    MINIMAX_FETCH: async () => {
+      calls += 1;
+      return new Response(JSON.stringify({
+        model: "MiniMax-M3",
+        choices: [{ message: { content: "A paragraph without the required structure." } }],
+        base_resp: { status_code: 0 },
+      }), { headers: { "Content-Type": "application/json" } });
+    },
+  };
+  const r = await worker.fetch(chatReq({
+    agent: "hermes",
+    messages: [{ role: "user", content: "Update FOOD sector news today" }],
+  }), fallbackEnv);
+  const d = await r.json();
+  assert.equal(calls, 2);
+  assert.match(d.reply, /📰 External news/);
+  assert.match(d.reply, /📄 SET disclosures/);
+  assert.match(d.reply, /\d{4}-\d{2}-\d{2}/);
 });
 
 test("atlas 'beyond ±X%' query hard-filters prices to qualifying rows only", async () => {
@@ -293,6 +783,25 @@ test("recency word date-filters Hermes news/filings context", async () => {
   assert.ok(/FILTERED to the last 7 days/.test(lastSystem), "expected a 7-day recency filter note");
 });
 
+test("lowercase tickers focus context without treating contractions as ticker M", async () => {
+  await worker.fetch(chatReq({ agent: "atlas", messages: [{ role: "user", content: "price of cpn" }] }), env);
+  assert.match(lastSystem, /focused on CPN/);
+
+  await worker.fetch(chatReq({ agent: "atlas", messages: [{ role: "user", content: "price of M" }] }), env);
+  assert.match(lastSystem, /focused on M/);
+
+  await worker.fetch(chatReq({ agent: "atlas", messages: [{ role: "user", content: "Top movers in my coverage. I'm Champ." }] }), env);
+  assert.doesNotMatch(lastSystem, /focused on M/);
+});
+
+test("Thai recency words date-filter Hermes context", async () => {
+  await worker.fetch(chatReq({ agent: "hermes", messages: [{ role: "user", content: "ข่าว CPN วันนี้" }] }), env);
+  assert.match(lastSystem, /FILTERED to today/);
+
+  await worker.fetch(chatReq({ agent: "hermes", messages: [{ role: "user", content: "ข่าว CPN เมื่อวาน" }] }), env);
+  assert.match(lastSystem, /FILTERED to the last 2 days/);
+});
+
 test("naming a sector scopes Atlas prices to that sector", async () => {
   await worker.fetch(chatReq({ agent: "atlas", messages: [{ role: "user", content: "show me movers in FOOD" }] }), env);
   assert.ok(/Scoped to the FOOD sector/.test(lastSystem), "expected FOOD sector scope note");
@@ -304,6 +813,20 @@ test("naming a sector scopes Atlas prices to that sector", async () => {
 test("naming a sector scopes Hermes news/filings", async () => {
   await worker.fetch(chatReq({ agent: "hermes", messages: [{ role: "user", content: "any news in PROP?" }] }), env);
   assert.ok(/SCOPED to PROP/.test(lastSystem), "expected PROP sector scope note");
+});
+
+test("PF&REIT sector aliases scope Atlas and Hermes data", async () => {
+  await worker.fetch(chatReq({ agent: "atlas", messages: [{ role: "user", content: "show movers in PF&REIT" }] }), env);
+  assert.match(lastSystem, /Scoped to the PF&REIT sector/);
+  let block = lastSystem.split("TICKERS (tk")[1] || "";
+  let sectors = [...block.matchAll(/^\S+ (\S+) \S+ \| /gm)].map((match) => match[1]);
+  assert.ok(sectors.length > 0 && sectors.every((sector) => sector === "PF&REIT"));
+
+  await worker.fetch(chatReq({ agent: "hermes", messages: [{ role: "user", content: "news in PFREIT" }] }), env);
+  assert.match(lastSystem, /SCOPED to PF&REIT/);
+  block = lastSystem.split("EXTERNAL NEWS")[1]?.split("SET DISCLOSURES")[0] || "";
+  sectors = [...block.matchAll(/^\d{4}-\d{2}-\d{2} \S+ rm=\S+ (\S+):/gm)].map((match) => match[1]);
+  assert.ok(sectors.every((sector) => sector === "PFREIT" || sector === "PF&REIT"));
 });
 
 test("topical keywords switch news/filings to relevance ranking", async () => {
@@ -329,8 +852,16 @@ test("output verification flags an ungrounded ticker the model invents", async (
   const tickers = JSON.parse(await readFile("./data/tickers.json", "utf-8")).tickers;
   // a covered ticker very unlikely to be in a single-ticker focused context
   const other = tickers[tickers.length - 1].tk;
-  const saved = env.AI.run;
-  env.AI.run = async (_m, opts) => { lastSystem = opts.messages[0].content; return { response: `You might also look at ${other}.` }; };
+  const saved = env.MINIMAX_FETCH;
+  env.MINIMAX_FETCH = async (_url, opts) => {
+    const body = JSON.parse(opts.body);
+    lastSystem = body.messages[0].content;
+    return new Response(JSON.stringify({
+      model: "MiniMax-M3",
+      choices: [{ message: { content: `You might also look at ${other}.` } }],
+      base_resp: { status_code: 0, status_msg: "" },
+    }), { headers: { "Content-Type": "application/json" } });
+  };
   try {
     // focus on tickers[0] so the context is a different name; reply names `other`
     const r = await worker.fetch(chatReq({ agent: "atlas", messages: [{ role: "user", content: `price of ${tickers[0].tk}?` }] }), env);
@@ -340,7 +871,26 @@ test("output verification flags an ungrounded ticker the model invents", async (
       assert.ok(d.reply.includes("⚠ Unverified") && d.reply.includes(other),
         "expected an Unverified flag for the ungrounded ticker");
     }
-  } finally { env.AI.run = saved; }
+  } finally { env.MINIMAX_FETCH = saved; }
+});
+
+test("output verification does not treat MD&A as ticker A", async () => {
+  const saved = env.MINIMAX_FETCH;
+  env.MINIMAX_FETCH = async (_url, opts) => {
+    const body = JSON.parse(opts.body);
+    lastSystem = body.messages[0].content;
+    return new Response(JSON.stringify({
+      model: "MiniMax-M3",
+      choices: [{ message: { content: "Review the MD&A filing." } }],
+      base_resp: { status_code: 0, status_msg: "" },
+    }), { headers: { "Content-Type": "application/json" } });
+  };
+  try {
+    const r = await worker.fetch(chatReq({ agent: "hermes", messages: [{ role: "user", content: "summarize CPN filing" }] }), env);
+    const d = await r.json();
+    assert.match(d.reply, /^Review the MD&A filing\./);
+    assert.doesNotMatch(d.reply, /Unverified.*\bA\b/);
+  } finally { env.MINIMAX_FETCH = saved; }
 });
 
 test("agents are told to use ticker symbols only, never expand to company names", async () => {
