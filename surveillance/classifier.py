@@ -1,4 +1,4 @@
-"""Phase 2 — classify each new SET disclosure with Claude Sonnet 4.6.
+"""Phase 2 — classify each new SET disclosure with MiniMax M3 (Anthropic-compatible endpoint).
 
 Uses tool-call structured output (most reliable shape extraction in the SDK)
 plus prompt caching on the system prompt (steady-state input cost cut ~90%).
@@ -48,7 +48,7 @@ class Classification(BaseModel):
     rationale: str = Field(..., description="One-sentence justification of the severity choice.")
 
 
-SYSTEM_PROMPT = """You are an experienced Senior RM in the Issuer Department of the Stock Exchange of Thailand. You cover 50 listed names spanning the FOOD, PROP, and PFREIT (property funds + REITs + infrastructure trusts) sectors. Your job is to triage every new disclosure your covered names file with SET, and route only the ones that genuinely matter.
+SYSTEM_PROMPT = """You are an experienced Senior RM in the Issuer Department of the Stock Exchange of Thailand. IS1 covers 232 listed names across FOOD, PROP, PFREIT (property funds + REITs + infrastructure trusts), AGRI, CONS and CONMAT. Your job is to triage every new disclosure your covered names file with SET, and route only the ones that genuinely matter.
 
 PFREIT NOTE: Property funds, REITs, and infrastructure trusts have a distinctive disclosure cadence — periodic NAV updates, regular distribution announcements, property acquisitions/disposals, REIT-manager (or fund-manager) changes, trustee changes. Apply the same severity rubric to PFREITs but with these calibrations: routine NAV-per-unit periodic updates and scheduled distribution payments are routine; CHANGES to distribution policy or unscheduled cuts are material; REIT-manager changes are material; trustee changes are material; major asset acquisition/disposal at the fund level is critical-or-material depending on size relative to the fund's total assets; SET-initiated clarification requests on a PFREIT are still always critical.
 
@@ -256,10 +256,10 @@ TOOL_DEF = {
 
 
 def _client() -> Anthropic:
-    key = os.environ.get("MINIMAX_API_KEY") or os.environ.get("ANTHROPIC_API_KEY")
+    key = os.environ.get("MINIMAX_API_KEY")
     if not key:
         raise RuntimeError(
-            "MINIMAX_API_KEY (or ANTHROPIC_API_KEY fallback) missing — set it in env."
+            "MINIMAX_API_KEY missing — set it in env."
         )
     base_url = os.environ.get("MINIMAX_BASE_URL", "https://api.minimax.io/anthropic")
     return Anthropic(api_key=key, base_url=base_url)
@@ -277,7 +277,7 @@ def classify_one(
 ) -> tuple[Classification, dict[str, int]]:
     """Run one classification. Returns (parsed result, usage dict).
 
-    Pass `model=MODEL_TH` for TH-only filings to use Haiku 4.5 (cheaper)."""
+    `model=MODEL_TH` is the TH-only path; it currently resolves to the same model as MODEL_EN."""
     user_lines = [
         f"Symbol: {symbol}",
         f"Datetime: {datetime_iso}",

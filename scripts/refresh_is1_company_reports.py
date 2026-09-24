@@ -112,7 +112,7 @@ def main(argv: list[str] | None = None) -> int:
         # to deterministic mode (P15-safe: never overwrite Opus synthesis with
         # template filler unless the user explicitly asked for it).
         has_key = bool(
-            os.environ.get("MINIMAX_API_KEY") or os.environ.get("ANTHROPIC_API_KEY")
+            os.environ.get("MINIMAX_API_KEY")
         )
         if args.llm == "auto" and not has_key:
             args_llm_mode = "never"  # effective mode for this run
@@ -153,7 +153,7 @@ def main(argv: list[str] | None = None) -> int:
 
     # Effective LLM mode (auto → never if no key)
     has_key_global = bool(
-        os.environ.get("MINIMAX_API_KEY") or os.environ.get("ANTHROPIC_API_KEY")
+        os.environ.get("MINIMAX_API_KEY")
     )
     effective_llm = args.llm if (args.llm != "auto" or has_key_global) else "never (no API key)"
 
