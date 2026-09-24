@@ -255,8 +255,8 @@ const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;',
 let DATA=null;
 const state={sector:'all',rm:/^[CKOGPT]$/.test(localStorage.getItem('is1_rm') || '') ? localStorage.getItem('is1_rm') : 'all',esg:false,outOnly:false,q:'',sort:'thb'};
 window.addEventListener('is1:rm-change',e=>{
-  if(!/^[CKOGPT]$/.test(e.detail?.rm||''))return;
-  state.rm=e.detail.rm;
+  if(!/^(ALL|[CKOGPT])$/.test(e.detail?.rm||''))return;
+  state.rm=e.detail.rm==='ALL'?'all':e.detail.rm;
   if(DATA){buildControls(DATA);render();}
 });
 

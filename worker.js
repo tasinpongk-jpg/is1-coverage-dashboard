@@ -1551,7 +1551,7 @@ function appendLexSources(reply, chunks) {
 // ---------------------------------------------------------------- agents
 
 const SHARED_RULES =
-  "IS1 is a relationship-manager team at a Thai securities firm covering " +
+  "IS1 is Issuer Department 1 of the Stock Exchange of Thailand; its RMs cover " +
   "SET-listed tickers in FOOD, PROP, PF&REIT, AGRI, CONS and CONMAT. " +
   "RMs: C, K, O, G, P, T.\n" +
   "Answer ONLY from the data below. If something is not in the data " +

@@ -210,7 +210,7 @@ def _m3_vision_ocr(pdf_bytes: bytes) -> str:
     import urllib.error
     import urllib.request
 
-    api_key = os.environ.get("MINIMAX_API_KEY") or os.environ.get("ANTHROPIC_API_KEY")
+    api_key = os.environ.get("MINIMAX_API_KEY")
     if not api_key:
         return ""
     try:

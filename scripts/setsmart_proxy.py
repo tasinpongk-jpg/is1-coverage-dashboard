@@ -66,7 +66,7 @@ HTTP_TIMEOUT        = float(os.environ.get("HTTP_TIMEOUT", "30"))
 # Surveillance bridge: if set, Disclosure Pulse reads classified items
 # from your surveillance DuckDB instead of polling news/search live.
 # The pipeline at c:\!VSCODE_Folder\SET_SETSMART_API\surveillance\ writes
-# classifier output (Sonnet 4.6 critical/material tags). This proxy reads.
+# classifier output (critical/material tags). This proxy reads.
 SURVEILLANCE_DB_PATH    = os.environ.get("SURVEILLANCE_DB_PATH", "").strip()
 SURVEILLANCE_TABLE      = os.environ.get("SURVEILLANCE_TABLE", "news_items").strip()
 SURVEILLANCE_SQL        = os.environ.get("SURVEILLANCE_SQL", "").strip()    # full custom override
@@ -423,7 +423,7 @@ async def fetch_disclosures(client: httpx.AsyncClient, tk: str, days: int) -> Li
 # ------------------------------------------------------------------
 # When SURVEILLANCE_DB_PATH is set the proxy reads from your existing
 # surveillance pipeline's DuckDB. That pipeline already polled news/search,
-# deduplicated, and classified each disclosure with Sonnet 4.6 (critical /
+# deduplicated, and classified each disclosure (critical /
 # material / noise). The bridge:
 #
 #   - opens DuckDB read-only so it can't lock out the writer cron

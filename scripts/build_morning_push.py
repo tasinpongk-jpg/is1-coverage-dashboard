@@ -3,9 +3,9 @@
 Runs in the daily build job AFTER the snapshot builders (fresh data/*.json
 on disk). For each RM it assembles: movers beyond +/-2%, 52-week extremes,
 high/medium unusual-trading alerts, disclosures filed in the last ~26h and
-overdue/silent filers — then asks the Groq free tier for a 2-3 sentence
-"AI take" per RM (skipped gracefully if GROQ_API_KEY is unset or the call
-fails; the data sections always go out).
+overdue/silent filers — then asks MiniMax M3 for a 2-3 sentence "AI take"
+per RM (skipped gracefully if MINIMAX_API_KEY is unset or the call fails;
+the data sections always go out).
 
 Delivery follows the route_alerts.py house style: everything goes to
 EMAIL_TO via Gmail SMTP, sections labeled per RM. When per-RM addresses
@@ -14,7 +14,7 @@ exist later, set BRIEF_EMAIL_TO="Champ:a@x,Kae:b@y" to split delivery.
 Env:
     EMAIL_USERNAME, EMAIL_APP_PASSWORD, EMAIL_FROM, EMAIL_TO   (send)
     BRIEF_EMAIL_TO   optional per-RM map "RM:addr,RM:addr" or extra addrs
-    GROQ_API_KEY     optional, enables the per-RM AI take
+    MINIMAX_API_KEY  optional, enables the per-RM AI take
 
 CLI:
     build_morning_push.py --dry-run    # print the email, send nothing
@@ -26,14 +26,13 @@ import json
 import os
 import smtplib
 import sys
-import urllib.request
 from datetime import datetime, timedelta, timezone
 from email.mime.text import MIMEText
 from pathlib import Path
 
+import minimax_chat
+
 DATA = Path(__file__).resolve().parent.parent / "data"
-GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
-MODEL = os.environ.get("AI_INSIGHTS_MODEL", "openai/gpt-oss-120b")
 BKK = timezone(timedelta(hours=7))
 MOVER_PCT = 2.0
 RMS = ["Champ", "Kae", "Orn", "Gift", "Pim", "Tony"]
@@ -85,9 +84,9 @@ def rm_slices():
 
 
 def ai_takes(slices):
-    """rm -> 2-3 sentence take via Groq. {} on any failure (never blocks)."""
-    if not os.environ.get("GROQ_API_KEY"):
-        print("GROQ_API_KEY unset — sending data sections without AI takes.")
+    """rm -> 2-3 sentence take via MiniMax M3. {} on any failure (never blocks)."""
+    if not minimax_chat.available():
+        print("MINIMAX_API_KEY unset — sending data sections without AI takes.")
         return {}
     digest = {}
     for rm, s in slices.items():
@@ -97,33 +96,23 @@ def ai_takes(slices):
             "filings": [f"{f['tk']}: {str(f['title'])[:60]}" for f in s["filings"][:8]],
             "overdue": [f"{o['tk']} silent {o['silentDays']}d" for o in s["overdue"][:5]],
         }
-    body = json.dumps({
-        "model": MODEL,
-        "temperature": 0.2,
-        "messages": [
-            {"role": "system", "content":
-                "You write the morning push for IS1, a Thai securities coverage "
-                "team. Input: per-RM JSON of movers, alerts, filings, overdue "
-                "filers (today's data, prices are previous close). For each RM "
-                "with anything notable, write 2-3 plain-English sentences: what "
-                "to look at first and why, connecting alerts to filings when the "
-                "same ticker appears in both. Mention only tickers in the input, "
-                "quote percentages exactly. Reply ONLY with JSON: "
-                '{"takes": {"Champ": "...", "Kae": "..."}} — omit RMs with '
-                "nothing notable."},
-            {"role": "user", "content": json.dumps(digest, ensure_ascii=False)},
-        ],
-        "response_format": {"type": "json_object"},
-    }).encode()
-    req = urllib.request.Request(GROQ_URL, data=body, headers={
-        "Content-Type": "application/json",
-        "Authorization": f"Bearer {os.environ['GROQ_API_KEY']}",
-        "User-Agent": "is1-morning-push/1.0",
-    })
+    system = (
+        "You write the morning push for IS1, Issuer Department 1 of the Stock "
+        "Exchange of Thailand. Input: per-RM JSON of movers, alerts, filings, "
+        "overdue filers (today's data, prices are previous close). For each RM "
+        "with anything notable, write 2-3 plain-English sentences: what to look "
+        "at first and why, connecting alerts to filings when the same ticker "
+        "appears in both. Mention only tickers in the input, quote percentages "
+        "exactly. Reply ONLY with JSON: "
+        '{"takes": {"Champ": "...", "Kae": "..."}} — omit RMs with nothing notable.'
+    )
     try:
-        with urllib.request.urlopen(req, timeout=90) as r:
-            reply = json.load(r)["choices"][0]["message"]["content"]
-        return json.loads(reply).get("takes", {})
+        reply = minimax_chat.chat(system, json.dumps(digest, ensure_ascii=False),
+                                  max_tokens=4000, timeout=90)
+        text = reply.strip()
+        if text.startswith("```"):
+            text = text.split("```")[1].removeprefix("json").strip()
+        return json.loads(text).get("takes", {})
     except Exception as e:
         print(f"AI takes skipped ({e}) — sending data sections only.")
         return {}

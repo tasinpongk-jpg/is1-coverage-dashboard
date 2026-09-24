@@ -9,8 +9,9 @@ Single-tier flow:
     against rows where severity='unclassified' (UPSERT) so newly covered
     patterns get the correct label without manual intervention.
 
-Haiku fall-through was removed 2026-05-25 (cost was ~$5/mo + the offline
-mining loop fully covers what Haiku would have caught, deterministically).
+Rows no rule matches go to MiniMax M3 (classifier.py) when MINIMAX_API_KEY
+is set. Without the key, or when the call fails, they are persisted as
+severity='unclassified' for the offline rule-miner.
 
 CLI:
     classify_batch.py                 # classify all rows missing/unclassified
@@ -24,7 +25,9 @@ import argparse
 import sys
 import time
 
-import classifier_groq
+import os
+
+import classifier
 from rules import match_rules_with_diagnostics
 from store import conn
 
@@ -174,11 +177,12 @@ def main() -> int:
     started = time.monotonic()
     counts = {"critical": 0, "material": 0, "routine": 0, "unclassified": 0}
     rule_hits = 0
-    groq_hits = 0
+    llm_hits = 0
     unclassified_hits = 0
-    if classifier_groq.available():
-        print(f"Groq fall-through ACTIVE ({classifier_groq.MODEL_TAG}) — "
-              "rule-misses go to the free-tier model instead of the queue.")
+    llm_client = classifier._client() if os.environ.get("MINIMAX_API_KEY") else None
+    if llm_client is not None:
+        print(f"MiniMax fall-through ACTIVE ({classifier.MODEL}) — "
+              "rule-misses go to the model instead of the queue.")
 
     for i, row in enumerate(rows, 1):
         rule_cls, rule_name = match_rules_with_diagnostics(
@@ -204,19 +208,21 @@ def main() -> int:
             )
             continue
 
-        # No rule matched → free-tier Groq fall-through when a key is set
-        # (tagged groq/* so mine_rules.py mines these as LLM-labeled
+        # No rule matched → MiniMax fall-through when a key is set (tagged
+        # with the model name so mine_rules.py mines these as LLM-labeled
         # examples). Without a key, or on failure, queue for the rule-miner.
         primary_hl = row["headline_en"] or row.get("headline_th") or ""
-        if classifier_groq.available():
+        if llm_client is not None:
             try:
-                cls, model_tag = classifier_groq.classify_one_groq(
+                cls, _usage = classifier.classify_one(
+                    llm_client,
                     symbol=row["symbol"] or "",
                     datetime_iso=row["datetime_iso"],
                     headline_en=row["headline_en"],
                     headline_th=row.get("headline_th"),
                     url=row["url"],
                 )
+                model_tag = classifier.MODEL
                 _upsert(
                     row["id"], row["symbol"],
                     cls.severity, cls.category,
@@ -225,16 +231,16 @@ def main() -> int:
                     model_tag,
                 )
                 counts[cls.severity] += 1
-                groq_hits += 1
+                llm_hits += 1
                 marker = {"critical": "!!!", "material": " * ",
                           "routine": "   ", "unclassified": " ? "}[cls.severity]
                 print(
-                    f"[{i}/{len(rows)}] {marker} [GROQ] {row['symbol']:8s} {cls.severity:12s} "
+                    f"[{i}/{len(rows)}] {marker} [LLM] {row['symbol']:8s} {cls.severity:12s} "
                     f"{cls.category:25s} {primary_hl[:60]}"
                 )
                 continue
             except Exception as e:
-                print(f"[{i}/{len(rows)}]  !  [GROQ-FAIL] {row['symbol']:8s} {e} "
+                print(f"[{i}/{len(rows)}]  !  [LLM-FAIL] {row['symbol']:8s} {e} "
                       f"— falling back to unclassified")
         _upsert(
             row["id"], row["symbol"],
@@ -254,14 +260,14 @@ def main() -> int:
         )
 
     elapsed = time.monotonic() - started
-    total = rule_hits + groq_hits + unclassified_hits
+    total = rule_hits + llm_hits + unclassified_hits
     print(f"\n=== batch complete in {elapsed:.1f}s ===")
     print(f"counts: {counts}")
     if total:
         pct = lambda n: n / total * 100  # noqa: E731
         print(f"rules        : {rule_hits:,}/{total:,} ({pct(rule_hits):.1f}%) — deterministic, zero cost")
-        if groq_hits:
-            print(f"groq         : {groq_hits:,}/{total:,} ({pct(groq_hits):.1f}%) — free-tier LLM fall-through")
+        if llm_hits:
+            print(f"minimax      : {llm_hits:,}/{total:,} ({pct(llm_hits):.1f}%) — LLM fall-through")
         print(f"unclassified : {unclassified_hits:,}/{total:,} ({pct(unclassified_hits):.1f}%) — queued for mine_rules.py")
     return 0
 

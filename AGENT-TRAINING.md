@@ -95,15 +95,16 @@ snapshot if the fetch is blocked.
   worker and runs property checks per agent (no sub-threshold rows; both news
   sections present; figures + breadth; cited rule; off-topic refusal). Exit code =
   failures.
-- **LLM-judge** (`--judge`) — an independent model (Groq, a *different* family than
-  MiniMax M3 under test) grades each reply 0–100 on directness/specificity/
-  consistency/role. `--gate N` blocks a deploy if the mean drops below N.
+- **LLM-judge** (`--judge`) — MiniMax M3 grades each reply 0–100 on directness/
+  specificity/consistency/role. It is the same model family as the agents under
+  test, so read scores as a run-over-run regression signal, not an independent
+  quality measure. `--gate N` blocks a deploy if the mean drops below N.
 
 ### 3.8 Feedback loop
 - Dock **👍/👎** on every reply → `POST /api/feedback` → durable **KV**.
 - `scripts/mine_feedback.mjs` pulls the votes (`GET /api/feedback`), reports the
   positive-rate + per-agent breakdown, lists the 👎s, and with `--themes` clusters
-  them into recurring failure modes via Groq. Downvotes become the next eval cases
+  them into recurring failure modes via MiniMax M3. Downvotes become the next eval cases
   / few-shots — improvement driven by real questions, not guesses.
 
 ## 4. Failure-and-fix log (what the rigor looked like)

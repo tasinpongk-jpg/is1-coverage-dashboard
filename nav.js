@@ -18,7 +18,7 @@
 
   var GROUPS = [
     {
-      id:"home", label:["Workspace","พื้นที่ทำงาน"], icon:"layout-dashboard", color:"#f2aa1f",
+      id:"home", label:["Home","หน้าหลัก"], short:["Home","หน้าหลัก"], icon:"layout-dashboard", color:"#f2aa1f",
       pages:[
         ["index.html","Morning overview","ภาพรวมเช้า","activity"],
         ["visits.html","Visit planner","แผนเยี่ยมบริษัท","calendar-days"],
@@ -26,7 +26,7 @@
       ],
     },
     {
-      id:"market", label:["Market","ตลาด"], icon:"chart-no-axes-combined", color:"#5d96ff",
+      id:"market", label:["Market","ตลาด"], short:["Market","ตลาด"], icon:"chart-no-axes-combined", color:"#5d96ff",
       pages:[
         ["price-movement.html","Price movement","ความเคลื่อนไหวราคา","trending-up"],
         ["sector-intelligence.html","Sector intelligence","บทวิเคราะห์รายกลุ่ม","chart-no-axes-combined"],
@@ -36,7 +36,7 @@
       ],
     },
     {
-      id:"companies", label:["Companies","บริษัท"], icon:"building-2", color:"#35bdd0",
+      id:"companies", label:["Companies","บริษัท"], short:["Companies","บริษัท"], icon:"building-2", color:"#35bdd0",
       pages:[
         ["company-summary.html","Company summary","ข้อมูลรายบริษัท","notebook-tabs"],
         ["oppday-minutes.html","Oppday minutes","สรุป Oppday","presentation"],
@@ -44,7 +44,7 @@
       ],
     },
     {
-      id:"news", label:["News flow","ข่าวสาร"], icon:"newspaper", color:"#31c77b",
+      id:"news", label:["News","ข่าว"], short:["News","ข่าว"], icon:"newspaper", color:"#31c77b",
       pages:[
         ["disclosure-pulse.html","SET disclosures","ข่าวเปิดเผยข้อมูล","radio-tower","filings"],
         ["external-news.html","External news","ข่าวภายนอก","rss","news"],
@@ -53,15 +53,16 @@
       ],
     },
     {
-      id:"surveillance", label:["Surveillance","เฝ้าระวัง"], icon:"shield-alert", color:"#ef6464",
+      id:"surveillance", label:["Risk & surveillance","เฝ้าระวัง"], short:["Risk","เฝ้าระวัง"], icon:"shield-alert", color:"#ef6464",
       pages:[
         ["unusual-trading.html","Unusual trading","การซื้อขายผิดปกติ","siren","alerts"],
         ["trading-signs.html","Trading signs","เครื่องหมายซื้อขาย","flag"],
         ["sec-enforcement.html","SEC enforcement","การบังคับใช้กฎหมาย","shield-check"],
+        ["governance-screen.html","Governance screen","ตรวจสอบธรรมาภิบาล","scale"],
       ],
     },
     {
-      id:"bonds", label:["Bond data","ข้อมูลหุ้นกู้"], icon:"landmark", color:"#b17cff",
+      id:"bonds", label:["Bonds","หุ้นกู้"], short:["Bonds","หุ้นกู้"], icon:"landmark", color:"#b17cff",
       pages:[
         ["bond-summary.html","Bond summary","สรุปหุ้นกู้","chart-pie"],
         ["bond-data-sec.html","SEC bond filings","ข้อมูลหุ้นกู้ SEC","database"],
@@ -86,18 +87,19 @@
     "company-summary":     ["Companies","Fundamentals and profile per company","ข้อมูลพื้นฐานและ profile รายบริษัท","#35bdd0","notebook-tabs"],
     "multiples-comparison":["Market","Valuation multiples side by side","เปรียบเทียบ valuation multiples","#5d96ff","columns-3"],
     "multiples-band":      ["Market","Valuation ranges across all sectors","ช่วง valuation ของทุก sector","#5d96ff","chart-spline"],
-    "disclosure-pulse":    ["News flow","Live SET filings ranked by importance","ข่าว SET ล่าสุดเรียงตามความสำคัญ","#31c77b","radio-tower"],
-    "external-news":       ["News flow","Ticker-matched external headlines","ข่าวภายนอกที่จับคู่กับ ticker","#31c77b","rss"],
-    "efinance-news":       ["News flow","Live headlines from eFinanceThai","พาดหัวข่าวล่าสุดจาก eFinanceThai","#31c77b","newspaper"],
+    "disclosure-pulse":    ["News","Live SET filings ranked by importance","ข่าว SET ล่าสุดเรียงตามความสำคัญ","#31c77b","radio-tower"],
+    "external-news":       ["News","Ticker-matched external headlines","ข่าวภายนอกที่จับคู่กับ ticker","#31c77b","rss"],
+    "efinance-news":       ["News","Live headlines from eFinanceThai","พาดหัวข่าวล่าสุดจาก eFinanceThai","#31c77b","newspaper"],
     "oppday-minutes":      ["Companies","Earnings-call notes and takeaways","สรุปประเด็นจาก Oppday","#35bdd0","presentation"],
-    "ai-insights":         ["Workspace","Validated commentary from daily snapshots","บทวิเคราะห์จาก daily snapshots","#f2aa1f","sparkles"],
-    "unusual-trading":     ["Surveillance","Volume and price anomalies","ความผิดปกติด้านราคาและปริมาณซื้อขาย","#ef6464","siren"],
-    "trading-signs":       ["Surveillance","Current SET trading signs","เครื่องหมายซื้อขายของ SET","#ef6464","flag"],
-    "sec-enforcement":     ["Surveillance","Thai SEC enforcement actions","การบังคับใช้กฎหมายของ SEC","#ef6464","shield-check"],
+    "ai-insights":         ["Home","Validated commentary from daily snapshots","บทวิเคราะห์จาก daily snapshots","#f2aa1f","sparkles"],
+    "unusual-trading":     ["Risk & surveillance","Volume and price anomalies","ความผิดปกติด้านราคาและปริมาณซื้อขาย","#ef6464","siren"],
+    "trading-signs":       ["Risk & surveillance","Current SET trading signs","เครื่องหมายซื้อขายของ SET","#ef6464","flag"],
+    "sec-enforcement":     ["Risk & surveillance","Thai SEC enforcement actions","การบังคับใช้กฎหมายของ SEC","#ef6464","shield-check"],
     "sec-form59":          ["Companies","Management and related-person trades","รายการซื้อขายของผู้บริหารและบุคคลที่เกี่ยวข้อง","#35bdd0","contact-round"],
-    "bond-summary":        ["Bond data","Outstanding bonds across coverage","หุ้นกู้คงค้างใน coverage","#b17cff","chart-pie"],
-    "bond-data-sec":       ["Bond data","Bond filings from the SEC","ข้อมูล filing หุ้นกู้จาก SEC","#b17cff","database"],
-    "visits":              ["Workspace","Plan and track company visits","วางแผนและติดตามการเยี่ยมบริษัท","#f2aa1f","calendar-days"],
+    "bond-summary":        ["Bonds","Outstanding bonds across coverage","หุ้นกู้คงค้างใน coverage","#b17cff","chart-pie"],
+    "bond-data-sec":       ["Bonds","Bond filings from the SEC","ข้อมูล filing หุ้นกู้จาก SEC","#b17cff","database"],
+    "governance-screen":   ["Risk & surveillance","Auditor fees, AGM timing and board independence","ค่าสอบบัญชี กำหนดประชุมสามัญผู้ถือหุ้น และสัดส่วนกรรมการอิสระ","#ef6464","scale"],
+    "visits":              ["Home","Plan and track company visits","วางแผนและติดตามการเยี่ยมบริษัท","#f2aa1f","calendar-days"],
   };
 
   var ICONS = {
@@ -127,6 +129,7 @@
     "radio-tower":'<path d="M4.9 19.1C1 15.2 1 8.8 4.9 4.9M7.8 16.2a6 6 0 0 1 0-8.4M19.1 4.9c3.9 3.9 3.9 10.3 0 14.2M16.2 7.8a6 6 0 0 1 0 8.4"/><circle cx="12" cy="12" r="2"/><path d="m8.5 22 3.5-8 3.5 8M9 18h6"/>',
     "rss":'<path d="M4 11a9 9 0 0 1 9 9M4 4a16 16 0 0 1 16 16"/><circle cx="5" cy="19" r="1"/>',
     "search":'<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>',
+    "scale":'<path d="m16 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"/><path d="m2 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"/><path d="M7 21h10"/><path d="M12 3v18"/><path d="M3 7h2c2 0 5-1 7-2 2 1 5 2 7 2h2"/>',
     "shield-alert":'<path d="M20 13c0 5-3.5 7.5-7.7 9a1 1 0 0 1-.6 0C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.2-2.7a1.2 1.2 0 0 1 1.6 0C14.5 3.8 17 5 19 5a1 1 0 0 1 1 1z"/><path d="M12 8v4M12 16h.01"/>',
     "shield-check":'<path d="M20 13c0 5-3.5 7.5-7.7 9a1 1 0 0 1-.6 0C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.2-2.7a1.2 1.2 0 0 1 1.6 0C14.5 3.8 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/>',
     "siren":'<path d="M7 18v-6a5 5 0 0 1 10 0v6M5 22h14M5 18h14M12 2v3M4.9 4.9 7 7M19.1 4.9 17 7"/>',
@@ -135,13 +138,14 @@
   };
 
   var RMS = ["C","K","O","G","P","T"];
+  var RM_CHOICES = ["ALL"].concat(RMS);
   var state = {
     rm:localStorage.getItem("is1_rm") || "C",
     context:"coverage",
     selectedTicker:null,
     data:null,
   };
-  if (RMS.indexOf(state.rm) < 0) state.rm = "C";
+  if (RM_CHOICES.indexOf(state.rm) < 0) state.rm = "C";
 
   var script = document.currentScript;
   if (!script) {
@@ -155,6 +159,13 @@
   var isHome = hereKey === "index" || hereKey === "";
 
   function L(en,th) { return window.I18N && I18N.lang === "th" ? th : en; }
+  function rmLabel(rm) { return rm === "ALL" ? L("All RMs","ทุก RM") : "RM " + rm; }
+  // Same windows the News pages open with, so a badge matches the list behind it:
+  // SET disclosures default to 1d, External news to 7d.
+  function withinHours(ts,hours) {
+    var t = Date.parse(ts);
+    return Number.isFinite(t) && Date.now() - t <= hours * 3600 * 1000;
+  }
   function icon(name,cls) {
     return '<svg class="' + (cls || "is1s-icon") + '" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">' +
       (ICONS[name] || ICONS.activity) + "</svg>";
@@ -187,6 +198,10 @@
     return (n > 0 ? "+" : "") + n.toFixed(digits == null ? 2 : digits) + "%";
   }
   function canonicalSector(value) { return value === "PFREIT" ? "PF&REIT" : value; }
+  function firstPage(group) {
+    var local = group.pages.filter(function (page) { return !/^https?:/.test(page[0]); });
+    return (local[0] || group.pages[0])[0];
+  }
   function currentPage() {
     var found = null;
     GROUPS.some(function (group) {
@@ -217,12 +232,20 @@
     '<nav class="is1s-rail-nav">' +
       GROUPS.map(function (group) {
         var active = selectedModuleId === group.id;
-        return '<button class="is1s-rail-btn' + (active ? " active" : "") +
-          '" type="button" data-module="' + group.id + '" aria-label="' + esc(L(group.label[0],group.label[1])) +
-          '" aria-pressed="' + (active ? "true" : "false") + '" title="' + esc(L(group.label[0],group.label[1])) + '">' + icon(group.icon) + "</button>";
+        var name = esc(L(group.label[0],group.label[1]));
+        var inner = icon(group.icon) + '<span class="is1s-rail-label">' + esc(L(group.short[0],group.short[1])) + "</span>";
+        // The current page's group toggles the page panel; any other group
+        // opens that group's first page, so one click always goes somewhere.
+        if (!active) {
+          return '<a class="is1s-rail-btn" data-module="' + group.id + '" href="' + esc(href(firstPage(group))) +
+            '" aria-label="' + name + '" title="' + name + '">' + inner + "</a>";
+        }
+        return '<button class="is1s-rail-btn active" type="button" data-module="' + group.id + '" aria-label="' + name +
+          '" aria-pressed="true" title="' + name + '">' + inner + "</button>";
       }).join("") +
     '</nav><div class="is1s-rail-bottom">' +
-      '<button class="is1s-rail-btn" type="button" data-shell-action="context" title="' + esc(L("Open context","เปิด context")) + '">' + icon("panel-right-open") + "</button>" +
+      '<button class="is1s-rail-btn" type="button" data-shell-action="context" title="' + esc(L("My book: coverage, alerts and REX agents","งานของฉัน: บริษัทที่ดูแล การแจ้งเตือน และ REX agents")) + '">' + icon("panel-right-open") +
+        '<span class="is1s-rail-label">' + esc(L("My book","งานของฉัน")) + "</span></button>" +
     "</div>";
 
   var modulePanel = document.createElement("aside");
@@ -264,9 +287,9 @@
       '<datalist id="is1s-ticker-list"></datalist><span class="is1s-kbd">/</span>' +
       '<button type="submit" title="' + esc(L("Open ticker","เปิดข้อมูล ticker")) + '">' + icon("arrow-right") + "</button></form>" +
     '<select class="is1s-rm" aria-label="' + esc(L("Context RM","เลือก RM")) + '">' +
-      RMS.map(function (rm) { return '<option value="' + rm + '"' + (state.rm === rm ? " selected" : "") + '>RM ' + rm + "</option>"; }).join("") +
+      RM_CHOICES.map(function (rm) { return '<option value="' + rm + '"' + (state.rm === rm ? " selected" : "") + '>' + esc(rmLabel(rm)) + "</option>"; }).join("") +
     '</select><div class="is1s-controls"></div>' +
-    '<button class="is1s-icon-btn" type="button" data-shell-action="context" title="' + esc(L("Open context","เปิด context panel")) + '">' + icon("panel-right-open") + "</button>";
+    '<button class="is1s-icon-btn" type="button" data-shell-action="context" title="' + esc(L("My book: coverage, alerts and REX agents","งานของฉัน: บริษัทที่ดูแล การแจ้งเตือน และ REX agents")) + '">' + icon("panel-right-open") + "</button>";
 
   var pageHead = null;
   if (!isHome && PAGE_META[hereKey]) {
@@ -285,8 +308,8 @@
   contextPanel.className = "is1s-context";
   contextPanel.setAttribute("aria-label",L("Analyst context","ข้อมูลประกอบ"));
   contextPanel.innerHTML =
-    '<div class="is1s-context-head"><div><strong data-context-title>RM ' + state.rm + ' workspace</strong><span>' + esc(L("Context follows your selection","Context ตามสิ่งที่เลือก")) + '</span></div>' +
-      '<button class="is1s-icon-btn" type="button" data-shell-action="close-context" title="' + esc(L("Close context","ปิด context panel")) + '">' + icon("panel-right-close") + "</button></div>" +
+    '<div class="is1s-context-head"><div><strong data-context-title>' + esc(rmLabel(state.rm)) + ' workspace</strong><span>' + esc(L("Context follows your selection","Context ตามสิ่งที่เลือก")) + '</span></div>' +
+      '<button class="is1s-icon-btn" type="button" data-shell-action="close-context" title="' + esc(L("Close my book","ปิดงานของฉัน")) + '">' + icon("panel-right-close") + "</button></div>" +
     '<div class="is1s-context-tabs"><button class="active" type="button" data-context="coverage">' + esc(L("My book","My book")) + '</button>' +
       '<button type="button" data-context="alerts">Alerts</button><button type="button" data-context="agents">REX agents</button></div>' +
     '<div class="is1s-context-body"><div class="is1s-empty">' + esc(L("Loading coverage","กำลังโหลด coverage")) + "</div></div>";
@@ -325,6 +348,22 @@
   if (staleNode) {
     staleNode.classList.add("is1s-status");
     topbar.querySelector(".is1s-controls").appendChild(staleNode);
+    // Pages write this badge in their own formats (a bare ISO date, "exported
+    // <timestamp>", "data as of ..."). Keep "updated Xh ago" as is and show any
+    // raw date as one format; also restore the shell class when a page resets
+    // className.
+    var tidyStale = function () {
+      if (!staleNode.classList.contains("is1s-status")) staleNode.classList.add("is1s-status");
+      var text = staleNode.textContent || "";
+      if (/ago|ที่แล้ว/.test(text) || staleNode.dataset.tidy === text) return;
+      var match = text.match(/(\d{4}-\d{2}-\d{2})/);
+      if (!match) return;
+      var tidy = "● " + L("data as of ","ข้อมูล ณ ") + thaiDate(match[1]);
+      staleNode.dataset.tidy = tidy;
+      staleNode.textContent = tidy;
+    };
+    new MutationObserver(tidyStale).observe(staleNode,{ childList:true, characterData:true, subtree:true, attributes:true, attributeFilter:["class"] });
+    tidyStale();
   }
   if (window.I18N && I18N.createToggle && !topbar.querySelector(".i18n-toggle")) {
     topbar.querySelector(".is1s-controls").appendChild(I18N.createToggle());
@@ -409,7 +448,7 @@
     else document.body.classList.remove("is1s-modules-collapsed");
   }
 
-  rail.querySelectorAll("[data-module]").forEach(function (button) {
+  rail.querySelectorAll("button[data-module]").forEach(function (button) {
     button.addEventListener("click",function () { setModuleActive(button.dataset.module); });
   });
   modulePanel.querySelectorAll("[data-shell-embed]").forEach(function (button) {
@@ -490,7 +529,7 @@
   });
 
   function ownedSet() {
-    return new Set(state.data.tickers.tickers.filter(function (ticker) { return ticker.rm === state.rm; }).map(function (ticker) { return ticker.tk; }));
+    return new Set(state.data.tickers.tickers.filter(function (ticker) { return state.rm === "ALL" || ticker.rm === state.rm; }).map(function (ticker) { return ticker.tk; }));
   }
   function rmRows() {
     var owned = ownedSet();
@@ -535,14 +574,14 @@
   }
   function thaiDate(value) {
     if (!value) return "?";
-    return new Intl.DateTimeFormat(I18N && I18N.lang === "th" ? "th-TH" : "en-GB",{ day:"numeric",month:"short",year:"numeric" }).format(new Date(value + "T00:00:00+07:00"));
+    return new Intl.DateTimeFormat(I18N && I18N.lang === "th" ? "th-TH" : "en-GB",{ day:"numeric",month:"short",year:"numeric",timeZone:"Asia/Bangkok" }).format(new Date(value + "T00:00:00+07:00"));
   }
   function feedTime(value) {
     if (!value) return "";
     var date = new Date(value);
     if (!Number.isFinite(date.getTime())) return "";
     return new Intl.DateTimeFormat(I18N && I18N.lang === "th" ? "th-TH" : "en-GB",{
-      day:"numeric",month:"short",hour:"2-digit",minute:"2-digit",
+      day:"numeric",month:"short",hour:"2-digit",minute:"2-digit",timeZone:"Asia/Bangkok",
     }).format(date);
   }
   function severityDot(value) { return '<span class="is1s-severity ' + (value === "high" || value === "critical" ? "high" : "medium") + '"></span>'; }
@@ -550,7 +589,7 @@
   function renderContext() {
     if (!state.data) return;
     var body = contextPanel.querySelector(".is1s-context-body");
-    contextPanel.querySelector("[data-context-title]").textContent = state.selectedTicker ? state.selectedTicker + " context" : "RM " + state.rm + " workspace";
+    contextPanel.querySelector("[data-context-title]").textContent = state.selectedTicker ? state.selectedTicker + " context" : rmLabel(state.rm) + " workspace";
     if (state.context === "agents") {
       var agents = [
         ["H","Hermes","#d98e16",L("SET filings, external news and Oppday","ข่าว SET, external news และ Oppday"),"hermes"],
@@ -612,13 +651,13 @@
 
   function renderCounts() {
     var counts = {
-      filings:rmFilings().filter(function (filing) { return String(filing.ts).slice(0,10) === state.data.brief.asOf; }).length,
-      news:rmNews().filter(function (item) { return String(item.ts).slice(0,10) === state.data.brief.asOf; }).length,
+      filings:rmFilings().filter(function (filing) { return withinHours(filing.ts,24); }).length,
+      news:rmNews().filter(function (item) { return withinHours(item.ts,24 * 7); }).length,
       alerts:rmAlerts().filter(function (alert) { return alert.severity === "high"; }).length,
     };
     modulePanel.querySelectorAll("[data-count]").forEach(function (node) { node.textContent = counts[node.dataset.count]; });
     var fresh = modulePanel.querySelector("[data-shell-freshness]");
-    if (fresh) fresh.textContent = L("Snapshot ","Snapshot ") + thaiDate(state.data.brief.asOf);
+    if (fresh) fresh.textContent = L("Prices as of ","ราคา ณ ") + thaiDate(state.data.brief.asOf);
   }
 
   function renderHome() {
@@ -626,13 +665,13 @@
     if (!host || !state.data) return;
     var rows = rmRows();
     var highAlerts = rmAlerts().filter(function (alert) { return alert.severity === "high"; });
-    var todayFilings = rmFilings().filter(function (filing) { return String(filing.ts).slice(0,10) === state.data.brief.asOf; });
+    var todayFilings = rmFilings().filter(function (filing) { return withinHours(filing.ts,24); });
     var avg = average(rows.map(function (row) { return row.pct1d; }));
-    host.querySelector("[data-home-date]").textContent = L("Data as of ","ข้อมูล ณ ") + thaiDate(state.data.brief.asOf);
+    host.querySelector("[data-home-date]").textContent = L("Prices as of ","ราคา ณ ") + thaiDate(state.data.brief.asOf);
     host.querySelector("[data-home-kpis]").innerHTML =
-      '<div><span>' + esc(L("My coverage","My coverage")) + '</span><strong>' + rows.length + '</strong><small>RM ' + state.rm + "</small></div>" +
+      '<div><span>' + esc(L("My coverage","My coverage")) + '</span><strong>' + rows.length + '</strong><small>' + esc(rmLabel(state.rm)) + "</small></div>" +
       '<div><span>High alerts</span><strong class="negative">' + highAlerts.length + '</strong><small>' + esc(L("review today","ต้องตรวจสอบวันนี้")) + "</small></div>" +
-      '<div><span>' + esc(L("SET filings today","SET filings วันนี้")) + '</span><strong class="gold">' + todayFilings.length + '</strong><small>' + esc(L("current coverage","ใน coverage ปัจจุบัน")) + "</small></div>" +
+      '<div><span>' + esc(L("SET filings · 24h","SET filings · 24 ชม.")) + '</span><strong class="' + (todayFilings.length ? "gold" : "") + '">' + todayFilings.length + '</strong><small>' + esc(L("current coverage","ใน coverage ปัจจุบัน")) + "</small></div>" +
       '<div><span>Average 1-day move</span><strong class="' + (avg >= 0 ? "positive" : "negative") + '">' + fmtPct(avg) + '</strong><small>' +
       rows.filter(function (row) { return finite(row.pct1d) && Math.abs(Number(row.pct1d)) >= 2; }).length + " " + esc(L("names beyond ±2%","ตัวเกิน ±2%")) + "</small></div>";
 
@@ -677,7 +716,7 @@
 
     var disclosureRows = rmFilings().slice().sort(function (a,b) { return String(b.ts || "").localeCompare(String(a.ts || "")); }).slice(0,6);
     var externalRows = rmNews().slice().sort(function (a,b) { return String(b.ts || "").localeCompare(String(a.ts || "")); }).slice(0,6);
-    host.querySelector("[data-home-news-rm]").textContent = "RM " + state.rm;
+    host.querySelector("[data-home-news-rm]").textContent = rmLabel(state.rm);
     host.querySelector("[data-home-disclosure-count]").textContent = disclosureRows.length;
     host.querySelector("[data-home-external-count]").textContent = externalRows.length;
     host.querySelector("[data-home-disclosures]").innerHTML = disclosureRows.map(function (filing) {
@@ -748,7 +787,7 @@
       '<header class="is1-home-news-head"><div><span>' + esc(L("RM coverage flow","ข่าวใน coverage ของ RM")) + '</span><h2>' +
       esc(L("Latest disclosures and external news","ข่าวเปิดเผยข้อมูลและข่าวภายนอกล่าสุด")) + '</h2><p>' +
       esc(L("The feed follows the RM selected in the top bar","รายการจะเปลี่ยนตาม RM ที่เลือกด้านบน")) +
-      '</p></div><b data-home-news-rm>RM ' + state.rm + '</b></header><div class="is1-home-news-grid">' +
+      '</p></div><b data-home-news-rm>' + esc(rmLabel(state.rm)) + '</b></header><div class="is1-home-news-grid">' +
       '<section class="is1-home-news-panel"><header><div><span class="is1-home-news-icon disclosure">' + icon("radio-tower") + '</span><div><strong>' +
       esc(L("SET disclosures","ข่าวเปิดเผยข้อมูล")) + '</strong><small>' + esc(L("Newest coverage filings","ข่าว coverage ล่าสุด")) +
       '</small></div></div><div><span data-home-disclosure-count>0</span><a href="disclosure-pulse.html">' + esc(L("View all","ดูทั้งหมด")) +
@@ -787,7 +826,7 @@
       toggleContext(true);
     },
     setRm:function (rm) {
-      if (RMS.indexOf(rm) < 0) return;
+      if (RM_CHOICES.indexOf(rm) < 0) return;
       state.rm = rm;
       rmSelect.value = rm;
       localStorage.setItem("is1_rm",rm);

@@ -282,7 +282,7 @@ python scripts\build_source_coverage.py --period 2026Q1
 # deterministic draft mode, no API key needed
 python scripts\build_company_reports.py --all --llm never
 
-# richer agent mode, when MINIMAX_API_KEY (or ANTHROPIC_API_KEY fallback) is available
+# richer agent mode, when MINIMAX_API_KEY is available
 python scripts\build_company_reports.py --all --llm auto
 ```
 

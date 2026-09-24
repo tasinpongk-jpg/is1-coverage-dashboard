@@ -15,7 +15,7 @@ name: Daily Surveillance + Build
 # Critical alerts are idempotent (only fire on UNSENT items) so re-running
 # manually via workflow_dispatch is safe.
 #
-# Secrets required: SETSMART_API_KEY, ANTHROPIC_API_KEY, SURVEILLANCE_SQL,
+# Secrets required: SETSMART_API_KEY, MINIMAX_API_KEY, SURVEILLANCE_SQL,
 #   EMAIL_USERNAME, EMAIL_APP_PASSWORD, EMAIL_FROM, EMAIL_TO,
 #   R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_ENDPOINT, R2_BUCKET.
 
@@ -143,17 +143,16 @@ jobs:
         working-directory: surveillance
         run: python poll.py --lookback-days 2
 
-      - name: Classify (rules first, Groq free-tier fall-through on misses)
+      - name: Classify (rules first, MiniMax fall-through on misses)
         working-directory: surveillance
         env:
-          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          MINIMAX_API_KEY: ${{ secrets.MINIMAX_API_KEY }}
         run: python classify_batch.py
 
       - name: Translate legacy EN-only headlines to Thai
         working-directory: surveillance
         env:
           MINIMAX_API_KEY: ${{ secrets.MINIMAX_API_KEY }}
-          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
         run: python translate_titles.py
         continue-on-error: true
 
@@ -316,6 +315,19 @@ jobs:
           PYTHONIOENCODING: utf-8
         run: python scripts/build_daily.py
 
+      # Rebuild vault-ticker-notes.json (MDA + FS-NOTES + calls + filingSummary
+      # + bizProfile excerpts from the OneDrive vault). The script is a no-op
+      # on runners where the vault path doesn't exist (exits 0 with a warning),
+      # so this is safe in CI even though the vault lives on Champ's laptop.
+      # On local laptop triggers (workflow_dispatch on a clone that DOES have
+      # the vault) this keeps the per-ticker drawer in company-summary.html
+      # fresh. ~3 minutes for 232 tickers on a 2020-era laptop.
+      - name: Rebuild vault ticker notes
+        env:
+          PYTHONIOENCODING: utf-8
+        run: python scripts/build_vault_ticker_notes.py
+        continue-on-error: true
+
       # Pure DB -> JSON, ~2 sec. Reads same DuckDB artifact already on disk.
       - name: Build external dashboard payloads
         env:
@@ -332,12 +344,12 @@ jobs:
         run: python scripts/build_ticker_summary.py
         continue-on-error: true
 
-      # AI morning commentary over the snapshots just built (Groq free tier,
-      # ~5 sec). Script exits 0 on any failure so commentary never blocks the
+      # AI morning commentary over the snapshots just built (MiniMax M3).
+      # Script exits 0 on any failure so commentary never blocks the
       # data deploy; the page falls back to the previous day's file.
       - name: Build AI insights commentary
         env:
-          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          MINIMAX_API_KEY: ${{ secrets.MINIMAX_API_KEY }}
           PYTHONIOENCODING: utf-8
         run: python scripts/build_ai_insights.py
         continue-on-error: true
@@ -350,7 +362,7 @@ jobs:
           EMAIL_APP_PASSWORD: ${{ secrets.EMAIL_APP_PASSWORD }}
           EMAIL_FROM: ${{ secrets.EMAIL_FROM }}
           EMAIL_TO: ${{ secrets.EMAIL_TO }}
-          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          MINIMAX_API_KEY: ${{ secrets.MINIMAX_API_KEY }}
           PYTHONIOENCODING: utf-8
         run: python scripts/build_morning_push.py
         continue-on-error: true
