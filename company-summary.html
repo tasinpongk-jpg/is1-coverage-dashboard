@@ -466,6 +466,7 @@ const TT_FALLBACK = {
   "company.capValue": "Cap {value}",
   "common.details": "Details ↗",
   "company.setFactsheet": "SET Factsheet ↗",
+  "company.onePage": "One-Page ↗",
   "company.companySite": "Company Site ↗",
   "common.disclosures": "Disclosures",
   "company.alerts": "Alerts ↗",
@@ -1016,6 +1017,7 @@ function openDrawer(idx, tab='overview'){
   // footer
   const setUrl=`https://www.set.or.th/en/market/product/stock/quote/${encodeURIComponent(t.tk)}/factsheet`;
   document.getElementById('dfooter').innerHTML = `
+    <a class="dfoot-link" href="one-page.html?tk=${encodeURIComponent(t.tk)}" target="_blank">${tt('company.onePage')}</a>
     <a class="dfoot-link" href="${setUrl}" target="_blank" rel="noopener">${tt('company.setFactsheet')}</a>
     ${t.website?`<a class="dfoot-link" href="${esc(t.website.startsWith('http')?t.website:'http://'+t.website)}" target="_blank" rel="noopener">${tt('company.companySite')}</a>`:''}
     <a class="dfoot-link" href="disclosure-pulse.html?ticker=${encodeURIComponent(t.tk)}" target="_blank">${tt('common.disclosures')} ↗</a>
