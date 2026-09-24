@@ -2,38 +2,34 @@
 
 Runs in the daily build job AFTER the snapshot builders, so it reads the
 fresh data/*.json from disk, condenses them into a compact digest, and asks
-a Groq free-tier model for a structured morning commentary: headline, market
-take, sector notes, watchlist and risk flags.
+MiniMax M3 for a structured morning commentary: headline, market take,
+sector notes, watchlist and risk flags.
 
-Pure stdlib. Skips gracefully (keeps yesterday's file) when GROQ_API_KEY is
+Pure stdlib. Skips gracefully (keeps yesterday's file) when MINIMAX_API_KEY is
 unset or the API call fails — the dashboard page tolerates a stale file.
 
 Env:
-    GROQ_API_KEY        required to actually generate (otherwise skip + exit 0)
-    AI_INSIGHTS_MODEL   override model (default openai/gpt-oss-120b)
+    MINIMAX_API_KEY     required to actually generate (otherwise skip + exit 0)
+    MINIMAX_MODEL       override model (default MiniMax-M3)
 """
 
 import json
-import os
 import sys
-import time
-import urllib.error
-import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
 
 DATA = Path(__file__).resolve().parent.parent / "data"
 OUT = DATA / "ai-insights.json"
-GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
-MODEL = os.environ.get("AI_INSIGHTS_MODEL", "openai/gpt-oss-120b")
+
+import minimax_chat
 
 SYSTEM_PROMPT = (
-    "You are the morning analyst for IS1, a relationship-manager team at a Thai "
-    "securities firm covering 232 SET tickers (FOOD, PROP, PF&REIT, AGRI, CONS, "
-    "CONMAT). RMs: C, K, O, G, P, T. You receive a digest of "
+    "You are the morning analyst for IS1, Issuer Department 1 of the Stock "
+    "Exchange of Thailand, whose RMs cover 232 SET tickers (FOOD, PROP, PF&REIT, "
+    "AGRI, CONS, CONMAT). RMs: C, K, O, G, P, T. You receive a digest of "
     "today's coverage data: price moves, volume, unusual-trading alerts and "
     "disclosure filings. Write a concise, factual morning commentary an RM can "
-    "skim in 60 seconds before calling clients.\n"
+    "skim in 60 seconds at the start of the day.\n"
     "Rules: only reference tickers and numbers present in the digest — never "
     "invent data. Quote percentages exactly as given. Connect alerts to filings "
     "when both exist for the same ticker. Plain professional English.\n"
@@ -113,35 +109,9 @@ def build_digest():
     return brief.get("asOf"), "\n".join(lines)
 
 
-def call_groq(digest):
-    # No response_format here: strict json_object mode is unreliable with
-    # gpt-oss reasoning models on Groq (json_validate_failed with empty
-    # failed_generation). parse_insights strips fences instead.
-    body = json.dumps({
-        "model": MODEL,
-        "temperature": 0.2,
-        "messages": [
-            {"role": "system", "content": SYSTEM_PROMPT},
-            {"role": "user", "content": digest},
-        ],
-    }).encode()
-    req = urllib.request.Request(GROQ_URL, data=body, headers={
-        "Content-Type": "application/json",
-        "Authorization": f"Bearer {os.environ['GROQ_API_KEY']}",
-        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)",
-    })
-    for attempt in range(4):
-        try:
-            with urllib.request.urlopen(req, timeout=120) as r:
-                return json.load(r)["choices"][0]["message"]["content"]
-        except urllib.error.HTTPError as e:
-            detail = e.read().decode("utf-8", "ignore")[:300]
-            if e.code == 429 and attempt < 3:
-                wait = int(e.headers.get("Retry-After") or 2 ** (attempt + 2))
-                print(f"rate limited, retrying in {wait}s...")
-                time.sleep(wait)
-                continue
-            raise RuntimeError(f"Groq API {e.code}: {detail}") from e
+def call_model(digest):
+    # parse_insights strips markdown fences, so no strict JSON mode is needed.
+    return minimax_chat.chat(SYSTEM_PROMPT, digest, max_tokens=6000, temperature=0.2)
 
 
 def parse_insights(raw):
@@ -157,19 +127,19 @@ def parse_insights(raw):
 
 
 def main():
-    if not os.environ.get("GROQ_API_KEY"):
-        print("GROQ_API_KEY not set — skipping AI insights (keeping last file).")
+    if not minimax_chat.available():
+        print("MINIMAX_API_KEY not set — skipping AI insights (keeping last file).")
         return
     as_of, digest = build_digest()
     print(f"digest: {len(digest)} chars, asOf {as_of}")
     try:
-        insights = parse_insights(call_groq(digest))
+        insights = parse_insights(call_model(digest))
     except (ValueError, json.JSONDecodeError) as e:
         print(f"unparseable model output ({e}), retrying once...")
-        insights = parse_insights(call_groq(digest))
+        insights = parse_insights(call_model(digest))
     insights = {
         "asOf": as_of,
-        "model": MODEL,
+        "model": minimax_chat.MODEL,
         "_built_at": datetime.now(timezone.utc).isoformat(),
         **insights,
     }

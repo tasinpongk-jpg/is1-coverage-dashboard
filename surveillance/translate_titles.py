@@ -10,8 +10,6 @@ import argparse
 import json
 import os
 import sys
-import urllib.error
-import urllib.request
 from typing import Any
 
 import duckdb
@@ -22,8 +20,6 @@ DEFAULT_LIMIT = 400
 BATCH_SIZE = 20
 MINIMAX_MODEL = os.environ.get("MINIMAX_MODEL", "MiniMax-M3")
 MINIMAX_BASE_URL = os.environ.get("MINIMAX_BASE_URL", "https://api.minimax.io/anthropic")
-GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
-GROQ_MODELS = ["openai/gpt-oss-120b", "llama-3.3-70b-versatile"]
 
 SYSTEM_PROMPT = """You translate Stock Exchange of Thailand disclosure headlines from English to Thai for professional financial surveillance.
 
@@ -54,46 +50,6 @@ class MiniMaxProvider:
             messages=[{"role": "user", "content": _user_prompt(rows)}],
         )
         return _anthropic_text(msg)
-
-
-class GroqProvider:
-    name = "groq"
-
-    def __init__(self) -> None:
-        env_model = os.environ.get("GROQ_MODEL")
-        self.models = [env_model] if env_model else GROQ_MODELS
-        self.model_tag = f"groq/{self.models[0]}"
-
-    def translate_text(self, rows: list[dict[str, str]]) -> str:
-        last_err: Exception | None = None
-        for model in self.models:
-            body = json.dumps({
-                "model": model,
-                "temperature": 0.1,
-                "messages": [
-                    {"role": "system", "content": SYSTEM_PROMPT},
-                    {"role": "user", "content": _user_prompt(rows)},
-                ],
-            }, ensure_ascii=False).encode("utf-8")
-            req = urllib.request.Request(GROQ_URL, data=body, headers={
-                "Content-Type": "application/json",
-                "Authorization": f"Bearer {os.environ['GROQ_API_KEY']}",
-                "User-Agent": "is1-surveillance/1.0",
-            })
-            try:
-                with urllib.request.urlopen(req, timeout=60) as r:
-                    payload = json.load(r)
-                self.model_tag = f"groq/{model}"
-                return payload["choices"][0]["message"]["content"]
-            except urllib.error.HTTPError as exc:
-                detail = exc.read().decode("utf-8", "ignore")[:400]
-                last_err = RuntimeError(f"groq HTTP {exc.code} [{model}]: {detail}")
-                if exc.code == 429:
-                    continue
-                raise last_err from exc
-            except Exception as exc:
-                last_err = exc
-        raise RuntimeError(f"groq translation exhausted all models: {last_err}")
 
 
 def _chunks(values: list[dict[str, str]], size: int = BATCH_SIZE):
@@ -243,20 +199,6 @@ def _write_translations(translations: dict[str, str], model_tag: str) -> None:
         )
 
 
-def _initial_provider() -> Any | None:
-    if os.environ.get("MINIMAX_API_KEY"):
-        return MiniMaxProvider()
-    if os.environ.get("GROQ_API_KEY"):
-        return GroqProvider()
-    return None
-
-
-def _fallback_provider(current: Any) -> Any | None:
-    if current.name == "minimax" and os.environ.get("GROQ_API_KEY"):
-        return GroqProvider()
-    return None
-
-
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--limit", type=int, default=DEFAULT_LIMIT,
@@ -265,8 +207,8 @@ def main() -> int:
                         help="Print rows that would be translated, without API calls or writes")
     args = parser.parse_args()
 
-    if not args.dry_run and not os.environ.get("MINIMAX_API_KEY") and not os.environ.get("GROQ_API_KEY"):
-        print("No MINIMAX_API_KEY or GROQ_API_KEY set; skipping Thai title translation.")
+    if not args.dry_run and not os.environ.get("MINIMAX_API_KEY"):
+        print("No MINIMAX_API_KEY set; skipping Thai title translation.")
         return 0
 
     if args.dry_run:
@@ -284,7 +226,7 @@ def main() -> int:
         print("No EN-only headlines need Thai translation.")
         return 0
 
-    provider = _initial_provider()
+    provider = MiniMaxProvider()
 
     translated = 0
     skipped = 0
@@ -294,19 +236,9 @@ def main() -> int:
         try:
             translations, model_tag = _translate_batch(provider, batch)
         except Exception as exc:
-            fallback = _fallback_provider(provider)
-            if fallback is None:
-                print(f"Skipping batch after {provider.name} failure: {exc}", file=sys.stderr)
-                skipped += len(batch)
-                continue
-            print(f"{provider.name} failed; falling back to {fallback.name}: {exc}", file=sys.stderr)
-            provider = fallback
-            try:
-                translations, model_tag = _translate_batch(provider, batch)
-            except Exception as fallback_exc:
-                print(f"Skipping batch after {provider.name} failure: {fallback_exc}", file=sys.stderr)
-                skipped += len(batch)
-                continue
+            print(f"Skipping batch after {provider.name} failure: {exc}", file=sys.stderr)
+            skipped += len(batch)
+            continue
 
         _write_translations(translations, model_tag)
         translated += len(translations)

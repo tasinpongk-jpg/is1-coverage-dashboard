@@ -270,7 +270,7 @@ def classify_one(
     *,
     symbol: str,
     datetime_iso: str,
-    headline_en: str,
+    headline_en: str | None,
     headline_th: str | None,
     url: str,
     model: str = MODEL_EN,
@@ -278,11 +278,9 @@ def classify_one(
     """Run one classification. Returns (parsed result, usage dict).
 
     `model=MODEL_TH` is the TH-only path; it currently resolves to the same model as MODEL_EN."""
-    user_lines = [
-        f"Symbol: {symbol}",
-        f"Datetime: {datetime_iso}",
-        f"Headline (EN): {headline_en}",
-    ]
+    user_lines = [f"Symbol: {symbol}", f"Datetime: {datetime_iso}"]
+    if headline_en:
+        user_lines.append(f"Headline (EN): {headline_en}")
     if headline_th:
         user_lines.append(f"Headline (TH): {headline_th}")
     user_lines.append(f"URL: {url}")

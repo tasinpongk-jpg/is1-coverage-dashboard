@@ -18,6 +18,7 @@
  */
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
+import { loadMinimaxKey, minimaxChat, parseJsonReply, MINIMAX_MODEL } from "./minimax_chat.mjs";
 import { dirname, join } from "node:path";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -51,19 +52,12 @@ async function ask(agent, content) {
 }
 
 // ---- LLM judge (optional, --judge) ---------------------------------------
-// Grades each reply 0-100 with an independent model (Groq, a different family
-// than MiniMax M3 under test) so quality regressions are measurable,
-// not just the boolean property checks. Reads GROQ_API_KEY like the chat token.
-function loadGroqKey() {
-  if (process.env.GROQ_API_KEY) return process.env.GROQ_API_KEY.trim();
-  for (const p of [join(HERE, "..", "..", "AI Agent", ".env"), join(HERE, "..", ".env")]) {
-    try { const m = readFileSync(p, "utf8").match(/^GROQ_API_KEY\s*=\s*(.+)$/m); if (m) return m[1].trim(); }
-    catch { /* next */ }
-  }
-  return null;
-}
-const GROQ_KEY = loadGroqKey();
-const JUDGE_MODEL = process.env.GROQ_JUDGE_MODEL || "llama-3.3-70b-versatile";
+// Grades each reply 0-100 with MiniMax M3 so quality regressions are
+// measurable, not just the boolean property checks. The judge is the same
+// model family as the agents under test, so treat scores as a regression
+// signal between runs, not an independent quality measure.
+const JUDGE_KEY = loadMinimaxKey();
+const JUDGE_MODEL = MINIMAX_MODEL;
 const ROLE = {
   atlas: "market-data agent: prices, % moves, movers, threshold checks (previous-close data)",
   pythia: "IS1 sector analyst: deterministic performance, breadth and relative screens",
@@ -71,25 +65,14 @@ const ROLE = {
   lex: "rules & regulations agent answering only from SET/SEC regulation documents",
 };
 async function judge(agent, question, reply) {
-  if (!GROQ_KEY) return null;
-  const sys = "You grade an AI assistant answering for a Thai equity relationship-manager desk. " +
+  if (!JUDGE_KEY) return null;
+  const sys = "You grade an AI assistant answering for the relationship-manager desk of SET Issuer Department 1. " +
     "Score the answer 0-100 on: directness & usefulness, specificity (concrete tickers/figures, " +
     "not vague), internal consistency (no contradictions or obvious fabrication), and staying in role. " +
     "Reply ONLY with JSON: {\"score\": <int 0-100>, \"verdict\": \"pass|weak|fail\", \"issues\": \"<=12 words\"}.";
   const user = `Agent role: ${ROLE[agent] || agent}\nUser question: ${question}\nAssistant answer:\n${reply}`;
   try {
-    const r = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: "Bearer " + GROQ_KEY },
-      body: JSON.stringify({
-        model: JUDGE_MODEL, temperature: 0, max_tokens: 120,
-        response_format: { type: "json_object" },
-        messages: [{ role: "system", content: sys }, { role: "user", content: user }],
-      }),
-    });
-    const d = await r.json();
-    const txt = d.choices?.[0]?.message?.content || "{}";
-    const j = JSON.parse(txt);
+    const j = parseJsonReply(await minimaxChat(JUDGE_KEY, sys, user, { maxTokens: 2000, temperature: 0 }));
     return { score: Math.max(0, Math.min(100, +j.score || 0)), verdict: j.verdict || "?", issues: j.issues || "" };
   } catch (e) { return { score: null, verdict: "error", issues: e.message.slice(0, 40) }; }
 }
@@ -175,7 +158,7 @@ const cases = only ? CASES.filter((c) => c.agent === only) : CASES;
 let pass = 0, fail = 0;
 const scores = [];
 console.log(`\nAgent eval — ${URL} (rm=${RM})${doJudge ? ` · judge=${JUDGE_MODEL}` : ""}\n`);
-if (doJudge && !GROQ_KEY) console.log("(--judge requested but no GROQ_API_KEY found — skipping scores)\n");
+if (doJudge && !JUDGE_KEY) console.log("(--judge requested but no MINIMAX_API_KEY found — skipping scores)\n");
 for (const c of cases) {
   let result;
   try { result = await ask(c.agent, c.q); }
@@ -191,12 +174,12 @@ for (const c of cases) {
     if (ok) { pass++; console.log(`  ✓ ${name}`); }
     else { fail++; console.log(`  ✗ ${name} — ${detail}`); }
   }
-  if (doJudge && GROQ_KEY) {
+  if (doJudge && JUDGE_KEY) {
     const j = await judge(c.agent, c.q, reply);
     if (j && j.score != null) { scores.push(j.score); console.log(`  ⟂ judge ${j.score}/100 [${j.verdict}]${j.issues ? " — " + j.issues : ""}`); }
     else console.log(`  ⟂ judge: ${j?.issues || "unavailable"}`);
   }
-  await new Promise((r) => setTimeout(r, 1200)); // be gentle on free-tier quota
+  await new Promise((r) => setTimeout(r, 1200)); // pace requests to the worker
 }
 const mean = scores.length ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : null;
 console.log(`\n${pass} passed, ${fail} failed (${cases.length} cases)` +
