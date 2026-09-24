@@ -138,13 +138,14 @@
   };
 
   var RMS = ["C","K","O","G","P","T"];
+  var RM_CHOICES = ["ALL"].concat(RMS);
   var state = {
     rm:localStorage.getItem("is1_rm") || "C",
     context:"coverage",
     selectedTicker:null,
     data:null,
   };
-  if (RMS.indexOf(state.rm) < 0) state.rm = "C";
+  if (RM_CHOICES.indexOf(state.rm) < 0) state.rm = "C";
 
   var script = document.currentScript;
   if (!script) {
@@ -158,6 +159,13 @@
   var isHome = hereKey === "index" || hereKey === "";
 
   function L(en,th) { return window.I18N && I18N.lang === "th" ? th : en; }
+  function rmLabel(rm) { return rm === "ALL" ? L("All RMs","ทุก RM") : "RM " + rm; }
+  // Same windows the News pages open with, so a badge matches the list behind it:
+  // SET disclosures default to 1d, External news to 7d.
+  function withinHours(ts,hours) {
+    var t = Date.parse(ts);
+    return Number.isFinite(t) && Date.now() - t <= hours * 3600 * 1000;
+  }
   function icon(name,cls) {
     return '<svg class="' + (cls || "is1s-icon") + '" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">' +
       (ICONS[name] || ICONS.activity) + "</svg>";
@@ -279,7 +287,7 @@
       '<datalist id="is1s-ticker-list"></datalist><span class="is1s-kbd">/</span>' +
       '<button type="submit" title="' + esc(L("Open ticker","เปิดข้อมูล ticker")) + '">' + icon("arrow-right") + "</button></form>" +
     '<select class="is1s-rm" aria-label="' + esc(L("Context RM","เลือก RM")) + '">' +
-      RMS.map(function (rm) { return '<option value="' + rm + '"' + (state.rm === rm ? " selected" : "") + '>RM ' + rm + "</option>"; }).join("") +
+      RM_CHOICES.map(function (rm) { return '<option value="' + rm + '"' + (state.rm === rm ? " selected" : "") + '>' + esc(rmLabel(rm)) + "</option>"; }).join("") +
     '</select><div class="is1s-controls"></div>' +
     '<button class="is1s-icon-btn" type="button" data-shell-action="context" title="' + esc(L("My book: coverage, alerts and REX agents","งานของฉัน: บริษัทที่ดูแล การแจ้งเตือน และ REX agents")) + '">' + icon("panel-right-open") + "</button>";
 
@@ -300,7 +308,7 @@
   contextPanel.className = "is1s-context";
   contextPanel.setAttribute("aria-label",L("Analyst context","ข้อมูลประกอบ"));
   contextPanel.innerHTML =
-    '<div class="is1s-context-head"><div><strong data-context-title>RM ' + state.rm + ' workspace</strong><span>' + esc(L("Context follows your selection","Context ตามสิ่งที่เลือก")) + '</span></div>' +
+    '<div class="is1s-context-head"><div><strong data-context-title>' + esc(rmLabel(state.rm)) + ' workspace</strong><span>' + esc(L("Context follows your selection","Context ตามสิ่งที่เลือก")) + '</span></div>' +
       '<button class="is1s-icon-btn" type="button" data-shell-action="close-context" title="' + esc(L("Close my book","ปิดงานของฉัน")) + '">' + icon("panel-right-close") + "</button></div>" +
     '<div class="is1s-context-tabs"><button class="active" type="button" data-context="coverage">' + esc(L("My book","My book")) + '</button>' +
       '<button type="button" data-context="alerts">Alerts</button><button type="button" data-context="agents">REX agents</button></div>' +
@@ -340,6 +348,22 @@
   if (staleNode) {
     staleNode.classList.add("is1s-status");
     topbar.querySelector(".is1s-controls").appendChild(staleNode);
+    // Pages write this badge in their own formats (a bare ISO date, "exported
+    // <timestamp>", "data as of ..."). Keep "updated Xh ago" as is and show any
+    // raw date as one format; also restore the shell class when a page resets
+    // className.
+    var tidyStale = function () {
+      if (!staleNode.classList.contains("is1s-status")) staleNode.classList.add("is1s-status");
+      var text = staleNode.textContent || "";
+      if (/ago|ที่แล้ว/.test(text) || staleNode.dataset.tidy === text) return;
+      var match = text.match(/(\d{4}-\d{2}-\d{2})/);
+      if (!match) return;
+      var tidy = "● " + L("data as of ","ข้อมูล ณ ") + thaiDate(match[1]);
+      staleNode.dataset.tidy = tidy;
+      staleNode.textContent = tidy;
+    };
+    new MutationObserver(tidyStale).observe(staleNode,{ childList:true, characterData:true, subtree:true, attributes:true, attributeFilter:["class"] });
+    tidyStale();
   }
   if (window.I18N && I18N.createToggle && !topbar.querySelector(".i18n-toggle")) {
     topbar.querySelector(".is1s-controls").appendChild(I18N.createToggle());
@@ -505,7 +529,7 @@
   });
 
   function ownedSet() {
-    return new Set(state.data.tickers.tickers.filter(function (ticker) { return ticker.rm === state.rm; }).map(function (ticker) { return ticker.tk; }));
+    return new Set(state.data.tickers.tickers.filter(function (ticker) { return state.rm === "ALL" || ticker.rm === state.rm; }).map(function (ticker) { return ticker.tk; }));
   }
   function rmRows() {
     var owned = ownedSet();
@@ -550,14 +574,14 @@
   }
   function thaiDate(value) {
     if (!value) return "?";
-    return new Intl.DateTimeFormat(I18N && I18N.lang === "th" ? "th-TH" : "en-GB",{ day:"numeric",month:"short",year:"numeric" }).format(new Date(value + "T00:00:00+07:00"));
+    return new Intl.DateTimeFormat(I18N && I18N.lang === "th" ? "th-TH" : "en-GB",{ day:"numeric",month:"short",year:"numeric",timeZone:"Asia/Bangkok" }).format(new Date(value + "T00:00:00+07:00"));
   }
   function feedTime(value) {
     if (!value) return "";
     var date = new Date(value);
     if (!Number.isFinite(date.getTime())) return "";
     return new Intl.DateTimeFormat(I18N && I18N.lang === "th" ? "th-TH" : "en-GB",{
-      day:"numeric",month:"short",hour:"2-digit",minute:"2-digit",
+      day:"numeric",month:"short",hour:"2-digit",minute:"2-digit",timeZone:"Asia/Bangkok",
     }).format(date);
   }
   function severityDot(value) { return '<span class="is1s-severity ' + (value === "high" || value === "critical" ? "high" : "medium") + '"></span>'; }
@@ -565,7 +589,7 @@
   function renderContext() {
     if (!state.data) return;
     var body = contextPanel.querySelector(".is1s-context-body");
-    contextPanel.querySelector("[data-context-title]").textContent = state.selectedTicker ? state.selectedTicker + " context" : "RM " + state.rm + " workspace";
+    contextPanel.querySelector("[data-context-title]").textContent = state.selectedTicker ? state.selectedTicker + " context" : rmLabel(state.rm) + " workspace";
     if (state.context === "agents") {
       var agents = [
         ["H","Hermes","#d98e16",L("SET filings, external news and Oppday","ข่าว SET, external news และ Oppday"),"hermes"],
@@ -627,13 +651,13 @@
 
   function renderCounts() {
     var counts = {
-      filings:rmFilings().filter(function (filing) { return String(filing.ts).slice(0,10) === state.data.brief.asOf; }).length,
-      news:rmNews().filter(function (item) { return String(item.ts).slice(0,10) === state.data.brief.asOf; }).length,
+      filings:rmFilings().filter(function (filing) { return withinHours(filing.ts,24); }).length,
+      news:rmNews().filter(function (item) { return withinHours(item.ts,24 * 7); }).length,
       alerts:rmAlerts().filter(function (alert) { return alert.severity === "high"; }).length,
     };
     modulePanel.querySelectorAll("[data-count]").forEach(function (node) { node.textContent = counts[node.dataset.count]; });
     var fresh = modulePanel.querySelector("[data-shell-freshness]");
-    if (fresh) fresh.textContent = L("Snapshot ","Snapshot ") + thaiDate(state.data.brief.asOf);
+    if (fresh) fresh.textContent = L("Prices as of ","ราคา ณ ") + thaiDate(state.data.brief.asOf);
   }
 
   function renderHome() {
@@ -641,13 +665,13 @@
     if (!host || !state.data) return;
     var rows = rmRows();
     var highAlerts = rmAlerts().filter(function (alert) { return alert.severity === "high"; });
-    var todayFilings = rmFilings().filter(function (filing) { return String(filing.ts).slice(0,10) === state.data.brief.asOf; });
+    var todayFilings = rmFilings().filter(function (filing) { return withinHours(filing.ts,24); });
     var avg = average(rows.map(function (row) { return row.pct1d; }));
-    host.querySelector("[data-home-date]").textContent = L("Data as of ","ข้อมูล ณ ") + thaiDate(state.data.brief.asOf);
+    host.querySelector("[data-home-date]").textContent = L("Prices as of ","ราคา ณ ") + thaiDate(state.data.brief.asOf);
     host.querySelector("[data-home-kpis]").innerHTML =
-      '<div><span>' + esc(L("My coverage","My coverage")) + '</span><strong>' + rows.length + '</strong><small>RM ' + state.rm + "</small></div>" +
+      '<div><span>' + esc(L("My coverage","My coverage")) + '</span><strong>' + rows.length + '</strong><small>' + esc(rmLabel(state.rm)) + "</small></div>" +
       '<div><span>High alerts</span><strong class="negative">' + highAlerts.length + '</strong><small>' + esc(L("review today","ต้องตรวจสอบวันนี้")) + "</small></div>" +
-      '<div><span>' + esc(L("SET filings today","SET filings วันนี้")) + '</span><strong class="gold">' + todayFilings.length + '</strong><small>' + esc(L("current coverage","ใน coverage ปัจจุบัน")) + "</small></div>" +
+      '<div><span>' + esc(L("SET filings · 24h","SET filings · 24 ชม.")) + '</span><strong class="' + (todayFilings.length ? "gold" : "") + '">' + todayFilings.length + '</strong><small>' + esc(L("current coverage","ใน coverage ปัจจุบัน")) + "</small></div>" +
       '<div><span>Average 1-day move</span><strong class="' + (avg >= 0 ? "positive" : "negative") + '">' + fmtPct(avg) + '</strong><small>' +
       rows.filter(function (row) { return finite(row.pct1d) && Math.abs(Number(row.pct1d)) >= 2; }).length + " " + esc(L("names beyond ±2%","ตัวเกิน ±2%")) + "</small></div>";
 
@@ -692,7 +716,7 @@
 
     var disclosureRows = rmFilings().slice().sort(function (a,b) { return String(b.ts || "").localeCompare(String(a.ts || "")); }).slice(0,6);
     var externalRows = rmNews().slice().sort(function (a,b) { return String(b.ts || "").localeCompare(String(a.ts || "")); }).slice(0,6);
-    host.querySelector("[data-home-news-rm]").textContent = "RM " + state.rm;
+    host.querySelector("[data-home-news-rm]").textContent = rmLabel(state.rm);
     host.querySelector("[data-home-disclosure-count]").textContent = disclosureRows.length;
     host.querySelector("[data-home-external-count]").textContent = externalRows.length;
     host.querySelector("[data-home-disclosures]").innerHTML = disclosureRows.map(function (filing) {
@@ -763,7 +787,7 @@
       '<header class="is1-home-news-head"><div><span>' + esc(L("RM coverage flow","ข่าวใน coverage ของ RM")) + '</span><h2>' +
       esc(L("Latest disclosures and external news","ข่าวเปิดเผยข้อมูลและข่าวภายนอกล่าสุด")) + '</h2><p>' +
       esc(L("The feed follows the RM selected in the top bar","รายการจะเปลี่ยนตาม RM ที่เลือกด้านบน")) +
-      '</p></div><b data-home-news-rm>RM ' + state.rm + '</b></header><div class="is1-home-news-grid">' +
+      '</p></div><b data-home-news-rm>' + esc(rmLabel(state.rm)) + '</b></header><div class="is1-home-news-grid">' +
       '<section class="is1-home-news-panel"><header><div><span class="is1-home-news-icon disclosure">' + icon("radio-tower") + '</span><div><strong>' +
       esc(L("SET disclosures","ข่าวเปิดเผยข้อมูล")) + '</strong><small>' + esc(L("Newest coverage filings","ข่าว coverage ล่าสุด")) +
       '</small></div></div><div><span data-home-disclosure-count>0</span><a href="disclosure-pulse.html">' + esc(L("View all","ดูทั้งหมด")) +
@@ -802,7 +826,7 @@
       toggleContext(true);
     },
     setRm:function (rm) {
-      if (RMS.indexOf(rm) < 0) return;
+      if (RM_CHOICES.indexOf(rm) < 0) return;
       state.rm = rm;
       rmSelect.value = rm;
       localStorage.setItem("is1_rm",rm);

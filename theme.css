@@ -320,6 +320,15 @@ html.theme-changing *,html.theme-changing *::before,html.theme-changing *::after
 .is1s-page-oppday-minutes>.stats-bar { flex:0 0 auto; }
 .is1s-page-oppday-minutes>.main { min-height:0; flex:1 1 auto; overflow:hidden; }
 .is1s-legacy-header { display:none !important; }
+/* The shell page head already carries the title; drop each page's older copy
+   (the subtitle line under it stays). */
+.is1-shell-ready:has(.is1s-page-head) .pg-title,
+.is1s-page-efinance-news .header-copy h1 { display:none !important; }
+/* RM is picked once, in the top bar; page-level RM chips would disagree with it. */
+.is1-shell-ready #rmTabs,
+.is1-shell-ready .tab-label:has(+ #rmTabs),
+.is1-shell-ready .tab-row:has(> #rmTabs):not(:has(> :nth-child(3))),
+.is1-shell-ready .ctrl-row:has(> #rmFilter) { display:none !important; }
 .is1s-icon {
   width:18px;
   height:18px;
@@ -658,7 +667,7 @@ html.theme-changing *,html.theme-changing *::before,html.theme-changing *::after
   font-size:10px;
 }
 .is1s-rm {
-  width:82px;
+  width:100px;
   height:34px;
   padding:0 25px 0 9px !important;
   border:1px solid var(--border) !important;
@@ -1282,7 +1291,7 @@ html.theme-changing *,html.theme-changing *::before,html.theme-changing *::after
   .is1s-mobile-menu { display:grid; }
   .is1s-crumb span,.is1s-kbd,.is1s-controls { display:none; }
   .is1s-search { max-width:none; height:34px; margin-left:0; }
-  .is1s-rm { width:68px; padding-left:7px !important; }
+  .is1s-rm { width:84px; padding-left:7px !important; }
   .is1s-page-head { min-height:82px; padding:13px 15px; }
   .is1s-page-head h1 { font-size:19px; }
   .is1s-page-icon { width:38px; height:38px; }

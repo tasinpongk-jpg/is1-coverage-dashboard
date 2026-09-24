@@ -527,8 +527,8 @@ function buildCard(issuer){
 let ALL=[], DE_MAP={}, sectFilter='ALL', rmFilter=/^[CKOGPT]$/.test(localStorage.getItem('is1_rm') || '') ? localStorage.getItem('is1_rm') : '', esgOnly=false, nearOnly=false, sortKey='out-d';
 
 function applyShellRm(rm){
-  if(!/^[CKOGPT]$/.test(rm||'')) return;
-  rmFilter=rm;
+  if(!/^(ALL|[CKOGPT])$/.test(rm||'')) return;
+  rmFilter=rm==='ALL'?'':rm;
   document.querySelectorAll('#rmFilter [data-rm]').forEach(x=>x.classList.toggle('active',x.dataset.rm===rm));
   render();
 }

@@ -205,7 +205,7 @@ function buildTabs() {
 
 function setRm(r) { activeRm = r; document.querySelectorAll('[data-rm]').forEach(el => el.classList.toggle('active', el.dataset.rm === r)); render(); updateStats(); }
 window.addEventListener('is1:rm-change', e => {
-  if (/^[CKOGPT]$/.test(e.detail?.rm || '')) setRm(e.detail.rm);
+  if (/^(ALL|[CKOGPT])$/.test(e.detail?.rm || '')) setRm(e.detail.rm);
 });
 function setSev(s) { activeSev = s; document.querySelectorAll('[data-sev]').forEach(el => el.classList.toggle('active', el.dataset.sev === s)); render(); }
 function setType(t) { activeType = t; document.querySelectorAll('[data-type]').forEach(el => el.classList.toggle('active', el.dataset.type === t)); render(); }
