@@ -150,10 +150,14 @@ python scripts/build_daily_brief.py
    at `C:/Users/Tasinpong/data/pfreit_exclude.json`.
 8. **Filing alert cron (`is1-filing-alert`, id `0d496976df4a`) only posts
    `high` severity + RM C tickers.** A silent cron ≠ no filings.
-9. **Cloudflare Worker model contract: MiniMax M3.** Atlas, Hermes and Lex
-   call MiniMax M3 (Lex adds deterministic local retrieval); Pythia is a
-   deterministic calculator with no model call. Do not route any agent
-   through a non-MiniMax provider without an explicit reason.
+9. **Model contract: MiniMax M3 for every LLM call in this repo.** Worker:
+   Atlas, Hermes and Lex call MiniMax M3 (Lex adds deterministic local
+   retrieval); Pythia is a deterministic calculator with no model call.
+   Pipeline: the classifier fall-through, headline translation, AI insights,
+   the morning push, the eval judge and feedback themes all use MiniMax M3
+   (`scripts/minimax_chat.py` / `.mjs` for stdlib callers). Only secret
+   needed: `MINIMAX_API_KEY`. Do not add a second provider without an
+   explicit reason.
 
 ---
 

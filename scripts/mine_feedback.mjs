@@ -4,17 +4,18 @@
  * failing, so downvotes become eval cases / few-shots (closing the loop).
  *
  * The worker reads its own KV and returns the votes (GET /api/feedback,
- * token-gated); this script summarizes them. With --themes, Groq clusters the
+ * token-gated); this script summarizes them. With --themes, MiniMax M3 clusters the
  * downvotes into recurring failure themes.
  *
  *   node scripts/mine_feedback.mjs                 # stats + list downvotes
  *   node scripts/mine_feedback.mjs --agent atlas   # one agent
- *   node scripts/mine_feedback.mjs --themes        # + Groq theme clustering
+ *   node scripts/mine_feedback.mjs --themes        # + MiniMax theme clustering
  *
  * Token from env IS1_CHAT_TOKEN or ../AI Agent/.env. URL via IS1_DASHBOARD_URL.
  */
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
+import { loadMinimaxKey, minimaxChat } from "./minimax_chat.mjs";
 import { dirname, join } from "node:path";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -59,19 +60,12 @@ if (down.length) {
 }
 
 if (doThemes && down.length) {
-  const KEY = process.env.GROQ_API_KEY || fromEnvFile("GROQ_API_KEY");
-  if (!KEY) { console.log("\n(--themes needs GROQ_API_KEY)"); }
+  const KEY = loadMinimaxKey();
+  if (!KEY) { console.log("\n(--themes needs MINIMAX_API_KEY)"); }
   else {
     const sample = down.slice(0, 30).map((v, i) => `${i + 1}. [${v.agent}] Q:${v.question} | A:${String(v.reply).slice(0, 160)}`).join("\n");
-    const r = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-      method: "POST", headers: { "Content-Type": "application/json", Authorization: "Bearer " + KEY },
-      body: JSON.stringify({
-        model: process.env.GROQ_JUDGE_MODEL || "llama-3.3-70b-versatile", temperature: 0.2, max_tokens: 400,
-        messages: [{ role: "system", content: "You triage downvoted AI answers for a stock-desk assistant. Cluster them into 3-6 recurring failure themes; for each give a short title, count, and a one-line fix (prompt/context/data). Be concrete." },
-          { role: "user", content: sample }],
-      }),
-    });
-    const j = await r.json();
-    console.log("\n=== Failure themes (Groq) ===\n" + (j.choices?.[0]?.message?.content || "(no themes)"));
+    const system = "You triage downvoted AI answers for the IS1 coverage dashboard assistant. Cluster them into 3-6 recurring failure themes; for each give a short title, count, and a one-line fix (prompt/context/data). Be concrete.";
+    const themes = await minimaxChat(KEY, system, sample, { maxTokens: 2000 }).catch((e) => `(themes failed: ${e.message})`);
+    console.log("\n=== Failure themes (MiniMax) ===\n" + themes);
   }
 }

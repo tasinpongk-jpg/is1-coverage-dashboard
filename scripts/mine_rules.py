@@ -3,7 +3,8 @@
 This script is the data-prep half of the offline rule-mining loop. It pulls
 two cohorts from the classifications table:
 
-  1. LLM-labeled rows (model LIKE 'claude-%') — these are training examples.
+  1. LLM-labeled rows (MiniMax, plus historical claude-* and groq/* labels)
+     — these are training examples.
      The LLM has already assigned a high-confidence severity/category to each.
      We mine their headline patterns to promote them into deterministic rules.
 
@@ -76,7 +77,7 @@ def _fetch_labeled() -> list[dict]:
            n.lang, n.headline, n.url, n.datetime_iso
     FROM classifications c
     JOIN news_items n ON n.id = c.news_id
-    WHERE c.model LIKE 'claude-%'
+    WHERE c.model LIKE 'MiniMax%' OR c.model LIKE 'claude-%' OR c.model LIKE 'groq/%'
     """
     cols = ["news_id", "symbol", "severity", "category", "model",
             "lang", "headline", "url", "datetime_iso"]

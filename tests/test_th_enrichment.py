@@ -123,7 +123,6 @@ def test_translate_titles_dry_run() -> None:
         env = os.environ.copy()
         env["SURVEILLANCE_DB_PATH"] = str(db_path)
         env.pop("MINIMAX_API_KEY", None)
-        env.pop("GROQ_API_KEY", None)
 
         result = subprocess.run(
             [sys.executable, "surveillance/translate_titles.py", "--dry-run", "--limit", "10"],
