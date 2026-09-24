@@ -370,6 +370,7 @@ html.theme-changing *,html.theme-changing *::before,html.theme-changing *::after
   gap:4px;
   padding:6px 0;
   border:0;
+  text-decoration:none;
   border-radius:7px;
   color:#8f99a8;
   background:transparent;
@@ -474,6 +475,8 @@ html.theme-changing *,html.theme-changing *::before,html.theme-changing *::after
   padding-left:4px;
   scroll-margin:70px;
 }
+/* The rail switches sections; the panel lists only the current one. */
+.is1s-nav-section:not(.is-selected) { display:none; }
 .is1s-nav-section::after {
   content:"";
   position:absolute;

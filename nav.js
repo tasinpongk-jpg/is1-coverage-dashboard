@@ -18,7 +18,7 @@
 
   var GROUPS = [
     {
-      id:"home", label:["Workspace","พื้นที่ทำงาน"], short:["Home","หน้าหลัก"], icon:"layout-dashboard", color:"#f2aa1f",
+      id:"home", label:["Home","หน้าหลัก"], short:["Home","หน้าหลัก"], icon:"layout-dashboard", color:"#f2aa1f",
       pages:[
         ["index.html","Morning overview","ภาพรวมเช้า","activity"],
         ["visits.html","Visit planner","แผนเยี่ยมบริษัท","calendar-days"],
@@ -44,7 +44,7 @@
       ],
     },
     {
-      id:"news", label:["News flow","ข่าวสาร"], short:["News","ข่าว"], icon:"newspaper", color:"#31c77b",
+      id:"news", label:["News","ข่าว"], short:["News","ข่าว"], icon:"newspaper", color:"#31c77b",
       pages:[
         ["disclosure-pulse.html","SET disclosures","ข่าวเปิดเผยข้อมูล","radio-tower","filings"],
         ["external-news.html","External news","ข่าวภายนอก","rss","news"],
@@ -53,7 +53,7 @@
       ],
     },
     {
-      id:"surveillance", label:["Surveillance","เฝ้าระวัง"], short:["Risk","เฝ้าระวัง"], icon:"shield-alert", color:"#ef6464",
+      id:"surveillance", label:["Risk & surveillance","เฝ้าระวัง"], short:["Risk","เฝ้าระวัง"], icon:"shield-alert", color:"#ef6464",
       pages:[
         ["unusual-trading.html","Unusual trading","การซื้อขายผิดปกติ","siren","alerts"],
         ["trading-signs.html","Trading signs","เครื่องหมายซื้อขาย","flag"],
@@ -62,7 +62,7 @@
       ],
     },
     {
-      id:"bonds", label:["Bond data","ข้อมูลหุ้นกู้"], short:["Bonds","หุ้นกู้"], icon:"landmark", color:"#b17cff",
+      id:"bonds", label:["Bonds","หุ้นกู้"], short:["Bonds","หุ้นกู้"], icon:"landmark", color:"#b17cff",
       pages:[
         ["bond-summary.html","Bond summary","สรุปหุ้นกู้","chart-pie"],
         ["bond-data-sec.html","SEC bond filings","ข้อมูลหุ้นกู้ SEC","database"],
@@ -87,19 +87,19 @@
     "company-summary":     ["Companies","Fundamentals and profile per company","ข้อมูลพื้นฐานและ profile รายบริษัท","#35bdd0","notebook-tabs"],
     "multiples-comparison":["Market","Valuation multiples side by side","เปรียบเทียบ valuation multiples","#5d96ff","columns-3"],
     "multiples-band":      ["Market","Valuation ranges across all sectors","ช่วง valuation ของทุก sector","#5d96ff","chart-spline"],
-    "disclosure-pulse":    ["News flow","Live SET filings ranked by importance","ข่าว SET ล่าสุดเรียงตามความสำคัญ","#31c77b","radio-tower"],
-    "external-news":       ["News flow","Ticker-matched external headlines","ข่าวภายนอกที่จับคู่กับ ticker","#31c77b","rss"],
-    "efinance-news":       ["News flow","Live headlines from eFinanceThai","พาดหัวข่าวล่าสุดจาก eFinanceThai","#31c77b","newspaper"],
+    "disclosure-pulse":    ["News","Live SET filings ranked by importance","ข่าว SET ล่าสุดเรียงตามความสำคัญ","#31c77b","radio-tower"],
+    "external-news":       ["News","Ticker-matched external headlines","ข่าวภายนอกที่จับคู่กับ ticker","#31c77b","rss"],
+    "efinance-news":       ["News","Live headlines from eFinanceThai","พาดหัวข่าวล่าสุดจาก eFinanceThai","#31c77b","newspaper"],
     "oppday-minutes":      ["Companies","Earnings-call notes and takeaways","สรุปประเด็นจาก Oppday","#35bdd0","presentation"],
-    "ai-insights":         ["Workspace","Validated commentary from daily snapshots","บทวิเคราะห์จาก daily snapshots","#f2aa1f","sparkles"],
-    "unusual-trading":     ["Surveillance","Volume and price anomalies","ความผิดปกติด้านราคาและปริมาณซื้อขาย","#ef6464","siren"],
-    "trading-signs":       ["Surveillance","Current SET trading signs","เครื่องหมายซื้อขายของ SET","#ef6464","flag"],
-    "sec-enforcement":     ["Surveillance","Thai SEC enforcement actions","การบังคับใช้กฎหมายของ SEC","#ef6464","shield-check"],
+    "ai-insights":         ["Home","Validated commentary from daily snapshots","บทวิเคราะห์จาก daily snapshots","#f2aa1f","sparkles"],
+    "unusual-trading":     ["Risk & surveillance","Volume and price anomalies","ความผิดปกติด้านราคาและปริมาณซื้อขาย","#ef6464","siren"],
+    "trading-signs":       ["Risk & surveillance","Current SET trading signs","เครื่องหมายซื้อขายของ SET","#ef6464","flag"],
+    "sec-enforcement":     ["Risk & surveillance","Thai SEC enforcement actions","การบังคับใช้กฎหมายของ SEC","#ef6464","shield-check"],
     "sec-form59":          ["Companies","Management and related-person trades","รายการซื้อขายของผู้บริหารและบุคคลที่เกี่ยวข้อง","#35bdd0","contact-round"],
-    "bond-summary":        ["Bond data","Outstanding bonds across coverage","หุ้นกู้คงค้างใน coverage","#b17cff","chart-pie"],
-    "bond-data-sec":       ["Bond data","Bond filings from the SEC","ข้อมูล filing หุ้นกู้จาก SEC","#b17cff","database"],
-    "governance-screen":   ["Surveillance","Auditor fees, AGM timing and board independence","ค่าสอบบัญชี กำหนดประชุมสามัญผู้ถือหุ้น และสัดส่วนกรรมการอิสระ","#ef6464","scale"],
-    "visits":              ["Workspace","Plan and track company visits","วางแผนและติดตามการเยี่ยมบริษัท","#f2aa1f","calendar-days"],
+    "bond-summary":        ["Bonds","Outstanding bonds across coverage","หุ้นกู้คงค้างใน coverage","#b17cff","chart-pie"],
+    "bond-data-sec":       ["Bonds","Bond filings from the SEC","ข้อมูล filing หุ้นกู้จาก SEC","#b17cff","database"],
+    "governance-screen":   ["Risk & surveillance","Auditor fees, AGM timing and board independence","ค่าสอบบัญชี กำหนดประชุมสามัญผู้ถือหุ้น และสัดส่วนกรรมการอิสระ","#ef6464","scale"],
+    "visits":              ["Home","Plan and track company visits","วางแผนและติดตามการเยี่ยมบริษัท","#f2aa1f","calendar-days"],
   };
 
   var ICONS = {
@@ -190,6 +190,10 @@
     return (n > 0 ? "+" : "") + n.toFixed(digits == null ? 2 : digits) + "%";
   }
   function canonicalSector(value) { return value === "PFREIT" ? "PF&REIT" : value; }
+  function firstPage(group) {
+    var local = group.pages.filter(function (page) { return !/^https?:/.test(page[0]); });
+    return (local[0] || group.pages[0])[0];
+  }
   function currentPage() {
     var found = null;
     GROUPS.some(function (group) {
@@ -220,14 +224,20 @@
     '<nav class="is1s-rail-nav">' +
       GROUPS.map(function (group) {
         var active = selectedModuleId === group.id;
-        return '<button class="is1s-rail-btn' + (active ? " active" : "") +
-          '" type="button" data-module="' + group.id + '" aria-label="' + esc(L(group.label[0],group.label[1])) +
-          '" aria-pressed="' + (active ? "true" : "false") + '" title="' + esc(L(group.label[0],group.label[1])) + '">' + icon(group.icon) +
-          '<span class="is1s-rail-label">' + esc(L(group.short[0],group.short[1])) + "</span></button>";
+        var name = esc(L(group.label[0],group.label[1]));
+        var inner = icon(group.icon) + '<span class="is1s-rail-label">' + esc(L(group.short[0],group.short[1])) + "</span>";
+        // The current page's group toggles the page panel; any other group
+        // opens that group's first page, so one click always goes somewhere.
+        if (!active) {
+          return '<a class="is1s-rail-btn" data-module="' + group.id + '" href="' + esc(href(firstPage(group))) +
+            '" aria-label="' + name + '" title="' + name + '">' + inner + "</a>";
+        }
+        return '<button class="is1s-rail-btn active" type="button" data-module="' + group.id + '" aria-label="' + name +
+          '" aria-pressed="true" title="' + name + '">' + inner + "</button>";
       }).join("") +
     '</nav><div class="is1s-rail-bottom">' +
-      '<button class="is1s-rail-btn" type="button" data-shell-action="context" title="' + esc(L("Open context","เปิด context")) + '">' + icon("panel-right-open") +
-        '<span class="is1s-rail-label">' + esc(L("Context","บริบท")) + "</span></button>" +
+      '<button class="is1s-rail-btn" type="button" data-shell-action="context" title="' + esc(L("My book: coverage, alerts and REX agents","งานของฉัน: บริษัทที่ดูแล การแจ้งเตือน และ REX agents")) + '">' + icon("panel-right-open") +
+        '<span class="is1s-rail-label">' + esc(L("My book","งานของฉัน")) + "</span></button>" +
     "</div>";
 
   var modulePanel = document.createElement("aside");
@@ -271,7 +281,7 @@
     '<select class="is1s-rm" aria-label="' + esc(L("Context RM","เลือก RM")) + '">' +
       RMS.map(function (rm) { return '<option value="' + rm + '"' + (state.rm === rm ? " selected" : "") + '>RM ' + rm + "</option>"; }).join("") +
     '</select><div class="is1s-controls"></div>' +
-    '<button class="is1s-icon-btn" type="button" data-shell-action="context" title="' + esc(L("Open context","เปิด context panel")) + '">' + icon("panel-right-open") + "</button>";
+    '<button class="is1s-icon-btn" type="button" data-shell-action="context" title="' + esc(L("My book: coverage, alerts and REX agents","งานของฉัน: บริษัทที่ดูแล การแจ้งเตือน และ REX agents")) + '">' + icon("panel-right-open") + "</button>";
 
   var pageHead = null;
   if (!isHome && PAGE_META[hereKey]) {
@@ -291,7 +301,7 @@
   contextPanel.setAttribute("aria-label",L("Analyst context","ข้อมูลประกอบ"));
   contextPanel.innerHTML =
     '<div class="is1s-context-head"><div><strong data-context-title>RM ' + state.rm + ' workspace</strong><span>' + esc(L("Context follows your selection","Context ตามสิ่งที่เลือก")) + '</span></div>' +
-      '<button class="is1s-icon-btn" type="button" data-shell-action="close-context" title="' + esc(L("Close context","ปิด context panel")) + '">' + icon("panel-right-close") + "</button></div>" +
+      '<button class="is1s-icon-btn" type="button" data-shell-action="close-context" title="' + esc(L("Close my book","ปิดงานของฉัน")) + '">' + icon("panel-right-close") + "</button></div>" +
     '<div class="is1s-context-tabs"><button class="active" type="button" data-context="coverage">' + esc(L("My book","My book")) + '</button>' +
       '<button type="button" data-context="alerts">Alerts</button><button type="button" data-context="agents">REX agents</button></div>' +
     '<div class="is1s-context-body"><div class="is1s-empty">' + esc(L("Loading coverage","กำลังโหลด coverage")) + "</div></div>";
@@ -414,7 +424,7 @@
     else document.body.classList.remove("is1s-modules-collapsed");
   }
 
-  rail.querySelectorAll("[data-module]").forEach(function (button) {
+  rail.querySelectorAll("button[data-module]").forEach(function (button) {
     button.addEventListener("click",function () { setModuleActive(button.dataset.module); });
   });
   modulePanel.querySelectorAll("[data-shell-embed]").forEach(function (button) {
