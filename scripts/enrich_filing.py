@@ -152,6 +152,42 @@ _NUM_RE = re.compile(r"\d[\d,]*(?:\.\d+)?")
 _THAI_DIGITS = str.maketrans("๐๑๒๓๔๕๖๗๘๙", "0123456789")
 
 
+# Dashboard prompt: extraction, not analysis. v1 (the RM prompt above) asked
+# "why should an RM care", which invited opinion the filing never states,
+# and let the model compute figures that the number check then dropped
+# (8 of 16 bullets in the first live run of 2026-09-25). Its own version tag
+# keeps these entries apart from the Discord alert cache.
+DASHBOARD_PROMPT_VERSION = "dash-2"
+DASHBOARD_TEMPERATURE = 0.1
+DASHBOARD_SYSTEM_PROMPT = (
+    "You extract facts from a filing a company submitted to the Stock Exchange of "
+    "Thailand, for an exchange analyst. Reply in Thai only. Output 2-4 bullets, each "
+    "starting with `•`, and nothing else.\n"
+    "Rules:\n"
+    "1. State only facts written in the document. No opinion, interpretation, market "
+    "impact, investor sentiment, recommendation, or any reason the document does not "
+    "itself give.\n"
+    "2. Copy every number, amount, unit, percentage and date exactly as the document "
+    "writes it. Never calculate, convert units, round, annualise or compare figures; "
+    "do not write YoY/QoQ changes unless the document states that exact figure.\n"
+    "3. Prefer the document's own Thai wording. Keep company, person and project "
+    "names exactly as written. If the document is in English, translate it faithfully "
+    "into formal Thai and keep every number unchanged.\n"
+    "4. Cover, in this order: what the company announced; the key figures, dates or "
+    "resolutions; conditions, next steps or effective dates the document states.\n"
+    "5. Write formal Thai with correct spelling. When unsure of a word, use the "
+    "document's wording instead.\n"
+    "6. A short filing gets fewer bullets. Never pad."
+)
+DASHBOARD_USER_PROMPT_TEMPLATE = (
+    "สรุปข้อเท็จจริงจากเอกสารที่บริษัทจดทะเบียนส่งตลาดหลักทรัพย์ต่อไปนี้\n\n"
+    "- Ticker: {tk}\n"
+    "- Title: {title}\n"
+    "- Filed: {ts}\n\n"
+    "เอกสารแนบอยู่ด้านบน ตอบเป็นภาษาไทย 2-4 bullet ใช้ตัวเลขตามเอกสารเท่านั้น ห้ามคำนวณหรือแสดงความเห็น"
+)
+
+
 # ---------------------------------------------------------------- logging
 
 def _log(msg: str) -> None:
@@ -225,14 +261,15 @@ def _cache_get(cache: dict, filing_id: str) -> dict | None:
 def _cache_put(cache: dict, filing_id: str, bullets: list[str],
               model: str, in_tokens: int, out_tokens: int,
               pdf_sha256: str,
-              raw_markdown: dict | None = None) -> None:
+              raw_markdown: dict | None = None,
+              prompt_version: int | str = PROMPT_VERSION) -> None:
     entry: dict = {
         "ts": datetime.now(timezone.utc).isoformat(),
         "bullets_th": bullets,
         "model": model,
         "tokens": {"in": in_tokens, "out": out_tokens},
         "pdf_sha256": pdf_sha256,
-        "prompt_version": PROMPT_VERSION,
+        "prompt_version": prompt_version,
     }
     if raw_markdown:
         entry["raw_markdown"] = raw_markdown
@@ -735,7 +772,9 @@ def _load_api_key() -> str | None:
 
 
 def _call_m3(documents: list[bytes | str] | bytes | str,
-             filing: dict) -> tuple[list[str] | None, dict]:
+             filing: dict, *, system: str = SYSTEM_PROMPT,
+             user_template: str = USER_PROMPT_TEMPLATE,
+             temperature: float | None = None) -> tuple[list[str] | None, dict]:
     """Call m3 with PDF bytes and/or extracted text blocks.
 
     Accepts mixed input:
@@ -749,7 +788,7 @@ def _call_m3(documents: list[bytes | str] | bytes | str,
         return None, {}
     if isinstance(documents, (bytes, bytearray, str)):
         documents = [documents]
-    user = USER_PROMPT_TEMPLATE.format(
+    user = user_template.format(
         tk=filing.get("tk", "?"),
         title=filing.get("title") or filing.get("title_th") or "?",
         type=filing.get("type", "?"),
@@ -773,9 +812,11 @@ def _call_m3(documents: list[bytes | str] | bytes | str,
     body = {
         "model": M3_MODEL,
         "max_tokens": M3_MAX_TOKENS,
-        "system": SYSTEM_PROMPT,
+        "system": system,
         "messages": [{"role": "user", "content": content}],
     }
+    if temperature is not None:
+        body["temperature"] = temperature
     req = urllib.request.Request(
         f"{M3_BASE_URL}/v1/messages",
         data=json.dumps(body).encode("utf-8"),
@@ -842,7 +883,8 @@ def _fallback_bullets(filing: dict) -> list[str]:
 
 # ---------------------------------------------------------------- core: enrich one filing
 
-def _enrich_one(filing: dict, *, force: bool = False) -> tuple[list[str], dict]:
+def _enrich_one(filing: dict, *, force: bool = False,
+                dashboard: bool = False) -> tuple[list[str], dict]:
     """Return (bullets, meta) for a single filing. Reads/writes cache.
 
     Always returns SOMETHING — falls back to _summary_th if PDF or
@@ -858,6 +900,8 @@ def _enrich_one(filing: dict, *, force: bool = False) -> tuple[list[str], dict]:
     cache = _load_cache()
     if not force:
         hit = _cache_get(cache, fid)
+        if hit is not None and dashboard and hit.get("prompt_version") != DASHBOARD_PROMPT_VERSION:
+            hit = None
         if hit is not None:
             return hit.get("bullets_th") or _fallback_bullets(filing), {
                 "source": "cache",
@@ -899,7 +943,12 @@ def _enrich_one(filing: dict, *, force: bool = False) -> tuple[list[str], dict]:
     payload_sha = hashlib.sha256(attachment).hexdigest()
     document_count = len(documents)
 
-    bullets, usage = _call_m3(documents, filing)
+    if dashboard:
+        bullets, usage = _call_m3(documents, filing, system=DASHBOARD_SYSTEM_PROMPT,
+                                  user_template=DASHBOARD_USER_PROMPT_TEMPLATE,
+                                  temperature=DASHBOARD_TEMPERATURE)
+    else:
+        bullets, usage = _call_m3(documents, filing)
     if bullets is None:
         return _fallback_bullets(filing), {
             "source": "fallback_m3_failed", "in_tokens": 0, "out_tokens": 0,
@@ -921,7 +970,8 @@ def _enrich_one(filing: dict, *, force: bool = False) -> tuple[list[str], dict]:
     try:
         cache = _load_cache()  # re-read in case of races
         _cache_put(cache, fid, bullets, M3_MODEL, in_tok, out_tok,
-                   payload_sha, raw_markdown=raw_markdown)
+                   payload_sha, raw_markdown=raw_markdown,
+                   prompt_version=DASHBOARD_PROMPT_VERSION if dashboard else PROMPT_VERSION)
         _atomic_write_cache(cache)
     except OSError as e:
         _log(f"WARN: cache write failed: {e}")
@@ -1182,6 +1232,8 @@ def _publish_dashboard(pulse: dict, cache: dict, out_path: Path) -> dict:
         entry = (cache.get("summaries") or {}).get(fid)
         if not entry or not entry.get("bullets_th"):
             continue
+        if entry.get("prompt_version") != DASHBOARD_PROMPT_VERSION:
+            continue  # written by the RM alert prompt, which may carry opinion
         source = _source_text(entry)
         if not source.strip():
             # Scanned PDF: m3 read the image, but nothing we can check it against.
@@ -1203,7 +1255,7 @@ def _publish_dashboard(pulse: dict, cache: dict, out_path: Path) -> dict:
     payload = {
         "generated": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "model": M3_MODEL,
-        "promptVersion": PROMPT_VERSION,
+        "promptVersion": DASHBOARD_PROMPT_VERSION,
         "scope": "IS1 coverage · critical + material · financial statements skipped, MD&A kept",
         "rule": "bullets whose numbers are not all found in the filing text are dropped",
         "total": len(summaries),
@@ -1239,7 +1291,8 @@ def _dashboard(data_dir: Path, *, limit: int, dry_run: bool) -> int:
     # Any cached summary counts as done, however old: the pulse window is 90
     # days and the cache TTL 30, so a TTL check here would pay m3 again for
     # every filing aged 31-90 days on each run.
-    done = cache.get("summaries") or {}
+    done = {fid for fid, entry in (cache.get("summaries") or {}).items()
+            if entry.get("prompt_version") == DASHBOARD_PROMPT_VERSION}
     todo = [f for f in pulse.get("filings") or []
             if _dashboard_eligible(f) and str(f["_id"]) not in done
             and not backing_off(str(f["_id"]))]
@@ -1250,7 +1303,7 @@ def _dashboard(data_dir: Path, *, limit: int, dry_run: bool) -> int:
         if dry_run:
             _log(f"DRY_RUN would enrich {f.get('tk')} {f.get('_id')} {f.get('title', '')[:60]}")
             continue
-        _bullets, meta = _enrich_one(f)
+        _bullets, meta = _enrich_one(f, dashboard=True)
         if meta.get("source") == "m3":
             ok += 1
         else:
@@ -1299,6 +1352,14 @@ def _audit(data_dir: Path, *, count: int) -> int:
                 print(f"      {tok:>14}  …{ctx}…")
         if item.get("dropped"):
             print(f"  ({item['dropped']} bullet(s) dropped by the number check)")
+    # Token use of every dashboard-prompt call so far, to price the backlog.
+    dash = [v for v in (cache.get("summaries") or {}).values()
+            if v.get("prompt_version") == DASHBOARD_PROMPT_VERSION]
+    if dash:
+        tin = sum((v.get("tokens") or {}).get("in", 0) for v in dash)
+        tout = sum((v.get("tokens") or {}).get("out", 0) for v in dash)
+        print(f"\ntokens over {len(dash)} dashboard call(s): in {tin:,} / out {tout:,} "
+              f"(avg in {tin // len(dash):,} / out {tout // len(dash):,} per filing)")
     return 0
 
 

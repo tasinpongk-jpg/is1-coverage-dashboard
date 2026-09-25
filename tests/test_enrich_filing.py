@@ -856,9 +856,11 @@ class TestPublishDashboard(unittest.TestCase):
         low = dict(VALID_FILING, _id="3", severity="low")
         pulse = {"filings": [good, scanned, low]}
         cache = {"summaries": {
-            "1": {"ts": "2026-09-24T00:00:00+00:00", "bullets_th": ["• ซื้อพื้นที่ 1,200 ตร.ม.", "• ราคา 99 ล้านบาท"],
+            "1": {"ts": "2026-09-24T00:00:00+00:00", "prompt_version": e.DASHBOARD_PROMPT_VERSION,
+                  "bullets_th": ["• ซื้อพื้นที่ 1,200 ตร.ม.", "• ราคา 99 ล้านบาท"],
                   "raw_markdown": {"MDA": {"text": "พื้นที่ 1,200 ตารางเมตร", "member_filename": "a.pdf"}}},
-            "2": {"ts": "2026-09-24T00:00:00+00:00", "bullets_th": ["• ข้อความ"], "raw_markdown": {}},
+            "2": {"ts": "2026-09-24T00:00:00+00:00", "prompt_version": e.DASHBOARD_PROMPT_VERSION,
+                  "bullets_th": ["• ข้อความ"], "raw_markdown": {}},
             "3": {"ts": "2026-09-24T00:00:00+00:00", "bullets_th": ["• x"],
                   "raw_markdown": {"MDA": {"text": "x"}}},
         }}
@@ -877,7 +879,8 @@ class TestDashboardBacklog(unittest.TestCase):
     def test_old_cache_entry_is_not_reenriched(self):
         filing = dict(VALID_FILING, _id="9", severity="high")
         old = {"version": 1, "prompt_version": e.PROMPT_VERSION, "summaries": {
-            "9": {"ts": "2020-01-01T00:00:00+00:00", "bullets_th": ["• x"], "raw_markdown": {}}}}
+            "9": {"ts": "2020-01-01T00:00:00+00:00", "prompt_version": e.DASHBOARD_PROMPT_VERSION,
+                  "bullets_th": ["• x"], "raw_markdown": {}}}}
         with tempfile.TemporaryDirectory() as d:
             dd = Path(d)
             (dd / "disclosure-pulse.json").write_text(json.dumps({"filings": [filing]}), encoding="utf-8")
@@ -887,6 +890,51 @@ class TestDashboardBacklog(unittest.TestCase):
                  mock.patch.object(e, "_enrich_one") as enrich:
                 self.assertEqual(e._dashboard(dd, limit=5, dry_run=False), 0)
             enrich.assert_not_called()
+
+
+class TestDashboardPrompt(unittest.TestCase):
+    def test_alert_prompt_entries_are_redone_and_not_published(self):
+        filing = dict(VALID_FILING, _id="7", severity="high")
+        cache = {"version": 1, "prompt_version": e.PROMPT_VERSION, "summaries": {
+            "7": {"ts": "2026-09-24T00:00:00+00:00", "prompt_version": e.PROMPT_VERSION,
+                  "bullets_th": ["• ความเห็นของโมเดล"], "raw_markdown": {"X": {"text": "ข้อความ"}}}}}
+        with tempfile.TemporaryDirectory() as d:
+            dd = Path(d)
+            payload = e._publish_dashboard({"filings": [filing]}, cache, dd / "out.json")
+            self.assertEqual(payload["total"], 0)
+            (dd / "disclosure-pulse.json").write_text(json.dumps({"filings": [filing]}), encoding="utf-8")
+            cache_file = dd / "cache.json"
+            cache_file.write_text(json.dumps(cache), encoding="utf-8")
+            with mock.patch.dict(os.environ, {"ENRICH_CACHE_PATH": str(cache_file)}), \
+                 mock.patch.object(e, "_enrich_one", return_value=([], {"source": "m3"})) as enrich:
+                e._dashboard(dd, limit=5, dry_run=False)
+            enrich.assert_called_once()
+            self.assertTrue(enrich.call_args.kwargs.get("dashboard"))
+
+    def test_dashboard_call_uses_extraction_prompt(self):
+        captured = {}
+
+        class Resp:
+            def __enter__(self):
+                return self
+            def __exit__(self, *a):
+                return False
+            def read(self):
+                return json.dumps({"content": [{"type": "text", "text": "• ข้อ 1"}], "usage": {}}).encode()
+
+        def fake_urlopen(req, timeout=None):
+            captured.update(json.loads(req.data.decode("utf-8")))
+            return Resp()
+
+        with mock.patch.object(e, "_load_api_key", return_value="k"), \
+             mock.patch.object(e.urllib.request, "urlopen", fake_urlopen):
+            bullets, _ = e._call_m3("text", VALID_FILING, system=e.DASHBOARD_SYSTEM_PROMPT,
+                                    user_template=e.DASHBOARD_USER_PROMPT_TEMPLATE,
+                                    temperature=e.DASHBOARD_TEMPERATURE)
+        self.assertEqual(bullets, ["• ข้อ 1"])
+        self.assertEqual(captured["system"], e.DASHBOARD_SYSTEM_PROMPT)
+        self.assertEqual(captured["temperature"], e.DASHBOARD_TEMPERATURE)
+        self.assertNotIn("RM ควรสนใจ", captured["system"])
 
 
 if __name__ == "__main__":
