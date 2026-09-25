@@ -204,3 +204,18 @@ test("Oppday drawer owns its scroll area and Form 59 snapshot schema is coherent
   assert.ok(Array.isArray(form59.tickers));
   assert.equal(Object.values(form59.bySide).reduce((sum, value) => sum + value, 0), form59.total);
 });
+
+test("top-bar search previews the matched company and jumps to its page", async () => {
+  const nav = await readFile("nav.js", "utf8");
+  assert.doesNotMatch(nav, /<datalist/);
+  assert.match(nav, /role="combobox"/);
+  assert.match(nav, /is1s-search-pop/);
+  assert.match(nav, /fetch\(asset\("ticker-summary"\)\)/);
+  assert.match(nav, /row\.nameTh/);
+  assert.match(nav, /company-summary\.html\?tk=/);
+  assert.match(nav, /ArrowDown/);
+
+  const css = await readFile("theme.css", "utf8");
+  assert.match(css, /\.is1s-search-pop\s*\{[^}]*position:absolute/s);
+  assert.match(css, /@media\(max-width:840px\)\s*\{\s*\.is1s-search-pop\s*\{[^}]*position:fixed/s);
+});
