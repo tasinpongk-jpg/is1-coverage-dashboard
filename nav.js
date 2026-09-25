@@ -904,6 +904,7 @@
     }).join("") || '<p class="is1s-empty">' + esc(L("No filings","ไม่มี filing")) + "</p>";
 
     renderNewsDesk(host);
+    renderRibbon(host);
 
     host.querySelectorAll("[data-home-ticker]").forEach(function (button) {
       button.addEventListener("click",function () {
@@ -1044,6 +1045,49 @@
     }).join("") || '<p class="is1s-empty">' + esc(L("Nothing in this filter","ไม่มีข่าวในตัวกรองนี้")) + "</p>";
   }
 
+  // Coverage pulse: two logo marquees on the home page. The track holds the
+  // chips twice so a -50% translate loops seamlessly; duration scales with
+  // the number of chips so the speed stays readable whatever the RM's size.
+  function logoUrl(tk) { return "https://media.set.or.th/common/logo/company/" + encodeURIComponent(tk) + ".png"; }
+  function logoMark(tk) {
+    return '<span class="is1-rb-logo"><img src="' + esc(logoUrl(tk)) + '" alt="" loading="lazy" decoding="async" ' +
+      'onerror="this.remove()"><em>' + esc(String(tk).slice(0,2)) + "</em></span>";
+  }
+  function fillLane(lane,chips,secondsPerChip) {
+    var track = lane.querySelector(".is1-ribbon-track");
+    if (!chips.length) { lane.hidden = true; track.innerHTML = ""; return; }
+    lane.hidden = false;
+    var html = chips.join("");
+    track.innerHTML = html + '<span class="is1-rb-sep" aria-hidden="true"></span>' + html.replace(/<a /g,'<a tabindex="-1" aria-hidden="true" ');
+    track.style.setProperty("--ribbon-duration",Math.max(24,chips.length * secondsPerChip) + "s");
+  }
+  function renderRibbon(host) {
+    var ribbon = host.querySelector(".is1-ribbon");
+    if (!ribbon) return;
+    ribbon.querySelector("[data-ribbon-rm]").textContent = rmLabel(state.rm);
+    var rows = rmRows().filter(function (row) { return finite(row.pct1d); })
+      .sort(function (a,b) { return Math.abs(Number(b.pct1d)) - Math.abs(Number(a.pct1d)); }).slice(0,40);
+    var maxMove = Math.max.apply(null,rows.map(function (row) { return Math.abs(Number(row.pct1d)); }).concat([1]));
+    fillLane(ribbon.querySelector('[data-ribbon-lane="prices"]'),rows.map(function (row) {
+      var pct = Number(row.pct1d);
+      var tone = pct > 0 ? "up" : pct < 0 ? "down" : "flat";
+      var hot = Math.abs(pct) >= 5 ? " hot" : "";
+      return '<a class="is1-rb-chip ' + tone + hot + '" href="' + esc(href("company-summary.html?tk=" + encodeURIComponent(row.tk))) + '" style="--rb-move:' +
+        Math.max(6,Math.round(Math.abs(pct) / maxMove * 100)) + '%">' + logoMark(row.tk) +
+        '<span class="is1-rb-text"><b>' + esc(row.tk) + '</b><small>' + esc(row.last == null ? "" : fmtNum(row.last,2)) + '</small></span>' +
+        '<span class="is1-rb-pct">' + (pct > 0 ? "▲ " : pct < 0 ? "▼ " : "") + esc(fmtPct(pct,2).replace(/^[+-]/,"")) + "</span><i></i></a>";
+    }),3);
+    var seen = {};
+    var news = rmFilings().filter(function (f) { return withinHours(f.ts,24 * 7); })
+      .sort(function (a,b) { return severityRank(b.severity) - severityRank(a.severity) || String(b.ts || "").localeCompare(String(a.ts || "")); })
+      .filter(function (f) { if (seen[f.tk]) return false; seen[f.tk] = true; return true; }).slice(0,24);
+    fillLane(ribbon.querySelector('[data-ribbon-lane="news"]'),news.length >= 3 ? news.map(function (f) {
+      return '<a class="is1-rb-chip news sev-' + severityRank(f.severity) + '" href="' + esc(href("company-summary.html?tk=" + encodeURIComponent(f.tk) + "&tab=disclosures")) + '">' +
+        logoMark(f.tk) + '<span class="is1-rb-text"><b>' + esc(f.tk) + '</b><small>' + esc(newsType(f.type)) + '</small></span>' +
+        '<span class="is1-rb-when">' + esc(relTime(f.ts)) + "</span></a>";
+    }) : [],3.6);
+  }
+
   function renderShellData() {
     if (!state.data) return;
     renderCounts();
@@ -1111,6 +1155,14 @@
         renderNewsDesk(control);
       });
     });
+    var ribbon = document.createElement("section");
+    ribbon.className = "is1-ribbon";
+    ribbon.setAttribute("aria-label",L("Coverage pulse","ชีพจรหลักทรัพย์ที่ดูแล"));
+    ribbon.innerHTML =
+      '<div class="is1-ribbon-tag"><span><i class="is1-live-pulse"></i>' + esc(L("Coverage pulse","ชีพจรหลักทรัพย์")) + '</span><b data-ribbon-rm></b></div>' +
+      '<div class="is1-ribbon-lane" data-ribbon-lane="prices"><div class="is1-ribbon-track"></div></div>' +
+      '<div class="is1-ribbon-lane reverse" data-ribbon-lane="news"><div class="is1-ribbon-track"></div></div>';
+    control.insertBefore(ribbon,control.firstChild);
     main.insertBefore(control,main.firstChild);
     control.querySelectorAll("[data-home-view]").forEach(function (button) {
       button.addEventListener("click",function () {
