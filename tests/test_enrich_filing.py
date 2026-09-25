@@ -937,5 +937,32 @@ class TestDashboardPrompt(unittest.TestCase):
         self.assertNotIn("RM ควรสนใจ", captured["system"])
 
 
+class TestVerifyScaleAndContacts(unittest.TestCase):
+    SRC = "The Company allocated Baht 150,000,000 to repurchase up to 88,000,000 shares or 5.57 percent"
+
+    def test_million_rescaling_accepted_both_ways(self):
+        kept, _ = e._verify_bullets(["• วงเงิน 150 ล้านบาท ซื้อคืนไม่เกิน 88 ล้านหุ้น (5.57%)"], self.SRC)
+        self.assertEqual(len(kept), 1)
+        kept, _ = e._verify_bullets(["• วงเงิน 1,500,000,000 บาท"], "budget of 1.5 billion baht")
+        self.assertEqual(len(kept), 1)
+
+    def test_wrong_rescaling_still_dropped(self):
+        kept, dropped = e._verify_bullets(["• วงเงิน 15 ล้านบาท"], self.SRC)
+        self.assertEqual((kept, dropped), ([], 1))
+
+    def test_signatory_and_contact_bullets_dropped(self):
+        src = "signed by Mr. Tharakorn Jankerd on 24 September 2026, tel. 02-123-4567"
+        kept, dropped = e._verify_bullets(
+            ["• เอกสารลงวันที่ 24 กันยายน 2569 ลงนามโดย Mr. Tharakorn Jankerd",
+             "• ติดต่อ โทร. 02-123-4567"], src)
+        self.assertEqual((kept, dropped), ([], 2))
+
+    def test_property_and_date_words_not_treated_as_contact(self):
+        src = "residential project of 120 units; agreement dated 1 October 2026; 3 consecutive quarters"
+        kept, _ = e._verify_bullets(
+            ["• โครงการที่อยู่อาศัย 120 ยูนิต", "• สัญญาลงวันที่ 1 ตุลาคม 2569", "• ขาดทุน 3 ไตรมาสติดต่อกัน"], src)
+        self.assertEqual(len(kept), 3)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

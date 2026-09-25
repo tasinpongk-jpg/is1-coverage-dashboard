@@ -157,13 +157,17 @@ _THAI_DIGITS = str.maketrans("๐๑๒๓๔๕๖๗๘๙", "0123456789")
 # and let the model compute figures that the number check then dropped
 # (8 of 16 bullets in the first live run of 2026-09-25). Its own version tag
 # keeps these entries apart from the Discord alert cache.
-DASHBOARD_PROMPT_VERSION = "dash-3"
+DASHBOARD_PROMPT_VERSION = "dash-4"
 DASHBOARD_TEMPERATURE = 0.1
 # dash-3 after the second live run (2026-09-25): opinion gone and nothing
 # dropped, but "1.23 percent" came out as "1.23" (3 of 3 filings), dates
 # stayed as 24-Sep-2026, names in English filings were transliterated into
 # Thai (SYNTEC signatories, DAOL -> ดาว), signatory/phone/email bullets
 # padded the list, and leasehold vs sublease was merged.
+# dash-4 after the third run: those fixed, but the model stated the
+# company's reasons as fact with added adjectives ("considered carefully"),
+# wrote "กรรมสิทธิ์แบบ Leasehold" (ownership vs lease contradict), and still
+# wrote a signatory line. Signatory/contact bullets are also filtered in code.
 DASHBOARD_SYSTEM_PROMPT = (
     "You extract facts from a filing a company submitted to the Stock Exchange of "
     "Thailand, for an exchange analyst. Reply in Thai only. Output 2-4 bullets, each "
@@ -184,10 +188,20 @@ DASHBOARD_SYSTEM_PROMPT = (
     "the document writes them, in the document's own script. If the document gives a "
     "name only in English, keep it in English; never transliterate or translate a "
     "name into Thai.\n"
-    "6. Skip signatories, contact persons, phone numbers, e-mail and addresses.\n"
+    "6. Skip signatories, who signed or dated the document, contact persons, phone "
+    "numbers, e-mail and addresses.\n"
     "7. Do not merge items that the document distinguishes (for example leasehold, "
     "sub-lease and freehold assets, or different share classes); keep each "
-    "difference.\n"
+    "difference. Thai terms: freehold = กรรมสิทธิ์, leasehold = สิทธิการเช่า, "
+    "sub-leasehold = สิทธิการเช่าช่วง (write สิทธิ, not สิทธิ์, in these terms). "
+    "Never combine กรรมสิทธิ์ with leasehold.\n"
+    "7a. When the document gives the company's own reason or view, attribute it "
+    "(บริษัทระบุว่า ...). Do not add adjectives or adverbs the document does not "
+    "use, and do not call something a resolution (มติ) unless the document says a "
+    "resolution was passed.\n"
+    "7b. Keep the headline facts of the announcement even if short: the size of a "
+    "programme (amount, number of shares, % of paid-up shares), its period and the "
+    "resolution that approved it.\n"
     "8. Cover, in this order: what the company announced; the key figures, dates or "
     "resolutions; conditions, next steps or effective dates the document states.\n"
     "9. Prefer the document's own Thai wording. If the document is in English, "
@@ -1211,6 +1225,44 @@ def _number_in_source(token: str, source: str) -> bool:
     return False
 
 
+_SCALE_WORDS = (("พันล้าน", 1_000_000_000), ("billion", 1_000_000_000),
+                ("ล้าน", 1_000_000), ("million", 1_000_000), ("mn", 1_000_000))
+_CONTACT_RE = re.compile(
+    # Deliberately narrow: "ที่อยู่" would also hit ที่อยู่อาศัย (residential) and
+    # "ติดต่อ" hits ติดต่อกัน (consecutive), both common in real filings.
+    r"ลงนามโดย|ผู้ลงนาม|signed by|authori[sz]ed (?:director|signatory)|"
+    r"โทรศัพท์|โทร\.|\btel\.|telephone|e-?mail|อีเมล|ผู้ติดต่อ|contact person",
+    re.I)
+
+
+def _scaled_forms(value: str, following: str) -> list[str]:
+    """Other spellings of a number the model may have rescaled.
+
+    "150 ล้านบาท" and "Baht 150,000,000" are the same figure; so are
+    "1,500,000,000" and "1.5 billion". Only exact rescalings count.
+    """
+    try:
+        n = float(value)
+    except ValueError:
+        return []
+    forms = []
+    word = following.strip().lower()
+    for scale_word, factor in _SCALE_WORDS:
+        if word.startswith(scale_word):
+            full = n * factor
+            if full == int(full):
+                forms.append(str(int(full)))
+            break
+    for _w, factor in _SCALE_WORDS:
+        if n >= factor and n % (factor / 1000) == 0:
+            forms.append(f"{n / factor:g}")
+    return forms
+
+
+def _is_contact_bullet(text: str) -> bool:
+    return bool(_CONTACT_RE.search(text))
+
+
 def _verify_bullets(bullets: list[str], source_text: str) -> tuple[list[str], int]:
     """Keep only bullets whose every number appears in the source document.
 
@@ -1225,8 +1277,20 @@ def _verify_bullets(bullets: list[str], source_text: str) -> tuple[list[str], in
         if not text or text.startswith("⚠"):
             dropped += 1
             continue
-        tokens = _NUM_RE.findall(_norm_numbers(text))
-        if all(_number_in_source(t, source) for t in tokens):
+        if _is_contact_bullet(text):
+            dropped += 1
+            continue
+        norm = _norm_numbers(text)
+        ok = True
+        for m in _NUM_RE.finditer(norm):
+            tok = m.group(0)
+            if _number_in_source(tok, source):
+                continue
+            alts = _scaled_forms(tok.replace(",", "").rstrip("."), norm[m.end():m.end() + 12])
+            if not any(_number_in_source(a, source) for a in alts):
+                ok = False
+                break
+        if ok:
             kept.append(text)
         else:
             dropped += 1
