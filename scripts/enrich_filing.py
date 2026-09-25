@@ -157,8 +157,13 @@ _THAI_DIGITS = str.maketrans("๐๑๒๓๔๕๖๗๘๙", "0123456789")
 # and let the model compute figures that the number check then dropped
 # (8 of 16 bullets in the first live run of 2026-09-25). Its own version tag
 # keeps these entries apart from the Discord alert cache.
-DASHBOARD_PROMPT_VERSION = "dash-2"
+DASHBOARD_PROMPT_VERSION = "dash-3"
 DASHBOARD_TEMPERATURE = 0.1
+# dash-3 after the second live run (2026-09-25): opinion gone and nothing
+# dropped, but "1.23 percent" came out as "1.23" (3 of 3 filings), dates
+# stayed as 24-Sep-2026, names in English filings were transliterated into
+# Thai (SYNTEC signatories, DAOL -> ดาว), signatory/phone/email bullets
+# padded the list, and leasehold vs sublease was merged.
 DASHBOARD_SYSTEM_PROMPT = (
     "You extract facts from a filing a company submitted to the Stock Exchange of "
     "Thailand, for an exchange analyst. Reply in Thai only. Output 2-4 bullets, each "
@@ -167,24 +172,36 @@ DASHBOARD_SYSTEM_PROMPT = (
     "1. State only facts written in the document. No opinion, interpretation, market "
     "impact, investor sentiment, recommendation, or any reason the document does not "
     "itself give.\n"
-    "2. Copy every number, amount, unit, percentage and date exactly as the document "
-    "writes it. Never calculate, convert units, round, annualise or compare figures; "
-    "do not write YoY/QoQ changes unless the document states that exact figure.\n"
-    "3. Prefer the document's own Thai wording. Keep company, person and project "
-    "names exactly as written. If the document is in English, translate it faithfully "
-    "into formal Thai and keep every number unchanged.\n"
-    "4. Cover, in this order: what the company announced; the key figures, dates or "
+    "2. Copy every number exactly as the document writes it. Never calculate, convert "
+    "units, round, annualise or compare figures; do not write YoY/QoQ changes unless "
+    "the document states that exact figure.\n"
+    "3. Always keep the unit next to its number: baht, million baht, shares, units, "
+    "rai, sq.m., years. A percentage always ends with `%` (write 1.23 percent as "
+    "1.23%). Never leave a bare number.\n"
+    "4. Write every date as day, Thai month name, Buddhist-era year, e.g. "
+    "24 กันยายน 2569 (24-Sep-2026 and 24 September 2026 both become 24 กันยายน 2569).\n"
+    "5. Names of people, companies, funds, projects and places: copy them exactly as "
+    "the document writes them, in the document's own script. If the document gives a "
+    "name only in English, keep it in English; never transliterate or translate a "
+    "name into Thai.\n"
+    "6. Skip signatories, contact persons, phone numbers, e-mail and addresses.\n"
+    "7. Do not merge items that the document distinguishes (for example leasehold, "
+    "sub-lease and freehold assets, or different share classes); keep each "
+    "difference.\n"
+    "8. Cover, in this order: what the company announced; the key figures, dates or "
     "resolutions; conditions, next steps or effective dates the document states.\n"
-    "5. Write formal Thai with correct spelling. When unsure of a word, use the "
-    "document's wording instead.\n"
-    "6. A short filing gets fewer bullets. Never pad."
+    "9. Prefer the document's own Thai wording. If the document is in English, "
+    "translate the prose faithfully into formal Thai. Write correct Thai spelling; "
+    "when unsure of a word, use the document's wording instead.\n"
+    "10. A short filing gets fewer bullets. Never pad."
 )
 DASHBOARD_USER_PROMPT_TEMPLATE = (
     "สรุปข้อเท็จจริงจากเอกสารที่บริษัทจดทะเบียนส่งตลาดหลักทรัพย์ต่อไปนี้\n\n"
     "- Ticker: {tk}\n"
     "- Title: {title}\n"
     "- Filed: {ts}\n\n"
-    "เอกสารแนบอยู่ด้านบน ตอบเป็นภาษาไทย 2-4 bullet ใช้ตัวเลขตามเอกสารเท่านั้น ห้ามคำนวณหรือแสดงความเห็น"
+    "เอกสารแนบอยู่ด้านบน ตอบเป็นภาษาไทย 2-4 bullet ใช้ตัวเลขตามเอกสารพร้อมหน่วยเสมอ "
+    "(เปอร์เซ็นต์ใส่ %) วันที่เป็น วัน เดือนไทย ปี พ.ศ. ชื่อเฉพาะคงตามเอกสาร ห้ามคำนวณหรือแสดงความเห็น"
 )
 
 
