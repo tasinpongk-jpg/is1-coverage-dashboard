@@ -1341,9 +1341,14 @@ html.theme-changing *,html.theme-changing *::before,html.theme-changing *::after
 .is1-rb-text small { color:var(--muted); font-size:10.5px; font-variant-numeric:tabular-nums; white-space:nowrap; }
 .is1-rb-pct { color:var(--tone); font-size:12px; font-weight:800; font-variant-numeric:tabular-nums; white-space:nowrap; }
 .is1-rb-when { color:var(--muted); font-size:10px; white-space:nowrap; }
+/* Reduce Motion: the ribbon keeps moving (it is the point of the band) but
+   at half speed, still pauses on hover/focus, and the pulsing ring stops. */
 @media(prefers-reduced-motion:reduce) {
-  .is1-ribbon-track { animation:none; }
-  .is1-ribbon-lane { overflow-x:auto; }
+  /* Beats the global reduced-motion reset above (*{animation-duration:.01ms !important}). */
+  .is1-ribbon .is1-ribbon-track {
+    animation-duration:calc(var(--ribbon-duration,60s) * 2) !important;
+    animation-iteration-count:infinite !important;
+  }
   .is1-rb-chip.hot .is1-rb-logo { animation:none; }
 }
 @media(max-width:840px) {
