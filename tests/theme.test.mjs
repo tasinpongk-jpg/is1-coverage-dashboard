@@ -221,3 +221,15 @@ test("top-bar search previews the matched company and jumps to its page", async 
   assert.match(css, /\.is1s-search-pop\s*\{[^}]*position:absolute/s);
   assert.match(css, /@media\(max-width:840px\)\s*\{\s*\.is1s-search-pop\s*\{[^}]*position:fixed/s);
 });
+
+// Without a viewport meta tag, phones lay the page out at ~980px and shrink
+// it, so the shell's <=840px mobile layout (bottom nav bar) never kicks in.
+test("every page that loads the shell declares a mobile viewport", async () => {
+  const { readdir } = await import("node:fs/promises");
+  const pages = (await readdir(".")).filter((f) => f.endsWith(".html"));
+  for (const page of pages) {
+    const html = await readFile(page, "utf8");
+    if (!/src="[^"]*nav\.js/.test(html)) continue;
+    assert.match(html, /<meta name="viewport" content="width=device-width, initial-scale=1">/, page);
+  }
+});
