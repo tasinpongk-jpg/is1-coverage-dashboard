@@ -61,6 +61,21 @@
   .ev-row { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); padding: 1px 0; }
   .ev-row span:last-child { color: var(--text); font-weight: 500; }
   .filings-linked { margin-top: 6px; font-size: 11px; color: var(--yellow); }
+  /* News backing: an alert with no filing or news behind it is the one to look at first. */
+  .explain-row { display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
+  .explain-chip { display:inline-flex; align-items:center; gap:6px; padding:5px 11px; border:1px solid var(--border); border-radius:999px; color:var(--muted); background:transparent; font:inherit; font-size:11.5px; font-weight:600; cursor:pointer; }
+  .explain-chip b { font-variant-numeric:tabular-nums; }
+  .explain-chip.active { color:var(--text); border-color:var(--yellow); background:color-mix(in srgb,var(--yellow) 12%,transparent); }
+  .explain-chip.none.active { border-color:var(--red); background:color-mix(in srgb,var(--red) 12%,transparent); }
+  .alert-card.unexplained { box-shadow: inset 0 0 0 1px color-mix(in srgb,var(--red) 35%,transparent); }
+  .no-news { display:flex; flex-direction:column; align-items:flex-start; gap:2px; margin-top:10px; padding:7px 10px; border-radius:7px; color:var(--red); background:color-mix(in srgb,var(--red) 9%,transparent); font-size:11.5px; font-weight:700; }
+  .no-news small { color:var(--muted); font-weight:500; }
+  .news-backing { margin-top:10px; padding-top:8px; border-top:1px dashed var(--border); display:flex; flex-direction:column; gap:5px; }
+  .news-backing a { display:grid; grid-template-columns:auto minmax(0,1fr); gap:7px; color:var(--text2); font-size:11.5px; line-height:1.4; text-decoration:none; }
+  .news-backing a:hover { color:var(--text); }
+  .news-backing em { font-style:normal; font-size:9.5px; font-weight:800; padding:2px 6px; border-radius:4px; color:var(--yellow); background:color-mix(in srgb,var(--yellow) 12%,transparent); align-self:start; }
+  .news-backing em.ext { color:var(--blue); background:color-mix(in srgb,var(--blue) 12%,transparent); }
+  .news-backing span { display:-webkit-box; overflow:hidden; -webkit-line-clamp:2; -webkit-box-orient:vertical; }
   .empty, .loading { text-align: center; padding: 60px; color: var(--muted); grid-column: 1 / -1; }
 </style>
   <script src="theme.js?v=8"></script>
@@ -95,6 +110,10 @@
 
 <div class="tab-bar">
   <div class="tab-row">
+    <span class="tab-label"><span data-i18n="unusual.newsBacking">News backing</span>:</span>
+    <div id="explainTabs" class="explain-row"></div>
+  </div>
+  <div class="tab-row">
     <span class="tab-label"><span data-i18n="common.rm">RM</span>:</span>
     <div id="rmTabs" style="display:flex;gap:4px;flex-wrap:wrap"></div>
   </div>
@@ -112,7 +131,7 @@
 
 <script>
 let TICKERS = {}, ALERTS = [];
-let activeRm = /^[CKOGPT]$/.test(localStorage.getItem('is1_rm') || '') ? localStorage.getItem('is1_rm') : 'ALL', activeSev = 'ALL', activeType = 'ALL', activeSector = 'ALL';
+let activeRm = /^[CKOGPT]$/.test(localStorage.getItem('is1_rm') || '') ? localStorage.getItem('is1_rm') : 'ALL', activeSev = 'ALL', activeType = 'ALL', activeSector = 'ALL', activeExplain = 'ALL';
 let activeTicker = new URLSearchParams(location.search).get('ticker') || null;
 let DATA_META = null;
 
@@ -138,6 +157,11 @@ const TT_FALLBACK = {
   "unusual.filingsLinked": "{n} filing(s) linked",
   "common.errorWithMsg": "Error: {msg}",
   "unusual.meta": "{n} alerts · as of {asOf} · {source}",
+  "unusual.newsBacking": "News backing",
+  "unusual.unexplained": "No news behind it",
+  "unusual.explained": "Has news",
+  "unusual.noNewsTitle": "No news behind this move",
+  "unusual.noNewsHint": "No SET filing or external news on the price day or the day before",
 };
 function tt(key) { return window.I18N ? I18N.t(key) : (TT_FALLBACK[key] || key); }
 function esc(s) { return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
@@ -203,7 +227,7 @@ function buildTabs() {
   }).join('');
 }
 
-function setRm(r) { activeRm = r; document.querySelectorAll('[data-rm]').forEach(el => el.classList.toggle('active', el.dataset.rm === r)); render(); updateStats(); }
+function setRm(r) { activeRm = r; document.querySelectorAll('[data-rm]').forEach(el => el.classList.toggle('active', el.dataset.rm === r)); buildExplainTabs(); render(); updateStats(); }
 window.addEventListener('is1:rm-change', e => {
   if (/^(ALL|[CKOGPT])$/.test(e.detail?.rm || '')) setRm(e.detail.rm);
 });
@@ -211,8 +235,44 @@ function setSev(s) { activeSev = s; document.querySelectorAll('[data-sev]').forE
 function setType(t) { activeType = t; document.querySelectorAll('[data-type]').forEach(el => el.classList.toggle('active', el.dataset.type === t)); render(); }
 function setSector(s) { activeSector = s; document.querySelectorAll('[data-sector]').forEach(el => el.classList.toggle('active', el.dataset.sector === s)); render(); }
 
+function isThai() { return !!(window.I18N && I18N.lang === 'th'); }
+// Match each alert to SET filings and external news dated on the price day or
+// the day before (Bangkok dates), so an after-close filing on T-1 still counts.
+function attachNews(pulse, news) {
+  const asOf = (DATA_META && DATA_META.asOf) || '';
+  if (!asOf) return;
+  const prev = new Date(Date.parse(asOf + 'T00:00:00+07:00') - 864e5);
+  const prevDay = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Bangkok' }).format(prev);
+  const bkkDay = ts => { const t = Date.parse(ts); return Number.isFinite(t) ? new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Bangkok' }).format(new Date(t)) : ''; };
+  const inWindow = ts => { const d = bkkDay(ts); return d === asOf || d === prevDay; };
+  const byTk = {};
+  ((pulse && pulse.filings) || []).forEach(f => {
+    if (!f.tk || !inWindow(f.ts)) return;
+    (byTk[f.tk] = byTk[f.tk] || []).push({ kind: 'set', ts: f.ts, title: isThai() ? (f.title_th || f.title) : (f.title || f.title_th), url: isThai() ? (f.url_th || f.url) : (f.url || f.url_th) });
+  });
+  ((news && news.items) || []).forEach(n => {
+    if (!n.tk || !inWindow(n.ts)) return;
+    (byTk[n.tk] = byTk[n.tk] || []).push({ kind: 'ext', ts: n.ts, title: n.title, url: n.url, source: n.source });
+  });
+  ALERTS.forEach(a => {
+    a._news = (byTk[a.tk] || []).slice().sort((x, y) => String(y.ts || '').localeCompare(String(x.ts || '')));
+  });
+}
+function hasNews(a) { return a._news ? a._news.length > 0 : a.filingsLinked > 0; }
+function setExplain(v) { activeExplain = v; buildExplainTabs(); render(); }
+function buildExplainTabs() {
+  const pool = ALERTS.filter(a => activeRm === 'ALL' || (TICKERS[a.tk] || {}).rm === activeRm);
+  const none = pool.filter(a => !hasNews(a)).length;
+  const chips = [['ALL', allLabel(), pool.length], ['none', tt('unusual.unexplained'), none], ['news', tt('unusual.explained'), pool.length - none]];
+  document.getElementById('explainTabs').innerHTML = chips.map(([k, lbl, n]) =>
+    `<button type="button" class="explain-chip ${k === 'none' ? 'none' : ''}${k === activeExplain ? ' active' : ''}" onclick="setExplain('${k}')">${esc(lbl)} <b>${n}</b></button>`).join('');
+}
+function safeUrl(u) { try { const x = new URL(String(u || ''), location.href); return /^https?:$/.test(x.protocol) ? x.href : ''; } catch { return ''; } }
+
 function filtered() {
   return ALERTS.filter(a => {
+    if (activeExplain === 'none' && hasNews(a)) return false;
+    if (activeExplain === 'news' && !hasNews(a)) return false;
     const t = TICKERS[a.tk] || {};
     if (activeRm !== 'ALL' && t.rm !== activeRm) return false;
     if (activeSev !== 'ALL' && (a.severity || '').toLowerCase() !== activeSev) return false;
@@ -251,13 +311,16 @@ function updateStats() {
     <div class="stat" style="color:var(--red)"><div class="stat-val">${counts.high}</div><div class="stat-lbl">${tt('common.high')}</div></div>
     <div class="stat" style="color:var(--yellow)"><div class="stat-val">${counts.medium}</div><div class="stat-lbl">${tt('common.medium')}</div></div>
     <div class="stat" style="color:var(--green)"><div class="stat-val">${counts.low}</div><div class="stat-lbl">${tt('common.low')}</div></div>
+    <div class="stat" style="color:var(--red)"><div class="stat-val">${rows.filter(a => !hasNews(a)).length}</div><div class="stat-lbl">${tt('unusual.unexplained')}</div></div>
     <div class="stat"><div class="stat-val">${rows.length}</div><div class="stat-lbl">${tt('unusual.totalAlerts')}</div></div>
     <div class="stat"><div class="stat-val">${byTk.size}</div><div class="stat-lbl">${tt('unusual.tickersFlagged')}</div></div>`;
 }
 
 function render() {
   renderTickerBanner();
-  const rows = filtered();
+  const sevRank = { high: 0, medium: 1, low: 2 };
+  const rows = filtered().slice().sort((a, b) =>
+    (hasNews(a) - hasNews(b)) || ((sevRank[(a.severity || 'low').toLowerCase()] ?? 3) - (sevRank[(b.severity || 'low').toLowerCase()] ?? 3)));
   const grid = document.getElementById('grid');
   if (!rows.length) { grid.innerHTML = `<div class="empty">${tt('common.noAlerts')}</div>`; return; }
   grid.innerHTML = rows.map(a => {
@@ -267,7 +330,17 @@ function render() {
     const rm = esc(t.rm || '');
     const sector = esc(a.sector || '');
     const safeSev = esc(sev);
-    return `<div class="alert-card ${safeSev}">
+    const backed = hasNews(a);
+    const newsHtml = !backed
+      ? `<div class="no-news">● ${esc(tt('unusual.noNewsTitle'))}<small>${esc(tt('unusual.noNewsHint'))}</small></div>`
+      : a._news
+        ? `<div class="news-backing">${a._news.slice(0, 2).map(n => {
+            const u = safeUrl(n.url);
+            const inner = `<em class="${n.kind}">${n.kind === 'set' ? 'SET' : esc(n.source || 'NEWS')}</em><span>${esc(n.title || '')}</span>`;
+            return u ? `<a href="${esc(u)}" target="_blank" rel="noopener">${inner}</a>` : `<a>${inner}</a>`;
+          }).join('')}</div>`
+        : `<div class="filings-linked">⚡ ${tx('unusual.filingsLinked', { n: a.filingsLinked })}</div>`;
+    return `<div class="alert-card ${safeSev}${backed ? '' : ' unexplained'}">
       <div class="alert-top">
         <div>
           <div class="alert-tk-row">
@@ -281,26 +354,30 @@ function render() {
       <div class="alert-type">${esc(alertType)}</div>
       <div class="alert-label">${esc(a.label || '')}</div>
       ${a.evidence ? `<div class="alert-evidence">${evidenceRows(a.evidence)}</div>` : ''}
-      ${a.filingsLinked ? `<div class="filings-linked">⚡ ${tx('unusual.filingsLinked', { n: a.filingsLinked })}</div>` : ''}
+      ${newsHtml}
     </div>`;
   }).join('');
 }
 
 async function init() {
   try {
-    const [tj, dj] = await Promise.all([
+    const soft = url => fetch(url).then(r => r.ok ? r.json() : null).catch(() => null);
+    const [tj, dj, pj, nj] = await Promise.all([
       fetch('./data/tickers.json').then(r => r.json()),
       fetch('./data/unusual-trading.json').then(r => r.json()),
+      soft('./data/disclosure-pulse.json'),
+      soft('./data/external-news.json'),
     ]);
     tj.tickers.forEach(t => { TICKERS[t.tk] = t; });
     ALERTS = dj.alerts || [];
     DATA_META = dj;
+    if (pj || nj) attachNews(pj, nj);
     const fresh = freshnessLabel(dj._built_at);
     const badge = document.getElementById('staleBadge');
     badge.textContent = fresh.txt;
     if (fresh.warn) badge.classList.add('warn');
     updateMeta();
-    buildTabs(); updateStats(); render();
+    buildTabs(); buildExplainTabs(); updateStats(); render();
   } catch(e) {
     document.getElementById('grid').innerHTML = `<div class="empty">${tx('common.errorWithMsg', { msg: e.message })}</div>`;
   }
@@ -318,6 +395,7 @@ window.addEventListener('i18n:change', () => {
   if (window.I18N) I18N.apply();
   updateMeta();
   buildTabs();
+  buildExplainTabs();
   updateStats();
   render();
 });

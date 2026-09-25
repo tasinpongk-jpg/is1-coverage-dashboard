@@ -151,19 +151,21 @@ test("sidebar gives every module a distinct color and an accessible active state
   assert.match(css, /:root\[data-theme="light"\] \.is1s-nav-section/);
 });
 
-test("homepage places RM-filtered disclosure and external-news feeds before dashboards", async () => {
+test("homepage leads with an RM-filtered newsroom above the price dashboards", async () => {
   const nav = await readFile("nav.js", "utf8");
   assert.match(nav, /className = "is1-home-news"/);
-  assert.match(nav, /data-home-disclosures/);
-  assert.match(nav, /data-home-external/);
-  assert.match(nav, /var disclosureRows = rmFilings\(\)/);
-  assert.match(nav, /var externalRows = rmNews\(\)/);
+  assert.match(nav, /control\.insertBefore\(desk,control\.querySelector\("\.is1-home-tabs"\)\)/);
+  assert.match(nav, /data-home-lead/);
+  assert.match(nav, /data-home-timeline/);
+  assert.match(nav, /var filings = rmFilings\(\)/);
+  assert.match(nav, /var news = rmNews\(\)/);
   assert.match(nav, /data-home-news-rm/);
+  assert.match(nav, /f\.title_th/);
   assert.match(nav, /safeHttpUrl/);
 
   const css = await readFile("theme.css", "utf8");
-  assert.match(css, /\.is1-home-news-grid\s*\{[^}]*grid-template-columns:repeat\(2/s);
-  assert.match(css, /@media\(max-width:980px\)[\s\S]*\.is1-home-news-grid\s*\{\s*grid-template-columns:1fr/);
+  assert.match(css, /\.is1-news-grid\s*\{[^}]*grid-template-columns:minmax\(0,1\.55fr\)/s);
+  assert.match(css, /@media\(max-width:980px\)[\s\S]*\.is1-news-grid\s*\{\s*grid-template-columns:1fr/);
 });
 
 test("external dashboards open in the embedded right workspace", async () => {
@@ -203,4 +205,19 @@ test("Oppday drawer owns its scroll area and Form 59 snapshot schema is coherent
   assert.ok(form59.windowDays >= 7);
   assert.ok(Array.isArray(form59.tickers));
   assert.equal(Object.values(form59.bySide).reduce((sum, value) => sum + value, 0), form59.total);
+});
+
+test("top-bar search previews the matched company and jumps to its page", async () => {
+  const nav = await readFile("nav.js", "utf8");
+  assert.doesNotMatch(nav, /<datalist/);
+  assert.match(nav, /role="combobox"/);
+  assert.match(nav, /is1s-search-pop/);
+  assert.match(nav, /fetch\(asset\("ticker-summary"\)\)/);
+  assert.match(nav, /row\.nameTh/);
+  assert.match(nav, /company-summary\.html\?tk=/);
+  assert.match(nav, /ArrowDown/);
+
+  const css = await readFile("theme.css", "utf8");
+  assert.match(css, /\.is1s-search-pop\s*\{[^}]*position:absolute/s);
+  assert.match(css, /@media\(max-width:840px\)\s*\{\s*\.is1s-search-pop\s*\{[^}]*position:fixed/s);
 });

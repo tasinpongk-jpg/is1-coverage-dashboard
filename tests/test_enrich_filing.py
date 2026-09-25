@@ -796,5 +796,186 @@ class TestDiscordPost(unittest.TestCase):
             self.assertTrue(result)
 
 
+# ---------------------------------------------------------------- dashboard mode
+
+class TestDashboardScope(unittest.TestCase):
+    def _f(self, **kw):
+        base = dict(VALID_FILING)
+        base.update(kw)
+        return base
+
+    def test_critical_and_material_only(self):
+        self.assertTrue(e._dashboard_eligible(self._f(severity="high")))
+        self.assertTrue(e._dashboard_eligible(self._f(severity="medium")))
+        self.assertFalse(e._dashboard_eligible(self._f(severity="low")))
+
+    def test_financial_statements_skipped_mda_kept(self):
+        fs = self._f(type="earnings", title="Financial Statement Quarter 2/2026 (Reviewed)",
+                     title_th="งบการเงิน ไตรมาสที่ 2/2569")
+        f45 = self._f(type="earnings", title="Financial Performance Quarter 2 (F45) (Reviewed)")
+        mda = self._f(type="earnings", title="Management Discussion and Analysis Quarter 2 Ending 30 Jun 2026")
+        mda_th = self._f(type="earnings", title="", title_th="คำอธิบายและวิเคราะห์ของฝ่ายจัดการ ไตรมาสที่ 2")
+        self.assertFalse(e._dashboard_eligible(fs))
+        self.assertFalse(e._dashboard_eligible(f45))
+        self.assertTrue(e._dashboard_eligible(mda))
+        self.assertTrue(e._dashboard_eligible(mda_th))
+
+
+class TestVerifyBullets(unittest.TestCase):
+    SOURCE = ("บริษัทมีรายได้รวม 13,515.2 ล้านบาท กำไรสุทธิ 4,970.8 ล้านบาท "
+              "ณ วันที่ 30 มิถุนายน 2026 อัตรากำไรสุทธิ ๓๗.๕%")
+
+    def test_keeps_traceable_numbers(self):
+        kept, dropped = e._verify_bullets(["• รายได้ 13,515.2 ล้านบาท กำไร 4970.8 ล้านบาท"], self.SOURCE)
+        self.assertEqual(dropped, 0)
+        self.assertEqual(kept, ["รายได้ 13,515.2 ล้านบาท กำไร 4970.8 ล้านบาท"])
+
+    def test_thai_digits_and_be_year(self):
+        kept, _ = e._verify_bullets(["• NPM 37.5% ณ 30 มิ.ย. 2569"], self.SOURCE)
+        self.assertEqual(len(kept), 1)
+
+    def test_drops_computed_or_invented_numbers(self):
+        kept, dropped = e._verify_bullets(
+            ["• กำไรเพิ่มขึ้น 27% YoY", "• ควรถามบริษัทเรื่องแผนลงทุน"], self.SOURCE)
+        self.assertEqual(kept, ["ควรถามบริษัทเรื่องแผนลงทุน"])
+        self.assertEqual(dropped, 1)
+
+    def test_partial_number_match_is_not_enough(self):
+        kept, _ = e._verify_bullets(["• รายได้ 515.2 ล้านบาท"], self.SOURCE)
+        self.assertEqual(kept, [])
+
+    def test_fallback_warning_bullet_dropped(self):
+        kept, dropped = e._verify_bullets(["• ⚠️ AI enrichment failed"], self.SOURCE)
+        self.assertEqual((kept, dropped), ([], 1))
+
+
+class TestPublishDashboard(unittest.TestCase):
+    def test_publishes_checked_and_holds_unverifiable(self):
+        good = dict(VALID_FILING, _id="1", severity="high")
+        scanned = dict(VALID_FILING, _id="2", severity="medium")
+        low = dict(VALID_FILING, _id="3", severity="low")
+        pulse = {"filings": [good, scanned, low]}
+        cache = {"summaries": {
+            "1": {"ts": "2026-09-24T00:00:00+00:00", "prompt_version": e.DASHBOARD_PROMPT_VERSION,
+                  "bullets_th": ["• ซื้อพื้นที่ 1,200 ตร.ม.", "• ราคา 99 ล้านบาท"],
+                  "raw_markdown": {"MDA": {"text": "พื้นที่ 1,200 ตารางเมตร", "member_filename": "a.pdf"}}},
+            "2": {"ts": "2026-09-24T00:00:00+00:00", "prompt_version": e.DASHBOARD_PROMPT_VERSION,
+                  "bullets_th": ["• ข้อความ"], "raw_markdown": {}},
+            "3": {"ts": "2026-09-24T00:00:00+00:00", "bullets_th": ["• x"],
+                  "raw_markdown": {"MDA": {"text": "x"}}},
+        }}
+        with tempfile.TemporaryDirectory() as d:
+            out = Path(d) / "filing-summaries.json"
+            payload = e._publish_dashboard(pulse, cache, out)
+            on_disk = json.loads(out.read_text(encoding="utf-8"))
+        self.assertEqual(list(payload["summaries"]), ["1"])
+        self.assertEqual(payload["summaries"]["1"]["bullets"], ["ซื้อพื้นที่ 1,200 ตร.ม."])
+        self.assertEqual(payload["summaries"]["1"]["dropped"], 1)
+        self.assertEqual(payload["held"]["unverifiable"], 1)
+        self.assertEqual(on_disk["total"], 1)
+
+
+class TestDashboardBacklog(unittest.TestCase):
+    def test_old_cache_entry_is_not_reenriched(self):
+        filing = dict(VALID_FILING, _id="9", severity="high")
+        old = {"version": 1, "prompt_version": e.PROMPT_VERSION, "summaries": {
+            "9": {"ts": "2020-01-01T00:00:00+00:00", "prompt_version": e.DASHBOARD_PROMPT_VERSION,
+                  "bullets_th": ["• x"], "raw_markdown": {}}}}
+        with tempfile.TemporaryDirectory() as d:
+            dd = Path(d)
+            (dd / "disclosure-pulse.json").write_text(json.dumps({"filings": [filing]}), encoding="utf-8")
+            cache_file = dd / "cache.json"
+            cache_file.write_text(json.dumps(old), encoding="utf-8")
+            with mock.patch.dict(os.environ, {"ENRICH_CACHE_PATH": str(cache_file)}), \
+                 mock.patch.object(e, "_enrich_one") as enrich:
+                self.assertEqual(e._dashboard(dd, limit=5, dry_run=False), 0)
+            enrich.assert_not_called()
+
+
+class TestDashboardPrompt(unittest.TestCase):
+    def test_alert_prompt_entries_are_redone_and_not_published(self):
+        filing = dict(VALID_FILING, _id="7", severity="high")
+        cache = {"version": 1, "prompt_version": e.PROMPT_VERSION, "summaries": {
+            "7": {"ts": "2026-09-24T00:00:00+00:00", "prompt_version": e.PROMPT_VERSION,
+                  "bullets_th": ["• ความเห็นของโมเดล"], "raw_markdown": {"X": {"text": "ข้อความ"}}}}}
+        with tempfile.TemporaryDirectory() as d:
+            dd = Path(d)
+            payload = e._publish_dashboard({"filings": [filing]}, cache, dd / "out.json")
+            self.assertEqual(payload["total"], 0)
+            (dd / "disclosure-pulse.json").write_text(json.dumps({"filings": [filing]}), encoding="utf-8")
+            cache_file = dd / "cache.json"
+            cache_file.write_text(json.dumps(cache), encoding="utf-8")
+            with mock.patch.dict(os.environ, {"ENRICH_CACHE_PATH": str(cache_file)}), \
+                 mock.patch.object(e, "_enrich_one", return_value=([], {"source": "m3"})) as enrich:
+                e._dashboard(dd, limit=5, dry_run=False)
+            enrich.assert_called_once()
+            self.assertTrue(enrich.call_args.kwargs.get("dashboard"))
+
+    def test_dashboard_call_uses_extraction_prompt(self):
+        captured = {}
+
+        class Resp:
+            def __enter__(self):
+                return self
+            def __exit__(self, *a):
+                return False
+            def read(self):
+                return json.dumps({"content": [{"type": "text", "text": "• ข้อ 1"}], "usage": {}}).encode()
+
+        def fake_urlopen(req, timeout=None):
+            captured.update(json.loads(req.data.decode("utf-8")))
+            return Resp()
+
+        with mock.patch.object(e, "_load_api_key", return_value="k"), \
+             mock.patch.object(e.urllib.request, "urlopen", fake_urlopen):
+            bullets, _ = e._call_m3("text", VALID_FILING, system=e.DASHBOARD_SYSTEM_PROMPT,
+                                    user_template=e.DASHBOARD_USER_PROMPT_TEMPLATE,
+                                    temperature=e.DASHBOARD_TEMPERATURE)
+        self.assertEqual(bullets, ["• ข้อ 1"])
+        self.assertEqual(captured["system"], e.DASHBOARD_SYSTEM_PROMPT)
+        self.assertEqual(captured["temperature"], e.DASHBOARD_TEMPERATURE)
+        self.assertNotIn("RM ควรสนใจ", captured["system"])
+
+
+class TestVerifyScaleAndContacts(unittest.TestCase):
+    SRC = "The Company allocated Baht 150,000,000 to repurchase up to 88,000,000 shares or 5.57 percent"
+
+    def test_million_rescaling_accepted_both_ways(self):
+        kept, _ = e._verify_bullets(["• วงเงิน 150 ล้านบาท ซื้อคืนไม่เกิน 88 ล้านหุ้น (5.57%)"], self.SRC)
+        self.assertEqual(len(kept), 1)
+        kept, _ = e._verify_bullets(["• วงเงิน 1,500,000,000 บาท"], "budget of 1.5 billion baht")
+        self.assertEqual(len(kept), 1)
+
+    def test_wrong_rescaling_still_dropped(self):
+        kept, dropped = e._verify_bullets(["• วงเงิน 15 ล้านบาท"], self.SRC)
+        self.assertEqual((kept, dropped), ([], 1))
+
+    def test_signatory_and_contact_bullets_dropped(self):
+        src = "signed by Mr. Tharakorn Jankerd on 24 September 2026, tel. 02-123-4567"
+        kept, dropped = e._verify_bullets(
+            ["• เอกสารลงวันที่ 24 กันยายน 2569 ลงนามโดย Mr. Tharakorn Jankerd",
+             "• ติดต่อ โทร. 02-123-4567"], src)
+        self.assertEqual((kept, dropped), ([], 2))
+
+    def test_property_and_date_words_not_treated_as_contact(self):
+        src = "residential project of 120 units; agreement dated 1 October 2026; 3 consecutive quarters"
+        kept, _ = e._verify_bullets(
+            ["• โครงการที่อยู่อาศัย 120 ยูนิต", "• สัญญาลงวันที่ 1 ตุลาคม 2569", "• ขาดทุน 3 ไตรมาสติดต่อกัน"], src)
+        self.assertEqual(len(kept), 3)
+
+
+class TestNormNumbers(unittest.TestCase):
+    def test_comma_space_thousands_joined(self):
+        self.assertIn("150000000", e._norm_numbers("Baht 150, 000, 000"))
+
+    def test_bare_space_not_joined(self):
+        self.assertNotIn("2569150", e._norm_numbers("ปี 2569 150 ล้านบาท"))
+
+    def test_bullet_verifies_against_spaced_pdf_text(self):
+        kept, _ = e._verify_bullets(["• วงเงิน 150,000,000 บาท 88,000,000 หุ้น"],
+                                    "budget Baht 150, 000, 000 for 88, 000, 000 shares")
+        self.assertEqual(len(kept), 1)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

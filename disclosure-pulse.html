@@ -116,7 +116,7 @@
 <div id="feed" class="feed"><div class="loading" data-i18n="common.fetchingDisclosures">Fetching disclosures…</div></div>
 
 <script>
-let TICKERS = {}, FILINGS = [];
+let TICKERS = {}, FILINGS = [], AI_SUMS = {};
 let activeRm = /^[CKOGPT]$/.test(localStorage.getItem('is1_rm') || '') ? localStorage.getItem('is1_rm') : 'ALL', activeSev = 'ALL', activeSector = 'ALL';
 let activeWindow = 1;   // days; 0 = ALL
 let activeTicker = new URLSearchParams(location.search).get('ticker') || null;
@@ -325,12 +325,23 @@ function render() {
             ${safeType ? `<span style="font-size:10px;color:var(--muted)">${safeType}</span>` : ''}
             <span class="ts">${esc(formatTs(f.ts))}</span>
           </div>
-          ${safeSumm ? `<div class="summary">${safeSumm}</div>` : ''}
+          ${AI_SUMS[f._id] ? aiSummaryHtml(AI_SUMS[f._id]) : (safeSumm ? `<div class="summary">${safeSumm}</div>` : '')}
         </div>
       </div>
     </div>`;
   }).join('');
 }
+
+function aiSummaryHtml(s) {
+  return `<div class="is1-ai-sum"><div class="is1-ai-sum-head">✦ ${esc(tt('common.aiSummary'))}<span>· ${esc(tt('common.aiSummaryHint'))}</span></div>` +
+    `<ul>${(s.bullets || []).map(b => `<li>${esc(b)}</li>`).join('')}</ul></div>`;
+}
+// Summaries are optional: the list renders first and fills in when they arrive.
+fetch('./data/filing-summaries.json').then(r => r.ok ? r.json() : null).then(d => {
+  if (!d || !d.summaries) return;
+  AI_SUMS = d.summaries;
+  if (FILINGS.length) render();
+}).catch(() => {});
 
 async function init() {
   try {

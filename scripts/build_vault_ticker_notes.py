@@ -300,6 +300,56 @@ def period_from_name(path: Path) -> str:
     return m.group(1).upper() if m else ""
 
 
+_CANON_PERIOD = re.compile(r"^20\d{2}(?:Q[1-4]|FY)$")
+_QTR_SLASH = re.compile(r"\bQ([1-4])\s*/\s*(\d{4}|\d{2})\b", re.I)   # Q1/2569, Q1/69, Q1/2026
+_QTR_PREFIX = re.compile(r"\b([1-4])Q\s*(\d{4}|\d{2})\b", re.I)      # 1Q26, 1Q2026
+_FY_TOKEN = re.compile(r"\bFY\s*/?\s*(\d{4}|\d{2})\b", re.I)          # FY2568, FY68
+
+
+def _ad_year(token: str, *, short_is_be: bool) -> int | None:
+    """4-digit >= 2500 is BE; 2-digit is BE (69 -> 2569) or AD (26 -> 2026)."""
+    n = int(token)
+    if len(token) == 2:
+        n = (2500 + n) if short_is_be else (2000 + n)
+    if n >= 2500:
+        n -= 543
+    return n if 2000 <= n <= 2099 else None
+
+
+def normalize_period(raw: str, path: Path | None = None) -> str:
+    """Return a canonical YYYYQn / YYYYFY period, or "" when none can be read.
+
+    Frontmatter periods are free text written by different pipelines
+    ("Q1/2569 (ม.ค.–มี.ค. 2569)", "Q1/69 = Q2/FY2026 (...)", "2026Q1").
+    Periods must compare lexicographically (CLAUDE.md rule 5), so every item
+    carries the canonical form in `period` and the original in `periodLabel`.
+    The first quarter token wins: in "Q1/69 = Q2/FY2026" the calendar quarter
+    comes first, which is the convention the rest of the vault uses.
+    """
+    text = str(raw or "").strip()
+    if _CANON_PERIOD.match(text.upper()):
+        return text.upper()
+    m = _QTR_SLASH.search(text)
+    if m:
+        year = _ad_year(m.group(2), short_is_be=True)
+        if year:
+            return f"{year}Q{m.group(1)}"
+    m = _QTR_PREFIX.search(text)
+    if m:
+        year = _ad_year(m.group(2), short_is_be=False)
+        if year:
+            return f"{year}Q{m.group(1)}"
+    m = re.search(r"(20\d{2})(Q[1-4]|FY)", text.upper())
+    if m:
+        return m.group(1) + m.group(2)
+    m = _FY_TOKEN.search(text)
+    if m:
+        year = _ad_year(m.group(1), short_is_be=True)
+        if year:
+            return f"{year}FY"
+    return period_from_name(path) if path is not None else ""
+
+
 def lang_from_name(path: Path) -> str:
     m = re.search(r"_([ET])$", path.stem, re.I)
     return m.group(1).upper() if m else ""
@@ -338,9 +388,10 @@ def build_file_item(path: Path, listed_root: Path, bucket: str, ticker: str) -> 
     else:
         snippet = clean_snippet(section_after(body, r"executive summary|revenue analysis|management") or body)
     analysis = analyze_body(body, bucket, snippet)
-    return {
+    raw_period = str(meta.get("period") or meta.get("period_label") or "")
+    item = {
         "title": title,
-        "period": str(meta.get("period") or meta.get("period_label") or period_from_name(path)),
+        "period": normalize_period(raw_period, path),
         "eventDate": str(meta.get("event_date") or meta.get("date_logged") or ""),
         "eventType": str(meta.get("event_type") or meta.get("kind") or bucket),
         "language": str(meta.get("language") or lang_from_name(path)),
@@ -353,6 +404,10 @@ def build_file_item(path: Path, listed_root: Path, bucket: str, ticker: str) -> 
         "youtubeId": str(meta.get("youtube_id") or ""),
         "presentationId": str(meta.get("presentation_id") or ""),
     }
+    # Keep the author's wording only where it differs from the canonical form.
+    if raw_period and raw_period != item["period"]:
+        item["periodLabel"] = raw_period
+    return item
 
 
 def scan_vault(listed_root: Path, tickers: set[str]) -> dict[str, dict[str, list[dict[str, Any]]]]:

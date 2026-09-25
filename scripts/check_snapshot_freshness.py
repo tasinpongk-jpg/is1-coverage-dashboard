@@ -96,6 +96,8 @@ SNAPSHOTS = [
      "fields": ["built_at", "_built_at"]},
     {"file": "diagnostics.json",        "label": "diagnostics",
      "fields": ["_built_at", "asOf"]},
+    {"file": "filing-summaries.json",   "label": "filing-sum",
+     "fields": ["generated"]},
     {"file": "external-news.json",      "label": "ext-news",
      "fields": ["_built_at", "asOf"]},
     {"file": "harvest-queue.json",      "label": "harvest-queue",
