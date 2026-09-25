@@ -970,7 +970,7 @@ function buildCard(t, idx){
   const discs=(DISC_MAP[t.tk]||[]).slice(0,2);
   const discHtml=discs.length?`<div class="disc-strip">${discs.map(f=>{
     const sev=(f.severity||'low').toLowerCase();
-    const title=f.title||f.headline||'';
+    const title=discTitle(f);
     return `<div class="disc-item"><span class="${discClass(sev)}">${shortSeverity(sev)}</span><span class="disc-title">${esc(title)}</span><span style="flex-shrink:0;color:var(--dim);font-size:9px">${formatDiscTs(f.ts)}</span></div>`;
   }).join('')}</div>`:'';
   return `<div class="card" data-sector="${esc(t.sector)}" data-tk="${esc(t.tk)}" data-idx="${idx}" onclick="openDrawer(${idx})">
@@ -978,7 +978,7 @@ function buildCard(t, idx){
     <div class="card-stripe"></div>
     <div class="card-body">
       <div class="card-top">
-        <div class="card-left">${logoSm(t)}<div class="card-tk-wrap"><div class="card-tk">${esc(t.tk)}</div>${t.name?`<div class="card-name">${esc(t.name)}</div>`:''}</div></div>
+        <div class="card-left">${logoSm(t)}<div class="card-tk-wrap"><div class="card-tk">${esc(t.tk)}</div>${t.name||t.nameTh?`<div class="card-name">${esc(nameOf(t))}</div>`:''}</div></div>
         <div class="card-badges">
           <span class="badge b-sect">${esc(s)}</span>
           ${seg?`<span class="badge b-seg">${esc(seg)}</span>`:''}
@@ -1039,7 +1039,7 @@ function openDrawer(idx, tab='overview'){
     ${logoLg(t)}
     <div class="dh-info">
       <div class="dh-tk">${esc(t.tk)}</div>
-      <div class="dh-name">${esc(t.name||t.tk)}</div>
+      <div class="dh-name">${esc(nameOf(t))}</div>
       <div class="dh-badges">
         <span class="badge b-sect" style="color:${col};background:${col}20">${esc(s)}</span>
         ${t.segment&&t.segment!==t.sector?`<span class="badge b-seg">${esc(t.segment)}</span>`:''}
@@ -1170,7 +1170,7 @@ function renderTab(tab){
 
   if(tab==='company'){
     html+=`<div class="ds"><div class="ds-title">${tt('company.business')}</div>
-      ${t.businessType?`<div style="font-size:12px;line-height:1.65;color:var(--muted);margin-bottom:10px">${esc(t.businessType)}</div>`:''}
+      ${bizOf(t)?`<div style="font-size:12px;line-height:1.65;color:var(--muted);margin-bottom:10px">${esc(bizOf(t))}</div>`:''}
       <div class="ds-row"><span class="ds-lbl">${tt('company.website')}</span><span class="ds-val">${websiteUrl?`<a href="${esc(websiteUrl)}" target="_blank" rel="noopener">${esc(t.website)}</a>`:'—'}</span></div>
       <div class="ds-row"><span class="ds-lbl">${tt('company.address')}</span><span class="ds-val" style="font-size:11px">${dash(t.address?esc(t.address):null)}</span></div>
       <div class="ds-row"><span class="ds-lbl">${tt('company.telephone')}</span><span class="ds-val">${dash(t.tel?esc(t.tel):null)}</span></div>
@@ -1218,10 +1218,10 @@ function renderTab(tab){
       html+=`<div class="ds"><div class="ds-title">${tx('company.filingsLast90', { n: filings.length, s: filings.length!==1?'s':'' })}</div>`;
       filings.forEach(f=>{
         const sev=(f.severity||'low').toLowerCase();
-        const title=esc(f.title||f.headline||'—');
-        const filingUrl=safeHttpUrl(f.url);
+        const title=esc(discTitle(f)||'—');
+        const filingUrl=safeHttpUrl(discUrl(f));
         const linked=filingUrl?`<a href="${esc(filingUrl)}" target="_blank" rel="noopener">${title}</a>`:title;
-        const summ=f._summary||f.summary||'';
+        const summ=discSummary(f);
         html+=`<div class="disc-row">
           <div class="disc-row-left">
             <span class="disc-row-sev" style="color:${SEV_COL[sev]||'#5a627a'};background:${SEV_BG[sev]||'#5a627a18'}">${shortSeverity(sev)}</span>
@@ -1229,7 +1229,7 @@ function renderTab(tab){
           </div>
           <div class="disc-row-body">
             <div class="disc-row-title">${linked}</div>
-            ${f.type?`<div class="disc-row-meta">${esc(f.type)}</div>`:''}
+            ${f.type?`<div class="disc-row-meta">${esc(discType(f.type))}</div>`:''}
             ${summ?`<div style="font-size:10px;color:var(--dim);margin-top:3px;line-height:1.5">${esc(summ.slice(0,160))}${summ.length>160?'…':''}</div>`:''}
           </div>
         </div>`;
@@ -1286,6 +1286,32 @@ function toggleStar(tk, e){
 
 const SEV_ORDER = {high:0,critical:0,medium:1,material:1,low:2,routine:2};
 function discClass(sev){ return 'disc-sev disc-sev-'+(sev||'low').toLowerCase(); }
+// Thai mode reads the *_th fields the snapshots already carry; English
+// stays the fallback where a Thai value is missing upstream.
+function isTh(){ return !!(window.I18N && I18N.lang==='th'); }
+function nameOf(t){ return isTh() ? (t.nameTh||t.name||t.tk) : (t.name||t.nameTh||t.tk); }
+function bizOf(t){ return isTh() ? (t.businessTypeTh||t.businessType||'') : (t.businessType||t.businessTypeTh||''); }
+function discTitle(f){ return isTh() ? (f.title_th||f.title||f.headline||'') : (f.title||f.headline||''); }
+function discSummary(f){ return isTh() ? (f._summary_th||f._summary||f.summary||'') : (f._summary||f.summary||''); }
+function discUrl(f){ return isTh() ? (f.url_th||f.url) : (f.url||f.url_th); }
+const DISC_TYPE={
+  agm_resolution:['AGM resolution','มติประชุมผู้ถือหุ้น'],
+  auditor_change:['Auditor change','เปลี่ยนผู้สอบบัญชี'],
+  capital_change:['Capital change','เปลี่ยนแปลงทุน'],
+  connected_transaction:['Connected transaction','รายการที่เกี่ยวโยงกัน'],
+  director_mgmt_change:['Director / management change','เปลี่ยนแปลงกรรมการและผู้บริหาร'],
+  dividend:['Dividend','เงินปันผล'],
+  earnings:['Earnings','ผลประกอบการ'],
+  guidance_change:['Guidance change','เปลี่ยนแปลงประมาณการ'],
+  information_memo:['Information memorandum','สารสนเทศ'],
+  ma_acquisition_disposal:['Acquisition / disposal','การได้มาหรือจำหน่ายไปซึ่งสินทรัพย์'],
+  other:['Other','อื่น ๆ'],
+  regulatory_filing:['Regulatory filing','รายงานตามเกณฑ์'],
+  set_clarification:['SET clarification','ชี้แจงตามที่ตลาดหลักทรัพย์สอบถาม'],
+  trading_sign:['Trading sign','เครื่องหมายการซื้อขาย'],
+  warrant_exercise:['Warrant exercise','การใช้สิทธิใบสำคัญแสดงสิทธิ'],
+};
+function discType(code){ const m=DISC_TYPE[code]; return m ? m[isTh()?1:0] : code; }
 function shortSeverity(sev){
   return sev==='high'||sev==='critical' ? tt('company.critShort')
     : sev==='medium'||sev==='material' ? tt('company.matShort')
@@ -1318,7 +1344,7 @@ function render(){
     if(sectFilter==='STARRED') return STARRED.has(t.tk);
     if(sectFilter!=='ALL'&&ns(t.sector)!==sectFilter&&t.sector!==sectFilter) return false;
     if(rmFilter&&t.rm!==rmFilter) return false;
-    if(q&&!t.tk.includes(q)&&!(t.segment||'').toUpperCase().includes(q)&&!(t.name||'').toUpperCase().includes(q)) return false;
+    if(q&&!t.tk.includes(q)&&!(t.segment||'').toUpperCase().includes(q)&&!(t.name||'').toUpperCase().includes(q)&&!(t.nameTh||'').includes(searchQ.trim())) return false;
     return true;
   });
   filtered=sortTickers(filtered);
