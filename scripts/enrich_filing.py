@@ -1236,8 +1236,12 @@ def _dashboard(data_dir: Path, *, limit: int, dry_run: bool) -> int:
             return False
         return datetime.now(timezone.utc) - last < timedelta(hours=24)
 
+    # Any cached summary counts as done, however old: the pulse window is 90
+    # days and the cache TTL 30, so a TTL check here would pay m3 again for
+    # every filing aged 31-90 days on each run.
+    done = cache.get("summaries") or {}
     todo = [f for f in pulse.get("filings") or []
-            if _dashboard_eligible(f) and _cache_get(cache, str(f["_id"])) is None
+            if _dashboard_eligible(f) and str(f["_id"]) not in done
             and not backing_off(str(f["_id"]))]
     todo.sort(key=lambda f: f.get("ts") or "", reverse=True)
     _log(f"dashboard: {len(todo)} eligible filing(s) without a summary; enriching up to {limit}")
@@ -1268,6 +1272,36 @@ def _dashboard(data_dir: Path, *, limit: int, dry_run: bool) -> int:
     return 0
 
 
+def _audit(data_dir: Path, *, count: int) -> int:
+    """Print published bullets beside the source passage for each number.
+
+    For the human spot-check before a publish: every figure should read the
+    same in the bullet and in the quoted filing text.
+    """
+    out_path = data_dir / DASHBOARD_OUT
+    if not out_path.exists():
+        print(f"{out_path} not found — run --dashboard first", file=sys.stderr)
+        return 1
+    published = json.loads(out_path.read_text(encoding="utf-8")).get("summaries") or {}
+    cache = _load_cache()
+    pulse = {str(f.get("_id")): f for f in _load_pulse(data_dir).get("filings") or []}
+    for fid, item in list(published.items())[:count]:
+        f = pulse.get(fid, {})
+        source = _norm_numbers(_source_text((cache.get("summaries") or {}).get(fid) or {}))
+        print(f"\n=== {item.get('tk')} · {fid} · {f.get('title_th') or f.get('title') or ''}")
+        print(f"    {f.get('url_th') or f.get('url') or ''}")
+        for b in item.get("bullets") or []:
+            print(f"  • {b}")
+            for tok in dict.fromkeys(_NUM_RE.findall(_norm_numbers(b))):
+                t = tok.replace(",", "").rstrip(".")
+                m = re.search(rf"(?<![\d.]){re.escape(t)}(?![\d])", source)
+                ctx = source[max(0, m.start() - 60):m.end() + 60].replace("\n", " ") if m else "(BE/AD year match)"
+                print(f"      {tok:>14}  …{ctx}…")
+        if item.get("dropped"):
+            print(f"  ({item['dropped']} bullet(s) dropped by the number check)")
+    return 0
+
+
 # ---------------------------------------------------------------- CLI
 
 def _build_argparser() -> argparse.ArgumentParser:
@@ -1285,6 +1319,8 @@ def _build_argparser() -> argparse.ArgumentParser:
                    help=f"Path to data/ dir (default: {DEFAULT_DATA_DIR})")
     p.add_argument("--dry-run", action="store_true",
                    help="For --auto-alert: print embeds, don't POST")
+    p.add_argument("--audit", type=int, metavar="N", default=None,
+                   help="Print N published summaries with the source text behind each number")
     p.add_argument("--dashboard", action="store_true",
                    help="IS1-wide critical+material summaries -> data/filing-summaries.json")
     p.add_argument("--limit", type=int, default=None,
@@ -1299,6 +1335,8 @@ def main(argv: list[str] | None = None) -> int:
         webhook = _load_webhook() if not args.dry_run else None
         return _auto_alert(args.data_dir, dry_run=args.dry_run,
                            webhook=webhook, limit=args.limit or MAX_ALERTS_PER_RUN)
+    if args.audit is not None:
+        return _audit(args.data_dir, count=args.audit)
     if args.dashboard:
         return _dashboard(args.data_dir, limit=args.limit or DASHBOARD_LIMIT,
                           dry_run=args.dry_run)

@@ -873,5 +873,21 @@ class TestPublishDashboard(unittest.TestCase):
         self.assertEqual(on_disk["total"], 1)
 
 
+class TestDashboardBacklog(unittest.TestCase):
+    def test_old_cache_entry_is_not_reenriched(self):
+        filing = dict(VALID_FILING, _id="9", severity="high")
+        old = {"version": 1, "prompt_version": e.PROMPT_VERSION, "summaries": {
+            "9": {"ts": "2020-01-01T00:00:00+00:00", "bullets_th": ["• x"], "raw_markdown": {}}}}
+        with tempfile.TemporaryDirectory() as d:
+            dd = Path(d)
+            (dd / "disclosure-pulse.json").write_text(json.dumps({"filings": [filing]}), encoding="utf-8")
+            cache_file = dd / "cache.json"
+            cache_file.write_text(json.dumps(old), encoding="utf-8")
+            with mock.patch.dict(os.environ, {"ENRICH_CACHE_PATH": str(cache_file)}), \
+                 mock.patch.object(e, "_enrich_one") as enrich:
+                self.assertEqual(e._dashboard(dd, limit=5, dry_run=False), 0)
+            enrich.assert_not_called()
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
