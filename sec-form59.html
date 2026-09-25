@@ -145,6 +145,9 @@ const TT_FALLBACK = {
   "common.updatedAgo": "updated {x} ago",
   "common.dataStaleAsOf": "● data as of {date} ({x}d old)",
   "common.dataNeverIngested": "● no data ingested",
+  "form59.sourceDown": "SEC Form 59 feed is not coming through",
+  "form59.sourceDownHint": "The SEC iDisc site did not respond to the daily job, so no rows were ingested. This is not the same as no trades.",
+  "form59.openSec": "Open Form 59 on the SEC site",
   "common.buy": "Buy",
   "common.sell": "Sell",
   "common.transfer": "Transfer",
@@ -324,6 +327,14 @@ function render() {
   const rows = sortedRows(filterRows());
   const feed = document.getElementById('feed');
   if (!rows.length) {
+    // An empty store is an ingest outage, not a quiet market: say so and point
+    // at the SEC page instead of blaming the filters.
+    if (!ITEMS.length && DATA_META && DATA_META.stale) {
+      const secUrl = `https://market.sec.or.th/public/idisc/${window.I18N && I18N.lang === 'th' ? 'th' : 'en'}/r59`;
+      feed.innerHTML = `<div class="empty"><strong>${tt('form59.sourceDown')}</strong><br>${tt('form59.sourceDownHint')}<br><br>` +
+        `<a href="${secUrl}" target="_blank" rel="noopener">${tt('form59.openSec')} ↗</a></div>`;
+      return;
+    }
     feed.innerHTML = `<div class="empty">${tt('common.noForm59')}</div>`;
     return;
   }
