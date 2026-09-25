@@ -796,5 +796,82 @@ class TestDiscordPost(unittest.TestCase):
             self.assertTrue(result)
 
 
+# ---------------------------------------------------------------- dashboard mode
+
+class TestDashboardScope(unittest.TestCase):
+    def _f(self, **kw):
+        base = dict(VALID_FILING)
+        base.update(kw)
+        return base
+
+    def test_critical_and_material_only(self):
+        self.assertTrue(e._dashboard_eligible(self._f(severity="high")))
+        self.assertTrue(e._dashboard_eligible(self._f(severity="medium")))
+        self.assertFalse(e._dashboard_eligible(self._f(severity="low")))
+
+    def test_financial_statements_skipped_mda_kept(self):
+        fs = self._f(type="earnings", title="Financial Statement Quarter 2/2026 (Reviewed)",
+                     title_th="งบการเงิน ไตรมาสที่ 2/2569")
+        f45 = self._f(type="earnings", title="Financial Performance Quarter 2 (F45) (Reviewed)")
+        mda = self._f(type="earnings", title="Management Discussion and Analysis Quarter 2 Ending 30 Jun 2026")
+        mda_th = self._f(type="earnings", title="", title_th="คำอธิบายและวิเคราะห์ของฝ่ายจัดการ ไตรมาสที่ 2")
+        self.assertFalse(e._dashboard_eligible(fs))
+        self.assertFalse(e._dashboard_eligible(f45))
+        self.assertTrue(e._dashboard_eligible(mda))
+        self.assertTrue(e._dashboard_eligible(mda_th))
+
+
+class TestVerifyBullets(unittest.TestCase):
+    SOURCE = ("บริษัทมีรายได้รวม 13,515.2 ล้านบาท กำไรสุทธิ 4,970.8 ล้านบาท "
+              "ณ วันที่ 30 มิถุนายน 2026 อัตรากำไรสุทธิ ๓๗.๕%")
+
+    def test_keeps_traceable_numbers(self):
+        kept, dropped = e._verify_bullets(["• รายได้ 13,515.2 ล้านบาท กำไร 4970.8 ล้านบาท"], self.SOURCE)
+        self.assertEqual(dropped, 0)
+        self.assertEqual(kept, ["รายได้ 13,515.2 ล้านบาท กำไร 4970.8 ล้านบาท"])
+
+    def test_thai_digits_and_be_year(self):
+        kept, _ = e._verify_bullets(["• NPM 37.5% ณ 30 มิ.ย. 2569"], self.SOURCE)
+        self.assertEqual(len(kept), 1)
+
+    def test_drops_computed_or_invented_numbers(self):
+        kept, dropped = e._verify_bullets(
+            ["• กำไรเพิ่มขึ้น 27% YoY", "• ควรถามบริษัทเรื่องแผนลงทุน"], self.SOURCE)
+        self.assertEqual(kept, ["ควรถามบริษัทเรื่องแผนลงทุน"])
+        self.assertEqual(dropped, 1)
+
+    def test_partial_number_match_is_not_enough(self):
+        kept, _ = e._verify_bullets(["• รายได้ 515.2 ล้านบาท"], self.SOURCE)
+        self.assertEqual(kept, [])
+
+    def test_fallback_warning_bullet_dropped(self):
+        kept, dropped = e._verify_bullets(["• ⚠️ AI enrichment failed"], self.SOURCE)
+        self.assertEqual((kept, dropped), ([], 1))
+
+
+class TestPublishDashboard(unittest.TestCase):
+    def test_publishes_checked_and_holds_unverifiable(self):
+        good = dict(VALID_FILING, _id="1", severity="high")
+        scanned = dict(VALID_FILING, _id="2", severity="medium")
+        low = dict(VALID_FILING, _id="3", severity="low")
+        pulse = {"filings": [good, scanned, low]}
+        cache = {"summaries": {
+            "1": {"ts": "2026-09-24T00:00:00+00:00", "bullets_th": ["• ซื้อพื้นที่ 1,200 ตร.ม.", "• ราคา 99 ล้านบาท"],
+                  "raw_markdown": {"MDA": {"text": "พื้นที่ 1,200 ตารางเมตร", "member_filename": "a.pdf"}}},
+            "2": {"ts": "2026-09-24T00:00:00+00:00", "bullets_th": ["• ข้อความ"], "raw_markdown": {}},
+            "3": {"ts": "2026-09-24T00:00:00+00:00", "bullets_th": ["• x"],
+                  "raw_markdown": {"MDA": {"text": "x"}}},
+        }}
+        with tempfile.TemporaryDirectory() as d:
+            out = Path(d) / "filing-summaries.json"
+            payload = e._publish_dashboard(pulse, cache, out)
+            on_disk = json.loads(out.read_text(encoding="utf-8"))
+        self.assertEqual(list(payload["summaries"]), ["1"])
+        self.assertEqual(payload["summaries"]["1"]["bullets"], ["ซื้อพื้นที่ 1,200 ตร.ม."])
+        self.assertEqual(payload["summaries"]["1"]["dropped"], 1)
+        self.assertEqual(payload["held"]["unverifiable"], 1)
+        self.assertEqual(on_disk["total"], 1)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

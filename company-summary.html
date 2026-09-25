@@ -1230,7 +1230,8 @@ function renderTab(tab){
           <div class="disc-row-body">
             <div class="disc-row-title">${linked}</div>
             ${f.type?`<div class="disc-row-meta">${esc(discType(f.type))}</div>`:''}
-            ${summ?`<div style="font-size:10px;color:var(--dim);margin-top:3px;line-height:1.5">${esc(summ.slice(0,160))}${summ.length>160?'…':''}</div>`:''}
+            ${AI_SUMS[f._id]?`<div class="is1-ai-sum"><div class="is1-ai-sum-head">✦ ${esc(tt('common.aiSummary'))}<span>· ${esc(tt('common.aiSummaryHint'))}</span></div><ul>${(AI_SUMS[f._id].bullets||[]).map(b=>`<li>${esc(b)}</li>`).join('')}</ul></div>`
+              :summ?`<div style="font-size:10px;color:var(--dim);margin-top:3px;line-height:1.5">${esc(summ.slice(0,160))}${summ.length>160?'…':''}</div>`:''}
           </div>
         </div>`;
       });
@@ -1242,7 +1243,7 @@ function renderTab(tab){
 }
 
 // ── state & render ───────────────────────────────────────────────────────────
-let ALL=[], SECTOR_STATS={}, DISC_MAP={}, OPP_MAP={}, VAULT_MAP={}, REPORT_MAP={}, sectFilter='ALL', rmFilter=/^[CKOGPT]$/.test(localStorage.getItem('is1_rm') || '') ? localStorage.getItem('is1_rm') : '', sortKey='tk', searchQ='';
+let AI_SUMS={}, ALL=[], SECTOR_STATS={}, DISC_MAP={}, OPP_MAP={}, VAULT_MAP={}, REPORT_MAP={}, sectFilter='ALL', rmFilter=/^[CKOGPT]$/.test(localStorage.getItem('is1_rm') || '') ? localStorage.getItem('is1_rm') : '', sortKey='tk', searchQ='';
 // Tickers whose fiscal year is not Jan-Dec. Seeded with the well-known
 // FY-offset companies; REITs (ticker ends in REIT/PFREIT) get appended
 // after the tickers.json fetch in fetchData() because the REIT universe
@@ -1502,6 +1503,11 @@ async function loadData(){
     ALL=tickers;
     DATA_META = { asOf, source, sourceKey: !!sourceKey, built };
     SECTOR_STATS=computeSectorStats(tickers);
+    fetch('data/filing-summaries.json').then(r=>r.ok?r.json():null).then(d=>{
+      if(!d||!d.summaries) return;
+      AI_SUMS=d.summaries;
+      refreshOpenTab();
+    }).catch(()=>{});
     // Load disclosures best-effort, re-render cards when ready
     fetch('data/disclosure-pulse.json').then(r=>r.ok?r.json():null).then(d=>{
       if(!d) return;

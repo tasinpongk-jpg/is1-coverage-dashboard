@@ -33,6 +33,14 @@ These drive every HTML page and the chat dock. If any is stale, the dashboard is
 | `data/morning-brief.json` | SETSMART prices + TA engine | `index.html`, Discord push | `scripts/build_daily_brief.py` | daily.yml |
 | `data/company-reports.json` | in-session LLM synthesis | `company-summary.html` hero | `scripts/build_company_reports.py` | manual |
 | `data/vault-ticker-notes.json` | OneDrive Obsidian vault | `company-summary.html` drawer | `scripts/build_vault_ticker_notes.py` | workflow_dispatch only |
+| `data/filing-summaries.json` | SET filing PDFs → MiniMax M3 (laptop cron) | home newsroom, `company-summary.html` drawer, `disclosure-pulse.html` | `scripts/enrich_filing.py --dashboard` | laptop cron only |
+
+`filing-summaries.json` covers every coverage ticker, Critical + Material
+filings only, financial statements skipped, MD&A kept. A bullet is published
+only when every number in it is found in the filing's extracted text; scanned
+PDFs (no text to check against) are held back. Like the vault snapshot it only
+refreshes from the laptop: `scripts/enrich_filing_cron.py` runs it after the
+Discord alert and pushes it when `IS1_FILING_SUMMARY_PUSH=1`.
 
 **The single biggest drift risk is `vault-ticker-notes.json`** — it has no CI
 trigger. It only rebuilds when someone runs the script locally on a laptop

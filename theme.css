@@ -749,6 +749,14 @@ html.theme-changing *,html.theme-changing *::before,html.theme-changing *::after
   .is1s-sp-preview { overflow:visible; }
   .is1s-sp-stats { grid-template-columns:repeat(2,minmax(0,1fr)); }
 }
+/* AI summary of a filing's own PDF (data/filing-summaries.json), shared by
+   the home newsroom, the company drawer and the SET disclosures page. */
+.is1-ai-sum { margin-top:9px; padding:9px 12px 9px 11px; border-left:2px solid var(--violet); border-radius:0 7px 7px 0; background:color-mix(in srgb,var(--violet) 7%,transparent); }
+.is1-ai-sum-head { display:flex; align-items:center; gap:6px; margin-bottom:5px; color:var(--violet); font-size:10px; font-weight:700; letter-spacing:.04em; }
+.is1-ai-sum-head span { color:var(--muted); font-weight:500; letter-spacing:0; }
+.is1-ai-sum ul { margin:0; padding-left:16px; }
+.is1-news-ai { color:var(--violet) !important; }
+.is1-ai-sum li { margin:2px 0; color:var(--text2); font-size:12px; line-height:1.55; }
 .is1s-kbd {
   padding:1px 6px;
   border:1px solid var(--border);

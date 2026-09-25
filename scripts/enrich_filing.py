@@ -13,6 +13,10 @@ Modes:
   --enrich-id FILING_ID Enrich a single filing, print result to stdout
   --ticker TK           Same as --enrich-id but picks the latest filing
                         for a ticker (auto-pick the most recent)
+  --dashboard           IS1-wide: enrich new Critical + Material filings
+                        (financial statements skipped, MD&A kept), then
+                        publish number-checked bullets to
+                        data/filing-summaries.json for the dashboard
 
 Stdlib-only (matches house style). Reuses the HTTP plumbing from
 push_rm_c_digest.py — see _post_one for the 429 / 5xx / 4xx
@@ -133,6 +137,19 @@ USER_PROMPT_TEMPLATE = (
     "PDF content attached as the document block. "
     "Reply in Thai only, 3-4 bullets, each carrying a concrete number/date/decision."
 )
+
+
+# Dashboard publishing (--dashboard). Scope agreed with the IS1 desk:
+# every coverage ticker, Critical + Material only, financial statements
+# skipped (the vault already carries FS notes), MD&A kept.
+DASHBOARD_SEVERITIES = {"high", "medium"}   # pulse bands for critical / material
+DASHBOARD_LIMIT = 30                        # new m3 calls per run; peak day is ~90
+DASHBOARD_OUT = "filing-summaries.json"
+DASHBOARD_MAX_ATTEMPTS = 3
+_MDA_TITLE_RE = re.compile(
+    r"management discussion|md\s*&\s*a|คำอธิบายและ(?:การ)?วิเคราะห์", re.I)
+_NUM_RE = re.compile(r"\d[\d,]*(?:\.\d+)?")
+_THAI_DIGITS = str.maketrans("๐๑๒๓๔๕๖๗๘๙", "0123456789")
 
 
 # ---------------------------------------------------------------- logging
@@ -1088,6 +1105,169 @@ def _auto_alert(data_dir: Path, *, dry_run: bool,
     return 0 if posted == len(candidates) else 1
 
 
+# ---------------------------------------------------------------- dashboard
+
+def _is_mda(filing: dict) -> bool:
+    text = f"{filing.get('title') or ''} {filing.get('title_th') or ''}"
+    return bool(_MDA_TITLE_RE.search(text))
+
+
+def _dashboard_eligible(filing: dict) -> bool:
+    """Critical/Material, any coverage ticker; earnings only when it is MD&A."""
+    if (filing.get("severity") or "").lower() not in DASHBOARD_SEVERITIES:
+        return False
+    if not filing.get("_id") or not filing.get("url"):
+        return False
+    if (filing.get("type") or "") == "earnings" and not _is_mda(filing):
+        return False
+    return True
+
+
+def _norm_numbers(text: str) -> str:
+    """Thai digits to Arabic, drop thousands separators: '1,234.5' -> '1234.5'."""
+    text = (text or "").translate(_THAI_DIGITS)
+    return re.sub(r"(?<=\d),(?=\d{3})", "", text)
+
+
+def _number_in_source(token: str, source: str) -> bool:
+    tok = token.replace(",", "").rstrip(".")
+    if not tok:
+        return True
+    if re.search(rf"(?<![\d.]){re.escape(tok)}(?![\d])", source):
+        return True
+    # A year may be written in BE by the model and AD in the filing, or back.
+    if re.fullmatch(r"\d{4}", tok):
+        n = int(tok)
+        alt = n - 543 if n >= 2500 else n + 543 if 1900 <= n <= 2100 else None
+        if alt and re.search(rf"(?<!\d){alt}(?!\d)", source):
+            return True
+    return False
+
+
+def _verify_bullets(bullets: list[str], source_text: str) -> tuple[list[str], int]:
+    """Keep only bullets whose every number appears in the source document.
+
+    Deterministic guard for CLAUDE.md rule 1 (never invent data): a figure
+    the model computed, converted or misread cannot be traced to the
+    filing, so the whole bullet is dropped rather than shown.
+    """
+    source = _norm_numbers(source_text)
+    kept, dropped = [], 0
+    for b in bullets:
+        text = b.lstrip("•-* ").strip()
+        if not text or text.startswith("⚠"):
+            dropped += 1
+            continue
+        tokens = _NUM_RE.findall(_norm_numbers(text))
+        if all(_number_in_source(t, source) for t in tokens):
+            kept.append(text)
+        else:
+            dropped += 1
+    return kept, dropped
+
+
+def _source_text(entry: dict) -> str:
+    raw = entry.get("raw_markdown") or {}
+    return "\n\n".join(str(v.get("text") or "") for v in raw.values() if isinstance(v, dict))
+
+
+def _publish_dashboard(pulse: dict, cache: dict, out_path: Path) -> dict:
+    """Write number-checked summaries for eligible filings still in the pulse window."""
+    summaries: dict = {}
+    held = {"unverifiable": 0, "all_dropped": 0}
+    for f in pulse.get("filings") or []:
+        if not _dashboard_eligible(f):
+            continue
+        fid = str(f.get("_id"))
+        entry = (cache.get("summaries") or {}).get(fid)
+        if not entry or not entry.get("bullets_th"):
+            continue
+        source = _source_text(entry)
+        if not source.strip():
+            # Scanned PDF: m3 read the image, but nothing we can check it against.
+            held["unverifiable"] += 1
+            continue
+        kept, dropped = _verify_bullets(entry["bullets_th"], source)
+        if not kept:
+            held["all_dropped"] += 1
+            continue
+        docs = [v.get("member_filename") for v in (entry.get("raw_markdown") or {}).values()
+                if isinstance(v, dict) and v.get("member_filename")]
+        summaries[fid] = {
+            "tk": f.get("tk"),
+            "bullets": kept,
+            "dropped": dropped,
+            "generated": entry.get("ts"),
+            "documents": docs[:3],
+        }
+    payload = {
+        "generated": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "model": M3_MODEL,
+        "promptVersion": PROMPT_VERSION,
+        "scope": "IS1 coverage · critical + material · financial statements skipped, MD&A kept",
+        "rule": "bullets whose numbers are not all found in the filing text are dropped",
+        "total": len(summaries),
+        "held": held,
+        "summaries": summaries,
+    }
+    tmp = out_path.with_suffix(out_path.suffix + ".tmp")
+    with tmp.open("w", encoding="utf-8") as fh:
+        json.dump(payload, fh, ensure_ascii=False, indent=1, sort_keys=True)
+        fh.write("\n")
+    os.replace(tmp, out_path)
+    return payload
+
+
+def _dashboard(data_dir: Path, *, limit: int, dry_run: bool) -> int:
+    """Enrich up to `limit` new eligible filings (newest first), then publish."""
+    pulse = _load_pulse(data_dir)
+    cache = _load_cache()
+    failures = cache.get("dashboard_failures") or {}
+
+    def backing_off(fid: str) -> bool:
+        # A filing with no PDF link or a dead attachment would otherwise eat a
+        # slot every run: wait a day between attempts and stop after three.
+        rec = failures.get(fid) or {}
+        if rec.get("attempts", 0) >= DASHBOARD_MAX_ATTEMPTS:
+            return True
+        try:
+            last = datetime.fromisoformat(str(rec.get("last", "")).replace("Z", "+00:00"))
+        except ValueError:
+            return False
+        return datetime.now(timezone.utc) - last < timedelta(hours=24)
+
+    todo = [f for f in pulse.get("filings") or []
+            if _dashboard_eligible(f) and _cache_get(cache, str(f["_id"])) is None
+            and not backing_off(str(f["_id"]))]
+    todo.sort(key=lambda f: f.get("ts") or "", reverse=True)
+    _log(f"dashboard: {len(todo)} eligible filing(s) without a summary; enriching up to {limit}")
+    ok = failed = 0
+    for f in todo[:limit]:
+        if dry_run:
+            _log(f"DRY_RUN would enrich {f.get('tk')} {f.get('_id')} {f.get('title', '')[:60]}")
+            continue
+        _bullets, meta = _enrich_one(f)
+        if meta.get("source") == "m3":
+            ok += 1
+        else:
+            failed += 1
+            _log(f"dashboard: {f.get('tk')} {f.get('_id')} -> {meta.get('source')}")
+            rec = failures.setdefault(str(f["_id"]), {"attempts": 0})
+            rec["attempts"] = rec.get("attempts", 0) + 1
+            rec["last"] = datetime.now(timezone.utc).isoformat()
+            rec["reason"] = meta.get("source")
+    if failed and not dry_run:
+        latest = _load_cache()
+        latest["dashboard_failures"] = failures
+        _atomic_write_cache(latest)
+    if dry_run:
+        return 0
+    payload = _publish_dashboard(pulse, _load_cache(), data_dir / DASHBOARD_OUT)
+    _log(f"dashboard: enriched {ok}, failed {failed}; published {payload['total']} "
+         f"(held: {payload['held']})")
+    return 0
+
+
 # ---------------------------------------------------------------- CLI
 
 def _build_argparser() -> argparse.ArgumentParser:
@@ -1105,8 +1285,11 @@ def _build_argparser() -> argparse.ArgumentParser:
                    help=f"Path to data/ dir (default: {DEFAULT_DATA_DIR})")
     p.add_argument("--dry-run", action="store_true",
                    help="For --auto-alert: print embeds, don't POST")
-    p.add_argument("--limit", type=int, default=MAX_ALERTS_PER_RUN,
-                   help=f"Max embeds per auto-alert run (default: {MAX_ALERTS_PER_RUN})")
+    p.add_argument("--dashboard", action="store_true",
+                   help="IS1-wide critical+material summaries -> data/filing-summaries.json")
+    p.add_argument("--limit", type=int, default=None,
+                   help=f"Max filings per run (auto-alert default {MAX_ALERTS_PER_RUN}, "
+                        f"dashboard default {DASHBOARD_LIMIT})")
     return p
 
 
@@ -1115,12 +1298,15 @@ def main(argv: list[str] | None = None) -> int:
     if args.auto_alert:
         webhook = _load_webhook() if not args.dry_run else None
         return _auto_alert(args.data_dir, dry_run=args.dry_run,
-                           webhook=webhook, limit=args.limit)
+                           webhook=webhook, limit=args.limit or MAX_ALERTS_PER_RUN)
+    if args.dashboard:
+        return _dashboard(args.data_dir, limit=args.limit or DASHBOARD_LIMIT,
+                          dry_run=args.dry_run)
     if args.enrich_id:
         return _enrich_id(args.enrich_id, force=args.force, data_dir=args.data_dir)
     if args.ticker:
         return _enrich_ticker(args.ticker, force=args.force, data_dir=args.data_dir)
-    _log("no mode specified — use --auto-alert, --enrich-id, or --ticker")
+    _log("no mode specified — use --auto-alert, --dashboard, --enrich-id, or --ticker")
     return 1
 
 

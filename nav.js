@@ -948,7 +948,7 @@
   }
   function newsPool() {
     var filings = rmFilings().map(function (f) {
-      return { kind:"set", tk:f.tk, ts:f.ts, severity:f.severity, rank:severityRank(f.severity), type:newsType(f.type), sector:canonicalSector(f.sector),
+      return { kind:"set", id:String(f._id || ""), tk:f.tk, ts:f.ts, severity:f.severity, rank:severityRank(f.severity), type:newsType(f.type), sector:canonicalSector(f.sector),
         title:L(f.title || f.title_th,f.title_th || f.title), summary:L(f._summary || f._summary_th,f._summary_th || f._summary) || "",
         url:safeHttpUrl(L(f.url || f.url_th,f.url_th || f.url)) || href("disclosure-pulse.html"), source:"SET" };
     });
@@ -966,7 +966,28 @@
     return '<span class="is1-news-kind ' + storyTone(item) + '">' + esc(item.kind === "set" ? "SET · " + item.type : item.source) + "</span>" +
       '<time datetime="' + esc(item.ts || "") + '" title="' + esc(feedTime(item.ts)) + '">' + esc(relTime(item.ts)) + "</time>";
   }
+  // AI summaries of the filing PDFs (scripts/enrich_filing.py --dashboard).
+  // Loaded only on the home page and only once; the desk re-renders on arrival.
+  function aiSummary(item) {
+    var map = search.aiSums;
+    var entry = item && item.kind === "set" && map ? map[item.id] : null;
+    return entry && entry.bullets && entry.bullets.length ? entry : null;
+  }
+  function aiSummaryHtml(entry) {
+    return '<div class="is1-ai-sum"><div class="is1-ai-sum-head">✦ ' + esc(L("Summary of the filing PDF · MiniMax M3","สรุปจากเอกสารแนบ · MiniMax M3")) +
+      "<span>· " + esc(L("numbers checked against the document","ตัวเลขตรวจกับต้นฉบับแล้ว")) + "</span></div><ul>" +
+      entry.bullets.map(function (b) { return "<li>" + esc(b) + "</li>"; }).join("") + "</ul></div>";
+  }
+  function loadAiSummaries(host) {
+    if (search.aiSumsPromise) return;
+    search.aiSumsPromise = fetch(asset("filing-summaries")).then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (d) {
+        search.aiSums = (d && d.summaries) || {};
+        if (state.data && Object.keys(search.aiSums).length) renderNewsDesk(host);
+      }).catch(function () { search.aiSums = {}; });
+  }
   function renderNewsDesk(host) {
+    loadAiSummaries(host);
     var pool = newsPool();
     var fresh = pool.filter(function (item) { return withinHours(item.ts,24 * 7); });
     var ranked = (fresh.length >= 3 ? fresh : pool).slice().sort(function (a,b) {
@@ -989,7 +1010,7 @@
     leadNode.innerHTML = lead
       ? '<div class="is1-news-lead-top"><span class="is1-news-flag">' + esc(lead.rank === 3 ? L("Top priority","สำคัญที่สุด") : L("Lead story","ข่าวเด่น")) + "</span>" + storyMeta(lead) + "</div>" +
         '<div class="is1-news-lead-body">' + storyChip(lead) + '<div><h3><a href="' + esc(lead.url) + '" target="_blank" rel="noopener">' + esc(lead.title) + "</a></h3>" +
-        (lead.summary && lead.summary !== lead.title ? "<p>" + esc(lead.summary) + "</p>" : "") + "</div></div>" +
+        (aiSummary(lead) ? aiSummaryHtml(aiSummary(lead)) : lead.summary && lead.summary !== lead.title ? "<p>" + esc(lead.summary) + "</p>" : "") + "</div></div>" +
         '<div class="is1-news-lead-foot"><span>' + esc(lead.sector) + " · " + esc(feedTime(lead.ts)) + '</span><a href="' + esc(lead.url) + '" target="_blank" rel="noopener">' +
         esc(lead.kind === "set" ? L("Read on SET","อ่านต่อที่ SET") : L("Read source","อ่านต้นฉบับ")) + icon("arrow-up-right") + "</a></div>"
       : '<p class="is1s-empty">' + esc(L("No news for this RM in the current snapshot","ยังไม่มีข่าวของ RM นี้ใน snapshot ปัจจุบัน")) + "</p>";
@@ -998,7 +1019,8 @@
       return '<a class="is1-news-card tone-' + storyTone(item) + '" style="--news-delay:' + (120 + i * 70) + 'ms" href="' + esc(item.url) + '" target="_blank" rel="noopener">' +
         '<div class="is1-news-card-top"><b>' + esc(item.tk) + '</b><time title="' + esc(feedTime(item.ts)) + '">' + esc(relTime(item.ts)) + "</time></div>" +
         '<span class="is1-news-kind ' + storyTone(item) + '">' + esc(item.kind === "set" ? "SET · " + item.type : item.source) + "</span><h4>" + esc(item.title) + "</h4>" +
-        (item.summary && item.summary !== item.title ? "<p>" + esc(item.summary) + "</p>" : "") + "</a>";
+        (aiSummary(item) ? '<p class="is1-news-ai">✦ ' + esc(aiSummary(item).bullets[0]) + "</p>" :
+          item.summary && item.summary !== item.title ? "<p>" + esc(item.summary) + "</p>" : "") + "</a>";
     }).join("");
 
     var filter = state.newsFilter || "all";
