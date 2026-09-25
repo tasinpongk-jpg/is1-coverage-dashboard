@@ -296,16 +296,17 @@ html.theme-changing *,html.theme-changing *::before,html.theme-changing *::after
    =========================================================================== */
 .is1-shell-ready {
   --is1-rail-w:80px;
+  --is1-tape-w:96px;
   --is1-module-w:228px;
   --is1-context-w:310px;
   display:block !important;
   min-width:0;
   min-height:100vh;
-  padding-left:calc(var(--is1-rail-w) + var(--is1-module-w));
+  padding-left:calc(var(--is1-rail-w) + var(--is1-tape-w) + var(--is1-module-w));
   overflow-x:hidden;
   transition:padding-left .22s ease,padding-right .22s ease,background-color .22s ease;
 }
-.is1-shell-ready.is1s-modules-collapsed { padding-left:var(--is1-rail-w); }
+.is1-shell-ready.is1s-modules-collapsed { padding-left:calc(var(--is1-rail-w) + var(--is1-tape-w)); }
 .is1-shell-ready.is1s-context-open { padding-right:var(--is1-context-w); }
 .is1-shell-ready.is1s-page-oppday-minutes {
   height:100dvh;
@@ -433,7 +434,7 @@ html.theme-changing *,html.theme-changing *::before,html.theme-changing *::after
 
 .is1s-modules {
   position:fixed;
-  inset:0 auto 0 var(--is1-rail-w);
+  inset:0 auto 0 calc(var(--is1-rail-w) + var(--is1-tape-w));
   z-index:790;
   width:var(--is1-module-w);
   min-width:0;
@@ -1231,6 +1232,173 @@ html.theme-changing *,html.theme-changing *::before,html.theme-changing *::after
 .is1-home-filings>a strong { font-size:11.5px; }
 .is1-home-filings>a span { overflow:hidden; color:var(--text2); font-size:10.5px; text-overflow:ellipsis; white-space:nowrap; }
 .is1-home-filings>a small { display:block; margin-top:2px; color:var(--muted); font-size:9.5px; }
+/* Coverage pulse, on every page: a vertical price tape fixed next to the
+   rail (scrolls up) and a news bar stuck under the top bar (scrolls left).
+   Chips carry margin instead of flex gap so the -50% loop lands exactly. */
+.is1-pulse-lane { position:relative; overflow:hidden; scrollbar-width:none; }
+.is1-pulse-lane::-webkit-scrollbar { display:none; }
+.is1-pulse-track { display:flex; animation:var(--pulse-anim) var(--pulse-duration,60s) linear infinite; }
+.is1-pulse-lane:hover .is1-pulse-track,
+.is1-pulse-lane:focus-within .is1-pulse-track { animation-play-state:paused; }
+@keyframes is1-pulse-up { from { transform:translateY(0); } to { transform:translateY(-50%); } }
+@keyframes is1-pulse-left { from { transform:translateX(0); } to { transform:translateX(-50%); } }
+
+.is1-tape {
+  position:fixed;
+  inset:0 auto 0 var(--is1-rail-w);
+  z-index:795;
+  width:var(--is1-tape-w);
+  display:flex;
+  flex-direction:column;
+  border-right:1px solid var(--border);
+  background:
+    radial-gradient(120% 40% at 50% 0%,color-mix(in srgb,var(--green) 8%,transparent),transparent 70%),
+    var(--bg2);
+}
+.is1-tape-head {
+  height:66px;
+  flex:0 0 auto;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  gap:3px;
+  border-bottom:1px solid var(--border);
+  color:var(--green);
+  font-size:10px;
+  font-weight:800;
+  letter-spacing:.06em;
+  text-transform:uppercase;
+}
+.is1-tape-head span { display:flex; align-items:center; gap:6px; }
+.is1-tape-head b { color:var(--muted); font-size:10.5px; font-weight:700; letter-spacing:0; text-transform:none; }
+.is1-tape-lane {
+  flex:1 1 auto;
+  -webkit-mask-image:linear-gradient(180deg,transparent 0,#000 6%,#000 94%,transparent 100%);
+  mask-image:linear-gradient(180deg,transparent 0,#000 6%,#000 94%,transparent 100%);
+}
+.is1-tape-lane .is1-pulse-track { --pulse-anim:is1-pulse-up; flex-direction:column; padding:0 8px; }
+.is1-newsbar {
+  position:sticky;
+  top:66px;
+  z-index:690;
+  height:44px;
+  display:flex;
+  align-items:stretch;
+  border-bottom:1px solid var(--border);
+  background:color-mix(in srgb,var(--bg) 92%,transparent);
+  backdrop-filter:blur(14px);
+  -webkit-backdrop-filter:blur(14px);
+}
+.is1-newsbar[hidden] { display:none !important; }
+.is1-newsbar-tag {
+  flex:0 0 auto;
+  display:flex;
+  align-items:center;
+  gap:7px;
+  padding:0 14px 0 18px;
+  border-right:1px solid var(--border);
+  color:var(--yellow);
+  font-size:10.5px;
+  font-weight:800;
+  letter-spacing:.05em;
+  text-decoration:none;
+  text-transform:uppercase;
+  white-space:nowrap;
+}
+.is1-newsbar-tag b { color:var(--text2); letter-spacing:0; text-transform:none; }
+.is1-newsbar-lane {
+  flex:1 1 auto;
+  display:flex;
+  align-items:center;
+  -webkit-mask-image:linear-gradient(90deg,transparent 0,#000 4%,#000 96%,transparent 100%);
+  mask-image:linear-gradient(90deg,transparent 0,#000 4%,#000 96%,transparent 100%);
+}
+.is1-newsbar-lane .is1-pulse-track { --pulse-anim:is1-pulse-left; width:max-content; align-items:center; }
+.is1s-page-oppday-minutes>.is1-newsbar { flex:0 0 auto; }
+
+.is1-rb-chip {
+  --tone:var(--muted);
+  position:relative;
+  flex:0 0 auto;
+  display:flex;
+  align-items:center;
+  overflow:hidden;
+  border:1px solid color-mix(in srgb,var(--tone) 28%,var(--border));
+  border-radius:11px;
+  color:var(--text);
+  background:color-mix(in srgb,var(--tone) 6%,var(--card));
+  text-decoration:none;
+  transition:border-color .18s ease,box-shadow .18s ease;
+}
+.is1-rb-chip.up { --tone:var(--green); }
+.is1-rb-chip.down { --tone:var(--red); }
+.is1-rb-chip.news { --tone:var(--yellow); }
+.is1-rb-chip.news.sev-3 { --tone:var(--red); }
+.is1-rb-chip.news.sev-1 { --tone:var(--blue); }
+.is1-rb-chip:hover,.is1-rb-chip:focus-visible { border-color:var(--tone); box-shadow:0 4px 14px color-mix(in srgb,var(--tone) 22%,transparent); }
+.is1-rb-chip > i { position:absolute; left:0; bottom:0; height:2px; width:var(--rb-move,0); background:var(--tone); opacity:.85; }
+.is1-tape-chip {
+  flex-direction:column;
+  gap:2px;
+  margin-bottom:8px;
+  padding:7px 4px 9px;
+  line-height:1.15;
+  text-align:center;
+}
+.is1-tape-chip .is1-rb-logo { margin-bottom:3px; }
+.is1-tape-chip b { font-size:12px; letter-spacing:.02em; }
+.is1-tape-chip small { color:var(--muted); font-size:10px; font-variant-numeric:tabular-nums; }
+.is1-news-chip { gap:8px; height:32px; margin-right:10px; padding:0 12px 0 3px; white-space:nowrap; }
+.is1-news-chip .is1-rb-logo { width:30px; height:26px; border-radius:7px; }
+.is1-news-chip .is1-rb-logo img { padding:3px; }
+.is1-news-chip b { font-size:12px; letter-spacing:.02em; }
+.is1-news-chip em { padding:1px 7px; border-radius:999px; color:var(--tone); background:color-mix(in srgb,var(--tone) 14%,transparent); font-size:10px; font-style:normal; font-weight:700; }
+.is1-news-chip-title { max-width:320px; overflow:hidden; color:var(--text2); font-size:12px; text-overflow:ellipsis; }
+.is1-news-chip small { color:var(--muted); font-size:10px; }
+.is1-rb-logo {
+  position:relative;
+  width:44px;
+  height:36px;
+  flex:0 0 auto;
+  display:grid;
+  place-items:center;
+  overflow:hidden;
+  border-radius:9px;
+  background:#fff;
+  box-shadow:0 0 0 1px rgba(15,23,42,.10),0 1px 2px rgba(15,23,42,.08);
+}
+.is1-rb-logo img { display:block; width:100%; height:100%; object-fit:contain; padding:4px; }
+.is1-rb-logo em { display:none; }
+.is1-rb-logo.no-logo { background:var(--tone); box-shadow:none; }
+.is1-rb-logo.no-logo em { display:grid; place-items:center; width:100%; height:100%; color:#fff; font-size:11px; font-style:normal; font-weight:800; letter-spacing:.02em; }
+.is1-rb-chip.hot .is1-rb-logo { animation:is1-rb-hot 1.8s ease-in-out infinite; }
+@keyframes is1-rb-hot {
+  0%,100% { box-shadow:0 0 0 2px color-mix(in srgb,var(--tone) 55%,transparent),0 0 0 0 color-mix(in srgb,var(--tone) 45%,transparent); }
+  50% { box-shadow:0 0 0 2px var(--tone),0 0 0 6px color-mix(in srgb,var(--tone) 0%,transparent); }
+}
+.is1-rb-pct { color:var(--tone); font-size:11.5px; font-weight:800; font-variant-numeric:tabular-nums; white-space:nowrap; }
+/* Reduce Motion: both bars keep moving (they are the point) but at half
+   speed, still pause on hover/focus, and the pulsing ring stops. */
+@media(prefers-reduced-motion:reduce) {
+  /* Beats the global reduced-motion reset above (*{animation-duration:.01ms !important}). */
+  .is1-pulse-lane .is1-pulse-track {
+    animation-duration:calc(var(--pulse-duration,60s) * 2) !important;
+    animation-iteration-count:infinite !important;
+  }
+  .is1-rb-chip.hot .is1-rb-logo { animation:none; }
+}
+@media(max-width:840px) {
+  .is1-tape { display:none; }
+  .is1-newsbar { top:58px; height:40px; }
+  .is1-newsbar-tag { padding:0 10px; }
+  .is1-news-chip-title { max-width:200px; }
+}
+@media(max-width:560px) {
+  .is1-newsbar-tag { font-size:0; gap:0; }
+  .is1-newsbar-tag b { display:none; }
+}
+
 /* Newsroom: first block on the home page, above prices. */
 .is1-home-news { margin:4px 0 26px; }
 .is1-home-news-head {

@@ -336,10 +336,29 @@
     '<div class="is1s-workspace-stage"><div class="is1s-workspace-loading"><span></span>' + esc(L("Loading workspace","กำลังโหลดพื้นที่ทำงาน")) +
       '</div><iframe title="' + esc(L("Embedded dashboard","Dashboard ที่ฝังในหน้านี้")) + '" loading="eager" referrerpolicy="strict-origin-when-cross-origin" ' +
       'sandbox="allow-forms allow-modals allow-popups allow-popups-to-escape-sandbox allow-same-origin allow-scripts allow-downloads"></iframe></div>';
+  // Coverage pulse, on every page: a vertical price tape next to the rail
+  // (scrolls up) and a news bar under the top bar (scrolls left).
+  var tape = document.createElement("aside");
+  tape.className = "is1-tape";
+  tape.setAttribute("aria-label",L("Coverage price movers","ราคาหลักทรัพย์ที่ดูแล"));
+  tape.innerHTML =
+    '<div class="is1-tape-head"><span><i class="is1-live-pulse"></i>' + esc(L("Movers","ราคา")) + '</span><b data-pulse-rm></b></div>' +
+    '<div class="is1-pulse-lane is1-tape-lane" data-pulse-lane="prices"><div class="is1-pulse-track"></div></div>';
+  var newsbar = document.createElement("div");
+  newsbar.className = "is1-newsbar";
+  newsbar.hidden = true;
+  newsbar.setAttribute("role","region");
+  newsbar.setAttribute("aria-label",L("Latest coverage news","ข่าวล่าสุดของหลักทรัพย์ที่ดูแล"));
+  newsbar.innerHTML =
+    '<a class="is1-newsbar-tag" href="' + esc(href("disclosure-pulse.html")) + '"><i class="is1-live-pulse"></i>' + esc(L("Latest news","ข่าวล่าสุด")) + ' · <b data-pulse-rm></b></a>' +
+    '<div class="is1-pulse-lane is1-newsbar-lane" data-pulse-lane="news"><div class="is1-pulse-track"></div></div>';
+
   var insertPoint = legacyHeader || document.body.firstChild;
   document.body.insertBefore(topbar,insertPoint);
+  document.body.insertBefore(newsbar,insertPoint);
   if (pageHead) document.body.insertBefore(pageHead,insertPoint);
   document.body.appendChild(rail);
+  document.body.appendChild(tape);
   document.body.appendChild(modulePanel);
   document.body.appendChild(contextPanel);
   document.body.appendChild(scrim);
@@ -1044,10 +1063,61 @@
     }).join("") || '<p class="is1s-empty">' + esc(L("Nothing in this filter","ไม่มีข่าวในตัวกรองนี้")) + "</p>";
   }
 
+  // Coverage pulse marquees. Each track holds its chips twice so a -50%
+  // translate loops seamlessly; short lists are repeated first so one copy
+  // always outruns the lane, and duration scales with the chip count so the
+  // speed stays readable whatever the RM's size.
+  function logoUrl(tk) { return "https://media.set.or.th/common/logo/company/" + encodeURIComponent(tk) + ".png"; }
+  function logoMark(tk) {
+    // The monogram only shows when the logo fails: many SET logos have a
+    // transparent background, so a monogram underneath would bleed through.
+    return '<span class="is1-rb-logo"><img src="' + esc(logoUrl(tk)) + '" alt="" loading="lazy" decoding="async" ' +
+      'onerror="this.parentNode.classList.add(\'no-logo\');this.remove()"><em>' + esc(String(tk).slice(0,2)) + "</em></span>";
+  }
+  function fillLane(lane,chips,secondsPerChip,minChips) {
+    var track = lane.querySelector(".is1-pulse-track");
+    if (!chips.length) { track.innerHTML = ""; return false; }
+    var loop = chips.slice();
+    while (loop.length < minChips) loop = loop.concat(chips);
+    var html = loop.join("");
+    track.innerHTML = html + html.replace(/<a /g,'<a tabindex="-1" aria-hidden="true" ');
+    track.style.setProperty("--pulse-duration",Math.max(24,loop.length * secondsPerChip) + "s");
+    return true;
+  }
+  function renderPulse() {
+    var tape = document.querySelector(".is1-tape");
+    var bar = document.querySelector(".is1-newsbar");
+    if (!tape || !bar) return;
+    document.querySelectorAll("[data-pulse-rm]").forEach(function (node) { node.textContent = rmLabel(state.rm); });
+    var rows = rmRows().filter(function (row) { return finite(row.pct1d); })
+      .sort(function (a,b) { return Math.abs(Number(b.pct1d)) - Math.abs(Number(a.pct1d)); }).slice(0,40);
+    var maxMove = Math.max.apply(null,rows.map(function (row) { return Math.abs(Number(row.pct1d)); }).concat([1]));
+    fillLane(tape.querySelector('[data-pulse-lane="prices"]'),rows.map(function (row) {
+      var pct = Number(row.pct1d);
+      var tone = pct > 0 ? "up" : pct < 0 ? "down" : "flat";
+      var hot = Math.abs(pct) >= 5 ? " hot" : "";
+      return '<a class="is1-rb-chip is1-tape-chip ' + tone + hot + '" href="' + esc(href("company-summary.html?tk=" + encodeURIComponent(row.tk))) + '" style="--rb-move:' +
+        Math.max(6,Math.round(Math.abs(pct) / maxMove * 100)) + '%" title="' + esc(row.tk + " " + fmtPct(pct,2)) + '">' + logoMark(row.tk) +
+        '<b>' + esc(row.tk) + '</b><small>' + esc(row.last == null ? "" : fmtNum(row.last,2)) + '</small>' +
+        '<span class="is1-rb-pct">' + (pct > 0 ? "▲ " : pct < 0 ? "▼ " : "") + esc(fmtPct(pct,2).replace(/^[+-]/,"")) + "</span><i></i></a>";
+    }),2.4,12);
+    var seen = {};
+    var news = rmFilings().filter(function (f) { return withinHours(f.ts,24 * 7); })
+      .sort(function (a,b) { return severityRank(b.severity) - severityRank(a.severity) || String(b.ts || "").localeCompare(String(a.ts || "")); })
+      .filter(function (f) { if (seen[f.tk]) return false; seen[f.tk] = true; return true; }).slice(0,24);
+    bar.hidden = !fillLane(bar.querySelector('[data-pulse-lane="news"]'),news.map(function (f) {
+      var title = L(f.title || f.title_th,f.title_th || f.title) || "";
+      return '<a class="is1-rb-chip is1-news-chip news sev-' + severityRank(f.severity) + '" href="' + esc(href("company-summary.html?tk=" + encodeURIComponent(f.tk) + "&tab=disclosures")) +
+        '" title="' + esc(f.tk + " · " + title) + '">' + logoMark(f.tk) + '<b>' + esc(f.tk) + '</b><em>' + esc(newsType(f.type)) + '</em>' +
+        '<span class="is1-news-chip-title">' + esc(title) + '</span><small>' + esc(relTime(f.ts)) + "</small></a>";
+    }),5,8);
+  }
+
   function renderShellData() {
     if (!state.data) return;
     renderCounts();
     renderContext();
+    renderPulse();
     renderHome();
   }
 
