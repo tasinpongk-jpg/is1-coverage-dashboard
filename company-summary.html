@@ -168,14 +168,24 @@ main{flex:1;max-width:1540px;width:100%;margin:0 auto;padding:22px 24px 48px;pos
 
 /* drawer body: grouped vertical nav + content */
 .dbody{flex:1;min-height:0;display:grid;grid-template-columns:184px minmax(0,1fr)}
-.dnav{display:flex;flex-direction:column;gap:14px;padding:14px 10px;overflow-y:auto;border-right:1px solid var(--border);background:var(--card)}
-.dnav-label{padding:0 10px 5px;font-size:9.5px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--dim)}
-.dtab{width:100%;display:flex;align-items:center;justify-content:space-between;gap:6px;padding:7px 10px;border:0;border-radius:6px;background:none;font:inherit;font-size:12px;font-weight:600;color:var(--muted);text-align:left;cursor:pointer;transition:background .12s,color .12s;user-select:none}
-.dtab:hover{color:var(--text);background:var(--surface-hover,var(--card2))}
-.dtab.active{color:var(--text);background:color-mix(in srgb,var(--dsc,var(--accent)) 14%,transparent);box-shadow:inset 2px 0 0 var(--dsc,var(--accent))}
-.dtab-n{font-style:normal;font-size:10px;font-weight:700;color:var(--dim);font-variant-numeric:tabular-nums}
+.dnav{display:flex;flex-direction:column;gap:10px;padding:12px 10px;overflow-y:auto;border-right:1px solid var(--border);background:var(--card)}
+/* Each group carries its own accent (--g), matching the shell's module colours:
+   snapshot gold (Home), results blue (Market), company cyan (Companies), news green (News). */
+.dnav-group{--g:var(--muted);padding:8px 6px 6px;border:1px solid color-mix(in srgb,var(--g) 22%,var(--border));border-radius:10px;background:color-mix(in srgb,var(--g) 6%,var(--card))}
+.dnav-group.g-snap{--g:#e39b14}
+.dnav-group.g-results{--g:#4f86f0}
+.dnav-group.g-company{--g:#1fa9bd}
+.dnav-group.g-news{--g:#22a86a}
+.dnav-label{display:flex;align-items:center;gap:7px;padding:0 8px 6px;font-size:10px;font-weight:800;letter-spacing:.7px;text-transform:uppercase;color:var(--g)}
+.dnav-label::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--g);box-shadow:0 0 0 3px color-mix(in srgb,var(--g) 22%,transparent)}
+.dtab{width:100%;display:flex;align-items:center;justify-content:space-between;gap:6px;padding:7px 10px;border:0;border-radius:7px;background:none;font:inherit;font-size:12.5px;font-weight:600;color:var(--text2,var(--muted));text-align:left;cursor:pointer;transition:background .12s,color .12s,box-shadow .12s;user-select:none}
+.dtab:hover{color:var(--text);background:color-mix(in srgb,var(--g,var(--accent)) 10%,transparent)}
+.dtab.active{color:var(--text);font-weight:700;background:color-mix(in srgb,var(--g,var(--accent)) 18%,var(--card));box-shadow:inset 3px 0 0 var(--g,var(--accent)),0 1px 2px rgba(0,0,0,.06)}
+.dtab-n{min-width:20px;padding:1px 7px;border-radius:999px;font-style:normal;font-size:10px;font-weight:800;text-align:center;color:var(--g,var(--dim));background:color-mix(in srgb,var(--g,var(--dim)) 15%,transparent);font-variant-numeric:tabular-nums}
+.dtab.active .dtab-n{color:#fff;background:var(--g,var(--accent))}
 .dtab-n:empty{display:none}
-.dnav-links{margin-top:auto;padding-top:12px;border-top:1px solid var(--border)}
+.dnav-links{--g:var(--dim);margin-top:auto;border-color:transparent;background:none;border-top:1px solid var(--border);border-radius:0;padding-top:12px}
+.dnav-links .dnav-label::before{display:none}
 
 /* drawer content */
 #dcontent{min-width:0;overflow-y:auto;padding:18px 22px 84px}
@@ -359,11 +369,11 @@ footer a{color:var(--muted);text-decoration:none}
 @media(max-width:760px){
   .dbody{grid-template-columns:1fr;grid-template-rows:auto minmax(0,1fr)}
   .dnav{flex-direction:row;gap:4px;padding:8px 10px;overflow-x:auto;overflow-y:hidden;border-right:0;border-bottom:1px solid var(--border)}
-  .dnav-group{display:flex;gap:2px;flex:0 0 auto;padding-right:6px;border-right:1px solid var(--border)}
+  .dnav-group{display:flex;gap:2px;flex:0 0 auto;padding:3px}
   .dnav-label{display:none}
   .dtab{width:auto;white-space:nowrap}
-  .dtab.active{box-shadow:inset 0 -2px 0 var(--dsc,var(--accent))}
-  .dnav-links{margin-top:0;padding-top:0;border-top:0;border-right:0}
+  .dtab.active{box-shadow:inset 0 -2px 0 var(--g,var(--accent))}
+  .dnav-links{margin-top:0;padding:3px;border-top:0}
   .dfooter{flex-direction:row}
   .dfoot-link{white-space:nowrap}
   .ov-cols{grid-template-columns:1fr}
@@ -422,21 +432,21 @@ footer a{color:var(--muted);text-decoration:none}
   <div class="dp" id="dp"></div>
   <div class="dbody">
     <nav class="dnav" id="dtabs" aria-label="Company sections">
-      <div class="dnav-group"><div class="dnav-label" data-i18n="company.navSnapshot">Snapshot</div>
+      <div class="dnav-group g-snap"><div class="dnav-label" data-i18n="company.navSnapshot">Snapshot</div>
         <button type="button" class="dtab active" data-tab="overview"><span data-i18n="common.overview">Overview</span></button>
         <button type="button" class="dtab" data-tab="report"><span data-i18n="common.report">Report</span></button>
       </div>
-      <div class="dnav-group"><div class="dnav-label" data-i18n="company.navResults">Results</div>
+      <div class="dnav-group g-results"><div class="dnav-label" data-i18n="company.navResults">Results</div>
         <button type="button" class="dtab" data-tab="financials"><span data-i18n="common.financials">Financials</span></button>
         <button type="button" class="dtab" data-tab="mda"><span data-i18n="common.mda">MD&amp;A</span><em class="dtab-n" data-count="mda"></em></button>
         <button type="button" class="dtab" data-tab="notes"><span data-i18n="common.notes">Notes</span><em class="dtab-n" data-count="notes"></em></button>
         <button type="button" class="dtab" data-tab="oppday"><span data-i18n="common.oppDay">Opp Day</span><em class="dtab-n" data-count="oppday"></em></button>
       </div>
-      <div class="dnav-group"><div class="dnav-label" data-i18n="company.navCompany">Company</div>
+      <div class="dnav-group g-company"><div class="dnav-label" data-i18n="company.navCompany">Company</div>
         <button type="button" class="dtab" data-tab="company"><span data-i18n="common.company">Company</span></button>
         <button type="button" class="dtab" data-tab="governance"><span data-i18n="common.governance">Governance</span></button>
       </div>
-      <div class="dnav-group"><div class="dnav-label" data-i18n="company.navNews">News</div>
+      <div class="dnav-group g-news"><div class="dnav-label" data-i18n="company.navNews">News</div>
         <button type="button" class="dtab" data-tab="disclosures"><span data-i18n="common.disclosures">Disclosures</span><em class="dtab-n" data-count="disclosures"></em></button>
       </div>
       <div class="dnav-group dnav-links"><div class="dnav-label" data-i18n="company.navLinks">Links</div><div class="dfooter" id="dfooter"></div></div>
