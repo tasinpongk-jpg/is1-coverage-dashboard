@@ -22,7 +22,7 @@
   .stale.warn { background: #f59e0b22; color: var(--yellow); border-color: #f59e0b33; }
 
   .wrap { max-width: 1100px; margin: 0 auto; padding: 20px; display: flex; flex-direction: column; gap: 16px; }
-  .headline { background: linear-gradient(135deg, #6366f118, #1a1d27); border: 1px solid #6366f155; border-radius: 10px; padding: 20px; }
+  .headline { background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 12%, var(--card)), var(--card)); border: 1px solid var(--accent-border, #6366f155); border-radius: 10px; padding: 20px; color: var(--text); }
   .headline h2 { font-size: 18px; font-weight: 700; line-height: 1.45; }
   .take { color: var(--text); font-size: 13.5px; line-height: 1.65; margin-top: 10px; }
 
@@ -30,7 +30,7 @@
   .col { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 16px; }
   .col-name { font-size: 13px; font-weight: 700; letter-spacing: 0.4px; margin-bottom: 12px; padding-bottom: 10px; border-bottom: 1px solid var(--border); text-transform: uppercase; color: var(--muted); }
   .col ul { list-style: none; display: flex; flex-direction: column; gap: 8px; }
-  .col li { padding: 9px 11px; border: 1px solid var(--border); border-radius: 6px; background: #0f1117; font-size: 12.5px; line-height: 1.5; }
+  .col li { padding: 9px 11px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg2); color: var(--text2, var(--text)); font-size: 12.5px; line-height: 1.5; }
   .tk { font-weight: 700; color: var(--accent); }
   .rm-tag { font-size: 10px; color: var(--muted); border: 1px solid var(--border); border-radius: 10px; padding: 1px 7px; margin-left: 6px; }
   .sec-tag { font-weight: 700; color: var(--text); margin-right: 6px; }
