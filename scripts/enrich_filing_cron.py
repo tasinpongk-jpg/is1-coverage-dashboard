@@ -50,6 +50,14 @@ def _push_summaries() -> None:
     """
     target = "data/filing-summaries.json"
     git = ["git", "-C", str(REPO)]
+    # Only publish from main. On any other branch, "push HEAD:main" would carry
+    # that branch's unreviewed commits into main with the data file.
+    branch = subprocess.run(git + ["rev-parse", "--abbrev-ref", "HEAD"],
+                            capture_output=True, text=True).stdout.strip()
+    if branch != "main":
+        print(f"[enrich_filing_cron] not pushing: repo is on '{branch}', not main",
+              file=sys.stderr)
+        return
     if not subprocess.run(git + ["status", "--porcelain", "--", target],
                           capture_output=True, text=True).stdout.strip():
         return
