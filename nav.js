@@ -1050,8 +1050,10 @@
   // the number of chips so the speed stays readable whatever the RM's size.
   function logoUrl(tk) { return "https://media.set.or.th/common/logo/company/" + encodeURIComponent(tk) + ".png"; }
   function logoMark(tk) {
+    // The monogram only shows when the logo fails: many SET logos have a
+    // transparent background, so a monogram underneath would bleed through.
     return '<span class="is1-rb-logo"><img src="' + esc(logoUrl(tk)) + '" alt="" loading="lazy" decoding="async" ' +
-      'onerror="this.remove()"><em>' + esc(String(tk).slice(0,2)) + "</em></span>";
+      'onerror="this.parentNode.classList.add(\'no-logo\');this.remove()"><em>' + esc(String(tk).slice(0,2)) + "</em></span>";
   }
   function fillLane(lane,chips,secondsPerChip) {
     var track = lane.querySelector(".is1-ribbon-track");
