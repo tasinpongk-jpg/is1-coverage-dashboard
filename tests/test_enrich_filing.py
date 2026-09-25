@@ -964,5 +964,18 @@ class TestVerifyScaleAndContacts(unittest.TestCase):
         self.assertEqual(len(kept), 3)
 
 
+class TestNormNumbers(unittest.TestCase):
+    def test_comma_space_thousands_joined(self):
+        self.assertIn("150000000", e._norm_numbers("Baht 150, 000, 000"))
+
+    def test_bare_space_not_joined(self):
+        self.assertNotIn("2569150", e._norm_numbers("ปี 2569 150 ล้านบาท"))
+
+    def test_bullet_verifies_against_spaced_pdf_text(self):
+        kept, _ = e._verify_bullets(["• วงเงิน 150,000,000 บาท 88,000,000 หุ้น"],
+                                    "budget Baht 150, 000, 000 for 88, 000, 000 shares")
+        self.assertEqual(len(kept), 1)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

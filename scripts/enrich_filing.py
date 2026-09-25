@@ -157,7 +157,7 @@ _THAI_DIGITS = str.maketrans("๐๑๒๓๔๕๖๗๘๙", "0123456789")
 # and let the model compute figures that the number check then dropped
 # (8 of 16 bullets in the first live run of 2026-09-25). Its own version tag
 # keeps these entries apart from the Discord alert cache.
-DASHBOARD_PROMPT_VERSION = "dash-4"
+DASHBOARD_PROMPT_VERSION = "dash-5"
 DASHBOARD_TEMPERATURE = 0.1
 # dash-3 after the second live run (2026-09-25): opinion gone and nothing
 # dropped, but "1.23 percent" came out as "1.23" (3 of 3 filings), dates
@@ -168,6 +168,9 @@ DASHBOARD_TEMPERATURE = 0.1
 # company's reasons as fact with added adjectives ("considered carefully"),
 # wrote "กรรมสิทธิ์แบบ Leasehold" (ownership vs lease contradict), and still
 # wrote a signatory line. Signatory/contact bullets are also filtered in code.
+# dash-5 after the fourth run: rule 3 gave its unit examples in English and
+# the model copied "sq.m." into every KTBSTMR bullet; units are now listed
+# in Thai.
 DASHBOARD_SYSTEM_PROMPT = (
     "You extract facts from a filing a company submitted to the Stock Exchange of "
     "Thailand, for an exchange analyst. Reply in Thai only. Output 2-4 bullets, each "
@@ -179,9 +182,9 @@ DASHBOARD_SYSTEM_PROMPT = (
     "2. Copy every number exactly as the document writes it. Never calculate, convert "
     "units, round, annualise or compare figures; do not write YoY/QoQ changes unless "
     "the document states that exact figure.\n"
-    "3. Always keep the unit next to its number: baht, million baht, shares, units, "
-    "rai, sq.m., years. A percentage always ends with `%` (write 1.23 percent as "
-    "1.23%). Never leave a bare number.\n"
+    "3. Always keep the unit next to its number, written in Thai: บาท, ล้านบาท, หุ้น, "
+    "หน่วย, ไร่, ตร.ม., ปี (sq.m. becomes ตร.ม., shares becomes หุ้น). A percentage "
+    "always ends with `%` (write 1.23 percent as 1.23%). Never leave a bare number.\n"
     "4. Write every date as day, Thai month name, Buddhist-era year, e.g. "
     "24 กันยายน 2569 (24-Sep-2026 and 24 September 2026 both become 24 กันยายน 2569).\n"
     "5. Names of people, companies, funds, projects and places: copy them exactly as "
@@ -1207,7 +1210,10 @@ def _dashboard_eligible(filing: dict) -> bool:
 def _norm_numbers(text: str) -> str:
     """Thai digits to Arabic, drop thousands separators: '1,234.5' -> '1234.5'."""
     text = (text or "").translate(_THAI_DIGITS)
-    return re.sub(r"(?<=\d),(?=\d{3})", "", text)
+    # pypdf often emits "150, 000, 000"; a space after the comma is still a
+    # thousands separator. A bare space is not (it would glue a year to the
+    # next figure), so only comma + optional space is joined.
+    return re.sub(r"(?<=\d),\s?(?=\d{3}(?!\d))", "", text)
 
 
 def _number_in_source(token: str, source: str) -> bool:
@@ -1263,6 +1269,20 @@ def _is_contact_bullet(text: str) -> bool:
     return bool(_CONTACT_RE.search(text))
 
 
+def _untraced_numbers(text: str, source: str) -> list[str]:
+    """Numbers in a bullet that the source cannot account for (source pre-normalised)."""
+    norm = _norm_numbers(text)
+    missing = []
+    for m in _NUM_RE.finditer(norm):
+        tok = m.group(0)
+        if _number_in_source(tok, source):
+            continue
+        alts = _scaled_forms(tok.replace(",", "").rstrip("."), norm[m.end():m.end() + 12])
+        if not any(_number_in_source(a, source) for a in alts):
+            missing.append(tok)
+    return missing
+
+
 def _verify_bullets(bullets: list[str], source_text: str) -> tuple[list[str], int]:
     """Keep only bullets whose every number appears in the source document.
 
@@ -1280,17 +1300,7 @@ def _verify_bullets(bullets: list[str], source_text: str) -> tuple[list[str], in
         if _is_contact_bullet(text):
             dropped += 1
             continue
-        norm = _norm_numbers(text)
-        ok = True
-        for m in _NUM_RE.finditer(norm):
-            tok = m.group(0)
-            if _number_in_source(tok, source):
-                continue
-            alts = _scaled_forms(tok.replace(",", "").rstrip("."), norm[m.end():m.end() + 12])
-            if not any(_number_in_source(a, source) for a in alts):
-                ok = False
-                break
-        if ok:
+        if not _untraced_numbers(text, source):
             kept.append(text)
         else:
             dropped += 1
@@ -1429,10 +1439,30 @@ def _audit(data_dir: Path, *, count: int) -> int:
             for tok in dict.fromkeys(_NUM_RE.findall(_norm_numbers(b))):
                 t = tok.replace(",", "").rstrip(".")
                 m = re.search(rf"(?<![\d.]){re.escape(t)}(?![\d])", source)
-                ctx = source[max(0, m.start() - 60):m.end() + 60].replace("\n", " ") if m else "(BE/AD year match)"
+                ctx = (source[max(0, m.start() - 60):m.end() + 60].replace("\n", " ") if m
+                       else "(matched as a BE/AD year or a million/billion rescaling)")
                 print(f"      {tok:>14}  …{ctx}…")
         if item.get("dropped"):
-            print(f"  ({item['dropped']} bullet(s) dropped by the number check)")
+            print(f"  ({item['dropped']} bullet(s) dropped)")
+            entry = (cache.get("summaries") or {}).get(fid) or {}
+            for raw in entry.get("bullets_th") or []:
+                text = raw.lstrip("•-* ").strip()
+                if text in (item.get("bullets") or []):
+                    continue
+                if _is_contact_bullet(text):
+                    print(f"  ✗ [contact/signatory] {text}")
+                    continue
+                missing = _untraced_numbers(text, source)
+                print(f"  ✗ [number not in source: {', '.join(missing) or '?'}] {text}")
+                for tok in missing:
+                    # Show where the source has the nearest digits, to see how
+                    # the PDF text wrote it (spacing, Thai digits, million form).
+                    head = re.sub(r"\D", "", tok)[:3]
+                    hits = [mm.start() for mm in re.finditer(re.escape(head), source)][:2] if head else []
+                    for h in hits:
+                        print(f"      source near '{head}': …{source[max(0, h - 50):h + 60]}…".replace("\n", " "))
+                    if not hits:
+                        print(f"      source has no '{head}' at all")
     # Token use of every dashboard-prompt call so far, to price the backlog.
     dash = [v for v in (cache.get("summaries") or {}).values()
             if v.get("prompt_version") == DASHBOARD_PROMPT_VERSION]
