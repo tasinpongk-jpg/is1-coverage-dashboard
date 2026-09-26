@@ -1085,7 +1085,8 @@ def compute_alerts_for_ticker(meta: Dict[str, str], stats: Dict[str, Any],
              {"vol": vol, "vol20dAvg": vavg, "vol20dStd": vstd})
 
     # Price gap (open vs prev close)
-    if op is not None and prev:
+    # open 0 means no trade at the open, not a -100% gap
+    if op and prev:
         gap = abs(op - prev) / prev * 100.0
         push("gap", gap, f"{(op-prev)/prev*100:+.2f}% open gap",
              {"open": op, "prevClose": prev})
