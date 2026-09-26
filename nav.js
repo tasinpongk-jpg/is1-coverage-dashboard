@@ -875,7 +875,6 @@
     var highAlerts = rmAlerts().filter(function (alert) { return alert.severity === "high"; });
     var todayFilings = rmFilings().filter(function (filing) { return withinHours(filing.ts,24); });
     var avg = average(rows.map(function (row) { return row.pct1d; }));
-    host.querySelector("[data-home-date]").textContent = L("Prices as of ","ราคา ณ ") + thaiDate(state.data.brief.asOf);
     host.querySelector("[data-home-kpis]").innerHTML =
       '<div><span>' + esc(L("My coverage","My coverage")) + '</span><strong>' + rows.length + '</strong><small>' + esc(rmLabel(state.rm)) + "</small></div>" +
       '<div><span>High alerts</span><strong class="negative">' + highAlerts.length + '</strong><small>' + esc(L("review today","ต้องตรวจสอบวันนี้")) + "</small></div>" +
@@ -1133,10 +1132,6 @@
     var control = document.createElement("section");
     control.className = "is1-home-control";
     control.innerHTML =
-      '<div class="is1-home-head"><div><span>' + esc(L("Daily command center","Daily command center")) + '</span><h1>' +
-      esc(L("What matters before the day starts","สิ่งที่ต้องรู้ก่อนเริ่มวัน")) + '</h1><p>' +
-      esc(L("Market pulse, urgent work and RM coverage in one workspace","ภาพรวมตลาด งานเร่งด่วน และ coverage ของ RM ในหน้าจอเดียว")) +
-      '</p></div><b data-home-date>' + esc(L("Loading snapshot","กำลังโหลด snapshot")) + '</b></div>' +
       '<div class="is1-home-tabs"><button class="active" type="button" data-home-view="overview">' + esc(L("Overview","ภาพรวม")) +
       '</button><button type="button" data-home-view="market">Market pulse</button><button type="button" data-home-view="filings">Filing flow</button></div>' +
       '<div class="is1-home-view active" data-home-panel="overview"><div class="is1-home-kpis" data-home-kpis></div>' +
