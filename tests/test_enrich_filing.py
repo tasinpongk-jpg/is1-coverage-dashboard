@@ -979,3 +979,66 @@ class TestNormNumbers(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
+
+class TestPublishKeepsLiveSummaries(unittest.TestCase):
+    """A cold cache (new laptop, cleared cache) must not shrink the live file."""
+
+    def _write_prev(self, out, summaries, version=None):
+        out.write_text(json.dumps({"promptVersion": version or e.DASHBOARD_PROMPT_VERSION,
+                                   "summaries": summaries}), encoding="utf-8")
+
+    def test_published_summary_survives_empty_cache(self):
+        live = dict(VALID_FILING, _id="1", severity="high")
+        gone = {"tk": "OLD", "bullets": ["x"]}
+        with tempfile.TemporaryDirectory() as d:
+            out = Path(d) / "filing-summaries.json"
+            self._write_prev(out, {"1": {"tk": "TU", "bullets": ["kept"]}, "99": gone})
+            payload = e._publish_dashboard({"filings": [live]}, {"summaries": {}}, out)
+        self.assertEqual(payload["summaries"], {"1": {"tk": "TU", "bullets": ["kept"]}})
+
+    def test_old_prompt_version_is_not_carried(self):
+        live = dict(VALID_FILING, _id="1", severity="high")
+        with tempfile.TemporaryDirectory() as d:
+            out = Path(d) / "filing-summaries.json"
+            self._write_prev(out, {"1": {"bullets": ["old"]}}, version="dash-0")
+            payload = e._publish_dashboard({"filings": [live]}, {"summaries": {}}, out)
+        self.assertEqual(payload["summaries"], {})
+
+    def test_alert_prompt_bump_keeps_dashboard_entries(self):
+        with tempfile.TemporaryDirectory() as d:
+            cache_file = Path(d) / "cache.json"
+            cache_file.write_text(json.dumps({"version": 1, "prompt_version": -1, "summaries": {
+                "a": {"prompt_version": -1, "bullets_th": ["alert"]},
+                "b": {"prompt_version": e.DASHBOARD_PROMPT_VERSION, "bullets_th": ["dash"]}}}),
+                encoding="utf-8")
+            with mock.patch.dict(os.environ, {"ENRICH_CACHE_PATH": str(cache_file)}):
+                cache = e._load_cache()
+        self.assertEqual(list(cache["summaries"]), ["b"])
+
+
+class TestWebhookFallback(unittest.TestCase):
+    def test_daily_brief_key_is_accepted(self):
+        env = {"DISCORD_WEBHOOK_URL": "", "DAILY_BRIEF_WEBHOOK": "https://example.invalid/hook"}
+        with mock.patch.dict(os.environ, env), \
+             mock.patch.object(e, "DISCORD_SECRET_FILE_CANDIDATES", []):
+            self.assertEqual(e._load_webhook(), "https://example.invalid/hook")
+
+    def test_discord_key_wins(self):
+        env = {"DISCORD_WEBHOOK_URL": "https://example.invalid/a", "DAILY_BRIEF_WEBHOOK": "https://example.invalid/b"}
+        with mock.patch.dict(os.environ, env):
+            self.assertEqual(e._load_webhook(), "https://example.invalid/a")
+
+
+class TestCronWrapperDryRun(unittest.TestCase):
+    def test_dry_run_passes_through_and_never_pushes(self):
+        import enrich_filing_cron as cron
+        calls = []
+        with mock.patch.object(cron, "_run", side_effect=lambda a: calls.append(a) or 0), \
+             mock.patch.object(cron, "_push_summaries") as push, \
+             mock.patch.dict(os.environ, {"IS1_FILING_SUMMARY_PUSH": "1"}):
+            self.assertEqual(cron.main(["--dry-run"]), 0)
+            push.assert_not_called()
+            self.assertEqual(cron.main([]), 0)
+            push.assert_called_once()
+        self.assertEqual(calls[:2], [["--auto-alert", "--dry-run"], ["--dashboard", "--dry-run"]])
+        self.assertEqual(calls[2:], [["--auto-alert"], ["--dashboard"]])

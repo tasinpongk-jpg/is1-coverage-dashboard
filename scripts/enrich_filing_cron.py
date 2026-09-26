@@ -75,12 +75,16 @@ def _push_summaries() -> None:
             return
 
 
-def main() -> int:
-    code = _run(["--auto-alert"])
+def main(argv: list[str] | None = None) -> int:
+    # --dry-run passes through to both steps and skips the push, so a schedule
+    # or wrapper change can be smoke-tested without posting to Discord or main.
+    argv = sys.argv[1:] if argv is None else argv
+    extra = ["--dry-run"] if "--dry-run" in argv else []
+    code = _run(["--auto-alert", *extra])
     # IS1-wide Critical + Material summaries for the dashboard. Runs even
     # when the Discord alert failed; the two outputs are independent.
-    dash = _run(["--dashboard"])
-    if dash == 0 and os.environ.get("IS1_FILING_SUMMARY_PUSH") == "1":
+    dash = _run(["--dashboard", *extra])
+    if not extra and dash == 0 and os.environ.get("IS1_FILING_SUMMARY_PUSH") == "1":
         _push_summaries()
     return code or dash
 
