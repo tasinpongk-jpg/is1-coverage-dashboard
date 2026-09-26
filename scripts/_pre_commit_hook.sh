@@ -31,10 +31,22 @@ if [ -z "$STAGED" ]; then
     exit 0
 fi
 
-# For each staged script, if its basename is already deployed, copy it
+# For each staged script, if its basename is already deployed, copy it.
+# Exception: AppData enrich_filing_cron.py is the cron shim (scripts/cron_shim.py),
+# not the repo wrapper. Copying the wrapper over it would break the cron, since
+# the wrapper finds the repo from its own location.
 synced=0
 for src in $STAGED; do
     fname=$(basename "$src")
+    if [ "$fname" = "enrich_filing_cron.py" ]; then
+        continue
+    fi
+    if [ "$fname" = "cron_shim.py" ]; then
+        cp "$REPO_ROOT/$src" "$HERMES_SCRIPTS/enrich_filing_cron.py"
+        echo "pre-commit: synced $src -> $HERMES_SCRIPTS/enrich_filing_cron.py"
+        synced=$((synced + 1))
+        continue
+    fi
     if [ -f "$HERMES_SCRIPTS/$fname" ]; then
         cp "$REPO_ROOT/$src" "$HERMES_SCRIPTS/$fname"
         echo "pre-commit: synced $src -> $HERMES_SCRIPTS/$fname"

@@ -71,6 +71,8 @@ PROMPT_VERSION = 1
 # secret file is named daily_brief.env historically (Phase 1/2 use
 # it for the daily brief; auto-alert reuses the same channel).
 DISCORD_WEBHOOK_ENV = "DISCORD_WEBHOOK_URL"
+# Fallback: the daily-brief webhook key, which the laptop already has.
+DISCORD_WEBHOOK_KEYS = (DISCORD_WEBHOOK_ENV, "DAILY_BRIEF_WEBHOOK")
 # Try the Phase 1/2 secret-file location first (most likely to exist
 # since the user already wired the daily brief). Fall back to the
 # auto-alert-specific name if needed.
@@ -259,12 +261,16 @@ def _load_cache() -> dict:
     d.setdefault("version", 1)
     d.setdefault("prompt_version", PROMPT_VERSION)
     d.setdefault("summaries", {})
-    # If prompt_version changed, drop all entries — re-enrich.
+    # If the alert prompt_version changed, drop the alert entries — re-enrich.
+    # Dashboard entries carry their own DASHBOARD_PROMPT_VERSION and survive:
+    # wiping them would empty data/filing-summaries.json on the next publish.
     if d.get("prompt_version") != PROMPT_VERSION:
+        kept = {fid: v for fid, v in d["summaries"].items()
+                if isinstance(v, dict) and v.get("prompt_version") == DASHBOARD_PROMPT_VERSION}
         _log(f"cache prompt_version changed ({d.get('prompt_version')} -> "
-             f"{PROMPT_VERSION}); clearing all cached summaries")
+             f"{PROMPT_VERSION}); clearing alert summaries, keeping {len(kept)} dashboard")
         d["prompt_version"] = PROMPT_VERSION
-        d["summaries"] = {}
+        d["summaries"] = kept
     return d
 
 
@@ -1023,10 +1029,23 @@ def _enrich_one(filing: dict, *, force: bool = False,
 # ---------------------------------------------------------------- Discord webhook
 
 def _load_webhook() -> str | None:
-    """Resolve Discord webhook: env first, then any candidate secret file."""
-    v = os.environ.get(DISCORD_WEBHOOK_ENV, "").strip()
-    if v:
-        return v
+    """Resolve Discord webhook: env first, then any candidate secret file.
+
+    Accepts DISCORD_WEBHOOK_URL or, failing that, DAILY_BRIEF_WEBHOOK (the key
+    the laptop's daily_brief.env already holds), so no second secret is needed.
+    """
+    for name in DISCORD_WEBHOOK_KEYS:
+        v = os.environ.get(name, "").strip()
+        if v:
+            return v
+    for name in DISCORD_WEBHOOK_KEYS:
+        v = _webhook_from_files(name)
+        if v:
+            return v
+    return None
+
+
+def _webhook_from_files(key: str) -> str | None:
     for secret_path in DISCORD_SECRET_FILE_CANDIDATES:
         if not secret_path.exists():
             continue
@@ -1037,7 +1056,7 @@ def _load_webhook() -> str | None:
                     continue
                 if "=" in line:
                     k, vv = line.split("=", 1)
-                    if k.strip() == DISCORD_WEBHOOK_ENV:
+                    if k.strip() == key:
                         return vv.strip().strip('"').strip("'")
         except OSError:
             pass
@@ -1312,9 +1331,31 @@ def _source_text(entry: dict) -> str:
     return "\n\n".join(str(v.get("text") or "") for v in raw.values() if isinstance(v, dict))
 
 
+def _published_summaries(out_path: Path, eligible: set[str]) -> dict:
+    """Summaries already in out_path for filings still eligible in the pulse.
+
+    The cache is per machine and can be cleared, so a publish from a cold cache
+    (new laptop, cache deleted) would otherwise wipe what is already live. Only
+    entries written under the current dashboard prompt are carried over.
+    """
+    try:
+        prev = json.loads(out_path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+    if not isinstance(prev, dict) or prev.get("promptVersion") != DASHBOARD_PROMPT_VERSION:
+        return {}
+    items = prev.get("summaries") or {}
+    return {fid: v for fid, v in items.items() if fid in eligible and isinstance(v, dict)}
+
+
 def _publish_dashboard(pulse: dict, cache: dict, out_path: Path) -> dict:
-    """Write number-checked summaries for eligible filings still in the pulse window."""
-    summaries: dict = {}
+    """Write number-checked summaries for eligible filings still in the pulse window.
+
+    A fresh cache entry wins; otherwise a summary already published for a filing
+    still in the window is kept, so cache loss never shrinks the live file.
+    """
+    eligible = {str(f.get("_id")) for f in pulse.get("filings") or [] if _dashboard_eligible(f)}
+    summaries: dict = _published_summaries(out_path, eligible)
     held = {"unverifiable": 0, "all_dropped": 0}
     for f in pulse.get("filings") or []:
         if not _dashboard_eligible(f):
