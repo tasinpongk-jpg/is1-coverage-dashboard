@@ -1348,7 +1348,7 @@ html.theme-changing *,html.theme-changing *::before,html.theme-changing *::after
   background:#fff;
   box-shadow:0 0 0 1px rgba(15,23,42,.10),0 1px 2px rgba(15,23,42,.08);
 }
-.is1-rb-logo img { display:block; width:100%; height:100%; object-fit:contain; padding:4px; }
+.is1-rb-logo img { position:absolute; inset:0; display:block; width:100%; height:100%; box-sizing:border-box; object-fit:contain; object-position:center; padding:4px; }
 .is1-rb-logo em { display:none; }
 .is1-rb-logo.no-logo { background:var(--tone); box-shadow:none; }
 .is1-rb-logo.no-logo em { display:grid; place-items:center; width:100%; height:100%; color:#fff; font-size:11px; font-style:normal; font-weight:800; letter-spacing:.02em; }
