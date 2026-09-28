@@ -307,6 +307,8 @@ async def fetch_ticker_snapshot(client: httpx.AsyncClient, tk: str) -> Dict[str,
     # builds on a trading day, suspensions). Treating those as real prices
     # produces spurious -100% returns and zeroed sparklines.
     closes = [r.get("close") for r in rows if r.get("close")]
+    # Session date of each close, same filter, so path[i] traded on pathDates[i].
+    close_dates = [str(r.get("date") or "")[:10] for r in rows if r.get("close")]
     vols   = [r.get("totalVolume") for r in rows if r.get("totalVolume")]
     today_iso = datetime.now(timezone.utc).astimezone().date().isoformat()
     year_str  = today_iso[:4]
@@ -352,6 +354,8 @@ async def fetch_ticker_snapshot(client: httpx.AsyncClient, tk: str) -> Dict[str,
         "filings": None,
         "hi52": hi52, "lo52": lo52,
         "path": closes[-20:],
+        # company-summary.html pins SET filings to these sessions on the price line.
+        "pathDates": close_dates[-20:],
     }
 
 

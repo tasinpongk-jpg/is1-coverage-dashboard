@@ -65,9 +65,31 @@
   .loading { text-align: center; padding: 60px; color: var(--muted); }
   .summary-bar { display: flex; gap: 16px; padding: 8px 20px; border-bottom: 1px solid var(--border); font-size: 11px; color: var(--muted); }
   .summary-bar strong { color: var(--text); }
+
+  /* Book treemap: each box is a ticker sized by market cap and shaded by the
+     selected return, grouped by sector. */
+  .tm { margin: 14px 20px; padding: 12px 14px 14px; background: var(--card); border: 1px solid var(--border); border-radius: 10px; }
+  .tm-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 10px; }
+  .tm-head strong { font-size: 13px; }
+  .tm-head span { color: var(--muted); font-size: 11px; }
+  .tm-metric { display: flex; gap: 2px; padding: 2px; border: 1px solid var(--border); border-radius: 7px; }
+  .tm-metric button { border: 0; background: none; color: var(--muted); font: inherit; font-size: 11px; font-weight: 600; padding: 3px 10px; border-radius: 5px; cursor: pointer; }
+  .tm-metric button.active { color: var(--text); background: color-mix(in srgb, var(--accent) 16%, transparent); }
+  .tm-box { position: relative; height: 380px; }
+  .tm-sector { position: absolute; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; background: var(--bg); }
+  .tm-sector > b { position: absolute; left: 6px; top: 1px; font-size: 10px; letter-spacing: .05em; color: var(--muted); white-space: nowrap; }
+  .tm-cell { position: absolute; display: flex; flex-direction: column; align-items: center; justify-content: center; overflow: hidden; border: 1px solid var(--card); border-radius: 3px; color: var(--text); text-decoration: none; line-height: 1.15; transition: filter .12s; }
+  .tm-cell:hover { filter: brightness(1.12); z-index: 1; outline: 1px solid var(--text); }
+  .tm-cell b { font-size: 11px; }
+  .tm-cell i { font-style: normal; font-size: 10px; font-variant-numeric: tabular-nums; opacity: .85; }
+  .tm-cell.sm i { display: none; }
+  .tm-cell.xs b, .tm-cell.xs i { display: none; }
+  .tm-scale { display: flex; align-items: center; gap: 6px; margin-top: 8px; color: var(--muted); font-size: 10px; }
+  .tm-scale div { width: 160px; height: 7px; border-radius: 4px; background: linear-gradient(90deg, var(--red), color-mix(in srgb, var(--muted) 30%, var(--card)), var(--green)); }
+  @media (max-width: 720px) { .tm { margin: 12px; } .tm-box { height: 300px; } }
 </style>
   <script src="theme.js?v=8"></script>
-  <link rel="stylesheet" href="theme.css?v=8">
+  <link rel="stylesheet" href="theme.css?v=9">
   <script src="i18n.js?v=9"></script>
 
 </head>
@@ -107,6 +129,8 @@
 </div>
 
 <div class="summary-bar" id="summaryBar"></div>
+
+<section class="tm" id="treemap" hidden></section>
 
 <div class="table-wrap">
   <div class="loading" id="loading" data-i18n="common.fetchingData">Fetching data…</div>
@@ -258,7 +282,105 @@ function render() {
       <td>${r.filings ? `<span style="color:var(--yellow)">⚡ ${r.filings}</span>` : '<span class="neu">—</span>'}</td>
       <td>${sparkSvg(r.path)}</td>
     </tr>`).join('');
+  renderTreemap();
 }
+
+
+// ── Book treemap ─────────────────────────────────────────────────────────────
+// Box area = market cap (ticker-summary.json, THB), colour = selected return
+// from morning-brief.json. Colour saturates at the cap for each horizon.
+let MCAP = null, tmMetric = 'pct1d';
+const TM_METRICS = [['pct1d', '1D', 5], ['pct5d', '5D', 10], ['pctMtd', 'MTD', 15], ['pctYtd', 'YTD', 30]];
+fetch('./data/ticker-summary.json').then(r => r.ok ? r.json() : null).then(d => {
+  MCAP = {};
+  (d?.tickers || []).forEach(t => { if (t.mktcap > 0) MCAP[t.tk] = t.mktcap; });
+  if (TICKERS.length) renderTreemap();
+}).catch(() => {});
+
+function squarify(items, x, y, w, h) {
+  const out = [];
+  const total = items.reduce((s, i) => s + i.v, 0);
+  if (!total || w <= 0 || h <= 0) return out;
+  let rest = items.map(i => ({ ...i, a: i.v * w * h / total }));
+  const worst = (row, side) => {
+    const s = row.reduce((t, r) => t + r.a, 0);
+    const mx = Math.max(...row.map(r => r.a)), mn = Math.min(...row.map(r => r.a));
+    return Math.max(side * side * mx / (s * s), (s * s) / (side * side * mn));
+  };
+  while (rest.length) {
+    const side = Math.min(w, h);
+    let n = 1;
+    while (n < rest.length && worst(rest.slice(0, n + 1), side) <= worst(rest.slice(0, n), side)) n++;
+    const row = rest.slice(0, n), s = row.reduce((t, r) => t + r.a, 0);
+    if (w >= h) {
+      const cw = s / h; let cy = y;
+      row.forEach(r => { const rh = r.a / cw; out.push({ ...r, x, y: cy, w: cw, h: rh }); cy += rh; });
+      x += cw; w -= cw;
+    } else {
+      const rh = s / w; let cx = x;
+      row.forEach(r => { const rw = r.a / rh; out.push({ ...r, x: cx, y, w: rw, h: rh }); cx += rw; });
+      y += rh; h -= rh;
+    }
+    rest = rest.slice(n);
+  }
+  return out;
+}
+
+function tmColor(v, cap) {
+  if (v == null) return 'color-mix(in srgb, var(--muted) 18%, var(--card))';
+  const k = Math.min(1, Math.abs(v) / cap);
+  const pctMix = Math.round(14 + k * 66);
+  return `color-mix(in srgb, ${v >= 0 ? 'var(--green)' : 'var(--red)'} ${v === 0 ? 0 : pctMix}%, color-mix(in srgb, var(--muted) 18%, var(--card)))`;
+}
+
+function renderTreemap() {
+  const host = document.getElementById('treemap');
+  if (!MCAP) return;
+  const isThai = window.I18N && I18N.lang === 'th';
+  const L = (en, th) => isThai ? th : en;
+  const scope = TICKERS.filter(t => (activeRm === 'ALL' || t.rm === activeRm) && (activeSector === 'ALL' || t.sector === activeSector));
+  const sized = scope.filter(t => MCAP[t.tk]);
+  if (!sized.length) { host.hidden = true; return; }
+  host.hidden = false;
+  const [, mLabel, cap] = TM_METRICS.find(m => m[0] === tmMetric);
+  const groups = {};
+  sized.forEach(t => { (groups[t.sector] = groups[t.sector] || []).push({ tk: t.tk, sector: t.sector, v: MCAP[t.tk] }); });
+  const sectors = Object.entries(groups).map(([sec, items]) => ({ sec, items: items.sort((a, b) => b.v - a.v), v: items.reduce((s, i) => s + i.v, 0) }))
+    .sort((a, b) => b.v - a.v);
+  const totalBn = sectors.reduce((s, g) => s + g.v, 0) / 1e9;
+  host.innerHTML = `
+    <div class="tm-head">
+      <div><strong>${esc(L('Book map', 'แผนที่พอร์ต'))}</strong>
+        <span> · ${sized.length} ${esc(L('names', 'บริษัท'))} · ${esc(L('market cap', 'มูลค่าตลาด'))} THB ${Math.round(totalBn).toLocaleString('en-US')} bn${scope.length > sized.length ? ` · ${scope.length - sized.length} ${esc(L('without market cap', 'ไม่มีมูลค่าตลาด'))}` : ''}</span></div>
+      <div class="tm-metric" role="tablist">${TM_METRICS.map(([k, lab]) => `<button type="button" role="tab" data-tm="${k}" class="${k === tmMetric ? 'active' : ''}" aria-selected="${k === tmMetric}">${lab}</button>`).join('')}</div>
+    </div>
+    <div class="tm-box" id="tmBox"></div>
+    <div class="tm-scale"><span>−${cap}%</span><div></div><span>+${cap}%</span><span>· ${esc(L('box size = market cap, colour = ' + mLabel + ' return', 'ขนาด = มูลค่าตลาด, สี = ผลตอบแทน ' + mLabel))}</span></div>`;
+  const box = document.getElementById('tmBox');
+  const W = box.clientWidth, H = box.clientHeight, HEAD = 15;
+  const fmt = v => v == null ? '—' : (v > 0 ? '+' : '') + v.toFixed(2) + '%';
+  box.innerHTML = squarify(sectors, 0, 0, W, H).map(g => {
+    const pad = 2;
+    const cells = squarify(g.items, pad, HEAD, g.w - pad * 2, g.h - HEAD - pad).map(c => {
+      const b = BRIEF_BY_TK[c.tk] || {};
+      const v = b[tmMetric];
+      const size = c.w < 40 || c.h < 18 ? ' xs' : c.w < 60 || c.h < 32 ? ' sm' : '';
+      const tip = `${c.tk} · ${c.sector} · ${b.last != null ? b.last.toFixed(2) + ' THB' : '—'} · ${mLabel} ${fmt(v)} · ${L('market cap', 'มูลค่าตลาด')} THB ${Math.round(c.v / 1e6).toLocaleString('en-US')} mn`;
+      return `<a class="tm-cell${size}" href="company-summary.html?tk=${encodeURIComponent(c.tk)}" title="${esc(tip)}" style="left:${c.x.toFixed(1)}px;top:${c.y.toFixed(1)}px;width:${c.w.toFixed(1)}px;height:${c.h.toFixed(1)}px;background:${tmColor(v, cap)}"><b>${esc(c.tk)}</b><i>${fmt(v)}</i></a>`;
+    }).join('');
+    return `<div class="tm-sector" style="left:${g.x.toFixed(1)}px;top:${g.y.toFixed(1)}px;width:${g.w.toFixed(1)}px;height:${g.h.toFixed(1)}px"><b>${esc(g.sec)}</b>${cells}</div>`;
+  }).join('');
+}
+document.getElementById('treemap').addEventListener('click', e => {
+  const k = e.target.closest('[data-tm]')?.dataset.tm;
+  if (k) { tmMetric = k; renderTreemap(); }
+});
+let tmW = 0;
+new ResizeObserver(entries => {
+  const w = Math.round(entries[0].contentRect.width);
+  if (w !== tmW) { tmW = w; if (MCAP && TICKERS.length) renderTreemap(); }
+}).observe(document.getElementById('treemap'));
+function esc(s) { return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
 
 document.querySelectorAll('th[data-key]').forEach(th => {
   th.addEventListener('click', () => {
@@ -321,7 +443,7 @@ window.addEventListener('i18n:change', () => {
   }
 });
 </script>
-<script src="nav.js?v=9" defer></script>
+<script src="nav.js?v=10" defer></script>
 <script src="chat-dock.js?v=8" defer></script>
 </body>
 </html>

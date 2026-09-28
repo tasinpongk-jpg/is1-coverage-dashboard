@@ -100,6 +100,7 @@ def _pct(curr, base):
 def process_eod(rows: list[dict]) -> dict:
     rows = sorted(rows, key=lambda r: r.get("date") or "")
     closes = [r["close"] for r in rows if r.get("close")]
+    close_dates = [str(r.get("date") or "")[:10] for r in rows if r.get("close")]
     vols   = [r["totalVolume"] for r in rows if r.get("totalVolume")]
     if not closes: return {"_eod_err": True}
     last = closes[-1]
@@ -127,6 +128,8 @@ def process_eod(rows: list[dict]) -> dict:
         "pe": last_row.get("pe"), "pbv": last_row.get("pbv"),
         "dy": last_row.get("dividendYield"), "mktcap": last_row.get("marketCap"),
         "bvps": last_row.get("bvps"), "sparkline": closes[-20:],
+        # Session date of each sparkline close; the company drawer pins SET filings to them.
+        "sparklineDates": close_dates[-20:],
         "volRatio": round(last_vol / avg_vol, 2) if last_vol and avg_vol else None,
     }
 
