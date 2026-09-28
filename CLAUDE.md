@@ -125,7 +125,9 @@ after `git pull` plus a manual copy, e.g.
 
 Both bond snapshots are monthly by design (`bond-refresh.yml` on the 1st,
 ThaiBMA with no key; laptop cron `is1-sec-bonds-monthly` for `sec-bonds.json`),
-so their freshness thresholds are 35/45 days, not 7/14.
+so their freshness thresholds are 35/45 days, not 7/14. `oppday-minutes.json`
+changes only after an Opp Day season (45/100), and `source-coverage.json` is a
+by-hand quarterly harvest planning file no page reads (100/120).
 
 ### Commit + push (triggers Cloudflare Pages auto-deploy)
 ```bash
@@ -262,8 +264,9 @@ window and was written under the current `DASHBOARD_PROMPT_VERSION`, and an
 alert `PROMPT_VERSION` bump clears only alert entries.
 
 **Daily vault snapshot job.** `scripts/vault_notes_cron.py` rebuilds
-`data/vault-ticker-notes.json` and pushes it to main (only from main, only when
-it changed). `bootstrap_cron.py` installs it into the Hermes scripts folder; it
+`data/vault-ticker-notes.json` and `data/oppday-minutes.json` and pushes them to
+main in one commit (only from main, only what changed). An oppday failure is
+reported (exit 1) but never blocks the vault notes push. `bootstrap_cron.py` installs it into the Hermes scripts folder; it
 finds the repo on its own (`IS1_REPO`, else its own repo, else the laptop
 default), so a plain copy works. Schedule it once a day before the 08:30
 freshness check, e.g. `15 8 * * 1-5` BKK, no-agent. Exit 2 means the vault path
