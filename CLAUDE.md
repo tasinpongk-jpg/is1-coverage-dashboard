@@ -118,7 +118,14 @@ when something is stale. The script is copied to `~/AppData/Local/hermes/scripts
 **pre-commit hook** (`scripts/_pre_commit_hook.sh`, installed at
 `.git/hooks/pre-commit`) auto-syncs any staged `scripts/*.py` whose basename
 matches an already-deployed file. Edit the script in the repo, commit,
-and the AppData copy updates automatically — no manual step.
+and the AppData copy updates automatically — but only for commits made on the
+laptop. A change merged from GitHub (a cloud session, a PR) reaches AppData only
+after `git pull` plus a manual copy, e.g.
+`cp scripts/check_snapshot_freshness.py "$LOCALAPPDATA/hermes/scripts/"`.
+
+Both bond snapshots are monthly by design (`bond-refresh.yml` on the 1st,
+ThaiBMA with no key; laptop cron `is1-sec-bonds-monthly` for `sec-bonds.json`),
+so their freshness thresholds are 35/45 days, not 7/14.
 
 ### Commit + push (triggers Cloudflare Pages auto-deploy)
 ```bash
