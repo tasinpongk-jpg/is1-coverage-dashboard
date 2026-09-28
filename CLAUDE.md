@@ -45,10 +45,9 @@ Discord alert and pushes it when `IS1_FILING_SUMMARY_PUSH=1`.
 **The single biggest drift risk is `vault-ticker-notes.json`** — it has no CI
 trigger (daily.yml runs the builder, but the vault is not on the runner, so it
 is a no-op there). The laptop cron `scripts/vault_notes_cron.py` rebuilds and
-pushes it once a day; if the freshness alert flags it, that cron stopped. It only rebuilds when someone runs the script locally on a laptop
-that has the OneDrive vault. Current `generated` timestamp is in the JSON
-itself; if it's >7 days old, the MD&A / Notes tabs on `company-summary.html`
-are stale.
+pushes it once a day; if the freshness alert flags it, that cron stopped.
+Current `generated` timestamp is in the JSON itself; if it's >7 days old, the
+MD&A / Notes tabs on `company-summary.html` are stale.
 
 ---
 
@@ -153,7 +152,7 @@ python scripts/build_daily_brief.py
 5. **Period strings compare lexicographically.** `'2024Q3' < '2025FY' < '2026Q1'`
    is correct — do not reach for `datetime` parsing.
 6. **`vault-ticker-notes.json` is the silent-staleness trap.** No CI
-   trigger. Always check its `generated` field before trusting the
+   trigger; only the laptop cron rebuilds it. Always check its `generated` field before trusting the
    `company-summary.html` drawer content.
 7. **PFREIT bucket has no upstream parent / no Note 5 subsidiary table.**
    47 tickers. Filter out before any Note-5 / shareholder extraction. List
