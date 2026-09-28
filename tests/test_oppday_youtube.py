@@ -72,7 +72,8 @@ class TestRun(unittest.TestCase):
         self.cov.stop()
 
     def _args(self, **kw):
-        base = dict(url="u", period="q2y2026", list=False, only=None, limit=0, force=False, dry_run=False)
+        base = dict(url="u", period="q2y2026", list=False, only=None, limit=0, force=False, dry_run=False,
+                    assign=None)
         base.update(kw)
         return argparse.Namespace(**base)
 
@@ -111,7 +112,40 @@ class TestRun(unittest.TestCase):
         self.assertFalse((self.tmp / oy.REPORTS_DIR).exists())
 
 
+class TestJointAndFiscal(TestRun):
+    def test_assign_makes_one_report_per_ticker_with_its_own_focus(self):
+        prompts = []
+        lister = lambda url: [{"id": "j1", "title": "Opp Day Q2/2026 TU CPN joint"}]
+        fetcher = lambda vid: (TRANSCRIPT, {"upload_date": "20260912", "title": "Opp Day Q2/2026 TU CPN joint"})
+        chat = lambda system, user, **k: prompts.append(user) or fake_report("รายได้ 1,200 ล้านบาท")
+        self.assertEqual(oy.run(self._args(assign=["j1=TU,CPN"]), lister=lister, fetcher=fetcher, chat=chat), 0)
+        for tk in ("TU", "CPN"):
+            self.assertTrue((self.tmp / oy.REPORTS_DIR / f"{tk}_oppday_q2y2026_summary.md").is_file())
+        self.assertIn("นำเสนอร่วมกับ CPN", prompts[0])
+        self.assertIn("นำเสนอร่วมกับ TU", prompts[1])
+
+    def test_assign_rejects_non_coverage_ticker(self):
+        self.assertEqual(oy.run(self._args(assign=["j1=PTT"]), lister=lambda u: [], chat=lambda *a, **k: ""), 1)
+
+    def test_own_fiscal_period_goes_in_the_date_line(self):
+        seen = []
+        lister = lambda url: [{"id": "k1", "title": "Opp Day 9M/2026 (TU)"}]
+        fetcher = lambda vid: (TRANSCRIPT, {"upload_date": "20260912", "title": "Opp Day 9M/2026 (TU)"})
+        chat = lambda system, user, **k: seen.append(system) or fake_report("รายได้ 1,200 ล้านบาท")
+        oy.run(self._args(), lister=lister, fetcher=fetcher, chat=chat)
+        self.assertIn("**วันที่:** ผลประกอบการ 9M/2569 (12 กันยายน 2569)", seen[0])
+        self.assertTrue((self.tmp / oy.REPORTS_DIR / "TU_oppday_q2y2026_summary.md").is_file(),
+                        "file stays under the season code so the builder groups the season")
+
+
 class TestPeriod(unittest.TestCase):
+    def test_title_period(self):
+        self.assertEqual(oy.title_period("KTIS Opp Day 9M/2026"), "9M/2569")
+        self.assertEqual(oy.title_period("GVREIT Q3/2026"), "Q3/2569")
+        self.assertEqual(oy.title_period("EPG Q1 2026/2027"), "Q1/2569/2570")
+        self.assertEqual(oy.title_period("ผลประกอบการ Q2/2569"), "Q2/2569")
+        self.assertIsNone(oy.title_period("Opportunity Day (TU)"))
+
     def test_be_labels(self):
         self.assertEqual(oy.period_be("q2y2026"), "Q2/2569")
         self.assertEqual(oy.period_be("ye2025"), "ปีเต็ม 2568")
