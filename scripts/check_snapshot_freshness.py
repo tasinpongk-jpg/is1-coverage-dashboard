@@ -104,8 +104,10 @@ SNAPSHOTS = [
     {"file": "harvest-queue.json",      "label": "harvest-queue",
      "fields": ["generated", "_built_at"], "warn": 30, "stale": 60,
      "optional": True},  # harvest pipeline's local queue; never committed
+    # Rebuilt daily by vault_notes_cron.py but only rewritten when a new Opp Day
+    # summary lands, which is quarterly (after results season).
     {"file": "oppday-minutes.json",     "label": "oppday",
-     "fields": ["generated", "_built_at"], "warn": 14, "stale": 30},
+     "fields": ["generated", "_built_at"], "warn": 45, "stale": 100},
     # Monthly by design: laptop cron is1-sec-bonds-monthly (run_sec_bonds_monthly.sh).
     {"file": "sec-bonds.json",          "label": "sec-bonds",
      "fields": ["_built_at", "asOf"], "warn": 35, "stale": 45},
@@ -115,8 +117,9 @@ SNAPSHOTS = [
      "fields": ["_built_at", "asOf"]},
     {"file": "sector-heatmap.json",     "label": "heatmap",
      "fields": ["_built_at", "asOf"]},
+    # Harvest planning file, no page reads it; run by hand once per quarter.
     {"file": "source-coverage.json",    "label": "src-cov",
-     "fields": ["generated", "_built_at"], "warn": 14, "stale": 30},
+     "fields": ["generated", "_built_at"], "warn": 100, "stale": 120},
     {"file": "source-health.json",      "label": "src-health",
      "fields": ["asOf", "_built_at"]},
     {"file": "ticker-summary.json",     "label": "ticker-sum",
