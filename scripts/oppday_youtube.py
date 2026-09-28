@@ -320,9 +320,13 @@ def run(args, *, lister=list_playlist, fetcher=fetch_captions, chat=None) -> int
         return 0
 
     if chat is None and not args.dry_run:
+        # setx writes HKCU but running shells (Hermes) keep their old env;
+        # fill in the missing variables from the registry, as the cron shim does.
+        from cron_shim import _load_user_env
+        _load_user_env()
         import minimax_chat
         if not minimax_chat.available():
-            print(f"{TAG} MINIMAX_API_KEY not set", file=sys.stderr)
+            print(f"{TAG} MINIMAX_API_KEY not set (process env or HKCU\\Environment)", file=sys.stderr)
             return 1
         chat = minimax_chat.chat
 

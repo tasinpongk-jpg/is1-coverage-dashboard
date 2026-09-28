@@ -138,6 +138,19 @@ class TestJointAndFiscal(TestRun):
                         "file stays under the season code so the builder groups the season")
 
 
+class TestKeyFromRegistry(TestRun):
+    def test_missing_key_is_filled_before_the_check(self):
+        import cron_shim
+        lister = lambda url: [{"id": "v1", "title": "Opp Day Q2/2026 (TU)"}]
+        fetcher = lambda vid: ("x", {})
+        with mock.patch.dict(os.environ, {"MINIMAX_API_KEY": ""}), \
+             mock.patch.object(cron_shim, "_load_user_env",
+                               side_effect=lambda: os.environ.__setitem__("MINIMAX_API_KEY", "k")) as load:
+            rc = oy.run(self._args(limit=1), lister=lister, fetcher=fetcher)
+        load.assert_called_once()
+        self.assertEqual(rc, 0, "key found after the registry fill, so the run proceeds")
+
+
 class TestPeriod(unittest.TestCase):
     def test_title_period(self):
         self.assertEqual(oy.title_period("KTIS Opp Day 9M/2026"), "9M/2569")
