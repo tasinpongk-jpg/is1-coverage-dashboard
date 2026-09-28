@@ -17,6 +17,7 @@ Usage (laptop; needs yt-dlp, MINIMAX_API_KEY and the OneDrive vault):
   python scripts/oppday_youtube.py URL --period q2y2026 --limit 5   # first 5 new videos
   python scripts/oppday_youtube.py URL --period q2y2026             # all new videos
   options: --only TU,CPN   --force (redo existing)   --dry-run (no writes, no M3)
+           --assign VIDEO_ID=KBS,KBSPIF  (joint session or ambiguous title: one report per ticker)
 
 Rules carried from CLAUDE.md: no number the speaker did not say. After
 summarising, every number in the report is checked against the transcript
@@ -197,6 +198,29 @@ def period_be(period: str) -> str:
     return f"ปีเต็ม {int(m.group(1)) + 543}" if m else period.upper()
 
 
+_TITLE_PERIOD = re.compile(
+    r"\b(Q[1-4]|[369]M|H[12]|YE|FY)\s*/?\s*((?:25|20)\d{2})(?:\s*/\s*((?:25|20)\d{2}))?", re.I)
+
+
+def title_period(title: str) -> str | None:
+    """The company's own period as printed in the title, in BE: Q3/2569,
+    9M/2569, Q1/2569/2570. None when the title carries no period.
+
+    Companies with a non-calendar fiscal year (KTIS, EPG, the REITs) present
+    their own quarter during the calendar Q2 season, so the season code alone
+    would mislabel them."""
+    m = _TITLE_PERIOD.search(title or "")
+    if not m:
+        return None
+    be = lambda y: str(int(y) + 543 if int(y) < 2500 else int(y))
+    label = f"{m.group(1).upper()}/{be(m.group(2))}"
+    return label + (f"/{be(m.group(3))}" if m.group(3) else "")
+
+
+def period_label_for(title: str, period: str) -> str:
+    return title_period(title) or period_be(period)
+
+
 def numbers_in(text: str) -> list[str]:
     return re.findall(r"\d[\d,]*(?:\.\d+)?", text)
 
@@ -218,16 +242,19 @@ def check_numbers(summary: str, transcript: str) -> tuple[list[str], int]:
 
 def transcript_note(tk: str, period: str, video_id: str, title: str, meta: dict, text: str) -> str:
     fetched = datetime.now(timezone.utc).isoformat(timespec="seconds")
-    return (f"---\nticker: {tk}\nperiod: {period_be(period)}\nsource: youtube-captions\n"
+    return (f"---\nticker: {tk}\nperiod: {period_label_for(title, period)}\nsource: youtube-captions\n"
             f"video_id: {video_id}\nurl: https://www.youtube.com/watch?v={video_id}\n"
             f"upload_date: {meta.get('upload_date', '')}\nfetched: {fetched}\n---\n\n"
             f"# {title}\n\n{text}\n")
 
 
-def summarise(tk: str, period: str, meta: dict, transcript: str, chat) -> str:
-    date_line = f"ผลประกอบการ {period_be(period)} ({be_date(meta.get('upload_date', ''))})"
+def summarise(tk: str, period: str, meta: dict, transcript: str, chat, others: list[str] | None = None) -> str:
+    label = period_label_for(meta.get("title", ""), period)
+    date_line = f"ผลประกอบการ {label} ({be_date(meta.get('upload_date', ''))})"
     system = SYSTEM_PROMPT.replace("{TICKER}", tk).replace("{DATE_LINE}", date_line)
-    user = f"ชื่อคลิป: {meta.get('title', '')}\n\nคำถอดเสียง:\n{trim_middle(transcript)}"
+    joint = (f"คลิปนี้เป็นการนำเสนอร่วมกับ {', '.join(others)} ให้สรุปเฉพาะข้อมูลของ {tk} "
+             f"ถ้าผู้พูดไม่ได้แยกข้อมูลของ {tk} ให้เขียนว่า ไม่ระบุ\n\n") if others else ""
+    user = f"{joint}ชื่อคลิป: {meta.get('title', '')}\n\nคำถอดเสียง:\n{trim_middle(transcript)}"
     text = chat(system, user, max_tokens=6000, temperature=0.2)
     return text.strip() + "\n"
 
@@ -252,23 +279,44 @@ def run(args, *, lister=list_playlist, fetcher=fetch_captions, chat=None) -> int
         return 2
     coverage = load_coverage()
     only = {t.strip().upper() for t in (args.only or "").split(",") if t.strip()}
+    assign: dict[str, list[str]] = {}
+    for spec in args.assign or []:
+        vid, _, tks = spec.partition("=")
+        picked = [t.strip().upper() for t in tks.split(",") if t.strip()]
+        bad = [t for t in picked if t not in coverage]
+        if not vid or not picked or bad:
+            print(f"{TAG} bad --assign {spec!r}" + (f": not coverage {bad}" if bad else ""), file=sys.stderr)
+            return 1
+        assign[vid.strip()] = picked
     entries = lister(args.url)
     matched, skipped = [], {"not in coverage": 0}
     for e in entries:
+        if e["id"] in assign:
+            # Joint session or ambiguous title, resolved by hand: one report per ticker.
+            group = assign[e["id"]]
+            for tk in group:
+                if not only or tk in only:
+                    matched.append((tk, dict(e, others=[t for t in group if t != tk])))
+            continue
         tk, why = match_title(e["title"], coverage)
         if tk and (not only or tk in only):
             matched.append((tk, e))
         elif why.startswith("ambiguous"):
-            print(f"{TAG} AMBIGUOUS {e['id']} {e['title']} -> {why}")
+            print(f"{TAG} AMBIGUOUS {e['id']} {e['title']} -> {why}  "
+                  f"(resolve with --assign {e['id']}=TICKER[,TICKER])")
         else:
             skipped["not in coverage"] += 1
     print(f"{TAG} playlist {len(entries)} videos; coverage matches {len(matched)}; "
           f"not ours {skipped['not in coverage']}")
     if args.list:
+        season = period_be(args.period)
         for tk, e in matched:
-            print(f"{tk}\t{e['id']}\t{e['title']}")
+            own = title_period(e["title"])
+            note = f"\tperiod {own}" if own and own != season else ""
+            print(f"{tk}\t{e['id']}\t{e['title']}{note}")
         missing = sorted(coverage - {tk for tk, _ in matched})
         print(f"{TAG} coverage tickers with no video: {len(missing)}")
+        print(", ".join(missing))
         return 0
 
     if chat is None and not args.dry_run:
@@ -303,7 +351,8 @@ def run(args, *, lister=list_playlist, fetcher=fetch_captions, chat=None) -> int
                 continue
             tpath.parent.mkdir(parents=True, exist_ok=True)
             tpath.write_text(transcript_note(tk, args.period, e["id"], e["title"], meta, text), encoding="utf-8")
-            summary, held, untraced = finalise(summarise(tk, args.period, meta, text, chat), text)
+            summary, held, untraced = finalise(
+                summarise(tk, args.period, meta, text, chat, e.get("others")), text)
             report.parent.mkdir(parents=True, exist_ok=True)
             (review if held else report).write_text(summary, encoding="utf-8")
             stats["held" if held else "published"] += 1
@@ -321,6 +370,8 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--period", required=True, help="file period code, e.g. q2y2026 or ye2025")
     p.add_argument("--list", action="store_true", help="match titles to coverage only; no downloads")
     p.add_argument("--only", help="comma-separated tickers")
+    p.add_argument("--assign", action="append", metavar="VIDEO_ID=TK[,TK]",
+                   help="process a joint-session or ambiguous video for these tickers (repeatable)")
     p.add_argument("--limit", type=int, default=0, help="max new videos this run")
     p.add_argument("--force", action="store_true", help="redo tickers that already have a report")
     p.add_argument("--dry-run", action="store_true", help="show what would run; no downloads or writes")
