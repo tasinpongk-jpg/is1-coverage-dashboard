@@ -32,7 +32,7 @@ These drive every HTML page and the chat dock. If any is stale, the dashboard is
 | `data/disclosure-pulse.json` | SET surveillance R2 DB | `index.html`, `disclosure-pulse.html` | `scripts/build_daily.py` | daily.yml |
 | `data/morning-brief.json` | SETSMART prices + TA engine | `index.html`, Discord push | `scripts/build_daily_brief.py` | daily.yml |
 | `data/company-reports.json` | in-session LLM synthesis | `company-summary.html` hero | `scripts/build_company_reports.py` | manual |
-| `data/vault-ticker-notes.json` | OneDrive Obsidian vault | `company-summary.html` drawer | `scripts/build_vault_ticker_notes.py` | workflow_dispatch only |
+| `data/vault-ticker-notes.json` | OneDrive Obsidian vault | `company-summary.html` drawer | `scripts/build_vault_ticker_notes.py` | laptop cron `scripts/vault_notes_cron.py` (daily) |
 | `data/filing-summaries.json` | SET filing PDFs → MiniMax M3 (laptop cron) | home newsroom, `company-summary.html` drawer, `disclosure-pulse.html` | `scripts/enrich_filing.py --dashboard` | laptop cron only |
 
 `filing-summaries.json` covers every coverage ticker, Critical + Material
@@ -43,7 +43,9 @@ refreshes from the laptop: `scripts/enrich_filing_cron.py` runs it after the
 Discord alert and pushes it when `IS1_FILING_SUMMARY_PUSH=1`.
 
 **The single biggest drift risk is `vault-ticker-notes.json`** — it has no CI
-trigger. It only rebuilds when someone runs the script locally on a laptop
+trigger (daily.yml runs the builder, but the vault is not on the runner, so it
+is a no-op there). The laptop cron `scripts/vault_notes_cron.py` rebuilds and
+pushes it once a day; if the freshness alert flags it, that cron stopped. It only rebuilds when someone runs the script locally on a laptop
 that has the OneDrive vault. Current `generated` timestamp is in the JSON
 itself; if it's >7 days old, the MD&A / Notes tabs on `company-summary.html`
 are stale.
@@ -252,3 +254,12 @@ shim fills in the variables above from the registry when they are missing.
 summary already in `data/filing-summaries.json` whose filing is still in the pulse
 window and was written under the current `DASHBOARD_PROMPT_VERSION`, and an
 alert `PROMPT_VERSION` bump clears only alert entries.
+
+**Daily vault snapshot job.** `scripts/vault_notes_cron.py` rebuilds
+`data/vault-ticker-notes.json` and pushes it to main (only from main, only when
+it changed). `bootstrap_cron.py` installs it into the Hermes scripts folder; it
+finds the repo on its own (`IS1_REPO`, else its own repo, else the laptop
+default), so a plain copy works. Schedule it once a day before the 08:30
+freshness check, e.g. `15 8 * * 1-5` BKK, no-agent. Exit 2 means the vault path
+was not found and nothing was rebuilt. Smoke test:
+`python scripts/vault_notes_cron.py --dry-run` (shows the diff, restores the file).
