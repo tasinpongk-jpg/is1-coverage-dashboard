@@ -165,16 +165,42 @@ def list_playlist(url: str) -> list[dict]:
     return [{"id": e["id"], "title": e.get("title") or ""} for e in data.get("entries") or [] if e.get("id")]
 
 
+class CaptionsBlocked(RuntimeError):
+    """yt-dlp could not read the video (bot check, rate limit, private)."""
+
+
+def caption_langs(meta: dict) -> tuple[list[str], list[str]]:
+    """(uploaded, auto) caption language codes YouTube lists for the video."""
+    return sorted((meta.get("subtitles") or {}).keys()), sorted((meta.get("automatic_captions") or {}).keys())
+
+
 def fetch_captions(video_id: str) -> tuple[str, dict]:
-    """Thai captions (uploaded first, then auto) as plain text, plus video metadata."""
+    """Thai captions (uploaded first, then auto) as plain text, plus video metadata.
+
+    Raises CaptionsBlocked when YouTube refuses the request, so a blocked run
+    is never reported as videos without captions. meta["_caption_note"] says
+    which tracks exist when there is no Thai one."""
     url = f"https://www.youtube.com/watch?v={video_id}"
     meta_proc = _ytdlp("-J", "--skip-download", url)
-    meta = json.loads(meta_proc.stdout) if meta_proc.returncode == 0 else {}
+    if meta_proc.returncode != 0:
+        raise CaptionsBlocked(meta_proc.stderr.strip().splitlines()[-1][:200] if meta_proc.stderr.strip()
+                              else f"yt-dlp exit {meta_proc.returncode}")
+    meta = json.loads(meta_proc.stdout)
+    subs, auto = caption_langs(meta)
+    if not any(l.startswith("th") for l in subs + auto):
+        meta["_caption_note"] = (f"no Thai track; uploaded={','.join(subs) or '-'} "
+                                 f"auto={','.join(a for a in auto if len(a) <= 3)[:60] or '-'}")
+        return "", meta
     with tempfile.TemporaryDirectory() as tmp:
-        _ytdlp("--skip-download", "--write-subs", "--write-auto-subs", "--sub-langs", "th.*,th",
-               "--sub-format", "vtt", "-o", str(Path(tmp) / "%(id)s.%(ext)s"), url)
+        proc = _ytdlp("--skip-download", "--write-subs", "--write-auto-subs", "--sub-langs", "th.*,th",
+                      "--sub-format", "vtt", "-o", str(Path(tmp) / "%(id)s.%(ext)s"), url)
         files = sorted(Path(tmp).glob(f"{video_id}*.vtt"), key=lambda p: ("orig" in p.name, p.name))
+        if not files and proc.returncode != 0:
+            raise CaptionsBlocked(proc.stderr.strip().splitlines()[-1][:200] if proc.stderr.strip()
+                                  else f"yt-dlp exit {proc.returncode}")
         text = parse_vtt(files[0].read_text(encoding="utf-8")) if files else ""
+    if not text:
+        meta["_caption_note"] = "Thai track listed but download returned nothing"
     return text, meta
 
 
@@ -320,9 +346,13 @@ def run(args, *, lister=list_playlist, fetcher=fetch_captions, chat=None) -> int
         return 0
 
     if chat is None and not args.dry_run:
+        # setx writes HKCU but running shells (Hermes) keep their old env;
+        # fill in the missing variables from the registry, as the cron shim does.
+        from cron_shim import _load_user_env
+        _load_user_env()
         import minimax_chat
         if not minimax_chat.available():
-            print(f"{TAG} MINIMAX_API_KEY not set", file=sys.stderr)
+            print(f"{TAG} MINIMAX_API_KEY not set (process env or HKCU\\Environment)", file=sys.stderr)
             return 1
         chat = minimax_chat.chat
 
@@ -347,7 +377,8 @@ def run(args, *, lister=list_playlist, fetcher=fetch_captions, chat=None) -> int
             meta.setdefault("title", e["title"])
             if len(text) < 500:
                 stats["no_captions"] += 1
-                print(f"{TAG} {tk}: no usable Thai captions ({len(text)} chars); skipped")
+                why = meta.get("_caption_note") or f"only {len(text)} chars"
+                print(f"{TAG} {tk}: no usable Thai captions ({why}); skipped")
                 continue
             tpath.parent.mkdir(parents=True, exist_ok=True)
             tpath.write_text(transcript_note(tk, args.period, e["id"], e["title"], meta, text), encoding="utf-8")
@@ -357,11 +388,18 @@ def run(args, *, lister=list_playlist, fetcher=fetch_captions, chat=None) -> int
             (review if held else report).write_text(summary, encoding="utf-8")
             stats["held" if held else "published"] += 1
             print(f"{TAG} {tk}: {'HELD for review' if held else 'written'}; untraced numbers {len(untraced)}")
+        except CaptionsBlocked as exc:
+            stats["blocked"] = stats.get("blocked", 0) + 1
+            print(f"{TAG} {tk}: YouTube refused the request: {exc}", file=sys.stderr)
+            if stats["blocked"] >= 3:
+                print(f"{TAG} stopping: 3 refusals in a row looks like a block; retry later", file=sys.stderr)
+                break
+            continue
         except Exception as exc:  # one bad video must not stop the batch
             stats["failed"] += 1
             print(f"{TAG} {tk}: failed: {exc}", file=sys.stderr)
     print(f"{TAG} done: {stats}")
-    return 1 if stats["failed"] else 0
+    return 1 if stats["failed"] or stats.get("blocked") else 0
 
 
 def main(argv: list[str] | None = None) -> int:
