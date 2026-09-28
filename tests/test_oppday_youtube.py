@@ -151,6 +151,34 @@ class TestKeyFromRegistry(TestRun):
         self.assertEqual(rc, 0, "key found after the registry fill, so the run proceeds")
 
 
+class TestCaptionDiagnostics(TestRun):
+    def _proc(self, rc=0, out="", err=""):
+        return mock.Mock(returncode=rc, stdout=out, stderr=err)
+
+    def test_blocked_request_raises_not_empty(self):
+        with mock.patch.object(oy, "_ytdlp", return_value=self._proc(1, err="ERROR: Sign in to confirm you're not a bot")):
+            with self.assertRaises(oy.CaptionsBlocked) as cm:
+                oy.fetch_captions("v1")
+        self.assertIn("not a bot", str(cm.exception))
+
+    def test_no_thai_track_is_named(self):
+        meta = '{"title": "t", "subtitles": {}, "automatic_captions": {"en": [], "ja": []}}'
+        with mock.patch.object(oy, "_ytdlp", return_value=self._proc(0, out=meta)):
+            text, m = oy.fetch_captions("v1")
+        self.assertEqual(text, "")
+        self.assertIn("no Thai track", m["_caption_note"])
+
+    def test_three_blocks_stop_the_batch(self):
+        calls = []
+        def fetcher(vid):
+            calls.append(vid)
+            raise oy.CaptionsBlocked("HTTP Error 429")
+        lister = lambda url: [{"id": f"v{i}", "title": f"Opp Day Q2/2026 ({tk})"} for i, tk in enumerate(["TU", "CPN", "AAI", "M"])]
+        rc = oy.run(self._args(), lister=lister, fetcher=fetcher, chat=lambda *a, **k: "")
+        self.assertEqual(rc, 1)
+        self.assertEqual(len(calls), 3)
+
+
 class TestPeriod(unittest.TestCase):
     def test_title_period(self):
         self.assertEqual(oy.title_period("KTIS Opp Day 9M/2026"), "9M/2569")
