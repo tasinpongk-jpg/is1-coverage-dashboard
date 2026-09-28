@@ -5,7 +5,8 @@ Idempotent. Run after cloning, or whenever the cron stops producing commits:
 
 1. Installs scripts/cron_shim.py as
    %LOCALAPPDATA%/hermes/scripts/enrich_filing_cron.py (the name the
-   is1-filing-alert cron runs).
+   is1-filing-alert cron runs), and scripts/vault_notes_cron.py as-is
+   (the daily vault snapshot job).
 2. Installs pypdf if it is missing.
 3. Reports whether each variable the job needs is set, in the process
    environment or in HKCU\\Environment. Never prints a value.
@@ -54,6 +55,10 @@ def main() -> int:
     dst = dst_dir / "enrich_filing_cron.py"
     shutil.copy2(SHIM_SRC, dst)
     print(f"[bootstrap] shim installed -> {dst}")
+    # Daily vault snapshot job: location-independent, so a plain copy works.
+    vault_dst = dst_dir / "vault_notes_cron.py"
+    shutil.copy2(REPO / "scripts" / "vault_notes_cron.py", vault_dst)
+    print(f"[bootstrap] vault job installed -> {vault_dst}")
     if REPO.resolve() != Path(r"C:\Users\Tasinpong\projects\is1-coverage-dashboard").resolve():
         print(f"[bootstrap] repo is at {REPO}; run: setx IS1_REPO \"{REPO}\"")
 
