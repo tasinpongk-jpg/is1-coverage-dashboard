@@ -18,6 +18,7 @@ Usage (laptop; needs yt-dlp, MINIMAX_API_KEY and the OneDrive vault):
   python scripts/oppday_youtube.py URL --period q2y2026             # all new videos
   options: --only TU,CPN   --force (redo existing)   --dry-run (no writes, no M3)
            --assign VIDEO_ID=KBS,KBSPIF  (joint session or ambiguous title: one report per ticker)
+           --pause 20 (seconds between videos)  --cookies-from-browser firefox | --cookies FILE
 
 Rules carried from CLAUDE.md: no number the speaker did not say. After
 summarising, every number in the report is checked against the transcript
@@ -34,6 +35,7 @@ import re
 import subprocess
 import sys
 import tempfile
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -153,8 +155,26 @@ def trim_middle(text: str, limit: int = MAX_TRANSCRIPT_CHARS) -> str:
     return text[:head] + "\n\n[... ตัดช่วงกลางออกเพื่อความยาว ...]\n\n" + text[-tail:]
 
 
+# Extra yt-dlp options for every call, e.g. ["--cookies-from-browser", "firefox"].
+# YouTube throttles unauthenticated caption downloads (HTTP 429) much sooner.
+YTDLP_EXTRA: list[str] = []
+
+
 def _ytdlp(*args: str) -> subprocess.CompletedProcess:
-    return subprocess.run([sys.executable, "-m", "yt_dlp", *args], capture_output=True, text=True)
+    return subprocess.run([sys.executable, "-m", "yt_dlp", *YTDLP_EXTRA, *args], capture_output=True, text=True)
+
+
+def pick_track(subs: list[str], auto: list[str]) -> tuple[str, bool] | None:
+    """One Thai track to download: (lang, is_auto). Uploaded Thai first, then the
+    original-language auto track (th-orig, the speech itself), then auto th.
+    One request per video keeps the caption endpoint under its rate limit."""
+    for lang in ("th", "th-TH"):
+        if lang in subs:
+            return lang, False
+    for lang in ("th-orig", "th"):
+        if lang in auto:
+            return lang, True
+    return None
 
 
 def list_playlist(url: str) -> list[dict]:
@@ -191,10 +211,12 @@ def fetch_captions(video_id: str) -> tuple[str, dict]:
         meta["_caption_note"] = (f"no Thai track; uploaded={','.join(subs) or '-'} "
                                  f"auto={','.join(a for a in auto if len(a) <= 3)[:60] or '-'}")
         return "", meta
+    lang, is_auto = pick_track(subs, auto) or ("th", True)
     with tempfile.TemporaryDirectory() as tmp:
-        proc = _ytdlp("--skip-download", "--write-subs", "--write-auto-subs", "--sub-langs", "th.*,th",
-                      "--sub-format", "vtt", "-o", str(Path(tmp) / "%(id)s.%(ext)s"), url)
-        files = sorted(Path(tmp).glob(f"{video_id}*.vtt"), key=lambda p: ("orig" in p.name, p.name))
+        proc = _ytdlp("--skip-download", "--write-auto-subs" if is_auto else "--write-subs",
+                      "--sub-langs", lang, "--sub-format", "vtt",
+                      "-o", str(Path(tmp) / "%(id)s.%(ext)s"), url)
+        files = sorted(Path(tmp).glob(f"{video_id}*.vtt"))
         if not files and proc.returncode != 0:
             raise CaptionsBlocked(proc.stderr.strip().splitlines()[-1][:200] if proc.stderr.strip()
                                   else f"yt-dlp exit {proc.returncode}")
@@ -358,6 +380,8 @@ def run(args, *, lister=list_playlist, fetcher=fetch_captions, chat=None) -> int
 
     stats = {"published": 0, "held": 0, "no_captions": 0, "exists": 0, "failed": 0}
     done = 0
+    fetched: dict[str, tuple[str, dict]] = {}
+    fetched_any = False
     for tk, e in matched:
         if args.limit and done >= args.limit:
             break
@@ -373,7 +397,15 @@ def run(args, *, lister=list_playlist, fetcher=fetch_captions, chat=None) -> int
             print(f"{TAG} DRY_RUN would process {tk} {e['id']} {e['title'][:60]}")
             continue
         try:
-            text, meta = fetcher(e["id"])
+            if e["id"] in fetched:          # joint session: one download for all its tickers
+                text, meta = fetched[e["id"]]
+            else:
+                if fetched_any and args.pause:
+                    time.sleep(args.pause)
+                fetched_any = True
+                text, meta = fetcher(e["id"])
+                fetched[e["id"]] = (text, dict(meta))
+                meta = dict(meta)
             meta.setdefault("title", e["title"])
             if len(text) < 500:
                 stats["no_captions"] += 1
@@ -413,7 +445,17 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--limit", type=int, default=0, help="max new videos this run")
     p.add_argument("--force", action="store_true", help="redo tickers that already have a report")
     p.add_argument("--dry-run", action="store_true", help="show what would run; no downloads or writes")
+    p.add_argument("--pause", type=float, default=20.0,
+                   help="seconds between videos (default 20); YouTube returns HTTP 429 when rushed")
+    p.add_argument("--cookies-from-browser", metavar="BROWSER",
+                   help="pass the signed-in browser session to yt-dlp (firefox works best on Windows)")
+    p.add_argument("--cookies", metavar="FILE", help="Netscape cookies.txt exported from the browser")
     args = p.parse_args(argv)
+    YTDLP_EXTRA.clear()
+    if args.cookies_from_browser:
+        YTDLP_EXTRA.extend(["--cookies-from-browser", args.cookies_from_browser])
+    if args.cookies:
+        YTDLP_EXTRA.extend(["--cookies", args.cookies])
     if not re.fullmatch(r"(q[1-4]y?\d{4}|ye\d{4})", args.period):
         p.error("--period must look like q2y2026 or ye2025")
     return run(args)

@@ -73,7 +73,7 @@ class TestRun(unittest.TestCase):
 
     def _args(self, **kw):
         base = dict(url="u", period="q2y2026", list=False, only=None, limit=0, force=False, dry_run=False,
-                    assign=None)
+                    assign=None, pause=0)
         base.update(kw)
         return argparse.Namespace(**base)
 
@@ -177,6 +177,38 @@ class TestCaptionDiagnostics(TestRun):
         rc = oy.run(self._args(), lister=lister, fetcher=fetcher, chat=lambda *a, **k: "")
         self.assertEqual(rc, 1)
         self.assertEqual(len(calls), 3)
+
+
+class TestRateLimitHygiene(TestRun):
+    def test_one_track_prefers_uploaded_then_original_speech(self):
+        self.assertEqual(oy.pick_track(["th"], ["th-orig", "th"]), ("th", False))
+        self.assertEqual(oy.pick_track([], ["en", "th", "th-orig"]), ("th-orig", True))
+        self.assertEqual(oy.pick_track([], ["th"]), ("th", True))
+        self.assertIsNone(oy.pick_track(["en"], ["en"]))
+
+    def test_joint_session_downloads_once(self):
+        calls = []
+        lister = lambda url: [{"id": "j1", "title": "Opp Day Q2/2026 joint"}]
+        def fetcher(vid):
+            calls.append(vid)
+            return TRANSCRIPT, {"upload_date": "20260912", "title": "Opp Day Q2/2026 joint"}
+        chat = lambda system, user, **k: fake_report("รายได้ 1,200 ล้านบาท")
+        oy.run(self._args(assign=["j1=TU,CPN"]), lister=lister, fetcher=fetcher, chat=chat)
+        self.assertEqual(calls, ["j1"])
+
+    def test_pause_between_videos_not_before_first(self):
+        lister = lambda url: [{"id": "a", "title": "Opp Day Q2/2026 (TU)"}, {"id": "b", "title": "Opp Day Q2/2026 (CPN)"}]
+        fetcher = lambda vid: ("x", {})
+        with mock.patch.object(oy.time, "sleep") as sleep:
+            oy.run(self._args(pause=7), lister=lister, fetcher=fetcher, chat=lambda *a, **k: "")
+        sleep.assert_called_once_with(7)
+
+    def test_cookie_flags_reach_every_ytdlp_call(self):
+        with mock.patch.object(oy, "run", return_value=0), mock.patch.object(oy.subprocess, "run") as sp:
+            oy.main(["u", "--period", "q2y2026", "--cookies-from-browser", "firefox"])
+            oy._ytdlp("-J", "x")
+        self.assertIn("--cookies-from-browser", sp.call_args[0][0])
+        oy.YTDLP_EXTRA.clear()
 
 
 class TestPeriod(unittest.TestCase):
