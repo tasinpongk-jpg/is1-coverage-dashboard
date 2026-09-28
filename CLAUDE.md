@@ -272,3 +272,14 @@ default), so a plain copy works. Schedule it once a day before the 08:30
 freshness check, e.g. `15 8 * * 1-5` BKK, no-agent. Exit 2 means the vault path
 was not found and nothing was rebuilt. Smoke test:
 `python scripts/vault_notes_cron.py --dry-run` (shows the diff, restores the file).
+
+**Opp Day summaries from the SET YouTube playlist.** Each quarter SET posts one
+playlist with an Opp Day video per listed company. `scripts/oppday_youtube.py`
+(laptop; needs `pip install yt-dlp`, `MINIMAX_API_KEY`, the vault) keeps only
+coverage tickers, pulls Thai captions, writes the transcript to
+`1-Raw/01-Filings/calls/<TK>/` and a 6-section Thai report to
+`3-Outputs/02-Deliverables/Reports/<TK>_oppday_<period>_summary.md`, which the
+daily vault job publishes to `oppday-minutes.json`. Every number in a report is
+checked against the transcript; if over a quarter are untraced the report is
+saved as `.review.md`, which the builder ignores. Always run `--list` first and
+check the title-to-ticker matches. Period codes: `q2y2026`, `ye2025`.
