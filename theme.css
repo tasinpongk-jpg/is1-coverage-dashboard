@@ -594,6 +594,29 @@ html.theme-changing *,html.theme-changing *::before,html.theme-changing *::after
   animation:is1-live-pulse 2.4s ease-in-out infinite;
 }
 @keyframes is1-live-pulse { 50% { box-shadow:0 0 0 7px transparent; } }
+.is1s-live-dot.is1s-h-warn { background:var(--yellow); box-shadow:0 0 0 4px color-mix(in srgb,var(--yellow) 14%,transparent); }
+.is1s-live-dot.is1s-h-stale { background:var(--red); box-shadow:0 0 0 4px color-mix(in srgb,var(--red) 14%,transparent); }
+.is1s-health { display:flex; flex-wrap:wrap; gap:4px; margin-top:8px; white-space:normal; }
+.is1s-health:empty { display:none; }
+.is1s-health-chip {
+  --chip:var(--green);
+  display:inline-flex;
+  align-items:center;
+  gap:4px;
+  padding:2px 6px;
+  border:1px solid color-mix(in srgb,var(--chip) 28%,var(--border));
+  border-radius:999px;
+  color:var(--text2);
+  background:color-mix(in srgb,var(--chip) 7%,transparent);
+  font-size:9.5px;
+  line-height:1.3;
+  cursor:default;
+}
+.is1s-health-chip i { width:5px; height:5px; border-radius:50%; background:var(--chip); }
+.is1s-health-chip b { color:var(--chip); font-weight:700; font-variant-numeric:tabular-nums; }
+.is1s-health-chip.is1s-h-warn { --chip:var(--yellow); }
+.is1s-health-chip.is1s-h-stale { --chip:var(--red); }
+.is1s-health-chip.is1s-h-manual { --chip:var(--dim); }
 
 .is1s-topbar {
   position:sticky !important;
@@ -753,7 +776,7 @@ html.theme-changing *,html.theme-changing *::before,html.theme-changing *::after
 /* AI summary of a filing's own PDF (data/filing-summaries.json), shared by
    the home newsroom, the company drawer and the SET disclosures page. */
 .is1-ai-sum { margin-top:9px; padding:9px 12px 9px 11px; border-left:2px solid var(--violet); border-radius:0 7px 7px 0; background:color-mix(in srgb,var(--violet) 7%,transparent); }
-.is1-ai-sum-head { display:flex; align-items:center; gap:6px; margin-bottom:5px; color:var(--violet); font-size:10px; font-weight:700; letter-spacing:.04em; }
+.is1-ai-sum-head { display:flex; flex-wrap:wrap; align-items:center; gap:6px; margin-bottom:5px; color:var(--violet); font-size:10px; font-weight:700; letter-spacing:.04em; }
 .is1-ai-sum-head span { color:var(--muted); font-weight:500; letter-spacing:0; }
 .is1-ai-sum ul { margin:0; padding-left:16px; }
 .is1-news-ai { color:var(--violet) !important; }
@@ -1380,7 +1403,7 @@ html.theme-changing *,html.theme-changing *::before,html.theme-changing *::after
 }
 
 /* Newsroom: first block on the home page, above prices. */
-.is1-home-news { margin:4px 0 26px; }
+.is1-home-news { margin:4px 0 26px; container-type:inline-size; container-name:is1-news; }
 .is1-home-news-head {
   display:flex !important;
   align-items:flex-end;
@@ -1447,7 +1470,7 @@ html.theme-changing *,html.theme-changing *::before,html.theme-changing *::after
   transition:transform .15s ease,border-color .15s ease;
 }
 .is1-news-tk:hover { transform:translateY(-1px); border-color:var(--tone); }
-.is1-news-lead h3 { margin:0; font-size:22px; line-height:1.35; font-weight:750; letter-spacing:-.005em; }
+.is1-news-lead h3 { margin:0; display:-webkit-box; overflow:hidden; font-size:22px; line-height:1.35; font-weight:750; letter-spacing:-.005em; -webkit-line-clamp:3; -webkit-box-orient:vertical; }
 .is1-news-lead h3 a { color:var(--text); text-decoration:none; }
 .is1-news-lead h3 a:hover { text-decoration:underline; text-decoration-color:var(--tone); text-underline-offset:4px; }
 .is1-news-lead p { margin:10px 0 0; display:-webkit-box; overflow:hidden; color:var(--text2); font-size:13.5px; line-height:1.65; -webkit-line-clamp:3; -webkit-box-orient:vertical; }
@@ -1656,4 +1679,16 @@ html.theme-changing *,html.theme-changing *::before,html.theme-changing *::after
   .is1-news-seconds { grid-template-columns:1fr; }
   .is1-home-attention>div { grid-template-columns:7px 48px minmax(0,1fr); }
   .is1-home-attention>div small { display:none; }
+}
+
+/* With the module and context panels open the desk can be ~700px wide. Stack
+   the timeline under the lead and shrink the headline so the story and its
+   summary stay above the fold instead of a six-line title. */
+@container is1-news (max-width:820px) {
+  .is1-news-grid { grid-template-columns:1fr; }
+}
+@container is1-news (max-width:560px) {
+  .is1-news-lead-body { grid-template-columns:1fr; gap:10px; }
+  .is1-news-tk { justify-self:start; height:40px; min-width:60px; font-size:14px; }
+  .is1-news-lead h3 { font-size:18px; }
 }

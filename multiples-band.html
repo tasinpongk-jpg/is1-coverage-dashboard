@@ -45,6 +45,12 @@ main{flex:1;max-width:1100px;width:100%;margin:0 auto;padding:24px 24px 48px;pos
 .chart-wrap{overflow-x:auto;margin-bottom:18px}
 .chart-wrap svg{display:block;min-width:460px}
 
+.band-legend{margin-top:6px;color:var(--muted);font-size:10px}
+.band-pick{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:16px;padding:10px 14px;background:var(--card);border:1px solid var(--border);border-radius:10px;font-size:12px}
+.band-pick label{color:var(--muted);font-weight:600}
+.band-pick select{padding:5px 8px;border:1px solid var(--border);border-radius:6px;background:var(--bg2);color:var(--text);font:inherit}
+#pickNote{color:var(--muted);font-size:11px}
+
 /* summary table */
 .sum-table{width:100%;border-collapse:collapse;font-size:11px}
 .sum-table th{text-align:right;padding:5px 8px;color:var(--muted);font-size:10px;font-weight:600;border-bottom:1px solid var(--border)}
@@ -65,8 +71,8 @@ footer a{color:var(--muted);text-decoration:none}
 @media(max-width:600px){main{padding:12px 12px 40px}header{padding:10px 12px}nav.nav a{font-size:10px;padding:4px 5px}}
 </style>
   <script src="theme.js?v=8"></script>
-  <link rel="stylesheet" href="theme.css?v=8">
-  <script src="i18n.js?v=9"></script>
+  <link rel="stylesheet" href="theme.css?v=9">
+  <script src="i18n.js?v=11"></script>
 
 </head>
 <body>
@@ -88,7 +94,6 @@ footer a{color:var(--muted);text-decoration:none}
     <a href="unusual-trading.html" data-i18n="nav.alerts">Alerts</a>
     <a href="external-news.html" data-i18n="nav.external">External</a>
     <a href="trading-signs.html" data-i18n="nav.signs">Signs</a>
-    <a href="sec-enforcement.html" data-i18n="nav.sec">SEC</a>
     <span class="stale unknown" id="staleBadge">● <span data-i18n="common.loadingDots">loading</span></span>
   </nav>
 </header>
@@ -96,6 +101,11 @@ footer a{color:var(--muted);text-decoration:none}
 <main>
   <div><div class="pg-title" data-i18n="page.multiplesBand">Multiples Band</div><div class="pg-sub" id="pgSub" data-i18n="common.loading">Loading…</div></div>
   <div id="loading"><div class="spinner"></div><span data-i18n="common.buildingSectorStats">Building sector statistics…</span></div>
+  <div class="band-pick" id="bandPick" hidden>
+    <label for="pickSel" data-i18n="band.highlight">Highlight a ticker</label>
+    <select id="pickSel"></select>
+    <span id="pickNote"></span>
+  </div>
   <div id="sections"></div>
 </main>
 
@@ -117,6 +127,9 @@ const TT_FALLBACK = {
   "band.runBuild": "Run build_ticker_summary.py to generate data.",
   "multiples.meta": "{n} tickers · as of {asOf} · {source}",
   "band.footerSource": "IS1 Multiples Band · {asOf}",
+  "band.highlight": "Highlight a ticker",
+  "band.none": "None",
+  "band.pickNote": "{tk} is ringed on every chart where {sector} has data; hover any dot to see its ticker.",
 };
 function tt(key) { return window.I18N ? I18N.t(key) : (TT_FALLBACK[key] || key); }
 function tx(key, vars){return tt(key).replace(/\{(\w+)\}/g,(_,k)=>vars&&vars[k]!=null?vars[k]:'')}
@@ -124,6 +137,7 @@ function esc(s){return String(s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;'
 const SCOL={FOOD:'#3b82f6',AGRI:'#10b981',PROP:'#8b5cf6',CONS:'#f97316',CONMAT:'#ec4899',PFREIT:'#06b6d4'};
 const SECT_ORDER=['FOOD','AGRI','PROP','CONS','CONMAT','PFREIT'];
 const ns=s=>s==='PF&REIT'?'PFREIT':(s||'');
+let PICKED=null;
 let LAST_STATS=null, LAST_ASOF=null, LAST_SOURCE='', LAST_TICKERS=[], ALL_TICKERS=[];
 let ACTIVE_RM=/^[CKOGPT]$/.test(localStorage.getItem('is1_rm') || '') ? localStorage.getItem('is1_rm') : 'C';
 
@@ -153,17 +167,19 @@ function computeStats(tickers){
     out[sector]={n:ts.length,metrics:{}};
     METRICS.forEach(({key})=>{
       // For npm, pull from latest highlights year
-      const vals=ts.map(t=>{
+      const pts=ts.map(t=>{
+        let v=t[key];
         if(key==='npm'){
           const hl=t.highlights||[];
           const last=hl.filter(h=>(h.months||12)===12).slice(-1)[0]||hl.slice(-1)[0];
-          return last?last.npm:null;
+          v=last?last.npm:null;
         }
-        return t[key];
-      }).filter(v=>v!=null&&v>0&&isFinite(v)).sort((a,b)=>a-b);
+        return {tk:t.tk,v};
+      }).filter(p=>p.v!=null&&p.v>0&&isFinite(p.v)).sort((a,b)=>a.v-b.v);
+      const vals=pts.map(p=>p.v);
       if(!vals.length) return;
       out[sector].metrics[key]={
-        vals, n:vals.length,
+        vals, pts, n:vals.length,
         p10:percentile(vals,.10), p25:percentile(vals,.25),
         median:median(vals),
         p75:percentile(vals,.75), p90:percentile(vals,.90),
@@ -176,40 +192,42 @@ function computeStats(tickers){
 }
 
 // ── box plot SVG ─────────────────────────────────────────────────────────────
+// Axis step of 1, 2, 2.5 or 5 x 10^n so tick labels read as round numbers.
+function niceStep(range, count){
+  const raw=range/count, mag=Math.pow(10,Math.floor(Math.log10(raw)));
+  return [1,2,2.5,5,10].map(m=>m*mag).find(st=>st>=raw)||10*mag;
+}
 function boxPlot(stats, metricKey, fmt, lowerBetter){
-  const W=680, LEFT=74, RIGHT=20, CHART=W-LEFT-RIGHT;
-  const ROW=46, TOP=14, BOTTOM=28;
+  const W=680, LEFT=74, RIGHT=24, CHART=W-LEFT-RIGHT;
+  const ROW=50, TOP=20, AXIS=22;
   const sectors=SECT_ORDER.filter(s=>stats[s]?.metrics[metricKey]);
   if(!sectors.length) return `<p style="color:var(--dim);font-size:12px;padding:8px 0">${tt('band.noMetricData')}</p>`;
-  const H=TOP+sectors.length*ROW+BOTTOM;
+  const plotBottom=TOP+sectors.length*ROW;
+  const H=plotBottom+AXIS;
 
-  // Determine x range across all sectors
+  // x range across all sectors, snapped outward to round ticks
   const allVals=sectors.flatMap(s=>stats[s].metrics[metricKey].vals);
-  const globalMin=Math.min(...allVals), globalMax=Math.max(...allVals);
-  const pad=(globalMax-globalMin)*0.08||1;
-  const xMin=Math.max(0,globalMin-pad), xMax=globalMax+pad;
+  const lo=Math.min(...allVals), hi=Math.max(...allVals);
+  const step=niceStep((hi-lo)||1,5);
+  const xMin=Math.max(0,Math.floor(lo/step)*step), xMax=Math.ceil(hi/step)*step+(hi%step===0?step:0);
   const xRange=xMax-xMin||1;
   const px=v=>LEFT+((v-xMin)/xRange)*CHART;
-
-  // X axis ticks (4–5 ticks)
-  const tickCount=5;
-  const tickStep=+((xMax-xMin)/(tickCount-1)).toPrecision(2);
-  const ticks=Array.from({length:tickCount},(_,i)=>+(xMin+i*tickStep).toFixed(2));
+  const ticks=[];
+  for(let v=xMin; v<=xMax+step/1000; v+=step) ticks.push(+v.toFixed(6));
+  const lbl=v=>fmt(v).replace('×','x');
 
   let svg=`<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" style="font-family:'Inter','Segoe UI',system-ui,sans-serif">`;
-
-  // Grid lines
   ticks.forEach(v=>{
     const x=px(v);
-    svg+=`<line x1="${x}" y1="${TOP}" x2="${x}" y2="${TOP+sectors.length*ROW}" stroke="#1e2130" stroke-width="1"/>`;
-    svg+=`<text x="${x}" y="${H-6}" text-anchor="middle" fill="#5a627a" font-size="10">${fmt(v).replace('×','x')}</text>`;
+    svg+=`<line x1="${x}" y1="${TOP}" x2="${x}" y2="${plotBottom}" style="stroke:var(--line-soft,var(--border))" stroke-width="1"/>`;
+    svg+=`<text x="${x}" y="${plotBottom+15}" text-anchor="middle" style="fill:var(--muted)" font-size="10">${lbl(v)}</text>`;
   });
-  // Baseline
-  svg+=`<line x1="${LEFT}" y1="${TOP+sectors.length*ROW}" x2="${W-RIGHT}" y2="${TOP+sectors.length*ROW}" stroke="#232733" stroke-width="1"/>`;
+  svg+=`<line x1="${LEFT}" y1="${plotBottom}" x2="${W-RIGHT}" y2="${plotBottom}" style="stroke:var(--border)" stroke-width="1"/>`;
 
+  const pick=PICKED;
   sectors.forEach((sector,i)=>{
     const m=stats[sector].metrics[metricKey];
-    const cy=TOP+i*ROW+ROW/2;
+    const cy=TOP+i*ROW+ROW/2+4;
     const col=SCOL[sector]||'#6366f1';
 
     // Whiskers (p10–p90)
@@ -217,36 +235,45 @@ function boxPlot(stats, metricKey, fmt, lowerBetter){
     svg+=`<line x1="${px(m.p10)}" y1="${cy-5}" x2="${px(m.p10)}" y2="${cy+5}" stroke="${col}" stroke-width="1.5" opacity="0.4"/>`;
     svg+=`<line x1="${px(m.p90)}" y1="${cy-5}" x2="${px(m.p90)}" y2="${cy+5}" stroke="${col}" stroke-width="1.5" opacity="0.4"/>`;
 
-    // Individual dots (jittered vertically, deterministic)
-    m.vals.forEach((v,j)=>{
-      const jy=((v*31+j*17)%22)-11;
-      svg+=`<circle cx="${px(v)}" cy="${cy+jy*0.45}" r="2.2" fill="${col}" opacity="0.28"/>`;
-    });
-
     // IQR box
     const boxX=px(m.p25), boxW=Math.max(2,px(m.p75)-px(m.p25));
-    svg+=`<rect x="${boxX}" y="${cy-9}" width="${boxW}" height="18" rx="3" fill="${col}" opacity="0.22"/>`;
+    svg+=`<rect x="${boxX}" y="${cy-9}" width="${boxW}" height="18" rx="3" fill="${col}" opacity="0.18"/>`;
     svg+=`<rect x="${boxX}" y="${cy-9}" width="${boxW}" height="18" rx="3" fill="none" stroke="${col}" stroke-width="1.2" opacity="0.6"/>`;
+
+    // Individual tickers (jittered vertically, deterministic), each named on hover
+    m.pts.forEach(({tk,v},j)=>{
+      if(tk===pick) return;
+      const jy=((v*31+j*17)%22)-11;
+      svg+=`<circle cx="${px(v)}" cy="${cy+jy*0.45}" r="2.6" fill="${col}" opacity="0.35"><title>${esc(tk)} · ${lbl(v)}</title></circle>`;
+    });
 
     // Median line
     const medX=px(m.median);
     svg+=`<line x1="${medX}" y1="${cy-11}" x2="${medX}" y2="${cy+11}" stroke="${col}" stroke-width="2.5"/>`;
 
     // Sector label
-    svg+=`<text x="${LEFT-8}" y="${cy+4}" text-anchor="end" fill="${col}" font-size="11" font-weight="700">${sector}</text>`;
+    svg+=`<text x="${LEFT-10}" y="${cy+4}" text-anchor="end" fill="${col}" font-size="11" font-weight="700">${sector}</text>`;
 
-    // Median value label
-    const lblX=medX+6, lblAnchor=medX>LEFT+CHART*0.8?'end':'start';
-    const lblXFinal=lblAnchor==='end'?medX-6:medX+6;
-    svg+=`<text x="${lblXFinal}" y="${cy-14}" text-anchor="${lblAnchor}" fill="${col}" font-size="9" font-weight="600" opacity="0.9">${esc(tt('band.medAbbrev'))} ${fmt(m.median).replace('×','x')}</text>`;
+    // Median value label, above the row, haloed so it reads over dots and lines
+    const lblAnchor=medX>LEFT+CHART*0.8?'end':'start';
+    const lblX=lblAnchor==='end'?medX-5:medX+5;
+    svg+=`<text x="${lblX}" y="${cy-15}" text-anchor="${lblAnchor}" fill="${col}" font-size="9.5" font-weight="700" paint-order="stroke" style="stroke:var(--card)" stroke-width="3" stroke-linejoin="round">${esc(tt('band.medAbbrev'))} ${lbl(m.median)}</text>`;
+
+    // Picked ticker: ring + label, drawn last so it sits on top
+    const hit=pick&&m.pts.find(p=>p.tk===pick);
+    if(hit){
+      const x=px(hit.v);
+      const right=x>LEFT+CHART*0.8;
+      svg+=`<circle cx="${x}" cy="${cy}" r="6" style="fill:var(--card)" stroke="${col}" stroke-width="2.5"/><circle cx="${x}" cy="${cy}" r="2.4" style="fill:var(--text)"/>`;
+      svg+=`<text x="${right?x-9:x+9}" y="${cy+20}" text-anchor="${right?'end':'start'}" style="fill:var(--text);stroke:var(--card)" font-size="10.5" font-weight="800" paint-order="stroke" stroke-width="3" stroke-linejoin="round">${esc(pick)} ${lbl(hit.v)} · ${ordinal(pctRank(m.vals,hit.v))}</text>`;
+    }
   });
 
-  // Legend
-  svg+=`<text x="${LEFT}" y="${H}" fill="#5a627a" font-size="9">${tt('band.legend')}</text>`;
-
   svg+='</svg>';
-  return svg;
+  return svg+`<div class="band-legend">${esc(tt('band.legend'))}</div>`;
 }
+function pctRank(sorted,v){ return Math.round(sorted.filter(x=>x<v).length/Math.max(1,sorted.length-1)*100); }
+function ordinal(n){ if(window.I18N&&I18N.lang==='th') return 'เปอร์เซ็นไทล์ที่ '+n; const suf=(n%100>=11&&n%100<=13)?'th':({1:'st',2:'nd',3:'rd'}[n%10]||'th'); return n+suf+' pctile'; }
 
 // ── summary table ────────────────────────────────────────────────────────────
 function summaryTable(stats, metricKey, fmt, lowerBetter){
@@ -271,7 +298,25 @@ function summaryTable(stats, metricKey, fmt, lowerBetter){
 }
 
 // ── render ────────────────────────────────────────────────────────────────────
+function renderPicker(){
+  const box=document.getElementById('bandPick'), sel=document.getElementById('pickSel');
+  const tks=LAST_TICKERS.map(t=>t.tk).sort();
+  if(PICKED&&!tks.includes(PICKED)) PICKED=null;
+  sel.innerHTML=`<option value="">${esc(tt('band.none'))}</option>`+tks.map(tk=>`<option${tk===PICKED?' selected':''}>${esc(tk)}</option>`).join('');
+  box.hidden=!tks.length;
+  const t=LAST_TICKERS.find(x=>x.tk===PICKED);
+  document.getElementById('pickNote').textContent=t?tx('band.pickNote',{tk:t.tk,sector:ns(t.sector)}):'';
+}
+document.getElementById('pickSel').addEventListener('change',e=>{
+  PICKED=e.target.value||null;
+  try{ PICKED?localStorage.setItem('is1_band_pick',PICKED):localStorage.removeItem('is1_band_pick'); }catch(_){}
+  renderPicker();
+  if(LAST_STATS) renderSections(LAST_STATS,LAST_ASOF);
+});
+try{ PICKED=new URLSearchParams(location.search).get('tk')||localStorage.getItem('is1_band_pick')||null; }catch(_){}
+
 function renderSections(stats, asOf){
+  renderPicker();
   const el=document.getElementById('sections');
   el.innerHTML=METRICS.map(({key,labelKey,descKey,fmt,lowerBetter})=>`
     <div class="metric-section">
@@ -325,7 +370,7 @@ window.addEventListener('i18n:change',()=>{
   updateMeta({asOf:LAST_ASOF,source:LAST_SOURCE});
 });
 </script>
-<script src="nav.js?v=9" defer></script>
+<script src="nav.js?v=11" defer></script>
 <script src="chat-dock.js?v=8" defer></script>
 </body>
 </html>

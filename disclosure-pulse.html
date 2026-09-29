@@ -65,10 +65,43 @@
   .ts { font-size: 11px; color: var(--muted); }
   .summary { margin-top: 6px; font-size: 12px; color: var(--muted); line-height: 1.4; font-style: italic; }
   .empty, .loading { text-align: center; padding: 60px; color: var(--muted); }
+
+  /* Filing calendar: one row per ticker, one cell per day of the data window,
+     shaded by the most serious filing that day. Clusters and quiet names show
+     at a glance; clicking a cell filters the feed to that ticker. */
+  .cal { margin: 14px 20px 0; padding: 14px 16px 12px; background: var(--card); border: 1px solid var(--border); border-radius: 10px; }
+  .cal-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 10px; }
+  .cal-head strong { font-size: 13px; }
+  .cal-head span { color: var(--muted); font-size: 11px; }
+  .cal-legend { display: flex; gap: 12px; align-items: center; color: var(--muted); font-size: 10.5px; }
+  .cal-legend i { display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin-right: 4px; vertical-align: -1px; }
+  .cal-grid { display: grid; grid-template-columns: 62px minmax(0,1fr) 34px; row-gap: 2px; align-items: center; }
+  .cal-days { display: grid; grid-template-columns: repeat(var(--days), minmax(0,1fr)); gap: 1px; }
+  .cal-months { position: relative; height: 14px; }
+  .cal-months span { position: absolute; top: 0; color: var(--muted); font-size: 9.5px; white-space: nowrap; border-left: 1px solid var(--border); padding-left: 3px; }
+  .cal-tk { font-size: 11px; font-weight: 700; color: var(--text); cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .cal-tk:hover { color: var(--accent); }
+  .cal-n { text-align: right; color: var(--muted); font-size: 10px; font-variant-numeric: tabular-nums; }
+  .cal-cell { height: 11px; border-radius: 2px; background: color-mix(in srgb, var(--text) 5%, transparent); }
+  .cal-cell.we { background: color-mix(in srgb, var(--text) 2%, transparent); }
+  .cal-cell.s1 { background: color-mix(in srgb, var(--muted) 55%, transparent); cursor: pointer; }
+  .cal-cell.s2 { background: var(--mat); cursor: pointer; }
+  .cal-cell.s3 { background: var(--crit); cursor: pointer; }
+  .cal-grid { position: relative; }
+  .cal-band { position: absolute; top: 14px; bottom: 0; pointer-events: none; border-radius: 3px; background: color-mix(in srgb, var(--accent) 9%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 40%, transparent); }
+  .cal-cell[data-tk]:hover { outline: 1px solid var(--text); outline-offset: 0; }
+  .cal-row-on .cal-tk { color: var(--accent); }
+  .cal-foot { display: flex; justify-content: space-between; align-items: center; margin-top: 10px; color: var(--muted); font-size: 11px; }
+  .cal-foot button { background: none; border: 1px solid var(--border); color: var(--text); border-radius: 6px; padding: 4px 10px; font-size: 11px; cursor: pointer; }
+  .cal-foot button:hover { border-color: var(--accent); }
+  @media (max-width: 720px) {
+    .cal { margin: 12px 12px 0; padding: 12px; overflow-x: auto; }
+    .cal-grid { min-width: 560px; }
+  }
 </style>
   <script src="theme.js?v=8"></script>
-  <link rel="stylesheet" href="theme.css?v=8">
-  <script src="i18n.js?v=9"></script>
+  <link rel="stylesheet" href="theme.css?v=9">
+  <script src="i18n.js?v=11"></script>
 
 </head>
 <body>
@@ -90,7 +123,6 @@
     <a href="unusual-trading.html" data-i18n="nav.alerts">Alerts</a>
     <a href="external-news.html" data-i18n="nav.external">External</a>
     <a href="trading-signs.html" data-i18n="nav.signs">Signs</a>
-    <a href="sec-enforcement.html" data-i18n="nav.sec">SEC</a>
     <span class="stale" id="staleBadge">●</span>
   </nav>
 </header>
@@ -113,6 +145,8 @@
     <div id="sectorTabs" style="display:flex;gap:4px;flex-wrap:wrap"></div>
   </div>
 </div>
+
+<section class="cal" id="filingCal" hidden></section>
 
 <div id="feed" class="feed"><div class="loading" data-i18n="common.fetchingDisclosures">Fetching disclosures…</div></div>
 
@@ -301,6 +335,7 @@ function updateStats() {
 
 function render() {
   renderTickerBanner();
+  renderCalendar();
   const rows = filtered();
   const feed = document.getElementById('feed');
   if (!rows.length) { feed.innerHTML = `<div class="empty">${tt('common.noDisclosures')}</div>`; return; }
@@ -350,6 +385,84 @@ fetch('./data/filing-summaries.json').then(r => r.ok ? r.json() : null).then(d =
   if (FILINGS.length) render();
 }).catch(() => {});
 
+
+// ── Filing calendar ──────────────────────────────────────────────────────────
+let calExpanded = false;
+const CAL_ROWS = 20;
+function calKey(ts) { return String(ts || '').slice(0, 10); }
+function calDays() {
+  const days = DATA_META?.windowDays || 90;
+  const end = DATA_META?.asOf || new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Bangkok' }).format(new Date());
+  const endMs = Date.parse(end + 'T00:00:00Z');
+  return Array.from({ length: days }, (_, i) => new Date(endMs - (days - 1 - i) * 864e5).toISOString().slice(0, 10));
+}
+function renderCalendar() {
+  const host = document.getElementById('filingCal');
+  if (!DATA_META) return;
+  const isThai = window.I18N && I18N.lang === 'th';
+  const L = (en, th) => isThai ? th : en;
+  const days = calDays();
+  const first = days[0];
+  const rank = { high: 3, critical: 3, medium: 2, material: 2 };
+  // Rows: every ticker in the RM / sector scope, quiet names included.
+  const scope = Object.values(TICKERS).filter(t =>
+    (activeRm === 'ALL' || t.rm === activeRm) &&
+    (activeSector === 'ALL' || String(t.sector).replace('&', '') === activeSector));
+  const inScope = new Set(scope.map(t => t.tk));
+  const grid = {};
+  FILINGS.forEach(f => {
+    const d = calKey(f.ts);
+    if (!inScope.has(f.tk) || d < first) return;
+    const row = grid[f.tk] || (grid[f.tk] = { n: 0, days: {} });
+    const cell = row.days[d] || (row.days[d] = { n: 0, s: 1 });
+    cell.n++; row.n++;
+    cell.s = Math.max(cell.s, rank[(f.severity || 'low').toLowerCase()] || 1);
+  });
+  const rows = scope.map(t => ({ tk: t.tk, ...(grid[t.tk] || { n: 0, days: {} }) }))
+    .sort((a, b) => b.n - a.n || a.tk.localeCompare(b.tk));
+  if (!rows.length) { host.hidden = true; return; }
+  host.hidden = false;
+  const quiet = rows.filter(r => !r.n).length;
+  const shown = calExpanded ? rows : rows.slice(0, CAL_ROWS);
+  const span = Math.min(activeWindow || days.length, days.length);
+  const band = `<div class="cal-band" style="left:calc(62px + (100% - 96px) * ${(days.length - span) / days.length});width:calc((100% - 96px) * ${span / days.length})"></div>`;
+  const fmt = new Intl.DateTimeFormat(isThai ? 'th-TH' : 'en-GB', { day: 'numeric', month: 'short', timeZone: 'UTC' });
+  const monthFmt = new Intl.DateTimeFormat(isThai ? 'th-TH' : 'en-GB', { month: 'short', timeZone: 'UTC' });
+  const months = days.map((d, i) => [d, i]).filter(([d, i]) => i === 0 ? +d.slice(8) <= 20 : d.slice(8) === '01')
+    .map(([d, i]) => `<span style="left:${(i / days.length * 100).toFixed(2)}%">${esc(monthFmt.format(new Date(d + 'T00:00:00Z')))}</span>`).join('');
+  const sevName = s => [null, tt('common.low'), tt('common.material'), tt('common.critical')][s];
+  const cells = r => days.map(d => {
+    const c = r.days[d];
+    const we = [0, 6].includes(new Date(d + 'T00:00:00Z').getUTCDay());
+    if (!c) return `<i class="cal-cell${we ? ' we' : ''}"></i>`;
+    const tip = `${r.tk} · ${fmt.format(new Date(d + 'T00:00:00Z'))} · ${c.n} ${L(c.n > 1 ? 'filings' : 'filing', 'ข่าว')} · ${sevName(c.s)}`;
+    return `<i class="cal-cell s${c.s}" data-tk="${esc(r.tk)}" title="${esc(tip)}"></i>`;
+  }).join('');
+  host.style.setProperty('--days', days.length);
+  host.innerHTML = `
+    <div class="cal-head">
+      <div><strong>${esc(L('Filing calendar', 'ปฏิทินการเปิดเผยข้อมูล'))}</strong>
+        <span> · ${days.length} ${esc(L('days', 'วัน'))} · ${esc(activeRm === 'ALL' ? L('all RMs', 'ทุก RM') : 'RM ' + activeRm)} · ${rows.length} ${esc(L('names', 'บริษัท'))}, ${quiet} ${esc(L('with no filing', 'ไม่มีข่าว'))}</span></div>
+      <div class="cal-legend"><span><i style="background:var(--crit)"></i>${esc(tt('common.critical'))}</span><span><i style="background:var(--mat)"></i>${esc(tt('common.material'))}</span><span><i style="background:color-mix(in srgb,var(--muted) 55%,transparent)"></i>${esc(tt('common.low'))}</span></div>
+    </div>
+    <div class="cal-grid">
+      ${band}<span></span><div class="cal-months">${months}</div><span></span>
+      ${shown.map(r => `<span class="cal-tk" data-tk="${esc(r.tk)}" title="${esc(L('Show this ticker in the feed', 'แสดงเฉพาะหลักทรัพย์นี้'))}">${esc(r.tk)}</span><div class="cal-days">${cells(r)}</div><span class="cal-n">${r.n || '—'}</span>`).join('')}
+    </div>
+    <div class="cal-foot"><span>${esc(L('The outlined band is the selected window. Click a ticker or cell to filter the feed.', 'กรอบคือช่วงเวลาที่เลือก คลิกชื่อหรือช่องเพื่อกรองรายการด้านล่าง'))}</span>
+      ${rows.length > CAL_ROWS ? `<button type="button" id="calToggle">${esc(calExpanded ? L('Show top ' + CAL_ROWS, 'แสดง ' + CAL_ROWS + ' อันดับแรก') : L('Show all ' + rows.length, 'แสดงทั้งหมด ' + rows.length))}</button>` : ''}</div>`;
+}
+document.getElementById('filingCal').addEventListener('click', e => {
+  if (e.target.id === 'calToggle') { calExpanded = !calExpanded; renderCalendar(); return; }
+  const tk = e.target.closest('[data-tk]')?.dataset.tk;
+  if (!tk) return;
+  activeTicker = tk;
+  history.replaceState(null, '', location.pathname + '?ticker=' + encodeURIComponent(tk));
+  if (activeWindow && activeWindow < 90) setWindow(0); else render();
+  updateStats();
+  document.getElementById('feed').scrollIntoView({ behavior: 'smooth', block: 'start' });
+});
+
 async function init() {
   try {
     const [tj, dj] = await Promise.all([
@@ -388,7 +501,7 @@ window.addEventListener('i18n:change', () => {
   render();
 });
 </script>
-<script src="nav.js?v=9" defer></script>
+<script src="nav.js?v=11" defer></script>
 <script src="chat-dock.js?v=8" defer></script>
 </body>
 </html>

@@ -48,6 +48,13 @@ main{flex:1;max-width:1440px;width:100%;margin:0 auto;padding:22px 24px 48px;pos
 
 /* CHART PANELS */
 .chart-panel{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:20px 22px;margin-bottom:18px}
+.refi-head{display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap}
+.refi-legend{display:flex;gap:14px;color:var(--muted);font-size:10.5px}
+.refi-legend i{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:4px;vertical-align:-1px}
+.refi-wrap{overflow-x:auto;margin-top:10px}
+.refi-wrap svg{display:block;width:100%;min-width:560px;height:auto}
+.refi-wrap a{cursor:pointer}
+.refi-wrap a:hover circle{stroke:var(--text);stroke-width:2}
 .chart-title{font-size:13px;font-weight:700;margin-bottom:3px}
 .chart-sub{font-size:11px;color:var(--muted);margin-bottom:16px}
 
@@ -157,8 +164,8 @@ footer a{color:var(--muted);text-decoration:none}
 }
 </style>
   <script src="theme.js?v=8"></script>
-  <link rel="stylesheet" href="theme.css?v=8">
-  <script src="i18n.js?v=9"></script>
+  <link rel="stylesheet" href="theme.css?v=9">
+  <script src="i18n.js?v=11"></script>
 
 </head>
 <body>
@@ -180,7 +187,6 @@ footer a{color:var(--muted);text-decoration:none}
     <a href="unusual-trading.html" data-i18n="nav.alerts">Alerts</a>
     <a href="external-news.html" data-i18n="nav.external">External</a>
     <a href="trading-signs.html" data-i18n="nav.signs">Signs</a>
-    <a href="sec-enforcement.html" data-i18n="nav.sec">SEC</a>
     <span class="stale unknown" id="staleBadge">● <span data-i18n="common.loadingDots">loading</span></span>
   </nav>
 </header>
@@ -188,6 +194,9 @@ footer a{color:var(--muted);text-decoration:none}
 <main>
   <div><div class="pg-title" data-i18n="page.bondSummary">Bond Summary</div><div class="pg-sub" id="pgSub" data-i18n="common.loadingThaiBma">Loading ThaiBMA bond data…</div></div>
   <div class="hero" id="hero"></div>
+
+  <!-- Refinancing calendar: the filtered issuers' next 12 months -->
+  <div class="chart-panel" id="refiPanel" style="display:none"></div>
 
   <!-- Maturity Wall -->
   <div class="chart-panel" id="wallPanel" style="display:none">
@@ -558,11 +567,66 @@ function applySort(arr){
   });
 }
 function render(){
+  renderRefi();
   const filtered=applySort(applyFilters());
   document.getElementById('cntLbl').textContent=tx('bond.issuersCount',{shown:filtered.length,total:ALL.length});
   const grid=document.getElementById('grid');
   if(!filtered.length){grid.innerHTML=`<div class="empty">${tt('common.noIssuerFilter')}</div>`;return;}
   grid.innerHTML=filtered.map(buildCard).join('');
+}
+
+// ── Refinancing calendar ─────────────────────────────────────────────────────
+// One row per issuer in the current filter with a bond maturing in the next 12
+// months (from today, Bangkok). Circle area = outstanding (M฿), placed on the
+// maturity date. Bonds that matured after the snapshot date are left out.
+function renderRefi(){
+  const host=document.getElementById('refiPanel');
+  const th=window.I18N&&I18N.lang==='th', L=(en,t)=>th?t:en;
+  const today=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Bangkok'}).format(new Date());
+  const t0=Date.parse(today+'T00:00:00Z');
+  const endIso=new Date(t0+365*864e5).toISOString().slice(0,10);
+  const rows=applyFilters().map(i=>{
+    const due=(i.bonds||[]).filter(b=>b.maturityDate&&b.maturityDate>=today&&b.maturityDate<=endIso&&(b.outstanding||0)>0);
+    return {i,due,total:due.reduce((s,b)=>s+b.outstanding,0)};
+  }).filter(r=>r.due.length).sort((a,b)=>a.due.reduce((m,x)=>x.maturityDate<m?x.maturityDate:m,'9999')<b.due.reduce((m,x)=>x.maturityDate<m?x.maturityDate:m,'9999')?-1:1);
+  host.style.display='';
+  if(!rows.length){
+    host.innerHTML=`<div class="chart-title">${esc(L('Refinancing calendar · next 12 months','ปฏิทินหุ้นกู้ครบกำหนด · 12 เดือนข้างหน้า'))}</div><div class="chart-sub">${esc(L('No bond in the current filter matures in the next 12 months.','ไม่มีหุ้นกู้ในตัวกรองนี้ครบกำหนดภายใน 12 เดือน'))}</div>`;
+    return;
+  }
+  const W=900, LEFT=150, RIGHT=16, TOP=26, ROW=30, BOT=8;
+  const H=TOP+rows.length*ROW+BOT;
+  const X=d=>LEFT+(Date.parse(d+'T00:00:00Z')-t0)/(365*864e5)*(W-LEFT-RIGHT);
+  const maxOut=Math.max(...rows.flatMap(r=>r.due.map(b=>b.outstanding)));
+  const R=v=>3+Math.sqrt(v/maxOut)*10;
+  const mFmt=new Intl.DateTimeFormat(th?'th-TH':'en-GB',{month:'short',timeZone:'UTC'});
+  const dFmt=new Intl.DateTimeFormat(th?'th-TH':'en-GB',{day:'numeric',month:'short',year:'numeric',timeZone:'UTC'});
+  let g='';
+  for(let k=0;k<=12;k++){
+    const d=new Date(t0); d.setUTCMonth(d.getUTCMonth()+k,1);
+    const iso=d.toISOString().slice(0,10);
+    if(iso<today||iso>endIso) continue;
+    const x=X(iso);
+    g+=`<line x1="${x}" x2="${x}" y1="${TOP-6}" y2="${H-BOT}" style="stroke:var(--border)" stroke-dasharray="2 4"/>`;
+    g+=`<text x="${x+3}" y="${TOP-10}" font-size="10" style="fill:var(--muted)">${esc(mFmt.format(d))}${d.getUTCMonth()===0?' '+(th?d.getUTCFullYear()+543:d.getUTCFullYear()):''}</text>`;
+  }
+  rows.forEach((r,idx)=>{
+    const cy=TOP+idx*ROW+ROW/2;
+    if(idx%2===0) g+=`<rect x="0" y="${cy-ROW/2}" width="${W}" height="${ROW}" style="fill:color-mix(in srgb,var(--text) 3%,transparent)"/>`;
+    g+=`<text x="8" y="${cy+4}" font-size="11.5" font-weight="700" style="fill:var(--text)">${esc(r.i.tk)}</text>`;
+    g+=`<text x="${LEFT-10}" y="${cy+4}" text-anchor="end" font-size="10.5" style="fill:var(--muted)">฿${Math.round(r.total).toLocaleString('en-US')} mn</text>`;
+    r.due.slice().sort((a,b)=>b.outstanding-a.outstanding).forEach(b=>{
+      const short=b.type==='short';
+      const col=short?'var(--yellow)':'var(--accent)';
+      const tip=`${b.symbol} · ${dFmt.format(new Date(b.maturityDate+'T00:00:00Z'))} · ฿${Math.round(b.outstanding).toLocaleString('en-US')} mn · ${short?L('short-term','ระยะสั้น'):L('long-term','ระยะยาว')}${b.rating?' · '+b.rating:''}${b.esg?' · ESG':''}`;
+      g+=`<a href="company-summary.html?tk=${encodeURIComponent(r.i.tk)}"><title>${esc(tip)}</title><circle cx="${X(b.maturityDate).toFixed(1)}" cy="${cy}" r="${R(b.outstanding).toFixed(1)}" style="fill:color-mix(in srgb,${col} 55%,transparent);stroke:${col}" stroke-width="1.2"/></a>`;
+    });
+  });
+  const total=rows.reduce((s,r)=>s+r.total,0), n=rows.reduce((s,r)=>s+r.due.length,0);
+  host.innerHTML=`<div class="refi-head"><div><div class="chart-title">${esc(L('Refinancing calendar · next 12 months','ปฏิทินหุ้นกู้ครบกำหนด · 12 เดือนข้างหน้า'))}</div>
+    <div class="chart-sub">${esc(L(`${n} bonds, ฿${Math.round(total).toLocaleString('en-US')} mn across ${rows.length} issuers in the current filter · circle area = outstanding · ThaiBMA as of ${DATA_META?.asOf||'—'}`,`หุ้นกู้ ${n} รุ่น รวม ฿${Math.round(total).toLocaleString('en-US')} ล้าน จาก ${rows.length} ผู้ออกในตัวกรองนี้ · ขนาดวงกลม = ยอดคงค้าง · ThaiBMA ณ ${DATA_META?.asOf||'—'}`))}</div></div>
+    <div class="refi-legend"><span><i style="background:var(--yellow)"></i>${esc(L('short-term','ระยะสั้น'))}</span><span><i style="background:var(--accent)"></i>${esc(L('long-term','ระยะยาว'))}</span></div></div>
+    <div class="refi-wrap"><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(L('Bond maturities in the next 12 months','หุ้นกู้ที่ครบกำหนดใน 12 เดือนข้างหน้า'))}">${g}</svg></div>`;
 }
 function toggleESG(){esgOnly=!esgOnly;document.getElementById('esgToggle').classList.toggle('on',esgOnly);render();}
 function toggleNear(){nearOnly=!nearOnly;document.getElementById('nearToggle').classList.toggle('on',nearOnly);render();}
@@ -673,7 +737,7 @@ window.addEventListener('i18n:change',()=>{
   }
 });
 </script>
-<script src="nav.js?v=9" defer></script>
+<script src="nav.js?v=11" defer></script>
 <script src="chat-dock.js?v=8" defer></script>
 </body>
 </html>

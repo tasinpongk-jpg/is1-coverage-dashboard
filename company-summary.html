@@ -163,7 +163,12 @@ main{flex:1;max-width:1540px;width:100%;margin:0 auto;padding:22px 24px 48px;pos
 .dp-val{font-size:26px;font-weight:700;font-variant-numeric:tabular-nums;letter-spacing:-.6px}
 .dp-unit{font-size:12px;color:var(--muted)}
 .dp-chg{font-size:14px;font-weight:600;font-variant-numeric:tabular-nums}
-.dp-spark{flex:1;height:34px;min-width:100px}
+.dp-spark{position:relative;flex:1;height:44px;min-width:100px;align-self:center}
+.dp-ev{position:absolute;width:10px;height:10px;padding:0;transform:translate(-50%,-50%);border:2px solid var(--card);border-radius:50%;background:var(--dim);cursor:pointer;box-shadow:0 0 0 1px color-mix(in srgb,var(--text) 18%,transparent);transition:transform .12s}
+.dp-ev.multi{width:14px;height:14px}
+.dp-ev:hover{transform:translate(-50%,-50%) scale(1.35)}
+.dp-ev.s2{background:var(--yellow)}
+.dp-ev.s3{background:var(--red)}
 .dp-spark svg{width:100%;height:100%}
 
 /* drawer body: grouped vertical nav + content */
@@ -380,8 +385,8 @@ footer a{color:var(--muted);text-decoration:none}
 }
 </style>
   <script src="theme.js?v=8"></script>
-  <link rel="stylesheet" href="theme.css?v=8">
-  <script src="i18n.js?v=9"></script>
+  <link rel="stylesheet" href="theme.css?v=9">
+  <script src="i18n.js?v=11"></script>
 
 </head>
 <body>
@@ -402,7 +407,6 @@ footer a{color:var(--muted);text-decoration:none}
     <a href="unusual-trading.html" data-i18n="nav.alerts">Alerts</a>
     <a href="external-news.html" data-i18n="nav.external">External</a>
     <a href="trading-signs.html" data-i18n="nav.signs">Signs</a>
-    <a href="sec-enforcement.html" data-i18n="nav.sec">SEC</a>
     <span class="stale unknown" id="staleBadge" data-i18n="common.loading">● loading</span>
   </nav>
 </header>
@@ -638,6 +642,35 @@ function spark(data, id, W=260, H=44, pad=3){
     <polyline points="${pts}" fill="none" stroke="${col}" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round"/>
     <circle cx="${xs[xs.length-1].toFixed(1)}" cy="${ys[ys.length-1].toFixed(1)}" r="2.6" fill="${col}"/>
   </svg>`;
+}
+
+// SET filings pinned to the drawer price line. Each filing sits on the first
+// session on or after its filing date (a weekend or after-close filing lands
+// on the next session that could react to it). Needs sparklineDates from the
+// builder; without them the plain sparkline is shown, never a guessed date.
+function filingMarks(t, W=240, H=34, pad=3){
+  const data=t.sparkline, dates=t.sparklineDates;
+  if(!data||data.length<2||!dates||dates.length!==data.length) return '';
+  const first=dates[0], last=dates[dates.length-1];
+  const min=Math.min(...data), max=Math.max(...data), rng=max-min||1;
+  const rank={high:3,critical:3,medium:2,material:2};
+  const bySession={};
+  (DISC_ALL[t.tk]||[]).forEach(f=>{
+    const d=String(f.ts||'').slice(0,10);
+    if(!d||d<first||d>last) return;
+    const i=dates.findIndex(x=>x>=d);
+    if(i<0) return;
+    const m=bySession[i]||(bySession[i]={n:0,s:1,titles:[]});
+    m.n++; m.s=Math.max(m.s,rank[(f.severity||'').toLowerCase()]||1);
+    if(m.titles.length<3) m.titles.push(I18N?.lang==='th'?(f.title_th||f.title):(f.title||f.title_th));
+  });
+  const sev=[null,tt('common.low'),tt('common.material'),tt('common.critical')];
+  return Object.entries(bySession).map(([i,m])=>{
+    const x=(pad+(i/(data.length-1))*(W-pad*2))/W*100;
+    const y=(H-pad-((data[i]-min)/rng)*(H-pad*2))/H*100;
+    const tip=`${dates[i]} · ${m.n} SET · ${sev[m.s]}\n`+m.titles.map(x=>'• '+(x||'')).join('\n');
+    return `<button type="button" class="dp-ev s${m.s}${m.n>1?' multi':''}" style="left:${x.toFixed(2)}%;top:${y.toFixed(2)}%" title="${esc(tip)}" aria-label="${esc(tip)}" onclick="document.querySelector('.dtab[data-tab=disclosures]')?.click()"></button>`;
+  }).join('');
 }
 
 // ── range bar ────────────────────────────────────────────────────────────────
@@ -1069,7 +1102,7 @@ function openDrawer(idx, tab='overview'){
     <span class="dp-val">${t.last!=null?t.last.toFixed(2):'—'}</span>
     <span class="dp-unit">THB</span>
     <span class="dp-chg ${chgCls(ca)}">${arrow} ${dash(pct(ca))}</span>
-    <div class="dp-spark">${spark(t.sparkline,'d'+t.tk,240,34)}</div>`;
+    <div class="dp-spark">${spark(t.sparkline,'d'+t.tk,240,44)}${filingMarks(t,240,44)}</div>`;
 
   // tabs
   document.querySelectorAll('.dtab').forEach(b=>b.classList.toggle('active',b.dataset.tab===tab));
@@ -1253,7 +1286,7 @@ function renderTab(tab){
 }
 
 // ── state & render ───────────────────────────────────────────────────────────
-let AI_SUMS={}, ALL=[], SECTOR_STATS={}, DISC_MAP={}, OPP_MAP={}, VAULT_MAP={}, REPORT_MAP={}, sectFilter='ALL', rmFilter=/^[CKOGPT]$/.test(localStorage.getItem('is1_rm') || '') ? localStorage.getItem('is1_rm') : '', sortKey='tk', searchQ='';
+let AI_SUMS={}, ALL=[], SECTOR_STATS={}, DISC_MAP={}, DISC_ALL={}, OPP_MAP={}, VAULT_MAP={}, REPORT_MAP={}, sectFilter='ALL', rmFilter=/^[CKOGPT]$/.test(localStorage.getItem('is1_rm') || '') ? localStorage.getItem('is1_rm') : '', sortKey='tk', searchQ='';
 // Tickers whose fiscal year is not Jan-Dec. Seeded with the well-known
 // FY-offset companies; REITs (ticker ends in REIT/PFREIT) get appended
 // after the tickers.json fetch in fetchData() because the REIT universe
@@ -1502,7 +1535,7 @@ async function loadData(){
     }
   } catch (e) { /* safe to ignore — caveat list is best-effort */ }
   const hm={};(heat.rows||[]).forEach(r=>{hm[r.tk]=r.values||{};});
-  const tickers=(brief.rows||[]).map(r=>({tk:r.tk,sector:r.sector,segment:SEGS[r.tk]||r.sector,rm:rmMap[r.tk]||'—',last:r.last,pct1d:r.pct1d,pct5d:r.pct5d,pctMtd:r.pctMtd,pctYtd:r.pctYtd,sparkline:r.path,volRatio:r.volRatio,atHi52:r.hi52,atLo52:r.lo52,hi52:r.path?Math.max(...r.path):null,lo52:r.path?Math.min(...r.path):null,pe:hm[r.tk]?.PE,pbv:hm[r.tk]?.PBV,dy:hm[r.tk]?.DY,evebitda:hm[r.tk]?.EVEBITDA,mktcap:null}));
+  const tickers=(brief.rows||[]).map(r=>({tk:r.tk,sector:r.sector,segment:SEGS[r.tk]||r.sector,rm:rmMap[r.tk]||'—',last:r.last,pct1d:r.pct1d,pct5d:r.pct5d,pctMtd:r.pctMtd,pctYtd:r.pctYtd,sparkline:r.path,sparklineDates:r.pathDates,volRatio:r.volRatio,atHi52:r.hi52,atLo52:r.lo52,hi52:r.path?Math.max(...r.path):null,lo52:r.path?Math.min(...r.path):null,pe:hm[r.tk]?.PE,pbv:hm[r.tk]?.PBV,dy:hm[r.tk]?.DY,evebitda:hm[r.tk]?.EVEBITDA,mktcap:null}));
   return{tickers,asOf:brief.asOf,source:'company.fallbackSource',sourceKey:true,built:brief._built_at};
 }
 
@@ -1527,9 +1560,12 @@ async function loadData(){
         DISC_MAP[f.tk].push(f);
       });
       Object.keys(DISC_MAP).forEach(tk=>{
-        DISC_MAP[tk].sort((a,b)=>(b.ts||'').localeCompare(a.ts||'')).splice(10);
+        DISC_MAP[tk].sort((a,b)=>(b.ts||'').localeCompare(a.ts||''));
+        DISC_ALL[tk]=DISC_MAP[tk].slice();
+        DISC_MAP[tk].splice(10);
       });
       render();
+      refreshOpenTab();
       refreshOpenTab();
     }).catch(()=>{});
     fetch('data/oppday-minutes.json').then(r=>r.ok?r.json():null).then(d=>{
@@ -1590,7 +1626,7 @@ window.addEventListener('i18n:change',()=>{
   }
 });
 </script>
-<script src="nav.js?v=9" defer></script>
+<script src="nav.js?v=11" defer></script>
 <script src="chat-dock.js?v=8" defer></script>
 </body>
 </html>

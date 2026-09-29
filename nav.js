@@ -21,7 +21,6 @@
       id:"home", label:["Home","หน้าหลัก"], short:["Home","หน้าหลัก"], icon:"layout-dashboard", color:"#f2aa1f",
       pages:[
         ["index.html","Morning overview","ภาพรวมเช้า","activity"],
-        ["visits.html","Visit planner","แผนเยี่ยมบริษัท","calendar-days"],
         ["ai-insights.html","AI insights","AI insights","sparkles"],
       ],
     },
@@ -40,7 +39,6 @@
       pages:[
         ["company-summary.html","Company summary","ข้อมูลรายบริษัท","notebook-tabs"],
         ["oppday-minutes.html","Oppday minutes","สรุป Oppday","presentation"],
-        ["sec-form59.html","SEC Form 59","แบบ 59","contact-round"],
       ],
     },
     {
@@ -57,8 +55,6 @@
       pages:[
         ["unusual-trading.html","Unusual trading","การซื้อขายผิดปกติ","siren","alerts"],
         ["trading-signs.html","Trading signs","เครื่องหมายซื้อขาย","flag"],
-        ["sec-enforcement.html","SEC enforcement","การบังคับใช้กฎหมาย","shield-check"],
-        ["governance-screen.html","Governance screen","ตรวจสอบธรรมาภิบาล","scale"],
       ],
     },
     {
@@ -94,12 +90,8 @@
     "ai-insights":         ["Home","Validated commentary from daily snapshots","บทวิเคราะห์จาก daily snapshots","#f2aa1f","sparkles"],
     "unusual-trading":     ["Risk & surveillance","Volume and price anomalies","ความผิดปกติด้านราคาและปริมาณซื้อขาย","#ef6464","siren"],
     "trading-signs":       ["Risk & surveillance","Current SET trading signs","เครื่องหมายซื้อขายของ SET","#ef6464","flag"],
-    "sec-enforcement":     ["Risk & surveillance","Thai SEC enforcement actions","การบังคับใช้กฎหมายของ SEC","#ef6464","shield-check"],
-    "sec-form59":          ["Companies","Management and related-person trades","รายการซื้อขายของผู้บริหารและบุคคลที่เกี่ยวข้อง","#35bdd0","contact-round"],
     "bond-summary":        ["Bonds","Outstanding bonds across coverage","หุ้นกู้คงค้างใน coverage","#b17cff","chart-pie"],
     "bond-data-sec":       ["Bonds","Bond filings from the SEC","ข้อมูล filing หุ้นกู้จาก SEC","#b17cff","database"],
-    "governance-screen":   ["Risk & surveillance","Auditor fees, AGM timing and board independence","ค่าสอบบัญชี กำหนดประชุมสามัญผู้ถือหุ้น และสัดส่วนกรรมการอิสระ","#ef6464","scale"],
-    "visits":              ["Home","Plan and track company visits","วางแผนและติดตามการเยี่ยมบริษัท","#f2aa1f","calendar-days"],
   };
 
   var ICONS = {
@@ -271,8 +263,9 @@
               (page[4] ? '<span class="is1s-count" data-count="' + page[4] + '">—</span>' : "") +
               (embedded ? icon("panel-right-open","is1s-link-arrow") : "") + "</" + tag + ">";
           }).join("") + "</section>";
-      }).join("") + '<div class="is1s-module-spacer" aria-hidden="true"></div></div><div class="is1s-module-foot"><span class="is1s-live-dot"></span><span data-shell-freshness>' +
-      esc(L("Loading snapshot","กำลังโหลด snapshot")) + "</span></div>";
+      }).join("") + '<div class="is1s-module-spacer" aria-hidden="true"></div></div><div class="is1s-module-foot"><div><span class="is1s-live-dot" data-shell-health-dot></span><span data-shell-freshness>' +
+      esc(L("Loading snapshot","กำลังโหลด snapshot")) + '</span></div><div class="is1s-health" data-shell-health aria-label="' +
+      esc(L("Data freshness","ความสดของข้อมูล")) + '"></div></div>';
   }
   modulePanel.innerHTML = moduleMarkup();
 
@@ -866,6 +859,79 @@
     modulePanel.querySelectorAll("[data-count]").forEach(function (node) { node.textContent = counts[node.dataset.count]; });
     var fresh = modulePanel.querySelector("[data-shell-freshness]");
     if (fresh) fresh.textContent = L("Prices as of ","ราคา ณ ") + thaiDate(state.data.brief.asOf);
+    renderHealth();
+  }
+
+  // Data freshness strip: one chip per snapshot the pages lean on, coloured on
+  // the 7 / 14 day contract of scripts/check_snapshot_freshness.py. Prices and
+  // filings come from data the shell already loaded; the large files are read
+  // only up to their top-level timestamp, then the download is cancelled.
+  var HEALTH = [
+    { key:"prices",    label:["Prices","ราคา"],           file:"morning-brief",      from:function (d) { return d.brief._built_at || d.brief.asOf; } },
+    { key:"filings",   label:["Filings","ข่าว SET"],      file:"disclosure-pulse",   from:function (d) { return d.pulse._built_at || d.pulse.asOf; } },
+    { key:"summaries", label:["Summaries","สรุปข่าว"],    file:"filing-summaries",   field:"generated" },
+    { key:"vault",     label:["Vault notes","Vault"],     file:"vault-ticker-notes", field:"generated" },
+    { key:"sector",    label:["Sector intel","Sector"],   file:"sector-intelligence", field:"effectiveMarketEod" },
+    { key:"reports",   label:["Reports","รายงาน"],        file:"company-reports",    field:"generated", manual:true },
+  ];
+  var healthStamps = {};
+  var healthPromise = null;
+  function headStamp(name,field) {
+    var re = new RegExp('"' + field + '"\\s*:\\s*"([^"]+)"');
+    return fetch(asset(name)).then(function (r) {
+      if (!r.ok || !r.body) return null;
+      var reader = r.body.getReader(), decoder = new TextDecoder(), buf = "";
+      function pump() {
+        return reader.read().then(function (chunk) {
+          if (!chunk.done) buf += decoder.decode(chunk.value,{ stream:true });
+          var match = buf.match(re);
+          if (match || chunk.done || buf.length > 65536) {
+            if (!chunk.done) reader.cancel().catch(function () {});
+            return match ? match[1] : null;
+          }
+          return pump();
+        });
+      }
+      return pump();
+    }).catch(function () { return null; });
+  }
+  function loadHealth() {
+    if (healthPromise) return healthPromise;
+    healthPromise = Promise.all(HEALTH.map(function (item) {
+      if (item.from) return Promise.resolve(state.data ? item.from(state.data) : null);
+      return headStamp(item.file,item.field);
+    })).then(function (stamps) {
+      HEALTH.forEach(function (item,i) { healthStamps[item.key] = stamps[i]; });
+    });
+    return healthPromise;
+  }
+  function ageDays(stamp) {
+    var t = Date.parse(/^\d{4}-\d{2}-\d{2}$/.test(stamp) ? stamp + "T00:00:00+07:00" : stamp);
+    return Number.isFinite(t) ? Math.max(0,(Date.now() - t) / 864e5) : null;
+  }
+  function ageText(days) {
+    if (days < 1) return L(Math.max(1,Math.round(days * 24)) + "h",Math.max(1,Math.round(days * 24)) + " ชม.");
+    return L(Math.floor(days) + "d",Math.floor(days) + " วัน");
+  }
+  function renderHealth() {
+    var host = modulePanel.querySelector("[data-shell-health]");
+    if (!host) return;
+    loadHealth().then(function () {
+      var worst = 0;
+      host.innerHTML = HEALTH.map(function (item) {
+        var stamp = healthStamps[item.key];
+        var days = stamp ? ageDays(stamp) : null;
+        var level = item.manual ? "manual" : days == null || days > 14 ? "stale" : days > 7 ? "warn" : "fresh";
+        if (!item.manual) worst = Math.max(worst,{ fresh:0, warn:1, stale:2 }[level]);
+        var when = days == null ? L("missing","ไม่พบ") : ageText(days);
+        var tip = L(item.label[0],item.label[1]) + " · " + (stamp ? String(stamp).slice(0,10) + " · " + when : when) +
+          (item.manual ? L(" · built by hand, no fixed cadence"," · สร้างด้วยมือ ไม่มีรอบอัปเดตตายตัว") : "");
+        return '<span class="is1s-health-chip is1s-h-' + level + '" title="' + esc(tip) + '"><i></i>' + esc(L(item.label[0],item.label[1])) +
+          "<b>" + esc(when) + "</b></span>";
+      }).join("");
+      var dot = modulePanel.querySelector("[data-shell-health-dot]");
+      if (dot) dot.className = "is1s-live-dot" + (worst === 2 ? " is1s-h-stale" : worst === 1 ? " is1s-h-warn" : "");
+    });
   }
 
   function renderHome() {
