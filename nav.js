@@ -872,6 +872,7 @@
     { key:"summaries", label:["Summaries","สรุปข่าว"],    file:"filing-summaries",   field:"generated" },
     { key:"vault",     label:["Vault notes","Vault"],     file:"vault-ticker-notes", field:"generated" },
     { key:"sector",    label:["Sector intel","Sector"],   file:"sector-intelligence", field:"effectiveMarketEod" },
+    { key:"people",    label:["Board","กรรมการ"],          file:"company-people",     field:"generated" },
     { key:"reports",   label:["Reports","รายงาน"],        file:"company-reports",    field:"generated", manual:true },
   ];
   var healthStamps = {};
