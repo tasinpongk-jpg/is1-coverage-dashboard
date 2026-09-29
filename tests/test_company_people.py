@@ -36,7 +36,7 @@ HOLDERS = {
          "numberOfShare": 445341751, "percentOfShare": 1.39, "isThaiNVDR": True},
     ],
     "freeFloat": {"bookCloseDate": "2026-03-10T00:00:00+07:00", "caType": "XM",
-                  "percentFreeFloat": 24.95, "numberOfHolder": 26930},
+                  "percentFreeFloat": 24.950000762939453, "numberOfHolder": 26930},
 }
 TODAY = "2026-09-29"
 

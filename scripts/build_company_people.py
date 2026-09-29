@@ -102,7 +102,8 @@ def parse_shareholders(d: dict | None) -> dict | None:
         "totalShareholder": d.get("totalShareholder"),
         "percentScriptless": d.get("percentScriptless"),
         "freeFloat": {
-            "percent": ff.get("percentFreeFloat"),
+            # SET sends this as a float32 (24.950000762939453); 2 dp is what it publishes.
+            "percent": round(ff["percentFreeFloat"], 2) if isinstance(ff.get("percentFreeFloat"), (int, float)) else None,
             "holders": ff.get("numberOfHolder"),
             "recordDate": str(ff.get("bookCloseDate") or "")[:10] or None,
         } if ff else None,
