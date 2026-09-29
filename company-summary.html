@@ -243,6 +243,34 @@ main{flex:1;max-width:1540px;width:100%;margin:0 auto;padding:22px 24px 48px;pos
 .esg-c{color:var(--red);background:#ef444420;border:2px solid #ef444440}
 
 /* auditor/mgmt list */
+.pp-comp{display:flex;align-items:center;gap:10px;margin:2px 0 12px;font-size:11px;color:var(--muted)}
+.pp-bar{position:relative;flex:1;height:10px;border-radius:5px;background:color-mix(in srgb,var(--muted) 22%,transparent);overflow:visible}
+.pp-bar i{position:absolute;left:0;top:0;bottom:0;border-radius:5px;background:var(--green)}
+.pp-bar b{position:absolute;top:-4px;bottom:-4px;width:2px;background:var(--text);opacity:.55}
+.pp-dir{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 10px;padding:7px 0;border-bottom:1px dashed var(--line-soft,var(--border));font-size:12px}
+.pp-dir:last-child{border-bottom:none}
+.pp-dir .n{font-weight:600}
+.pp-dir .s{grid-column:1;font-size:10.5px;color:var(--muted)}
+.pp-tags{grid-row:1 / span 2;grid-column:2;display:flex;gap:4px;align-items:flex-start;flex-wrap:wrap;justify-content:flex-end;max-width:190px}
+.pp-tag{font-size:9.5px;font-weight:700;padding:1px 6px;border-radius:4px;white-space:nowrap}
+.pp-tag.ind{color:var(--green);background:color-mix(in srgb,var(--green) 13%,transparent)}
+.pp-tag.chair{color:var(--yellow);background:color-mix(in srgb,var(--yellow) 14%,transparent)}
+.pp-tag.aud{color:var(--blue);background:color-mix(in srgb,var(--blue) 13%,transparent)}
+.pp-meta{display:flex;flex-wrap:wrap;gap:6px 16px;margin-bottom:10px;font-size:11px;color:var(--muted)}
+.pp-meta b{color:var(--text);font-variant-numeric:tabular-nums}
+.pp-h{display:grid;grid-template-columns:22px minmax(0,1fr) 150px 58px 54px;align-items:center;gap:8px;padding:5px 0;font-size:11.5px;border-bottom:1px dashed var(--line-soft,var(--border))}
+.pp-h .r{color:var(--dim);font-variant-numeric:tabular-nums;text-align:right}
+.pp-h .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pp-h .bar{height:8px;border-radius:4px;background:color-mix(in srgb,var(--muted) 18%,transparent);position:relative}
+.pp-h .bar i{position:absolute;left:0;top:0;bottom:0;border-radius:4px;background:var(--accent)}
+.pp-h .bar i.nvdr{background:var(--muted)}
+.pp-h .pc{text-align:right;font-weight:700;font-variant-numeric:tabular-nums}
+.pp-h .dl{text-align:right;font-size:10.5px;font-variant-numeric:tabular-nums}
+.pp-change{padding:6px 0;font-size:11.5px;border-bottom:1px dashed var(--line-soft,var(--border))}
+.pp-change time{color:var(--muted);font-size:10.5px;margin-right:8px}
+.pp-note{color:var(--muted);font-size:11.5px;line-height:1.6}
+.pp-more{margin-top:8px;background:none;border:1px solid var(--border);border-radius:6px;color:var(--text);font:inherit;font-size:11px;padding:4px 10px;cursor:pointer}
+@media(max-width:600px){.pp-h{grid-template-columns:20px minmax(0,1fr) 70px 50px}.pp-h .dl{display:none}}
 .person-row{padding:7px 0;border-bottom:1px dashed var(--line-soft,var(--border));font-size:12px}
 .person-row:last-child{border-bottom:none}
 .person-pos{font-size:10px;color:var(--muted);margin-bottom:2px}
@@ -449,6 +477,7 @@ footer a{color:var(--muted);text-decoration:none}
       <div class="dnav-group g-company"><div class="dnav-label" data-i18n="company.navCompany">Company</div>
         <button type="button" class="dtab" data-tab="company"><span data-i18n="common.company">Company</span></button>
         <button type="button" class="dtab" data-tab="governance"><span data-i18n="common.governance">Governance</span></button>
+        <button type="button" class="dtab" data-tab="people"><span data-people-label>Board &amp; holders</span><em class="dtab-n" data-count="people"></em></button>
       </div>
       <div class="dnav-group g-news"><div class="dnav-label" data-i18n="company.navNews">News</div>
         <button type="button" class="dtab" data-tab="disclosures"><span data-i18n="common.disclosures">Disclosures</span><em class="dtab-n" data-count="disclosures"></em></button>
@@ -671,6 +700,84 @@ function filingMarks(t, W=240, H=34, pad=3){
     const tip=`${dates[i]} · ${m.n} SET · ${sev[m.s]}\n`+m.titles.map(x=>'• '+(x||'')).join('\n');
     return `<button type="button" class="dp-ev s${m.s}${m.n>1?' multi':''}" style="left:${x.toFixed(2)}%;top:${y.toFixed(2)}%" title="${esc(tip)}" aria-label="${esc(tip)}" onclick="document.querySelector('.dtab[data-tab=disclosures]')?.click()"></button>`;
   }).join('');
+}
+
+
+// ── Board & major shareholders (data/company-people.json) ────────────────────
+let PEOPLE_SHOW_ALL=false;
+function peopleHtml(t){
+  const th=window.I18N&&I18N.lang==='th', LL=(en,tht)=>th?tht:en;
+  const p=PEOPLE_MAP[t.tk];
+  const fs=`https://www.set.or.th/${th?'th':'en'}/market/product/stock/quote/${encodeURIComponent(t.tk)}/factsheet`;
+  const src=`<div class="pp-note" style="margin-top:6px">${LL('Source','ที่มา')}: <a href="${esc(fs)}" target="_blank" rel="noopener">SET factsheet ↗</a>${p&&p.checked?' · '+LL('checked','ตรวจล่าสุด')+' '+esc(p.checked):''}</div>`;
+  if(!p) return `<div class="pp-note" style="padding:24px 0;text-align:center">${LL('Board and shareholder data not loaded yet.','ยังไม่มีข้อมูลกรรมการและผู้ถือหุ้น')}</div>`+src;
+  let h='';
+  const fmtD=d=>{ if(!d) return '—'; const x=new Date(d+'T00:00:00Z'); return isNaN(x)?d:x.toLocaleDateString(th?'th-TH':'en-GB',{day:'numeric',month:'short',year:'numeric',timeZone:'UTC'}); };
+
+  // Board
+  const b=p.board||[];
+  h+=`<div class="ds"><div class="ds-title">${LL('Board of directors','คณะกรรมการ')}</div>`;
+  if(p.boardApplicable===false){
+    h+=`<div class="pp-note">${LL('A trust or fund has no board of its own; its REIT manager or fund manager governs it. See the manager\'s filings.','กองทรัสต์หรือกองทุนไม่มีคณะกรรมการของตนเอง อยู่ภายใต้การกำกับของผู้จัดการกองทรัสต์หรือบริษัทจัดการ')}</div>`;
+  }else if(!b.length){
+    h+=`<div class="pp-note">${LL('SET returned no board list for this name.','SET ไม่มีรายชื่อกรรมการของบริษัทนี้')}</div>`;
+  }else{
+    const ind=b.filter(d=>d.independent).length, share=ind/b.length;
+    const ok=share>=1/3&&ind>=3;
+    h+=`<div class="pp-comp"><span><b style="color:var(--text)">${b.length}</b> ${LL('directors','คน')} · <b style="color:${ok?'var(--green)':'var(--yellow)'}">${ind}</b> ${LL('independent','กรรมการอิสระ')} (${(share*100).toFixed(0)}%)</span>
+      <div class="pp-bar" title="${esc(LL('Marker = one third, the SEC / SET minimum for independent directors (and at least 3)','เส้นแบ่ง = หนึ่งในสาม ขั้นต่ำกรรมการอิสระตามเกณฑ์ ก.ล.ต. / ตลท. (และไม่น้อยกว่า 3 คน)'))}"><i style="width:${(share*100).toFixed(1)}%"></i><b style="left:33.33%"></b></div></div>`;
+    if(!ok) h+=`<div class="pp-note" style="margin:-4px 0 10px;color:var(--yellow)">${LL('Below one third independent (or fewer than 3) on SET\'s list. SET\'s list can lag a board change; verify against the latest One Report or director-change filing before raising it.','กรรมการอิสระต่ำกว่าหนึ่งในสาม (หรือน้อยกว่า 3 คน) ตามรายชื่อบน SET ซึ่งอาจยังไม่อัปเดต ควรตรวจกับ One Report หรือหนังสือแจ้งเปลี่ยนแปลงกรรมการล่าสุดก่อนหยิบยก')}</div>`;
+    if(!b.some(d=>d.chair)) h+=`<div class="pp-note" style="margin:-4px 0 10px">${LL('No chair on SET\'s list.','ไม่มีประธานกรรมการในรายชื่อบน SET')}</div>`;
+    h+=b.map(d=>{
+      const nm=th&&d.nameTh?d.nameTh:d.name, alt=th?d.name:d.nameTh;
+      const pos=(th&&d.positionsTh?d.positionsTh:d.positions)||[];
+      const tags=(d.chair?`<span class="pp-tag chair">${LL('Chair','ประธาน')}</span>`:'')+(d.independent?`<span class="pp-tag ind">${LL('Independent','อิสระ')}</span>`:'')+(d.audit?`<span class="pp-tag aud">${LL('Audit cttee','กก.ตรวจสอบ')}</span>`:'');
+      return `<div class="pp-dir"><div class="n">${esc(nm)}${alt&&alt!==nm?` <span style="color:var(--dim);font-weight:400;font-size:10.5px">· ${esc(alt)}</span>`:''}</div><div class="pp-tags">${tags}</div><div class="s">${esc(pos.join(' · '))}</div></div>`;
+    }).join('');
+  }
+  h+='</div>';
+
+  // Board changes (tracked by the builder; SET publishes no dates)
+  if(p.boardApplicable!==false){
+    const ch=p.boardChanges||[];
+    h+=`<div class="ds"><div class="ds-title">${LL('Board changes','การเปลี่ยนแปลงกรรมการ')}</div>`;
+    if(!ch.length){
+      h+=`<div class="pp-note">${LL('No change seen since tracking started. Changes are dated the day the daily check first sees them on SET, not the effective date in the filing.','ยังไม่พบการเปลี่ยนแปลงนับจากเริ่มติดตาม วันที่ที่แสดงคือวันที่ระบบตรวจพบบน SET ไม่ใช่วันที่มีผลตามหนังสือแจ้ง')}</div>`;
+    }else{
+      h+=ch.slice(0,8).map(c=>`<div class="pp-change"><time>${esc(fmtD(c.date))}</time>`+
+        (c.joined||[]).map(n=>`<span style="color:var(--green)">+ ${esc(n)}</span>`).join(', ')+
+        ((c.joined||[]).length&&(c.left||[]).length?' · ':'')+
+        (c.left||[]).map(n=>`<span style="color:var(--red)">− ${esc(n)}</span>`).join(', ')+
+        (c.changed||[]).map(x=>`<div style="color:var(--muted);font-size:10.5px">${esc(x.name)}: ${esc((x.from||[]).join(', '))} → ${esc((x.to||[]).join(', '))}</div>`).join('')+'</div>').join('');
+    }
+    h+='</div>';
+  }
+
+  // Major shareholders
+  const s=p.shareholders;
+  h+=`<div class="ds"><div class="ds-title">${LL('Major shareholders','ผู้ถือหุ้นรายใหญ่')}</div>`;
+  if(!s||!(s.major||[]).length){
+    h+=`<div class="pp-note">${LL('No shareholder list from SET.','ไม่มีรายชื่อผู้ถือหุ้นจาก SET')}</div>`;
+  }else{
+    const prev=(p.shareholderHistory||[])[0];
+    const prevPct={}; (prev&&prev.top||[]).forEach(x=>{prevPct[x.name.toUpperCase()]=x.pct;});
+    const top3=s.major.slice(0,3).reduce((a,x)=>a+(x.pct||0),0);
+    h+=`<div class="pp-meta"><span>${LL('Record date','วันปิดสมุดทะเบียน')} <b>${esc(fmtD(s.recordDate))}</b>${s.caType?' ('+esc(s.caType)+')':''}</span>
+      <span>${LL('Shareholders','จำนวนผู้ถือหุ้น')} <b>${s.totalShareholder!=null?Number(s.totalShareholder).toLocaleString('en-US'):'—'}</b></span>
+      <span>${LL('Top 3','3 อันดับแรก')} <b>${top3.toFixed(2)}%</b></span>
+      ${s.freeFloat&&s.freeFloat.percent!=null?`<span>${LL('Free float','Free float')} <b>${Number(s.freeFloat.percent).toFixed(2)}%</b>${s.freeFloat.recordDate&&s.freeFloat.recordDate!==s.recordDate?' ('+esc(fmtD(s.freeFloat.recordDate))+')':''}</span>`:''}</div>`;
+    const max=Math.max(...s.major.map(x=>x.pct||0),1);
+    const rows=PEOPLE_SHOW_ALL?s.major:s.major.slice(0,10);
+    h+=rows.map(x=>{
+      const was=prev?prevPct[x.name.toUpperCase()]:undefined;
+      const dl=!prev?'':was==null?`<span style="color:var(--blue)">${LL('new','ใหม่')}</span>`:Math.abs(x.pct-was)<0.005?'<span style="color:var(--dim)">—</span>':`<span style="color:${x.pct>was?'var(--green)':'var(--red)'}">${x.pct>was?'+':''}${(x.pct-was).toFixed(2)}</span>`;
+      return `<div class="pp-h" title="${esc(x.name)} · ${x.shares!=null?Number(x.shares).toLocaleString('en-US')+' '+LL('shares','หุ้น'):''}"><span class="r">${x.rank??''}</span><span class="nm">${esc(x.name)}${x.nvdr?' <span class="pp-tag" style="color:var(--muted);background:var(--bg2)">NVDR</span>':''}</span><span class="bar"><i class="${x.nvdr?'nvdr':''}" style="width:${((x.pct||0)/max*100).toFixed(1)}%"></i></span><span class="pc">${(x.pct||0).toFixed(2)}%</span><span class="dl">${dl}</span></div>`;
+    }).join('');
+    if(s.major.length>10) h+=`<button type="button" class="pp-more" onclick="PEOPLE_SHOW_ALL=!PEOPLE_SHOW_ALL;renderTab('people')">${PEOPLE_SHOW_ALL?LL('Show top 10','แสดง 10 อันดับแรก'):LL('Show all '+s.major.length,'แสดงทั้งหมด '+s.major.length)}</button>`;
+    h+=`<div class="pp-note" style="margin-top:8px">${prev?LL('Change column = percentage points vs the previous record date ('+fmtD(prev.recordDate)+').','คอลัมน์ขวา = ส่วนต่างเปอร์เซ็นต์เทียบวันปิดสมุดก่อนหน้า ('+fmtD(prev.recordDate)+')'):LL('The list updates at each book closure (record date), usually once or twice a year. Changes show from the next record date onward.','รายชื่อเปลี่ยนตามวันปิดสมุดทะเบียน ปกติปีละ 1 ถึง 2 ครั้ง ส่วนต่างจะแสดงตั้งแต่วันปิดสมุดครั้งถัดไป')} ${LL('Names are as registered, so some appear in Thai.','ชื่อแสดงตามทะเบียนผู้ถือหุ้น')}</div>`;
+  }
+  h+='</div>'+src;
+  return h;
 }
 
 // ── range bar ────────────────────────────────────────────────────────────────
@@ -1070,6 +1177,7 @@ function buildCard(t, idx){
 let CURRENT = null;
 
 function openDrawer(idx, tab='overview'){
+  const pl=document.querySelector('[data-people-label]'); if(pl) pl.textContent=(window.I18N&&I18N.lang==='th')?'กรรมการและผู้ถือหุ้น':'Board & holders';
   CURRENT = ALL[idx] || ALL.find((_,i)=>i===idx);
   if(!CURRENT) return;
   const t = CURRENT;
@@ -1107,7 +1215,7 @@ function openDrawer(idx, tab='overview'){
   // tabs
   document.querySelectorAll('.dtab').forEach(b=>b.classList.toggle('active',b.dataset.tab===tab));
   const vault=VAULT_MAP[t.tk]||{};
-  const counts={mda:(vault.mda||[]).length,notes:(vault.fsNotes||[]).length,oppday:(vault.calls||[]).length+(OPP_MAP[t.tk]?1:0),disclosures:(DISC_MAP[t.tk]||[]).length};
+  const counts={mda:(vault.mda||[]).length,notes:(vault.fsNotes||[]).length,oppday:(vault.calls||[]).length+(OPP_MAP[t.tk]?1:0),disclosures:(DISC_MAP[t.tk]||[]).length,people:((PEOPLE_MAP[t.tk]||{}).board||[]).length};
   document.querySelectorAll('.dtab-n').forEach(n=>{ const c=counts[n.dataset.count]; n.textContent=c?String(c):''; });
   renderTab(tab);
 
@@ -1251,6 +1359,8 @@ function renderTab(tab){
     }
   }
 
+  if(tab==='people') html+=peopleHtml(t);
+
   if(tab==='disclosures'){
     const filings=(DISC_MAP[t.tk]||[]);
     if(!filings.length){
@@ -1286,7 +1396,7 @@ function renderTab(tab){
 }
 
 // ── state & render ───────────────────────────────────────────────────────────
-let AI_SUMS={}, ALL=[], SECTOR_STATS={}, DISC_MAP={}, DISC_ALL={}, OPP_MAP={}, VAULT_MAP={}, REPORT_MAP={}, sectFilter='ALL', rmFilter=/^[CKOGPT]$/.test(localStorage.getItem('is1_rm') || '') ? localStorage.getItem('is1_rm') : '', sortKey='tk', searchQ='';
+let AI_SUMS={}, ALL=[], SECTOR_STATS={}, DISC_MAP={}, DISC_ALL={}, PEOPLE_MAP={}, PEOPLE_META=null, OPP_MAP={}, VAULT_MAP={}, REPORT_MAP={}, sectFilter='ALL', rmFilter=/^[CKOGPT]$/.test(localStorage.getItem('is1_rm') || '') ? localStorage.getItem('is1_rm') : '', sortKey='tk', searchQ='';
 // Tickers whose fiscal year is not Jan-Dec. Seeded with the well-known
 // FY-offset companies; REITs (ticker ends in REIT/PFREIT) get appended
 // after the tickers.json fetch in fetchData() because the REIT universe
@@ -1566,7 +1676,6 @@ async function loadData(){
       });
       render();
       refreshOpenTab();
-      refreshOpenTab();
     }).catch(()=>{});
     fetch('data/oppday-minutes.json').then(r=>r.ok?r.json():null).then(d=>{
       if(!d) return;
@@ -1575,6 +1684,11 @@ async function loadData(){
         if(tk&&!OPP_MAP[tk]) OPP_MAP[tk]=s;
       });
       render();
+      refreshOpenTab();
+    }).catch(()=>{});
+    fetch('data/company-people.json').then(r=>r.ok?r.json():null).then(d=>{
+      if(!d) return;
+      PEOPLE_MAP=d.tickers||{}; PEOPLE_META={asOf:d.asOf,generated:d.generated};
       refreshOpenTab();
     }).catch(()=>{});
     fetch('data/vault-ticker-notes.json').then(r=>r.ok?r.json():null).then(d=>{
@@ -1626,7 +1740,7 @@ window.addEventListener('i18n:change',()=>{
   }
 });
 </script>
-<script src="nav.js?v=11" defer></script>
+<script src="nav.js?v=12" defer></script>
 <script src="chat-dock.js?v=8" defer></script>
 </body>
 </html>

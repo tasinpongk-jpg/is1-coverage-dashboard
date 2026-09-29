@@ -344,6 +344,19 @@ jobs:
         run: python scripts/build_ticker_summary.py
         continue-on-error: true
 
+      # Board of directors + major shareholders for company-summary.html
+      # (Board & holders tab). Same SET API and cookie warmup as the ticker
+      # summary; ~700 calls. Keeps its own dated board-change log and a
+      # snapshot per shareholder record date, diffing against yesterday's
+      # committed file, so it must run before the data commit below.
+      - name: Build company people (board + major shareholders)
+        env:
+          SET_MAX_CONCURRENT: "3"
+          SET_THROTTLE_S: "0.28"
+          PYTHONIOENCODING: utf-8
+        run: python scripts/build_company_people.py
+        continue-on-error: true
+
       # AI morning commentary over the snapshots just built (MiniMax M3).
       # Script exits 0 on any failure so commentary never blocks the
       # data deploy; the page falls back to the previous day's file.

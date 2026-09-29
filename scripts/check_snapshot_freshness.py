@@ -122,6 +122,10 @@ SNAPSHOTS = [
      "fields": ["generated", "_built_at"], "warn": 100, "stale": 120},
     {"file": "source-health.json",      "label": "src-health",
      "fields": ["asOf", "_built_at"]},
+    # Board + major shareholders, daily.yml. `generated` moves every run even
+    # when no board or record date changed.
+    {"file": "company-people.json",     "label": "people",
+     "fields": ["generated", "asOf"]},
     {"file": "ticker-summary.json",     "label": "ticker-sum",
      "fields": ["_built_at", "asOf", "version"]},
     {"file": "trading-signs.json",      "label": "signs",

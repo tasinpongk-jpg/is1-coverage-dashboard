@@ -33,6 +33,7 @@ These drive every HTML page and the chat dock. If any is stale, the dashboard is
 | `data/morning-brief.json` | SETSMART prices + TA engine | `index.html`, Discord push | `scripts/build_daily_brief.py` | daily.yml |
 | `data/company-reports.json` | in-session LLM synthesis | `company-summary.html` hero | `scripts/build_company_reports.py` | manual |
 | `data/vault-ticker-notes.json` | OneDrive Obsidian vault | `company-summary.html` drawer | `scripts/build_vault_ticker_notes.py` | laptop cron `scripts/vault_notes_cron.py` (daily) |
+| `data/company-people.json` | SET factsheet API (board, major shareholders) | `company-summary.html` Board & holders tab | `scripts/build_company_people.py` | daily.yml |
 | `data/filing-summaries.json` | SET filing PDFs → MiniMax M3 (laptop cron) | home newsroom, `company-summary.html` drawer, `disclosure-pulse.html` | `scripts/enrich_filing.py --dashboard` | laptop cron only |
 
 `filing-summaries.json` covers every coverage ticker, Critical + Material
