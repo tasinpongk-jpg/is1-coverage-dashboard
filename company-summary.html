@@ -724,8 +724,10 @@ function peopleHtml(t){
   }else{
     const ind=b.filter(d=>d.independent).length, share=ind/b.length;
     const ok=share>=1/3&&ind>=3;
-    h+=`<div class="pp-comp"><span><b style="color:var(--text)">${b.length}</b> ${LL('directors','คน')} · <b style="color:${ok?'var(--green)':'var(--red)'}">${ind}</b> ${LL('independent','กรรมการอิสระ')} (${(share*100).toFixed(0)}%)</span>
+    h+=`<div class="pp-comp"><span><b style="color:var(--text)">${b.length}</b> ${LL('directors','คน')} · <b style="color:${ok?'var(--green)':'var(--yellow)'}">${ind}</b> ${LL('independent','กรรมการอิสระ')} (${(share*100).toFixed(0)}%)</span>
       <div class="pp-bar" title="${esc(LL('Marker = one third, the SEC / SET minimum for independent directors (and at least 3)','เส้นแบ่ง = หนึ่งในสาม ขั้นต่ำกรรมการอิสระตามเกณฑ์ ก.ล.ต. / ตลท. (และไม่น้อยกว่า 3 คน)'))}"><i style="width:${(share*100).toFixed(1)}%"></i><b style="left:33.33%"></b></div></div>`;
+    if(!ok) h+=`<div class="pp-note" style="margin:-4px 0 10px;color:var(--yellow)">${LL('Below one third independent (or fewer than 3) on SET\'s list. SET\'s list can lag a board change; verify against the latest One Report or director-change filing before raising it.','กรรมการอิสระต่ำกว่าหนึ่งในสาม (หรือน้อยกว่า 3 คน) ตามรายชื่อบน SET ซึ่งอาจยังไม่อัปเดต ควรตรวจกับ One Report หรือหนังสือแจ้งเปลี่ยนแปลงกรรมการล่าสุดก่อนหยิบยก')}</div>`;
+    if(!b.some(d=>d.chair)) h+=`<div class="pp-note" style="margin:-4px 0 10px">${LL('No chair on SET\'s list.','ไม่มีประธานกรรมการในรายชื่อบน SET')}</div>`;
     h+=b.map(d=>{
       const nm=th&&d.nameTh?d.nameTh:d.name, alt=th?d.name:d.nameTh;
       const pos=(th&&d.positionsTh?d.positionsTh:d.positions)||[];

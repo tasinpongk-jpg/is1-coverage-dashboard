@@ -52,6 +52,21 @@ class ParseBoard(unittest.TestCase):
         self.assertFalse(b[1]["independent"])
         self.assertEqual(sum(d["independent"] for d in b), 2)
 
+    def test_title_variants_seen_on_set(self):
+        rows = [
+            ({"name": "A", "positions": ["CHAIRMAN"]}, {"name": "ก", "positions": ["ประธานกรรมการ"]}),
+            ({"name": "B", "positions": ["BOARD CHAIRMAN"]}, {"name": "ข", "positions": ["ประธานกรรมการบริษัท"]}),
+            ({"name": "C", "positions": ["VICE CHAIRMAN"]}, {"name": "ค", "positions": ["รองประธานกรรมการ"]}),
+            ({"name": "D", "positions": ["LEAD INDEPENDENT DIRECTOR"]}, {"name": "ง", "positions": ["ประธานกรรมการอิสระ"]}),
+            ({"name": "E", "positions": ["AUDIT COMMITTE CHAIRMAN"]}, {"name": "จ", "positions": ["ประธานกรรมการตรวจสอบ"]}),
+            ({"name": "F", "positions": ["CHAIRMAN OF EXECUTIVE BOARD"]}, {"name": "ฉ", "positions": ["ประธานกรรมการบริหาร"]}),
+        ]
+        b = parse_board([r[0] for r in rows], [r[1] for r in rows])
+        self.assertEqual([d["chair"] for d in b], [True, True, False, False, False, False])
+        self.assertEqual([d["independent"] for d in b], [False, False, False, True, False, False])
+        self.assertTrue(b[4]["audit"])
+        self.assertFalse(b[5]["audit"])
+
     def test_mismatched_lengths_never_pair_thai_names(self):
         b = parse_board(BOARD_EN, BOARD_TH[:3])
         self.assertTrue(all(d["nameTh"] is None for d in b))

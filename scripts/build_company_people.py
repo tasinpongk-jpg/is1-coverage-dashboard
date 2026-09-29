@@ -49,9 +49,15 @@ BOARD_HISTORY_MAX = 40        # dated board change entries kept per ticker
 HOLDER_SNAPSHOTS_MAX = 8      # previous record dates kept per ticker
 HISTORY_TOP_N = 10            # holders stored per historical snapshot
 
+# Role tags. Thai titles are the more uniform of the two, so a match on either
+# language counts. English wording varies ("CHAIRMAN", "BOARD CHAIRMAN",
+# "CHAIRPERSON", "AUDIT COMMITTE"); these patterns were fitted to every title
+# on the 185 boards SET returned on 29 Sep 2026.
 INDEPENDENT = re.compile(r"\bINDEPENDENT\b|กรรมการอิสระ", re.I)
-CHAIR = re.compile(r"^CHAIRMAN OF THE BOARD|^ประธานกรรมการ$|^ประธานคณะกรรมการ$", re.I)
-AUDIT = re.compile(r"AUDIT COMMITTEE|กรรมการตรวจสอบ", re.I)
+CHAIR = re.compile(
+    r"^(?:BOARD\s+)?CHAIR(?:MAN|PERSON|WOMAN)?(?:\s+OF(?:\s+THE)?\s+(?:BOARD|COMPANY)(?:\s+OF\s+DIRECTORS?)?)?$"
+    r"|^(?:รักษาการ)?ประธาน(?:คณะ)?กรรมการ(?:บริษัท)?$", re.I)
+AUDIT = re.compile(r"\bAUDIT\b|ตรวจสอบ", re.I)
 
 
 # ── pure helpers (unit tested in tests/test_company_people.py) ───────────────
@@ -70,16 +76,18 @@ def parse_board(en: list | None, th: list | None) -> list[dict]:
     pair = len(th) == len(en)
     out = []
     for i, d in enumerate(en):
-        positions = [p.strip() for p in (d.get("positions") or []) if str(p).strip()]
+        positions = [re.sub(r"\s+", " ", str(p)).strip() for p in (d.get("positions") or []) if str(p).strip()]
         t = th[i] if pair else {}
+        pos_th = [re.sub(r"\s+", " ", str(p)).strip() for p in (t.get("positions") or []) if str(p).strip()]
+        both = positions + pos_th
         out.append({
             "name": re.sub(r"\s+", " ", str(d.get("name") or "")).strip(),
             "nameTh": re.sub(r"\s+", " ", str(t.get("name") or "")).strip() or None,
             "positions": positions,
-            "positionsTh": [p.strip() for p in (t.get("positions") or []) if str(p).strip()] or None,
-            "independent": any(INDEPENDENT.search(p) for p in positions),
-            "chair": any(CHAIR.search(p) for p in positions),
-            "audit": any(AUDIT.search(p) for p in positions),
+            "positionsTh": pos_th or None,
+            "independent": any(INDEPENDENT.search(p) for p in both),
+            "chair": any(CHAIR.search(p) for p in both),
+            "audit": any(AUDIT.search(p) for p in both),
         })
     return out
 
