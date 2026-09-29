@@ -117,7 +117,7 @@ test("theme runtime is included in the deployed asset set", async () => {
 test("all shared assets use the current cache version", async () => {
   for (const file of htmlFiles) {
     const source = await readFile(file, "utf8");
-    for (const [asset, version] of [["theme.js", 8], ["theme.css", 9], ["i18n.js", 10], ["nav.js", 10]]) {
+    for (const [asset, version] of [["theme.js", 8], ["theme.css", 9], ["i18n.js", 11], ["nav.js", 11]]) {
       assert.match(source, new RegExp(`${asset.replace(".", "\\.")}\\?v=${version}`), `${file} must load ${asset} v${version}`);
     }
   }
@@ -181,8 +181,7 @@ test("RM-aware pages hydrate from and follow the shared RM selector", async () =
     "ai-insights.html", "bond-data-sec.html", "bond-summary.html", "company-summary.html",
     "disclosure-pulse.html", "external-news.html", "multiples-band.html",
     "multiples-comparison.html", "oppday-minutes.html", "price-movement.html",
-    "sec-enforcement.html", "sec-form59.html", "trading-signs.html",
-    "unusual-trading.html", "visits.html",
+    "trading-signs.html", "unusual-trading.html",
   ];
   for (const file of pages) {
     const source = await readFile(file, "utf8");

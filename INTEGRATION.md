@@ -30,8 +30,9 @@ repo → live Worker → local clone). Key snapshots and their consumers:
 | `oppday-minutes.json`, `ai-insights.json`, `sector-heatmap.json` | build pipeline | Pythia, briefs |
 
 **CLI → Dashboard.** `vault_visits.py export` writes
-[`data/visits.json`](data/visits.json), which feeds the **Visit Planner** page
-(`visits.html`). This is the only artifact the CLI pushes back.
+[`data/visits.json`](data/visits.json), which feeds the one-page company
+summary (`one-page.html`). The Visit Planner page was removed on 29 Sep 2026.
+This is the only artifact the CLI pushes back.
 
 If a snapshot's field names change, both the producer (here) and `is1_tools.py`
 must change together.

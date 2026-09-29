@@ -87,11 +87,10 @@ used. Article bodies and images remain on the source site.
 | `sector-intelligence.html` | Interactive FOOD/PROP meeting brief: segment earnings, market, valuation, drivers, risks, evidence and company drill-down |
 | `disclosure-pulse.html` | Recent SET filings, severity-tagged |
 | `efinance-news.html` | Live eFinanceThai headlines with Thai summaries, search, filters, and quick navigation |
-| `sec-form59.html` | SEC Form 59 management/related-person buy/sell reports |
 | `multiples-comparison.html` | PE/PBV/DY/EV-EBITDA/NPM heatmap |
 | `unusual-trading.html` | Volume / price / 52W alerts |
 | `data/tickers.json` | Master ticker → RM + sector map (rebuild via Excel) |
-| `data/*.json` | Daily snapshot files, including SEC Form 59 rows in `sec-form59.json` |
+| `data/*.json` | Daily snapshot files, including SEC Form 59 rows in `sec-form59.json` (read by the Hermes agent and the one-page summary; the Form 59 page was removed) |
 | `data/regulations-manifest.json` | Expected SET rulebook PDF source list |
 | `data/lex-regulations.json` | Page-level Lex corpus deployed with the Worker |
 | `data/build-status.json` | Last build timestamp + per-route status |

@@ -21,7 +21,6 @@
       id:"home", label:["Home","หน้าหลัก"], short:["Home","หน้าหลัก"], icon:"layout-dashboard", color:"#f2aa1f",
       pages:[
         ["index.html","Morning overview","ภาพรวมเช้า","activity"],
-        ["visits.html","Visit planner","แผนเยี่ยมบริษัท","calendar-days"],
         ["ai-insights.html","AI insights","AI insights","sparkles"],
       ],
     },
@@ -40,7 +39,6 @@
       pages:[
         ["company-summary.html","Company summary","ข้อมูลรายบริษัท","notebook-tabs"],
         ["oppday-minutes.html","Oppday minutes","สรุป Oppday","presentation"],
-        ["sec-form59.html","SEC Form 59","แบบ 59","contact-round"],
       ],
     },
     {
@@ -57,8 +55,6 @@
       pages:[
         ["unusual-trading.html","Unusual trading","การซื้อขายผิดปกติ","siren","alerts"],
         ["trading-signs.html","Trading signs","เครื่องหมายซื้อขาย","flag"],
-        ["sec-enforcement.html","SEC enforcement","การบังคับใช้กฎหมาย","shield-check"],
-        ["governance-screen.html","Governance screen","ตรวจสอบธรรมาภิบาล","scale"],
       ],
     },
     {
@@ -94,12 +90,8 @@
     "ai-insights":         ["Home","Validated commentary from daily snapshots","บทวิเคราะห์จาก daily snapshots","#f2aa1f","sparkles"],
     "unusual-trading":     ["Risk & surveillance","Volume and price anomalies","ความผิดปกติด้านราคาและปริมาณซื้อขาย","#ef6464","siren"],
     "trading-signs":       ["Risk & surveillance","Current SET trading signs","เครื่องหมายซื้อขายของ SET","#ef6464","flag"],
-    "sec-enforcement":     ["Risk & surveillance","Thai SEC enforcement actions","การบังคับใช้กฎหมายของ SEC","#ef6464","shield-check"],
-    "sec-form59":          ["Companies","Management and related-person trades","รายการซื้อขายของผู้บริหารและบุคคลที่เกี่ยวข้อง","#35bdd0","contact-round"],
     "bond-summary":        ["Bonds","Outstanding bonds across coverage","หุ้นกู้คงค้างใน coverage","#b17cff","chart-pie"],
     "bond-data-sec":       ["Bonds","Bond filings from the SEC","ข้อมูล filing หุ้นกู้จาก SEC","#b17cff","database"],
-    "governance-screen":   ["Risk & surveillance","Auditor fees, AGM timing and board independence","ค่าสอบบัญชี กำหนดประชุมสามัญผู้ถือหุ้น และสัดส่วนกรรมการอิสระ","#ef6464","scale"],
-    "visits":              ["Home","Plan and track company visits","วางแผนและติดตามการเยี่ยมบริษัท","#f2aa1f","calendar-days"],
   };
 
   var ICONS = {

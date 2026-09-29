@@ -10,9 +10,8 @@ name: Bond Summary Refresh (monthly)
 # the push to main auto-deploys via the Cloudflare git integration, so there is
 # no explicit `wrangler deploy` step here.
 #
-# Reads data/tickers.json (committed). Secrets used: GITHUB_TOKEN (push), the
-# EMAIL_* set for failure notification, and optional SEC_API_KEY for
-# data/sec-governance.json.
+# Reads data/tickers.json (committed). Secrets used: none beyond GITHUB_TOKEN
+# (push) and the EMAIL_* set for failure notification.
 
 on:
   schedule:
@@ -32,8 +31,6 @@ jobs:
     timeout-minutes: 15
     env:
       PYTHONUTF8: '1'
-      # Job level so the governance step's `if` can see whether it is set.
-      SEC_API_KEY: ${{ secrets.SEC_API_KEY }}
     steps:
       - name: Checkout
         uses: actions/checkout@v5
@@ -60,15 +57,6 @@ jobs:
       - name: Build bond-summary.json from ThaiBMA
         run: python scripts/build_bond_summary.py
 
-      # Governance screen (governance-screen.html). One Report data is annual,
-      # so monthly is plenty. Needs the SEC_API_KEY repo secret; without it the
-      # step is skipped and the page says the snapshot has not been built.
-      # A failure here never blocks the bond summary push.
-      - name: Build sec-governance.json from SEC Open API
-        if: env.SEC_API_KEY != ''
-        continue-on-error: true
-        run: python scripts/build_sec_governance.py --year $(( $(date -u +%Y) - 1 ))
-
       - name: Commit and push if bond-summary changed
         # Only push from main. Manual dispatches from feature branches exercise
         # the build without trying to push.
@@ -77,7 +65,6 @@ jobs:
           git config user.name  "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add data/bond-summary.json
-          [ -f data/sec-governance.json ] && git add data/sec-governance.json
           if git diff --staged --quiet; then
             echo "No bond-summary changes — skipping commit."
             exit 0
@@ -93,7 +80,6 @@ jobs:
             if ! git pull --rebase origin main; then
               git checkout --theirs data/bond-summary.json
               git add data/bond-summary.json
-              if [ -f data/sec-governance.json ]; then git checkout --theirs data/sec-governance.json; git add data/sec-governance.json; fi
               GIT_EDITOR=true git rebase --continue
             fi
             sleep $((attempt * 5))
