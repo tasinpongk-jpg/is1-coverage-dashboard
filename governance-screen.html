@@ -129,7 +129,7 @@ footer{border-top:1px solid var(--border);padding:14px 24px;display:flex;justify
 </style>
   <script src="theme.js?v=8"></script>
   <link rel="stylesheet" href="theme.css?v=9">
-  <script src="i18n.js?v=9"></script>
+  <script src="i18n.js?v=10"></script>
 </head>
 <body>
 
@@ -192,7 +192,7 @@ const TT_FALLBACK = {
   "brand.coverageDesk": "Coverage Desk",
   "gov.loading": "Loading One Report governance data…",
   "gov.fetching": "Fetching governance data…",
-  "gov.fetchError": "sec-governance.json not found — run scripts/build_sec_governance.py first",
+  "gov.fetchError": "Governance snapshot not built yet. It builds with the monthly bond refresh once the SEC_API_KEY repository secret is set, or run scripts/build_sec_governance.py --year for last year on the laptop",
   "gov.meta": "One Report {year} · {n} names screened · {flagged} with at least one flag",
   "gov.coverageTitle": "Field coverage",
   "gov.coverageNote": "Share of the {n} screened names where SEC actually published the figure. A thin bar means the flag below it is assessed on few names — read it as a sample, not a screen.",

@@ -78,10 +78,22 @@
   .news-backing em.ext { color:var(--blue); background:color-mix(in srgb,var(--blue) 12%,transparent); }
   .news-backing span { display:-webkit-box; overflow:hidden; -webkit-line-clamp:2; -webkit-box-orient:vertical; }
   .empty, .loading { text-align: center; padding: 60px; color: var(--muted); grid-column: 1 / -1; }
+  /* Move vs volume map: every name in scope, so an alert-free outlier still shows. */
+  .mv { margin: 14px 20px 0; padding: 14px 16px 10px; background: var(--card); border: 1px solid var(--border); border-radius: 10px; }
+  .mv-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+  .mv-head strong { font-size: 13px; }
+  .mv-head span { color: var(--muted); font-size: 11px; }
+  .mv-legend { display: flex; gap: 14px; align-items: center; color: var(--muted); font-size: 10.5px; flex-wrap: wrap; }
+  .mv-legend i { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 4px; vertical-align: -1px; }
+  .mv-wrap { overflow-x: auto; }
+  .mv svg { display: block; width: 100%; min-width: 560px; height: auto; }
+  .mv svg .dot { cursor: pointer; }
+  .mv svg .dot:hover circle { stroke: var(--text); stroke-width: 2; }
+  @media (max-width: 720px) { .mv { margin: 12px 12px 0; padding: 12px; } }
 </style>
   <script src="theme.js?v=8"></script>
   <link rel="stylesheet" href="theme.css?v=9">
-  <script src="i18n.js?v=9"></script>
+  <script src="i18n.js?v=10"></script>
 
 </head>
 <body>
@@ -128,10 +140,12 @@
   </div>
 </div>
 
+<section class="mv" id="moveMap" hidden></section>
+
 <div id="grid" class="grid"><div class="loading" data-i18n="common.fetchingAlerts">Fetching alerts…</div></div>
 
 <script>
-let TICKERS = {}, ALERTS = [];
+let TICKERS = {}, ALERTS = [], BRIEF = [], NEWS_BY_TK = {};
 let activeRm = /^[CKOGPT]$/.test(localStorage.getItem('is1_rm') || '') ? localStorage.getItem('is1_rm') : 'ALL', activeSev = 'ALL', activeType = 'ALL', activeSector = 'ALL', activeExplain = 'ALL';
 let activeTicker = new URLSearchParams(location.search).get('ticker') || null;
 let DATA_META = null;
@@ -255,6 +269,7 @@ function attachNews(pulse, news) {
     if (!n.tk || !inWindow(n.ts)) return;
     (byTk[n.tk] = byTk[n.tk] || []).push({ kind: 'ext', ts: n.ts, title: n.title, url: n.url, source: n.source });
   });
+  NEWS_BY_TK = byTk;
   ALERTS.forEach(a => {
     a._news = (byTk[a.tk] || []).slice().sort((x, y) => String(y.ts || '').localeCompare(String(x.ts || '')));
   });
@@ -319,6 +334,7 @@ function updateStats() {
 
 function render() {
   renderTickerBanner();
+  renderMoveMap();
   const sevRank = { high: 0, medium: 1, low: 2 };
   const rows = filtered().slice().sort((a, b) =>
     (hasNews(a) - hasNews(b)) || ((sevRank[(a.severity || 'low').toLowerCase()] ?? 3) - (sevRank[(b.severity || 'low').toLowerCase()] ?? 3)));
@@ -360,6 +376,86 @@ function render() {
   }).join('');
 }
 
+
+// ── Move vs volume map ───────────────────────────────────────────────────────
+// x = volume vs 20-day average (log), y = 1-day move, one dot per name in the
+// RM / sector scope from morning-brief.json. Solid dots have no SET filing or
+// external news on the price day or the day before: the ones to ask about.
+function renderMoveMap() {
+  const host = document.getElementById('moveMap');
+  if (!BRIEF.length || !DATA_META) return;
+  const L = (en, th) => isThai() ? th : en;
+  const secKey = v => String(v || '').replace('&', '');
+  const alerted = new Set(ALERTS.map(a => a.tk));
+  const scope = BRIEF.filter(r => {
+    const t = TICKERS[r.tk] || {};
+    return (activeRm === 'ALL' || t.rm === activeRm) && (activeSector === 'ALL' || secKey(t.sector || r.sector) === secKey(activeSector));
+  });
+  const pts = scope.filter(r => r.volRatio > 0 && r.pct1d != null);
+  if (!pts.length) { host.hidden = true; return; }
+  host.hidden = false;
+  const W = 900, H = 340, M = { l: 52, r: 18, t: 16, b: 38 };
+  const xs = pts.map(r => r.volRatio);
+  const xLo = Math.min(0.1, ...xs), xHi = Math.max(10, ...xs);
+  const lx0 = Math.log10(xLo), lx1 = Math.log10(xHi);
+  const yMax = Math.max(5, Math.ceil(Math.max(...pts.map(r => Math.abs(r.pct1d))) / 5) * 5);
+  const X = v => M.l + (Math.log10(v) - lx0) / (lx1 - lx0) * (W - M.l - M.r);
+  const Y = v => M.t + (yMax - v) / (2 * yMax) * (H - M.t - M.b);
+  const MOVE = 3, VOL = 2;
+  let g = '';
+  // Zones where a move and heavy volume coincide
+  g += `<rect x="${X(VOL)}" y="${Y(yMax)}" width="${X(xHi) - X(VOL)}" height="${Y(MOVE) - Y(yMax)}" style="fill:color-mix(in srgb,var(--red) 7%,transparent)"/>`;
+  g += `<rect x="${X(VOL)}" y="${Y(-MOVE)}" width="${X(xHi) - X(VOL)}" height="${Y(-yMax) - Y(-MOVE)}" style="fill:color-mix(in srgb,var(--red) 7%,transparent)"/>`;
+  [0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2, 5, 10, 20, 50].filter(v => v >= xLo && v <= xHi).forEach(v => {
+    g += `<line x1="${X(v)}" x2="${X(v)}" y1="${M.t}" y2="${H - M.b}" style="stroke:var(--border)" stroke-width="1" ${v === 1 ? '' : 'stroke-dasharray="2 4"'}/>`;
+    g += `<text x="${X(v)}" y="${H - M.b + 14}" text-anchor="middle" font-size="10" style="fill:var(--muted)">${v}x</text>`;
+  });
+  const yStep = yMax <= 10 ? 2.5 : yMax <= 20 ? 5 : 10;
+  for (let v = -yMax; v <= yMax + 1e-9; v += yStep) {
+    g += `<line x1="${M.l}" x2="${W - M.r}" y1="${Y(v)}" y2="${Y(v)}" style="stroke:var(--border)" stroke-width="${v === 0 ? 1.2 : 1}" ${v === 0 ? '' : 'stroke-dasharray="2 4"'}/>`;
+    g += `<text x="${M.l - 6}" y="${Y(v) + 3}" text-anchor="end" font-size="10" style="fill:var(--muted)">${v > 0 ? '+' : ''}${+v.toFixed(1)}%</text>`;
+  }
+  g += `<text x="${(M.l + W - M.r) / 2}" y="${H - 6}" text-anchor="middle" font-size="10.5" style="fill:var(--muted)">${esc(L('Volume vs 20-day average (log scale)', 'ปริมาณซื้อขายเทียบค่าเฉลี่ย 20 วัน (สเกล log)'))}</text>`;
+  g += `<text x="${W - M.r - 4}" y="${Y(yMax) + 12}" text-anchor="end" font-size="10" font-weight="700" style="fill:var(--red)">${esc(L('move ≥ 3% on ≥ 2x volume', 'ราคาเปลี่ยน ≥ 3% และ volume ≥ 2 เท่า'))}</text>`;
+  const sorted = pts.slice().sort((a, b) => (NEWS_BY_TK[b.tk] ? 1 : 0) - (NEWS_BY_TK[a.tk] ? 1 : 0));
+  let quiet = 0;
+  sorted.forEach(r => {
+    const news = (NEWS_BY_TK[r.tk] || []).length;
+    const up = r.pct1d >= 0;
+    const col = r.pct1d === 0 ? 'var(--muted)' : up ? 'var(--green)' : 'var(--red)';
+    const hot = Math.abs(r.pct1d) >= MOVE && r.volRatio >= VOL;
+    if (hot && !news) quiet++;
+    const label = hot || alerted.has(r.tk) || Math.abs(r.pct1d) >= 5 || r.volRatio >= 5;
+    const tip = `${r.tk} · ${r.pct1d > 0 ? '+' : ''}${r.pct1d.toFixed(2)}% · ${r.volRatio.toFixed(2)}x ${L('volume', 'volume')} · ` +
+      (news ? L(news + ' filing / news item(s) behind it', 'มีข่าว ' + news + ' รายการ') : L('no filing or news behind it', 'ไม่มีข่าวรองรับ')) +
+      (alerted.has(r.tk) ? L(' · has alerts below', ' · มี alert ด้านล่าง') : '');
+    const x = X(r.volRatio), y = Y(r.pct1d);
+    g += `<g class="dot" data-tk="${esc(r.tk)}"><title>${esc(tip)}</title>` +
+      `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${hot ? 6 : 4.5}" style="fill:${news ? 'var(--card)' : col};stroke:${col}" stroke-width="1.6" ${news ? 'opacity=".75"' : ''}/>` +
+      (label ? `<text x="${(x + 8).toFixed(1)}" y="${(y + 3.5).toFixed(1)}" font-size="10.5" font-weight="700" paint-order="stroke" stroke-width="3" stroke-linejoin="round" style="fill:var(--text);stroke:var(--card)">${esc(r.tk)}</text>` : '') + '</g>';
+  });
+  const skipped = scope.length - pts.length;
+  host.innerHTML = `
+    <div class="mv-head">
+      <div><strong>${esc(L('Price move vs volume', 'ราคาเทียบกับปริมาณซื้อขาย'))}</strong>
+        <span> · ${esc(L('1-day move', 'ราคาเปลี่ยน 1 วัน'))} · ${pts.length} ${esc(L('names', 'บริษัท'))}${skipped ? ` · ${skipped} ${esc(L('without volume', 'ไม่มีข้อมูล volume'))}` : ''} · <b style="color:var(--red)">${quiet}</b> ${esc(L('in the shaded zone with no news', 'อยู่ในโซนแรเงาโดยไม่มีข่าว'))}</span></div>
+      <div class="mv-legend"><span><i style="background:var(--red)"></i>${esc(L('solid = no filing or news', 'ทึบ = ไม่มีข่าวรองรับ'))}</span><span><i style="background:var(--card);box-shadow:inset 0 0 0 1.6px var(--muted)"></i>${esc(L('hollow = news behind it', 'โปร่ง = มีข่าวรองรับ'))}</span></div>
+    </div>
+    <div class="mv-wrap"><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(L('Price move versus volume ratio', 'ราคาเทียบกับปริมาณซื้อขาย'))}">${g}</svg></div>`;
+}
+document.getElementById('moveMap').addEventListener('click', e => {
+  const tk = e.target.closest('.dot')?.dataset.tk;
+  if (!tk) return;
+  if (ALERTS.some(a => a.tk === tk)) {
+    activeTicker = tk;
+    history.replaceState(null, '', location.pathname + '?ticker=' + encodeURIComponent(tk));
+    render(); updateStats();
+    document.getElementById('grid').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  } else {
+    location.href = 'company-summary.html?tk=' + encodeURIComponent(tk);
+  }
+});
+
 async function init() {
   try {
     const soft = url => fetch(url).then(r => r.ok ? r.json() : null).catch(() => null);
@@ -369,6 +465,7 @@ async function init() {
       soft('./data/disclosure-pulse.json'),
       soft('./data/external-news.json'),
     ]);
+    soft('./data/morning-brief.json').then(b => { BRIEF = (b && b.rows) || []; renderMoveMap(); });
     tj.tickers.forEach(t => { TICKERS[t.tk] = t; });
     ALERTS = dj.alerts || [];
     DATA_META = dj;
