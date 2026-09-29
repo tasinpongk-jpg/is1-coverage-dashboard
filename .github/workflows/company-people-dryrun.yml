@@ -70,4 +70,9 @@ jobs:
           git add data/company-people.json
           git diff --staged --quiet && exit 0
           git commit -m "test(data): company-people dry run $(date -u +%Y-%m-%dT%H:%MZ)"
-          git push origin HEAD:claude/charming-goldberg-tt6v7y
+          # The branch may have moved while the build ran; replay on top.
+          for attempt in 1 2 3; do
+            git pull --rebase origin claude/charming-goldberg-tt6v7y && git push origin HEAD:claude/charming-goldberg-tt6v7y && exit 0
+            sleep $((attempt * 5))
+          done
+          exit 1
