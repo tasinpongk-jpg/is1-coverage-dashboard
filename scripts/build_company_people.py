@@ -123,8 +123,12 @@ def diff_board(prev: list[dict], cur: list[dict]) -> dict | None:
     c = {name_key(d["name"]): d for d in cur}
     joined = [c[k]["name"] for k in c if k not in p]
     left = [p[k]["name"] for k in p if k not in c]
+    # Titles compare case and spacing insensitive: SET has served the same
+    # title with a double space on one call and a single space on the next.
+    def titles(d):
+        return sorted(name_key(x) for x in d.get("positions") or [])
     changed = [{"name": c[k]["name"], "from": p[k]["positions"], "to": c[k]["positions"]}
-               for k in c if k in p and sorted(p[k]["positions"]) != sorted(c[k]["positions"])]
+               for k in c if k in p and titles(p[k]) != titles(c[k])]
     if not (joined or left or changed):
         return None
     return {"joined": joined, "left": left, "changed": changed}
@@ -223,15 +227,15 @@ def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--tickers", help="comma-separated subset, e.g. AWC,CPN")
     ap.add_argument("--out", default=str(OUT), help="output path (default data/company-people.json)")
-    ap.add_argument("--prev", default=str(OUT), help="previous file to diff against")
+    ap.add_argument("--prev", default=str(OUT), help='previous file to diff against ("" = start a fresh baseline)')
     args = ap.parse_args()
 
     universe = json.loads((DATA_DIR / "tickers.json").read_text(encoding="utf-8"))["tickers"]
     if args.tickers:
         want = {s.strip().upper() for s in args.tickers.split(",") if s.strip()}
         universe = [t for t in universe if t["tk"] in want]
-    prev_path = Path(args.prev)
-    prev_doc = json.loads(prev_path.read_text(encoding="utf-8")) if prev_path.exists() else {}
+    prev_path = Path(args.prev) if args.prev else None
+    prev_doc = json.loads(prev_path.read_text(encoding="utf-8")) if prev_path and prev_path.exists() else {}
     today = datetime.now(BKK).date().isoformat()
 
     doc = asyncio.run(run(universe, prev_doc, today))

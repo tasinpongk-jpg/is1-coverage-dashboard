@@ -117,7 +117,8 @@ class Merge(unittest.TestCase):
         self.assertEqual(rec["boardSince"], TODAY)
 
     def test_same_board_different_spacing_is_not_a_change(self):
-        again = [{**d, "name": d["name"].upper().replace(" ", "  ")} for d in self.board]
+        again = [{**d, "name": d["name"].upper().replace(" ", "  "),
+                  "positions": [x.lower().replace(" ", "  ") for x in d["positions"]]} for d in self.board]
         self.assertIsNone(diff_board(self.board, again))
         rec = merge_ticker(self.first, again, self.holders, "PROP", TODAY)
         self.assertEqual(rec["boardChanges"], [])
