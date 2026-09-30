@@ -323,6 +323,9 @@ var MSG = {
     "external.tickersHit": "Tickers hit",
     "external.sources": "Sources",
     "external.topSource": "Top source",
+    "external.noFiling": "No SET filing ±{days}d",
+    "external.noFilingHint": "No SET disclosure by this company within {days} days of the story",
+    "external.noFilingOnly": "No filing only",
     "external.meta": "{n} wire/RSS hits - {sources} - as of {asOf}",
 
     "oppday.source": "Source:",
@@ -1047,6 +1050,9 @@ var MSG = {
     "external.tickersHit": "Ticker ที่พบข่าว",
     "external.sources": "แหล่งข่าว",
     "external.topSource": "แหล่งข่าวหลัก",
+    "external.noFiling": "ไม่มี filing ±{days} วัน",
+    "external.noFilingHint": "ไม่มีการเปิดเผยข้อมูลต่อ SET ของบริษัทนี้ภายใน {days} วันจากวันที่ข่าวออก",
+    "external.noFilingOnly": "เฉพาะข่าวที่ไม่มี filing",
     "external.meta": "{n} wire/RSS hits - {sources} - ข้อมูล ณ {asOf}",
 
     "oppday.source": "แหล่งข้อมูล:",
