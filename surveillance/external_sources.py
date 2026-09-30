@@ -6,7 +6,8 @@ failure on one source must not break the others.
 
 Sources:
   - external_news: RSS feeds from RYT9, Kaohoon, Hoonsmart, Prachachat,
-    Bangkok Biznews. Ticker-matched against the 232-name coverage.
+    Investing TH, Bangkok Post (business, property). Ticker- and Thai-name-
+    matched against the 232-name coverage.
   - trading_signs: SET trading-sign HTML page (SP/NP/NC/CC/C/ST/DS/CB).
   - sec_enforcement: SEC iDisc Enforce/Recent table.
   - sec_form59: SEC iDisc Form 59 management/related-person trades.
@@ -138,6 +139,9 @@ _ALIAS_RE = _alias_regex(THAI_ALIASES)
 # English wire copy: SET: WIN, SET:PIN. Bare capitals are not enough there,
 # because WIN, PIN, PLAT, ALLY, AQUA, ZEN are ordinary English words.
 _SET_CTX_RE = re.compile(r"\bSET\s*:\s*([A-Z][A-Z0-9&\-]{0,9})")
+# English brackets: (AP) is Associated Press, (CPI) the consumer price index,
+# (PM) the prime minister. Short or acronym-shaped tickers need SET: there.
+_EN_BRACKET_SKIP = {"CPI"}
 
 
 def find_tickers(text: str, lang: str = "th", names: bool = True) -> set[str]:
@@ -148,7 +152,8 @@ def find_tickers(text: str, lang: str = "th", names: bool = True) -> set[str]:
       2. Bracketed/parens — high confidence, any length (catches [A], [M], [J])
       3. Standalone — requires length >= 3 to avoid false positives
       4. Thai-context — "หุ้น X" or "บมจ. X" — any length
-    English text (lang="en"): bracketed and SET: X only. No standalone pass.
+    English text (lang="en"): SET: X, or bracketed when 3+ letters and not an
+    English acronym (CPI). No standalone pass.
     names=False skips pass 1 (SEC enforcement keeps matching on tickers only).
     """
     if not text:
@@ -161,12 +166,15 @@ def find_tickers(text: str, lang: str = "th", names: bool = True) -> set[str]:
                 found.add(tk)
             return " "
         text = _ALIAS_RE.sub(_take, text)
+    english = lang == "en"
     patterns = [_BRACKET_RE, _SET_CTX_RE]
-    if lang != "en":
+    if not english:
         patterns += [_STANDALONE_RE, _THAI_CTX_RE]
     for rx in patterns:
         for m in rx.finditer(text):
             tok = m.group(1).upper()
+            if english and rx is _BRACKET_RE and (len(tok) < 3 or tok in _EN_BRACKET_SKIP):
+                continue
             if tok in TICKER_SET:
                 found.add(tok)
     return found
@@ -215,8 +223,14 @@ RSS_FEEDS: list[dict[str, str]] = [
     {"source": "KAOHOON", "url": "https://www.kaohoon.com/feed", "lang": "th"},
     {"source": "HOONSMART", "url": "https://hoonsmart.com/feed", "lang": "th"},
     {"source": "PRACHACHAT", "url": "https://www.prachachat.net/feed", "lang": "th"},
+    {"source": "INVESTING_TH", "url": "https://th.investing.com/rss/news.rss", "lang": "th"},
+    # English copy: matched on (TK) and SET: TK only, see find_tickers.
+    {"source": "BANGKOKPOST", "url": "https://www.bangkokpost.com/rss/data/business.xml", "lang": "en"},
+    {"source": "BANGKOKPOST", "url": "https://www.bangkokpost.com/rss/data/property.xml", "lang": "en"},
     # BangkokBiznews retired RSS in their 2025 Next.js redesign — the /rss URL
     # now serves a React HTML page. Dropped pending a working alternative.
+    # Thansettakij has no feed either (/rss, /rss.xml, /feed all serve HTML;
+    # probed from a GitHub runner 2026-09-30).
 ]
 
 

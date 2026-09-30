@@ -86,6 +86,11 @@ class TestFindTickers(unittest.TestCase):
         text = "Wyncoast Industrial Park (WIN) and SET: PIN gain"
         self.assertEqual(es.find_tickers(text, "en"), {"WIN", "PIN"})
 
+    def test_english_brackets_skip_wire_acronyms(self):
+        text = "Inflation (CPI) eased, the (PM) said, per (AP)"
+        self.assertEqual(es.find_tickers(text, "en"), set())
+        self.assertEqual(es.find_tickers("SET: AP and SET:CPI", "en"), {"AP", "CPI"})
+
     def test_english_skips_thai_names(self):
         self.assertEqual(es.find_tickers("เสนาดีเวลลอปเม้นท์", "en"), set())
 
