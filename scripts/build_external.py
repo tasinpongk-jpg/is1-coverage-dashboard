@@ -105,6 +105,58 @@ def _preserve_nonempty_snapshot(path: Path, payload: dict) -> bool:
         return False
     return bool(existing.get("total", 0) > 0 and existing.get("items"))
 
+# A wire story on a coverage name with no SET disclosure by that name within
+# this many days either side is flagged noFiling: news running ahead of the
+# filing is the case IS1 surveillance wants to see first.
+FILING_WINDOW_DAYS = 2
+
+
+def _parse_ts(value) -> datetime | None:
+    """ISO string or datetime -> aware datetime (naive read as BKK)."""
+    if not value:
+        return None
+    if isinstance(value, datetime):
+        dt = value
+    else:
+        try:
+            dt = datetime.fromisoformat(str(value).strip().replace("Z", "+00:00"))
+        except ValueError:
+            return None
+    return dt if dt.tzinfo else dt.replace(tzinfo=BKK)
+
+
+def _filing_times(con: duckdb.DuckDBPyConnection, symbols: list[str]) -> dict[str, list[datetime]] | None:
+    """SET disclosure times per symbol from news_items; None if unreadable."""
+    if not symbols:
+        return {}
+    try:
+        rows = con.execute(
+            "SELECT symbol, datetime_iso FROM news_items WHERE symbol = ANY (?)",
+            [symbols],
+        ).fetchall()
+    except duckdb.Error as e:
+        print(f"  [external-news] no filing join: {e}")
+        return None
+    out: dict[str, list[datetime]] = {}
+    for sym, ts in rows:
+        dt = _parse_ts(ts)
+        if dt is not None:
+            out.setdefault(sym, []).append(dt)
+    return out
+
+
+def _flag_no_filing(items: list[dict], filings: dict[str, list[datetime]] | None) -> None:
+    """Set noFiling on each item; leave it unset when it cannot be decided."""
+    if filings is None:
+        return
+    window = timedelta(days=FILING_WINDOW_DAYS)
+    for it in items:
+        ts = _parse_ts(it.get("ts"))
+        if ts is None:
+            continue
+        it["noFiling"] = not any(abs(f - ts) <= window for f in filings.get(it["tk"], ()))
+
+
 def build_external_news(con: duckdb.DuckDBPyConnection, tickers: dict) -> None:
     rows = con.execute("""
         SELECT id, source, symbol, sector, datetime_iso, headline, url, body_excerpt, lang
@@ -121,10 +173,12 @@ def build_external_news(con: duckdb.DuckDBPyConnection, tickers: dict) -> None:
         }
         for r in rows
     ]
+    _flag_no_filing(items, _filing_times(con, sorted({i["tk"] for i in items})))
     sources = sorted({i["source"] for i in items})
     _write(DATA_DIR / "external-news.json", {
         "asOf": datetime.now(BKK).date().isoformat(),
         "windowDays": 30,
+        "filingWindowDays": FILING_WINDOW_DAYS,
         "sources": sources,
         "items": items,
     })

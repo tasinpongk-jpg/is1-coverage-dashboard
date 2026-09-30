@@ -53,6 +53,7 @@
   .s-PROP, .s-CONS, .s-CONMAT { background: #8b5cf622; color: var(--prop); }
   .s-PFREIT { background: #06b6d422; color: var(--pfreit); }
   .ts { font-size: 11px; color: var(--muted); }
+  .nf-badge { font-size: 10px; padding: 2px 7px; border-radius: 4px; font-weight: 600; background: #f59e0b22; color: #f59e0b; }
   .excerpt { margin-top: 6px; font-size: 12px; color: var(--muted); line-height: 1.4; }
   .empty, .loading { text-align: center; padding: 60px; color: var(--muted); }
   @media (max-width: 620px) {
@@ -64,7 +65,7 @@
 </style>
   <script src="theme.js?v=8"></script>
   <link rel="stylesheet" href="theme.css?v=9">
-  <script src="i18n.js?v=11"></script>
+  <script src="i18n.js?v=12"></script>
 
 </head>
 <body>
@@ -106,6 +107,7 @@
   <div class="tab-row">
     <span class="tab-label"><span data-i18n="common.rm">RM</span>:</span>
     <div id="rmTabs" style="display:flex;gap:4px;flex-wrap:wrap"></div>
+    <div id="nfTabs" style="display:flex;gap:4px;flex-wrap:wrap;margin-left:20px"></div>
   </div>
 </div>
 
@@ -115,6 +117,7 @@
 let TICKERS = {}, ITEMS = [];
 let activeWindow = 7, activeSrc = 'ALL', activeSector = 'ALL', activeRm = /^[CKOGPT]$/.test(localStorage.getItem('is1_rm') || '') ? localStorage.getItem('is1_rm') : 'ALL';
 let DATA_META = null;
+let activeNf = false;
 const TT_FALLBACK = {
   "common.all": "All",
   "common.updatedAgo": "updated {x} ago",
@@ -122,6 +125,9 @@ const TT_FALLBACK = {
   "external.tickersHit": "Tickers hit",
   "external.sources": "Sources",
   "external.topSource": "Top source",
+  "external.noFiling": "No SET filing ±{days}d",
+  "external.noFilingHint": "No SET disclosure by this company within {days} days of the story",
+  "external.noFilingOnly": "No filing only",
   "common.noExternalNews": "No external news matches the filters.",
   "common.errorWithMsg": "Error: {msg}",
   "external.meta": "{n} wire/RSS hits - {sources} - as of {asOf}",
@@ -159,6 +165,7 @@ function filtered() {
     if (activeSrc !== 'ALL' && it.source !== activeSrc) return false;
     if (activeSector !== 'ALL' && it.sector !== activeSector) return false;
     if (activeRm !== 'ALL' && it.rm !== activeRm) return false;
+    if (activeNf && it.noFiling !== true) return false;
     return true;
   });
 }
@@ -194,6 +201,15 @@ function buildRmTabs() {
   document.getElementById('rmTabs').innerHTML = `<div class="tab ${activeRm==='ALL'?'active':''}" onclick="setRm('ALL')">${allLabel()} <span class="tab-count">${inScope.length}</span></div>` +
     rms.map(r => `<div class="tab ${activeRm===r?'active':''}" onclick="setRm('${r}')">${r} <span class="tab-count">${counts[r]}</span></div>`).join('');
 }
+function filingDays() { return (DATA_META && DATA_META.filingWindowDays) || 2; }
+function buildNfTabs() {
+  const el = document.getElementById('nfTabs');
+  const inScope = ITEMS.filter(it => inWindow(it) && (activeSrc==='ALL'||it.source===activeSrc) && (activeSector==='ALL'||it.sector===activeSector) && (activeRm==='ALL'||it.rm===activeRm));
+  const n = inScope.filter(it => it.noFiling === true).length;
+  if (!ITEMS.some(it => typeof it.noFiling === 'boolean')) { el.innerHTML = ''; activeNf = false; return; }
+  el.innerHTML = `<div class="tab ${activeNf?'active':''}" onclick="toggleNf()" title="${esc(tx('external.noFilingHint', { days: filingDays() }))}">${esc(tt('external.noFilingOnly'))} <span class="tab-count">${n}</span></div>`;
+}
+function toggleNf() { activeNf = !activeNf; buildAll(); }
 function setWindow(d) { activeWindow=+d; buildAll(); }
 function setSrc(s) { activeSrc=s; buildAll(); }
 function setSector(s) { activeSector=s; buildAll(); }
@@ -201,7 +217,7 @@ function setRm(r) { activeRm=r; buildAll(); }
 window.addEventListener('is1:rm-change', e => {
   if (/^(ALL|[CKOGPT])$/.test(e.detail?.rm || '')) setRm(e.detail.rm);
 });
-function buildAll() { buildWindowTabs(); buildSrcTabs(); buildSectorTabs(); buildRmTabs(); updateStats(); render(); }
+function buildAll() { buildWindowTabs(); buildSrcTabs(); buildSectorTabs(); buildRmTabs(); buildNfTabs(); updateStats(); render(); }
 function updateStats() {
   const rows = filtered();
   const winLabel = (WINDOWS.find(w=>w.key===activeWindow)||{}).label || '?';
@@ -237,6 +253,7 @@ function render() {
           ${rm ? `<span class="rm-badge">${rm}</span>` : ''}
           ${sector ? `<span class="sector-badge s-${sector}">${sector}</span>` : ''}
           ${lang ? `<span style="font-size:10px;color:var(--muted)">${lang}</span>` : ''}
+          ${it.noFiling === true ? `<span class="nf-badge" title="${esc(tx('external.noFilingHint', { days: filingDays() }))}">${esc(tx('external.noFiling', { days: filingDays() }))}</span>` : ''}
           <span class="ts">${esc(formatTs(it.ts))}</span>
         </div>
         ${excerpt ? `<div class="excerpt">${excerpt}</div>` : ''}
