@@ -358,7 +358,7 @@
       "sector": "CONS",
       "type": "Intraday move",
       "atype": "intraday",
-      "severity": "medium",
+      "severity": "low",
       "value": 5.172,
       "label": "-5.17% intraday",
       "evidence": {
@@ -367,8 +367,10 @@
         "high": 3.48,
         "low": 3.26
       },
-      "filingsLinked": 0,
-      "filingsTitles": []
+      "filingsLinked": 1,
+      "filingsTitles": [
+        "Invitation to shareholders to propose the agenda for the 2027 Annual General Meeting of Shareholders and to nominate per"
+      ]
     },
     {
       "tk": "PLE",
@@ -627,7 +629,7 @@
       "sector": "PROP",
       "type": "Volume spike",
       "atype": "vol_spike",
-      "severity": "medium",
+      "severity": "high",
       "value": 3.707,
       "label": "3.7σ vs 20D avg",
       "evidence": {
@@ -635,17 +637,15 @@
         "vol20dAvg": 149878.0,
         "vol20dStd": 246022.62236733435
       },
-      "filingsLinked": 1,
-      "filingsTitles": [
-        "Invitation to Propose 2027 AGM Agenda , Questions and Nominate Director Candidate"
-      ]
+      "filingsLinked": 0,
+      "filingsTitles": []
     },
     {
       "tk": "NCH",
       "sector": "PROP",
       "type": "Intraday move",
       "atype": "intraday",
-      "severity": "low",
+      "severity": "medium",
       "value": 4.651,
       "label": "-4.65% intraday",
       "evidence": {
@@ -654,10 +654,8 @@
         "high": 0.43,
         "low": 0.41
       },
-      "filingsLinked": 1,
-      "filingsTitles": [
-        "Invitation to Propose 2027 AGM Agenda , Questions and Nominate Director Candidate"
-      ]
+      "filingsLinked": 0,
+      "filingsTitles": []
     },
     {
       "tk": "KUN",
@@ -1427,6 +1425,29 @@
       ]
     },
     {
+      "tk": "NCH",
+      "sector": "PROP",
+      "alertCount": 2,
+      "highestSeverity": "high",
+      "filingsLinked": 0,
+      "alertTypes": [
+        {
+          "atype": "vol_spike",
+          "type": "Volume spike",
+          "severity": "high"
+        },
+        {
+          "atype": "intraday",
+          "type": "Intraday move",
+          "severity": "medium"
+        }
+      ],
+      "summary": [
+        "Volume spike: 3.7σ vs 20D avg",
+        "Intraday move: -4.65% intraday"
+      ]
+    },
+    {
       "tk": "RICHY",
       "sector": "PROP",
       "alertCount": 2,
@@ -1910,29 +1931,6 @@
       ]
     },
     {
-      "tk": "NCH",
-      "sector": "PROP",
-      "alertCount": 2,
-      "highestSeverity": "medium",
-      "filingsLinked": 1,
-      "alertTypes": [
-        {
-          "atype": "vol_spike",
-          "type": "Volume spike",
-          "severity": "medium"
-        },
-        {
-          "atype": "intraday",
-          "type": "Intraday move",
-          "severity": "low"
-        }
-      ],
-      "summary": [
-        "Volume spike: 3.7σ vs 20D avg",
-        "Intraday move: -4.65% intraday"
-      ]
-    },
-    {
       "tk": "STECON",
       "sector": "CONS",
       "alertCount": 2,
@@ -2004,23 +2002,6 @@
       ],
       "summary": [
         "Intraday move: -4.88% intraday"
-      ]
-    },
-    {
-      "tk": "DEMCO",
-      "sector": "CONS",
-      "alertCount": 1,
-      "highestSeverity": "medium",
-      "filingsLinked": 0,
-      "alertTypes": [
-        {
-          "atype": "intraday",
-          "type": "Intraday move",
-          "severity": "medium"
-        }
-      ],
-      "summary": [
-        "Intraday move: -5.17% intraday"
       ]
     },
     {
@@ -2251,6 +2232,23 @@
       ]
     },
     {
+      "tk": "DEMCO",
+      "sector": "CONS",
+      "alertCount": 1,
+      "highestSeverity": "low",
+      "filingsLinked": 1,
+      "alertTypes": [
+        {
+          "atype": "intraday",
+          "type": "Intraday move",
+          "severity": "low"
+        }
+      ],
+      "summary": [
+        "Intraday move: -5.17% intraday"
+      ]
+    },
+    {
       "tk": "KUN",
       "sector": "PROP",
       "alertCount": 1,
@@ -2319,6 +2317,6 @@
       ]
     }
   ],
-  "_built_at": "2026-10-01T02:37:01.760827+00:00",
+  "_built_at": "2026-10-01T09:19:48.513157+00:00",
   "_coverage_size": 232
 }
