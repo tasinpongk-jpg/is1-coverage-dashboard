@@ -1,5 +1,5 @@
 {
-  "asOf": "2026-10-04",
+  "asOf": "2026-10-05",
   "source": "SETSMART intraday API · 38 alerts across 32 tickers",
   "thresholds": {
     "vol_spike": {
@@ -350,7 +350,7 @@
       "sector": "FOOD",
       "type": "Volume spike",
       "atype": "vol_spike",
-      "severity": "high",
+      "severity": "medium",
       "value": 3.036,
       "label": "3.0σ vs 20D avg",
       "evidence": {
@@ -358,8 +358,10 @@
         "vol20dAvg": 1107632.8,
         "vol20dStd": 608938.5430634688
       },
-      "filingsLinked": 0,
-      "filingsTitles": []
+      "filingsLinked": 1,
+      "filingsTitles": [
+        "SEC News : สรุปแบบ 59 ประจำวันที่ 2 ตุลาคม 2569"
+      ]
     },
     {
       "tk": "ICHI",
@@ -822,23 +824,6 @@
       ]
     },
     {
-      "tk": "FM",
-      "sector": "FOOD",
-      "alertCount": 1,
-      "highestSeverity": "high",
-      "filingsLinked": 0,
-      "alertTypes": [
-        {
-          "atype": "vol_spike",
-          "type": "Volume spike",
-          "severity": "high"
-        }
-      ],
-      "summary": [
-        "Volume spike: 3.0σ vs 20D avg"
-      ]
-    },
-    {
       "tk": "ICHI",
       "sector": "FOOD",
       "alertCount": 1,
@@ -1217,8 +1202,25 @@
       "summary": [
         "Intraday move: -4.44% intraday"
       ]
+    },
+    {
+      "tk": "FM",
+      "sector": "FOOD",
+      "alertCount": 1,
+      "highestSeverity": "medium",
+      "filingsLinked": 1,
+      "alertTypes": [
+        {
+          "atype": "vol_spike",
+          "type": "Volume spike",
+          "severity": "medium"
+        }
+      ],
+      "summary": [
+        "Volume spike: 3.0σ vs 20D avg"
+      ]
     }
   ],
-  "_built_at": "2026-10-04T02:36:11.121339+00:00",
+  "_built_at": "2026-10-05T02:35:52.778738+00:00",
   "_coverage_size": 232
 }
