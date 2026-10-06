@@ -117,7 +117,7 @@ test("theme runtime is included in the deployed asset set", async () => {
 test("all shared assets use the current cache version", async () => {
   for (const file of htmlFiles) {
     const source = await readFile(file, "utf8");
-    for (const [asset, version] of [["theme.js", 8], ["theme.css", 9], ["i18n.js", 13], ["nav.js", 13]]) {
+    for (const [asset, version] of [["theme.js", 8], ["theme.css", 10], ["i18n.js", 13], ["nav.js", 13]]) {
       assert.match(source, new RegExp(`${asset.replace(".", "\\.")}\\?v=${version}`), `${file} must load ${asset} v${version}`);
     }
   }
@@ -140,7 +140,7 @@ test("sidebar gives every module a distinct color and an accessible active state
   assert.match(nav, /candidate\.classList\.toggle\("is-selected"/);
 
   const css = await readFile("theme.css", "utf8");
-  for (const module of ["home", "market", "companies", "news", "surveillance", "bonds"]) {
+  for (const module of ["home", "market", "companies", "news", "surveillance", "bonds", "guide"]) {
     assert.match(css, new RegExp(`data-module-section="${module}"`), `${module} must define a module accent`);
   }
   assert.match(css, /\.is1s-rail-btn\.active\s*\{[^}]*var\(--module-accent\)/s);

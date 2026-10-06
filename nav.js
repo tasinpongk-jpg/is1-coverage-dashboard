@@ -22,7 +22,6 @@
       pages:[
         ["index.html","Morning overview","ภาพรวมเช้า","activity"],
         ["ai-insights.html","AI insights","AI insights","sparkles"],
-        ["guide.html","Dashboard guide","คู่มือการใช้งาน","book-open"],
       ],
     },
     {
@@ -65,6 +64,12 @@
         ["bond-data-sec.html","SEC bond filings","ข้อมูลหุ้นกู้ SEC","database"],
       ],
     },
+    {
+      id:"guide", label:["Guide","คู่มือ"], short:["Guide","คู่มือ"], icon:"book-open", color:"#94a3b8",
+      pages:[
+        ["guide.html","Dashboard guide","คู่มือการใช้งาน","book-open"],
+      ],
+    },
   ];
 
   var EMBEDDED_WORKSPACES = {
@@ -89,7 +94,7 @@
     "efinance-news":       ["News","Live headlines from eFinanceThai","พาดหัวข่าวล่าสุดจาก eFinanceThai","#31c77b","newspaper"],
     "oppday-minutes":      ["Companies","Earnings-call notes and takeaways","สรุปประเด็นจาก Oppday","#35bdd0","presentation"],
     "ai-insights":         ["Home","Validated commentary from daily snapshots","บทวิเคราะห์จาก daily snapshots","#f2aa1f","sparkles"],
-    "guide":               ["Home","How to find your way around the dashboard","วิธีใช้งาน dashboard สำหรับผู้ใช้ใหม่","#f2aa1f","book-open"],
+    "guide":               ["Guide","How to find your way around the dashboard","วิธีใช้งาน dashboard สำหรับผู้ใช้ใหม่","#94a3b8","book-open"],
     "unusual-trading":     ["Risk & surveillance","Volume and price anomalies","ความผิดปกติด้านราคาและปริมาณซื้อขาย","#ef6464","siren"],
     "trading-signs":       ["Risk & surveillance","Current SET trading signs","เครื่องหมายซื้อขายของ SET","#ef6464","flag"],
     "bond-summary":        ["Bonds","Outstanding bonds across coverage","หุ้นกู้คงค้างใน coverage","#b17cff","chart-pie"],
