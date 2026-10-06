@@ -377,6 +377,34 @@ function render() {
 
 
 // ── Move vs volume map ───────────────────────────────────────────────────────
+// Ticker labels for the move map: strongest names first, each tries right,
+// left, above, below its dot and takes the first spot that stays inside the
+// plot and clear of other labels and every dot; failing that, the first spot
+// clear of other labels only. No spot -> no label (the dot keeps its tooltip).
+function placeLabels(labels, area) {
+  // Bold 10.5px caps run ~7.4px a character; the glyph box spans y-10..y+3.
+  const CH = 7.4;
+  const boxes = area.blocked.slice();
+  const dots = area.dots.map(d => ({ x0: d.x - d.r, x1: d.x + d.r, y0: d.y - d.r, y1: d.y + d.r }));
+  const hit = (a, b) => a.x0 < b.x1 && b.x0 < a.x1 && a.y0 < b.y1 && b.y0 < a.y1;
+  let out = '';
+  labels.slice().sort((a, b) => b.rank - a.rank).forEach(l => {
+    const w = l.tk.length * CH + 3, gap = l.r + 3;
+    const spots = [
+      { x: l.x + gap, y: l.y + 3.5, anchor: 'start', x0: l.x + gap, x1: l.x + gap + w },
+      { x: l.x - gap, y: l.y + 3.5, anchor: 'end', x0: l.x - gap - w, x1: l.x - gap },
+      { x: l.x, y: l.y - gap - 3, anchor: 'middle', x0: l.x - w / 2, x1: l.x + w / 2 },
+      { x: l.x, y: l.y + gap + 10, anchor: 'middle', x0: l.x - w / 2, x1: l.x + w / 2 },
+    ].map(s => ({ ...s, y0: s.y - 10, y1: s.y + 3 }));
+    const inside = s => s.x0 >= area.x0 && s.x1 <= area.x1 && s.y0 >= area.y0 && s.y1 <= area.y1 && !boxes.some(b => hit(s, b));
+    const s = spots.find(s => inside(s) && !dots.some(d => hit(s, d))) || spots.find(inside);
+    if (!s) return;
+    boxes.push(s);
+    out += `<text x="${s.x.toFixed(1)}" y="${s.y.toFixed(1)}" text-anchor="${s.anchor}" font-size="10.5" font-weight="700" paint-order="stroke" stroke-width="3" stroke-linejoin="round" style="fill:var(--text);stroke:var(--card);pointer-events:none">${esc(l.tk)}</text>`;
+  });
+  return out;
+}
+
 // x = volume vs 20-day average (log), y = 1-day move, one dot per name in the
 // RM / sector scope from morning-brief.json. Solid dots have no SET filing or
 // external news on the price day or the day before: the ones to ask about.
@@ -395,9 +423,11 @@ function renderMoveMap() {
   host.hidden = false;
   const W = 900, H = 340, M = { l: 52, r: 18, t: 16, b: 38 };
   const xs = pts.map(r => r.volRatio);
-  const xLo = Math.min(0.1, ...xs), xHi = Math.max(10, ...xs);
+  // Headroom: the most extreme name must not sit on the plot edge with its
+  // label running off the SVG (OKJ at 16.36x on 2026-10-06 was the max).
+  const xLo = Math.min(0.1, Math.min(...xs) / 1.3), xHi = Math.max(10, Math.max(...xs) * 1.3);
   const lx0 = Math.log10(xLo), lx1 = Math.log10(xHi);
-  const yMax = Math.max(5, Math.ceil(Math.max(...pts.map(r => Math.abs(r.pct1d))) / 5) * 5);
+  const yMax = Math.max(5, Math.ceil((Math.max(...pts.map(r => Math.abs(r.pct1d))) + 1) / 5) * 5);
   const X = v => M.l + (Math.log10(v) - lx0) / (lx1 - lx0) * (W - M.l - M.r);
   const Y = v => M.t + (yMax - v) / (2 * yMax) * (H - M.t - M.b);
   const MOVE = 3, VOL = 2;
@@ -418,6 +448,7 @@ function renderMoveMap() {
   g += `<text x="${W - M.r - 4}" y="${Y(yMax) + 12}" text-anchor="end" font-size="10" font-weight="700" style="fill:var(--red)">${esc(L('move ≥ 3% on ≥ 2x volume', 'ราคาเปลี่ยน ≥ 3% และ volume ≥ 2 เท่า'))}</text>`;
   const sorted = pts.slice().sort((a, b) => (NEWS_BY_TK[b.tk] ? 1 : 0) - (NEWS_BY_TK[a.tk] ? 1 : 0));
   let quiet = 0;
+  const labels = [], dotsAll = [];
   sorted.forEach(r => {
     const news = (NEWS_BY_TK[r.tk] || []).length;
     const up = r.pct1d >= 0;
@@ -431,7 +462,14 @@ function renderMoveMap() {
     const x = X(r.volRatio), y = Y(r.pct1d);
     g += `<g class="dot" data-tk="${esc(r.tk)}"><title>${esc(tip)}</title>` +
       `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${hot ? 6 : 4.5}" style="fill:${news ? 'var(--card)' : col};stroke:${col}" stroke-width="1.6" ${news ? 'opacity=".75"' : ''}/>` +
-      (label ? `<text x="${(x + 8).toFixed(1)}" y="${(y + 3.5).toFixed(1)}" font-size="10.5" font-weight="700" paint-order="stroke" stroke-width="3" stroke-linejoin="round" style="fill:var(--text);stroke:var(--card)">${esc(r.tk)}</text>` : '') + '</g>';
+      '</g>';
+    dotsAll.push({ x, y, r: hot ? 6 : 4.5 });
+    if (label) labels.push({ tk: r.tk, x, y, r: hot ? 6 : 4.5, rank: (hot ? 100 : 0) + Math.abs(r.pct1d) + Math.log10(r.volRatio) * 5 });
+  });
+  g += placeLabels(labels, {
+    x0: M.l, x1: W - M.r, y0: M.t, y1: H - M.b, dots: dotsAll,
+    // the zone caption in the top-right corner
+    blocked: [{ x0: W - M.r - 4 - 230, x1: W - M.r, y0: Y(yMax) + 1, y1: Y(yMax) + 15 }],
   });
   const skipped = scope.length - pts.length;
   host.innerHTML = `
