@@ -64,6 +64,12 @@
         ["bond-data-sec.html","SEC bond filings","ข้อมูลหุ้นกู้ SEC","database"],
       ],
     },
+    {
+      id:"guide", label:["Guide","คู่มือ"], short:["Guide","คู่มือ"], icon:"book-open", color:"#94a3b8",
+      pages:[
+        ["guide.html","Dashboard guide","คู่มือการใช้งาน","book-open"],
+      ],
+    },
   ];
 
   var EMBEDDED_WORKSPACES = {
@@ -88,6 +94,7 @@
     "efinance-news":       ["News","Live headlines from eFinanceThai","พาดหัวข่าวล่าสุดจาก eFinanceThai","#31c77b","newspaper"],
     "oppday-minutes":      ["Companies","Earnings-call notes and takeaways","สรุปประเด็นจาก Oppday","#35bdd0","presentation"],
     "ai-insights":         ["Home","Validated commentary from daily snapshots","บทวิเคราะห์จาก daily snapshots","#f2aa1f","sparkles"],
+    "guide":               ["Guide","How to find your way around the dashboard","วิธีใช้งาน dashboard สำหรับผู้ใช้ใหม่","#94a3b8","book-open"],
     "unusual-trading":     ["Risk & surveillance","Volume and price anomalies","ความผิดปกติด้านราคาและปริมาณซื้อขาย","#ef6464","siren"],
     "trading-signs":       ["Risk & surveillance","Current SET trading signs","เครื่องหมายซื้อขายของ SET","#ef6464","flag"],
     "bond-summary":        ["Bonds","Outstanding bonds across coverage","หุ้นกู้คงค้างใน coverage","#b17cff","chart-pie"],
@@ -98,6 +105,7 @@
     "activity":'<path d="M22 12h-4l-3 9L9 3l-3 9H2"/>',
     "arrow-right":'<path d="M5 12h14"/><path d="m12 5 7 7-7 7"/>',
     "arrow-up-right":'<path d="M7 17 17 7"/><path d="M7 7h10v10"/>',
+    "book-open":'<path d="M12 7v14"/><path d="M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z"/>',
     "building-2":'<path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18"/><path d="M6 12H4a2 2 0 0 0-2 2v8h20v-8a2 2 0 0 0-2-2h-2"/><path d="M10 6h4M10 10h4M10 14h4M10 18h4"/>',
     "calendar-days":'<path d="M8 2v4M16 2v4M3 10h18"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01"/>',
     "chart-no-axes-combined":'<path d="M12 16v5M16 14v7M20 10v11M4 18v3M8 14v7"/><path d="m3 7 5 5 4-4 5 5 4-4"/>',
