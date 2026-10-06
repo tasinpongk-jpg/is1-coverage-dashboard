@@ -1,0 +1,577 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dashboard guide — IS1 Team</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', system-ui, sans-serif; font-size: 13px; }
+  .gd { max-width: 1180px; margin: 0 auto; padding: 18px 20px 64px; display: flex; flex-direction: column; gap: 28px; }
+  .gd a { color: inherit; }
+  .gd h2 { font-size: 17px; font-weight: 700; letter-spacing: -.01em; }
+  .gd-sec-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+  .gd-sec-head p { color: var(--muted); font-size: 12.5px; max-width: 640px; line-height: 1.5; }
+  .gd-kicker { font-size: 10.5px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--accent); margin-bottom: 4px; }
+  .gd-card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; }
+
+  /* Jump bar */
+  .gd-jump { display: flex; gap: 6px; flex-wrap: wrap; }
+  .gd-jump a { text-decoration: none; font-size: 12px; padding: 5px 11px; border-radius: 999px; border: 1px solid var(--border); color: var(--text2); background: var(--card); }
+  .gd-jump a:hover { border-color: var(--accent-border); color: var(--text); }
+
+  /* Hero + task finder */
+  .gd-hero { padding: 22px; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr); gap: 22px; }
+  .gd-hero h1 { font-size: 22px; line-height: 1.25; letter-spacing: -.02em; margin-bottom: 8px; }
+  .gd-hero > div > p { color: var(--text2); line-height: 1.6; font-size: 13px; }
+  .gd-steps3 { margin-top: 14px; display: grid; gap: 8px; }
+  .gd-steps3 div { display: flex; gap: 10px; align-items: flex-start; font-size: 12.5px; color: var(--text2); line-height: 1.5; }
+  .gd-steps3 b { flex: none; width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; background: var(--accent-soft); color: var(--accent); font-size: 11px; }
+  .gd-finder label { display: block; font-size: 12px; font-weight: 700; margin-bottom: 6px; }
+  .gd-finder input { width: 100%; font: inherit; font-size: 13px; padding: 9px 12px; border-radius: 9px; border: 1px solid var(--border2); background: var(--bg2); color: var(--text); }
+  .gd-finder input:focus { outline: 2px solid var(--accent-border); outline-offset: 1px; }
+  .gd-tasks { margin-top: 10px; display: grid; gap: 6px; max-height: 300px; overflow-y: auto; padding-right: 2px; }
+  .gd-task { display: flex; align-items: center; gap: 10px; text-decoration: none; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--border); background: var(--card2); }
+  .gd-task:hover { border-color: var(--accent-border); }
+  .gd-task i { flex: none; width: 8px; height: 8px; border-radius: 50%; }
+  .gd-task span { flex: 1; min-width: 0; font-size: 12.5px; line-height: 1.4; }
+  .gd-task em { flex: none; font-style: normal; font-size: 11px; color: var(--muted); white-space: nowrap; }
+  .gd-empty { color: var(--muted); font-size: 12px; padding: 8px 2px; }
+
+  /* Screen anatomy */
+  .gd-anat { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 16px; padding: 16px; }
+  .wf { position: relative; display: grid; grid-template-columns: 7% 8% 20% 1fr 18%; grid-template-rows: 38px 26px 1fr; gap: 4px;
+        height: 100%; min-height: 380px; background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 6px; }
+  .wf-box { position: relative; border-radius: 6px; border: 1px solid var(--border2); background: var(--card); cursor: pointer; overflow: hidden;
+            display: flex; align-items: flex-start; padding: 5px 6px; font-size: 10.5px; color: var(--muted); transition: border-color .15s, background .15s; }
+  .wf-box:hover, .wf-box.on { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, var(--card)); color: var(--text); }
+  .wf-rail { grid-column: 1; grid-row: 1 / 4; flex-direction: column; align-items: center; gap: 6px; }
+  .wf-rail s { display: block; width: 60%; aspect-ratio: 1; border-radius: 5px; background: var(--border2); text-decoration: none; }
+  .wf-rail s:first-of-type { background: #f2aa1f; }
+  .wf-tape { grid-column: 2; grid-row: 1 / 4; flex-direction: column; gap: 4px; align-items: center; }
+  .wf-tape s { display: block; width: 78%; height: 16px; border-radius: 3px; text-decoration: none; background: color-mix(in srgb, var(--green) 30%, transparent); }
+  .wf-tape s:nth-of-type(2n) { background: color-mix(in srgb, var(--red) 30%, transparent); }
+  .wf-mod { grid-column: 3; grid-row: 1 / 4; flex-direction: column; gap: 5px; }
+  .wf-mod s { display: block; width: 88%; height: 7px; border-radius: 3px; background: var(--border2); text-decoration: none; }
+  .wf-mod s.hd { width: 50%; background: var(--accent-border); }
+  .wf-top { grid-column: 4 / 6; grid-row: 1; align-items: center; gap: 6px; }
+  .wf-top s { display: block; height: 16px; border-radius: 5px; background: var(--bg2); border: 1px solid var(--border2); text-decoration: none; }
+  .wf-news { grid-column: 4; grid-row: 2; align-items: center; gap: 5px; }
+  .wf-news s { display: block; height: 10px; flex: 1; border-radius: 3px; background: color-mix(in srgb, var(--yellow) 25%, transparent); text-decoration: none; }
+  .wf-main { grid-column: 4; grid-row: 3; flex-direction: column; gap: 6px; }
+  .wf-main s { display: block; width: 100%; text-decoration: none; border-radius: 4px; background: var(--card2); border: 1px solid var(--border); }
+  .wf-drawer { grid-column: 5; grid-row: 2 / 4; border-style: dashed; flex-direction: column; gap: 5px; }
+  .wf-drawer s { display: block; height: 7px; width: 85%; border-radius: 3px; background: var(--border2); text-decoration: none; }
+  .wf-foot { position: absolute; left: 0; right: 0; bottom: 4px; display: flex; gap: 2px; justify-content: center; }
+  .wf-foot s { width: 18%; height: 5px; border-radius: 3px; background: color-mix(in srgb, var(--green) 45%, transparent); }
+  .wf-rex { position: absolute; right: 22%; bottom: 10px; z-index: 2; padding: 3px 8px; border-radius: 999px; background: var(--text); color: var(--bg); font-size: 10px; font-weight: 700; cursor: pointer; border: 1px solid transparent; }
+  .wf-rex.on { outline: 2px solid var(--accent); }
+  .wf-n { position: absolute; z-index: 3; width: 19px; height: 19px; border-radius: 50%; display: grid; place-items: center; font-size: 10.5px; font-weight: 800;
+          background: var(--accent); color: #fff; box-shadow: 0 0 0 2px var(--bg2); pointer-events: none; }
+  .gd-parts { list-style: none; display: grid; gap: 4px; align-content: start; }
+  .gd-parts li { display: grid; grid-template-columns: 22px 1fr; gap: 8px; padding: 7px 8px; border-radius: 8px; cursor: pointer; border: 1px solid transparent; }
+  .gd-parts li:hover, .gd-parts li.on { background: var(--card2); border-color: var(--border); }
+  .gd-parts li.on { border-color: var(--accent-border); }
+  .gd-parts b.n { width: 20px; height: 20px; border-radius: 50%; display: grid; place-items: center; background: var(--accent-soft); color: var(--accent); font-size: 10.5px; }
+  .gd-parts li.on b.n { background: var(--accent); color: #fff; }
+  .gd-parts strong { display: block; font-size: 12.5px; margin-bottom: 2px; }
+  .gd-parts span { display: block; font-size: 12px; color: var(--muted); line-height: 1.45; }
+  .gd-parts kbd { font: 700 10.5px ui-monospace, monospace; padding: 0 5px; border-radius: 4px; border: 1px solid var(--border2); background: var(--bg2); color: var(--text); }
+
+  /* Module map */
+  .gd-mods { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 14px; align-items: start; }
+  .gd-mod { overflow: hidden; border-top: 3px solid var(--mc); }
+  .gd-mod-head { display: flex; align-items: center; gap: 10px; padding: 12px 14px 8px; }
+  .gd-mod-ico { width: 30px; height: 30px; border-radius: 8px; display: grid; place-items: center; background: color-mix(in srgb, var(--mc) 16%, transparent); color: var(--mc); }
+  .gd-mod-ico svg { width: 17px; height: 17px; }
+  .gd-mod-head strong { font-size: 14px; }
+  .gd-mod-head span { display: block; font-size: 11.5px; color: var(--muted); }
+  .gd-page { display: block; padding: 10px 14px 12px; border-top: 1px solid var(--line-soft); }
+  .gd-page-top { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+  .gd-page-top strong { font-size: 13px; }
+  .gd-page-top a { flex: none; font-size: 11.5px; font-weight: 700; color: var(--mc); text-decoration: none; }
+  .gd-page-top a:hover { text-decoration: underline; }
+  .gd-page p { margin-top: 3px; font-size: 12px; color: var(--text2); line-height: 1.5; }
+  .gd-page p b { color: var(--text); font-weight: 600; }
+  .gd-chips { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+  .gd-chips span { font-size: 10.5px; padding: 2px 7px; border-radius: 5px; background: var(--card2); border: 1px solid var(--border); color: var(--muted); }
+  .gd-ext { font-size: 10px; font-weight: 700; padding: 1px 6px; border-radius: 4px; margin-left: 6px; background: var(--card2); color: var(--muted); border: 1px solid var(--border); vertical-align: 1px; }
+
+  /* Workflows */
+  .gd-flow-tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
+  .gd-flow-tabs button { font: inherit; font-size: 12.5px; padding: 7px 12px; border-radius: 9px; border: 1px solid var(--border); background: var(--card); color: var(--text2); cursor: pointer; }
+  .gd-flow-tabs button.on { border-color: var(--accent); background: var(--accent-soft); color: var(--text); font-weight: 600; }
+  .gd-flow { padding: 16px 18px; }
+  .gd-flow > p { color: var(--text2); font-size: 12.5px; margin-bottom: 14px; line-height: 1.5; }
+  .gd-flow ol { list-style: none; display: grid; gap: 0; counter-reset: s; }
+  .gd-flow li { position: relative; display: grid; grid-template-columns: 30px 1fr; gap: 10px; padding-bottom: 16px; }
+  .gd-flow li::before { counter-increment: s; content: counter(s); width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; font-weight: 800; font-size: 12px; background: var(--card2); border: 2px solid var(--sc, var(--accent)); color: var(--text); z-index: 1; }
+  .gd-flow li:not(:last-child)::after { content: ""; position: absolute; left: 13px; top: 26px; bottom: 0; width: 2px; background: var(--border); }
+  .gd-flow li strong { display: block; font-size: 13px; margin-top: 3px; }
+  .gd-flow li span { display: block; font-size: 12px; color: var(--muted); line-height: 1.5; margin-top: 2px; }
+  .gd-flow li a { display: inline-block; margin-top: 4px; font-size: 11.5px; font-weight: 700; text-decoration: none; color: var(--sc, var(--accent)); }
+
+  /* Signals legend */
+  .gd-legend { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; }
+  .gd-leg { padding: 13px 14px; }
+  .gd-leg h3 { font-size: 12.5px; margin-bottom: 8px; }
+  .gd-leg-row { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text2); padding: 3px 0; line-height: 1.4; }
+  .gd-leg-row > i { flex: none; }
+  .sw { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
+  .dotf { flex: none; width: 11px; height: 11px; border-radius: 50%; display: inline-block; }
+  .pill { font-style: normal; font-size: 10.5px; font-weight: 700; padding: 1px 7px; border-radius: 4px; display: inline-block; white-space: nowrap; }
+
+  /* Refresh timeline */
+  .gd-time { padding: 16px 18px; }
+  .gd-axis { position: relative; height: 150px; margin: 6px 40px 0; }
+  .gd-axis .band { position: absolute; left: 0; right: 0; top: 118px; height: 10px; border-radius: 5px; background: color-mix(in srgb, var(--green) 30%, transparent); border: 1px solid color-mix(in srgb, var(--green) 60%, transparent); }
+  .gd-axis .tick { position: absolute; top: 128px; width: 1px; height: 5px; background: var(--border2); }
+  .gd-axis .hr { position: absolute; top: 134px; transform: translateX(-50%); font-size: 10.5px; color: var(--muted); }
+  .gd-axis .ev { position: absolute; bottom: 27px; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 2px; width: 128px; text-align: center; }
+  .gd-axis .ev::after { content: ""; width: 1px; height: var(--stem); background: var(--c); opacity: .6; }
+  .gd-axis .ev b { order: 2; width: 10px; height: 10px; border-radius: 50%; background: var(--c); box-shadow: 0 0 0 3px var(--card); }
+  .gd-axis .ev em { order: 1; font-style: normal; font-weight: 700; font-size: 10.5px; color: var(--c); }
+  .gd-axis .ev span { order: 0; font-size: 11px; line-height: 1.3; color: var(--text2); }
+  .gd-axis .ev::after { order: 3; }
+  .gd-axis .ev { z-index: 1; } .gd-axis .ev.hi { z-index: 0; }
+  .gd-axis .ev span, .gd-axis .ev em { background: var(--card); padding: 0 3px; border-radius: 3px; }
+  .gd-time-notes { margin-top: 10px; display: grid; gap: 4px; font-size: 12px; color: var(--muted); line-height: 1.5; }
+
+  /* Agents */
+  .gd-agents { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 12px; }
+  .gd-agent { padding: 14px; border-left: 3px solid var(--ac); }
+  .gd-agent strong { font-size: 14px; color: var(--ac); }
+  .gd-agent > span { display: block; font-size: 12px; color: var(--text2); margin: 3px 0 9px; line-height: 1.45; }
+  .gd-agent q { display: block; quotes: none; font-size: 11.5px; color: var(--muted); padding: 6px 8px; margin-top: 5px; border-radius: 6px; background: var(--card2); border: 1px solid var(--border); line-height: 1.45; }
+
+  /* Tips */
+  .gd-tips { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 10px; }
+  .gd-tip { padding: 12px 14px; font-size: 12.5px; line-height: 1.55; color: var(--text2); }
+  .gd-tip strong { display: block; color: var(--text); margin-bottom: 3px; font-size: 13px; }
+
+  @media (max-width: 900px) {
+    .gd-hero, .gd-anat { grid-template-columns: 1fr; }
+    .wf { height: auto; min-height: 0; aspect-ratio: 16 / 10; }
+  }
+  @media (max-width: 620px) {
+    .gd { padding: 12px 12px 48px; gap: 22px; }
+    .gd-hero { padding: 16px; }
+    .gd-hero h1 { font-size: 19px; }
+    .gd-mods { grid-template-columns: 1fr; }
+    .wf { aspect-ratio: 4 / 3; }
+    .wf-box { font-size: 0; }
+    .gd-axis { margin: 6px 22px 0; height: 196px; }
+    .gd-axis .band { top: 164px; } .gd-axis .tick { top: 174px; } .gd-axis .hr { top: 180px; font-size: 9.5px; }
+    .gd-axis .ev.hi { --stem: 70px !important; }
+    .gd-axis .ev { width: 74px; } .gd-axis .ev span { font-size: 10px; }
+  }
+  @media print {
+    .gd-finder, .gd-flow-tabs { display: none; }
+  }
+</style>
+  <script src="theme.js?v=8"></script>
+  <link rel="stylesheet" href="theme.css?v=9">
+  <script src="i18n.js?v=13"></script>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1 data-i18n="page.guide">Dashboard guide</h1>
+  </div>
+</header>
+
+<main class="gd" id="guide"></main>
+
+<script>
+(function () {
+  "use strict";
+  const th = () => (window.I18N && I18N.lang === "th");
+  const L = (en, t) => (th() ? t : en);
+  const esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
+  // Lucide paths, the same set nav.js draws in the rail.
+  const ICON = {
+    home: '<rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/>',
+    market: '<path d="M12 16v5M16 14v7M20 10v11M4 18v3M8 14v7"/><path d="m3 7 5 5 4-4 5 5 4-4"/>',
+    companies: '<path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18"/><path d="M6 12H4a2 2 0 0 0-2 2v8h20v-8a2 2 0 0 0-2-2h-2"/><path d="M10 6h4M10 10h4M10 14h4M10 18h4"/>',
+    news: '<path d="M4 22h16a2 2 0 0 0 2-2V4H6v16a2 2 0 0 1-4 0V6h4"/><path d="M10 8h8M10 12h8M10 16h5"/>',
+    risk: '<path d="M20 13c0 5-3.5 7.5-7.7 9a1 1 0 0 1-.6 0C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.2-2.7a1.2 1.2 0 0 1 1.6 0C14.5 3.8 17 5 19 5a1 1 0 0 1 1 1z"/><path d="M12 8v4M12 16h.01"/>',
+    bonds: '<path d="M3 22h18M6 18v-7M10 18v-7M14 18v-7M18 18v-7M12 2l9 5H3z"/>',
+  };
+  const svg = p => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' + p + "</svg>";
+
+  // ---- Content -----------------------------------------------------------
+  // Every page below is a real page in nav.js GROUPS; controls are the filters
+  // and tabs that page actually renders.
+  const MODULES = () => [
+    { id: "home", color: "#f2aa1f", name: L("Home", "หน้าหลัก"), sub: L("Start every day here", "เริ่มต้นวันจากตรงนี้"), pages: [
+      { href: "index.html", name: L("Morning overview", "ภาพรวมเช้า"),
+        what: L("<b>What needs attention today</b> for the RM you picked: top movers, high-severity alerts, SET filings in the last 24 hours and a newsroom of filings, external news and Oppday.",
+                "<b>วันนี้มีอะไรต้องดู</b> ตาม RM ที่เลือก: หุ้นที่ขยับแรง alert ระดับสูง filing ของ SET ใน 24 ชั่วโมง และห้องข่าวที่รวม filing ข่าวภายนอก และ Oppday"),
+        chips: [L("Top priority", "สำคัญที่สุด"), L("Newsroom", "ห้องข่าว"), L("Sector breadth", "Sector breadth")] },
+      { href: "ai-insights.html", name: L("AI insights", "AI insights"),
+        what: L("A written read of the day built from the snapshots; each line is checked against the data before it is shown.",
+                "บทวิเคราะห์ประจำวันที่สร้างจาก snapshot ทุกบรรทัดถูกตรวจกับข้อมูลก่อนแสดง"),
+        chips: [L("Headline", "หัวข้อหลัก"), L("Daily", "รายวัน")] },
+    ]},
+    { id: "market", color: "#5d96ff", name: L("Market", "ตลาด"), sub: L("Prices, sectors and valuation", "ราคา กลุ่มอุตสาหกรรม และ valuation"), pages: [
+      { href: "price-movement.html", name: L("Price movement", "ความเคลื่อนไหวราคา"),
+        what: L("<b>Who moved and how far.</b> Daily, MTD and YTD moves with a 20-day price path for every name in coverage.",
+                "<b>หุ้นตัวไหนขยับ ขยับแค่ไหน</b> การเปลี่ยนแปลงรายวัน MTD และ YTD พร้อมเส้นราคา 20 วันของทุกตัวใน coverage"),
+        chips: ["RM", "Sector", L("Sort by column", "เรียงตามคอลัมน์"), "20D Path"] },
+      { href: "sector-intelligence.html", name: L("Sector intelligence", "บทวิเคราะห์รายกลุ่ม"),
+        what: L("<b>Meeting-ready FOOD and PROP briefing:</b> market structure, earnings direction, price versus earnings and P/E, with a claim and evidence register behind every number.",
+                "<b>บทวิเคราะห์ FOOD และ PROP พร้อมนำเสนอ:</b> โครงสร้างตลาด ทิศทางกำไร ราคาเทียบกำไร และ P/E มี claim register และ evidence register รองรับทุกตัวเลข"),
+        chips: [L("Structure", "โครงสร้าง"), L("Earnings", "กำไร"), L("Valuation", "Valuation"), L("Methodology", "วิธีการ")] },
+      { href: "multiples-comparison.html", name: L("Multiples comparison", "เปรียบเทียบ multiples"),
+        what: L("<b>Cheap or expensive versus peers?</b> P/E, P/BV and yield side by side, coloured by sector percentile from worst to best.",
+                "<b>แพงหรือถูกกว่าเพื่อนในกลุ่ม</b> P/E, P/BV และ yield เทียบกัน ไล่สีตาม percentile ในกลุ่ม"),
+        chips: ["RM", "Sector", L("Heat scale", "Heat scale"), L("Click header to sort", "คลิกหัวคอลัมน์เพื่อเรียง")] },
+      { href: "multiples-band.html", name: L("Multiples band", "ช่วง multiples"),
+        what: L("Where each company sits inside its sector's valuation range. Type a ticker to highlight it.",
+                "แต่ละบริษัทอยู่ตรงไหนในช่วง valuation ของกลุ่ม พิมพ์ ticker เพื่อไฮไลต์"),
+        chips: [L("Highlight a ticker", "ไฮไลต์ ticker"), L("All sectors", "ทุก sector")] },
+      { href: "#embed-market", name: L("Daily market board", "กระดานตลาดรายวัน"), ext: true,
+        what: L("Live market board from TradingView. Opens in a side workspace without leaving the page.",
+                "กระดานตลาดแบบ live จาก TradingView เปิดในพื้นที่ทำงานด้านขวาโดยไม่ต้องออกจากหน้า"),
+        chips: [L("Side workspace", "พื้นที่ทำงานด้านขวา")] },
+    ]},
+    { id: "companies", color: "#35bdd0", name: L("Companies", "บริษัท"), sub: L("One company in depth", "เจาะลึกรายบริษัท"), pages: [
+      { href: "company-summary.html", name: L("Company summary", "ข้อมูลรายบริษัท"),
+        what: L("<b>Everything on one company.</b> Pick a ticker and the drawer opens with ten tabs grouped as Snapshot, Results, Company and News. Print a one-page summary from the Links group.",
+                "<b>ทุกอย่างของบริษัทเดียวในที่เดียว</b> เลือก ticker แล้วแถบด้านขวาจะเปิด 10 แท็บ แบ่งเป็น Snapshot, Results, Company และ News พิมพ์สรุปหน้าเดียวได้จากกลุ่ม Links"),
+        chips: ["Overview", "Report", "Financials", "MD&A", "Notes", "Opp Day", "Company", "Governance", "Board & holders", "Disclosures"] },
+      { href: "oppday-minutes.html", name: L("Oppday minutes", "สรุป Oppday"),
+        what: L("Takeaways from earnings calls and Opp Day sessions, filterable by period, sector and source (transcript plus slides, or slides only).",
+                "สรุปประเด็นจาก Opp Day กรองตามงวด กลุ่ม และแหล่งข้อมูล (transcript กับ slide หรือ slide อย่างเดียว)"),
+        chips: [L("Period", "งวด"), "Sector", L("Source", "แหล่งข้อมูล"), "Ticker"] },
+    ]},
+    { id: "news", color: "#31c77b", name: L("News", "ข่าว"), sub: L("What companies said and what the press wrote", "บริษัทแจ้งอะไร สื่อเขียนอะไร"), pages: [
+      { href: "disclosure-pulse.html", name: L("SET disclosures", "ข่าวเปิดเผยข้อมูล"),
+        what: L("<b>Every SET filing on coverage, ranked by importance.</b> Critical and material filings carry a short summary of the PDF; every number in it was found in the filing.",
+                "<b>Filing ของ SET ทุกฉบับใน coverage เรียงตามความสำคัญ</b> filing ระดับ critical และ material มีสรุปเนื้อหา PDF ทุกตัวเลขในสรุปตรวจแล้วว่ามีอยู่ในเอกสารจริง"),
+        chips: [L("Window", "ช่วงเวลา"), "RM", L("Severity", "ระดับ"), "Sector"] },
+      { href: "external-news.html", name: L("External news", "ข่าวภายนอก"),
+        what: L("Wire and newspaper headlines matched to coverage tickers. An amber <b>No SET filing</b> badge marks stories with no disclosure from the company within two days.",
+                "ข่าวจาก wire และหนังสือพิมพ์ที่จับคู่กับ ticker ป้ายสีอำพัน <b>ไม่มี filing</b> แปลว่าบริษัทไม่มีการเปิดเผยข้อมูลภายใน 2 วันจากวันข่าวออก"),
+        chips: [L("Window", "ช่วงเวลา"), L("Source", "แหล่งข่าว"), "Sector", "RM", L("No filing only", "เฉพาะข่าวที่ไม่มี filing")] },
+      { href: "efinance-news.html", name: L("eFinanceThai live", "ข่าว eFinanceThai"),
+        what: L("Live eFinanceThai headlines with search and a ticker-tagged view.", "พาดหัวข่าว eFinanceThai แบบ live ค้นหาได้ และมีมุมมองเฉพาะข่าวที่ติด ticker"),
+        chips: [L("Search", "ค้นหา"), L("Ticker-tagged", "ติด ticker"), L("Refresh", "รีเฟรช")] },
+      { href: "#embed-macro", name: L("Global-macro brief", "สรุปมหภาคโลก"), ext: true,
+        what: L("Macro signals and global context, opened in the side workspace.", "สัญญาณมหภาคและบริบทตลาดโลก เปิดในพื้นที่ทำงานด้านขวา"),
+        chips: [L("Side workspace", "พื้นที่ทำงานด้านขวา")] },
+    ]},
+    { id: "risk", color: "#ef6464", name: L("Risk & surveillance", "เฝ้าระวัง"), sub: L("Moves that need an explanation", "ความเคลื่อนไหวที่ต้องมีคำอธิบาย"), pages: [
+      { href: "unusual-trading.html", name: L("Unusual trading", "การซื้อขายผิดปกติ"),
+        what: L("<b>Price and volume anomalies.</b> The move map plots 1-day move against volume versus its 20-day average; the shaded corners are moves of 3% or more on 2x volume. Solid dots have no filing or news behind them.",
+                "<b>ความผิดปกติด้านราคาและปริมาณ</b> กราฟแสดงราคาเปลี่ยน 1 วันเทียบกับ volume ต่อค่าเฉลี่ย 20 วัน มุมแรเงาคือราคาเปลี่ยน 3 เปอร์เซ็นต์ขึ้นไปพร้อม volume 2 เท่า จุดทึบคือไม่มีข่าวหรือ filing รองรับ"),
+        chips: [L("News backing", "ข่าวรองรับ"), "RM", L("Severity", "ระดับ"), "gap / intraday / vol spike", "Sector"] },
+      { href: "trading-signs.html", name: L("Trading signs", "เครื่องหมายซื้อขาย"),
+        what: L("Current SET trading signs on coverage names (SP, NP, NC, CC, C and others).", "เครื่องหมายซื้อขายของ SET ที่ติดอยู่กับหุ้นใน coverage (SP, NP, NC, CC, C และอื่นๆ)"),
+        chips: [L("Sign type", "ประเภทเครื่องหมาย")] },
+    ]},
+    { id: "bonds", color: "#b17cff", name: L("Bonds", "หุ้นกู้"), sub: L("Debt outstanding and maturities", "หนี้คงค้างและการครบกำหนด"), pages: [
+      { href: "bond-summary.html", name: L("Bond summary", "สรุปหุ้นกู้"),
+        what: L("<b>Who owes how much and when it falls due.</b> Outstanding by sector, top issuers and the maturity wall, from ThaiBMA.",
+                "<b>ใครมีหนี้หุ้นกู้เท่าไร ครบกำหนดเมื่อไร</b> ยอดคงค้างรายกลุ่ม ผู้ออกรายใหญ่ และ maturity wall จาก ThaiBMA"),
+        chips: [L("Maturing within 1 year", "ครบกำหนดภายใน 1 ปี"), L("ESG only", "เฉพาะ ESG"), L("Sort", "เรียง")] },
+      { href: "bond-data-sec.html", name: L("SEC bond filings", "ข้อมูลหุ้นกู้ SEC"),
+        what: L("Bond filings from the SEC Open API: outstanding face value by sector and RM and the credit rating mix.",
+                "ข้อมูลหุ้นกู้จาก SEC Open API: มูลค่าคงค้างรายกลุ่มและราย RM และสัดส่วน credit rating"),
+        chips: [L("Outstanding only", "เฉพาะที่คงค้าง"), L("ESG only", "เฉพาะ ESG"), L("Rating mix", "Rating mix")] },
+    ]},
+  ];
+
+  // Screen anatomy: [region key, title, body]
+  const PARTS = () => [
+    ["rail", L("Module rail", "แถบเมนูหลัก"), L("Six modules: Home, Market, Companies, News, Risk, Bonds. Click a module to jump to its first page. My book sits at the bottom.", "6 โมดูล: หน้าหลัก ตลาด บริษัท ข่าว เฝ้าระวัง หุ้นกู้ คลิกเพื่อไปหน้าแรกของโมดูลนั้น ปุ่ม งานของฉัน อยู่ด้านล่าง")],
+    ["tape", L("Price tape", "แถบราคา"), L("Biggest movers in your RM's book scroll upward on every page. Click a chip to open that company.", "หุ้นที่ขยับแรงสุดของ RM ที่เลือกเลื่อนขึ้นอยู่ทุกหน้า คลิกเพื่อเปิดหน้าบริษัท")],
+    ["mod", L("Page list", "รายการหน้า"), L("Every page in every module. Counts show new filings, news and alerts. The coloured pills at the bottom show how fresh each data set is.", "ทุกหน้าของทุกโมดูล ตัวเลขข้างชื่อคือจำนวน filing ข่าว และ alert ใหม่ ป้ายสีด้านล่างบอกความสดของข้อมูลแต่ละชุด")],
+    ["top", L("Search, RM and settings", "ค้นหา RM และการตั้งค่า"), L("Press <kbd>/</kbd> and type a ticker or company name, Enter opens it. The RM box filters every page to one book (C, K, O, G, P, T) or All. EN | ไทย and the theme switch sit next to it.", "กด <kbd>/</kbd> แล้วพิมพ์ ticker หรือชื่อบริษัท กด Enter เพื่อเปิด ช่อง RM กรองทุกหน้าให้เหลือพอร์ตเดียว (C, K, O, G, P, T) หรือทั้งหมด ปุ่ม EN | ไทย และสลับธีมอยู่ข้างกัน")],
+    ["news", L("News bar", "แถบข่าว"), L("Latest filings for your RM scroll left, most important first. Click one to read it.", "filing ล่าสุดของ RM ที่เลือกเลื่อนไปทางซ้าย เรียงจากสำคัญที่สุด คลิกเพื่ออ่าน")],
+    ["main", L("Page content", "เนื้อหาของหน้า"), L("Filters sit at the top of each page (window, RM, severity, sector). Your RM choice carries over between pages.", "ตัวกรองอยู่ด้านบนของแต่ละหน้า (ช่วงเวลา RM ระดับ sector) RM ที่เลือกจะตามไปทุกหน้า")],
+    ["drawer", L("My book drawer", "แถบ งานของฉัน"), L("Opens on the right: your coverage list, your alerts and the REX agents, without leaving the page.", "เปิดด้านขวา: รายชื่อบริษัทที่ดูแล alert ของคุณ และ REX agents โดยไม่ต้องออกจากหน้า")],
+    ["rex", L("Ask REX", "ถาม REX"), L("Chat with four agents grounded in the dashboard data. See the REX section below.", "แชทกับ agent 4 ตัวที่ตอบจากข้อมูลใน dashboard ดูหัวข้อ REX ด้านล่าง")],
+  ];
+
+  const TASKS = () => [
+    [L("See what needs my attention this morning", "ดูว่าเช้านี้มีอะไรต้องดู"), "index.html", "home"],
+    [L("Find which stocks moved most today", "หาหุ้นที่ขยับแรงสุดวันนี้"), "price-movement.html", "market"],
+    [L("Check if a stock looks cheap against its sector", "ดูว่าหุ้นถูกหรือแพงเทียบกลุ่ม"), "multiples-comparison.html", "market"],
+    [L("Prepare a FOOD or PROP sector briefing", "เตรียมบรรยายภาพรวมกลุ่ม FOOD หรือ PROP"), "sector-intelligence.html", "market"],
+    [L("Open everything about one company", "ดูข้อมูลทั้งหมดของบริษัทเดียว"), "company-summary.html", "companies"],
+    [L("Read a company's latest financials and MD&A", "อ่านงบการเงินและ MD&A ล่าสุด"), "company-summary.html", "companies"],
+    [L("Check board members and major shareholders", "ดูกรรมการและผู้ถือหุ้นใหญ่"), "company-summary.html", "companies"],
+    [L("Read what management said at Opp Day", "อ่านว่าผู้บริหารพูดอะไรใน Opp Day"), "oppday-minutes.html", "companies"],
+    [L("Review today's SET filings by importance", "ดู filing ของ SET วันนี้เรียงตามความสำคัญ"), "disclosure-pulse.html", "news"],
+    [L("Find press stories with no SET filing behind them", "หาข่าวสื่อที่บริษัทยังไม่ได้แจ้ง SET"), "external-news.html", "news"],
+    [L("Spot a price or volume spike with no news", "หาราคาหรือ volume ที่พุ่งโดยไม่มีข่าว"), "unusual-trading.html", "risk"],
+    [L("See which names carry SP, NP or C signs", "ดูหุ้นที่ติดเครื่องหมาย SP, NP หรือ C"), "trading-signs.html", "risk"],
+    [L("See which bonds mature within a year", "ดูหุ้นกู้ที่ครบกำหนดภายใน 1 ปี"), "bond-summary.html", "bonds"],
+    [L("Ask a rules question with the source page", "ถามเรื่องกฎเกณฑ์พร้อมเลขหน้าอ้างอิง"), "#rex", "home"],
+  ];
+
+  const FLOWS = () => [
+    { id: "morning", name: L("Morning check", "เช็กตอนเช้า"), color: "#f2aa1f",
+      intro: L("Ten minutes before the market opens. Set your RM once and every page follows it.", "ใช้ 10 นาทีก่อนตลาดเปิด ตั้ง RM ครั้งเดียว ทุกหน้าจะตามให้"),
+      steps: [
+        [L("Pick your RM", "เลือก RM"), L("Top bar, RM box. The choice is remembered on this browser.", "ช่อง RM บนแถบด้านบน ระบบจำค่าไว้ใน browser นี้"), null],
+        [L("Read Top priority on the home page", "อ่าน สำคัญที่สุด ในหน้าหลัก"), L("High-severity alerts and material filings, then the newsroom.", "alert ระดับสูงและ filing ที่มีนัยสำคัญ ตามด้วยห้องข่าว"), "index.html"],
+        [L("Open the filings that matter", "เปิด filing ที่สำคัญ"), L("SET disclosures, Window 1d, Severity Critical and Material. Read the summary, open the PDF if needed.", "หน้า ข่าวเปิดเผยข้อมูล ช่วงเวลา 1d ระดับ Critical และ Material อ่านสรุป แล้วเปิด PDF ถ้าจำเป็น"), "disclosure-pulse.html"],
+        [L("Check yesterday's unusual moves", "เช็กความเคลื่อนไหวผิดปกติเมื่อวาน"), L("Unusual trading, News backing set to No news. Anything left needs a question.", "หน้า การซื้อขายผิดปกติ ตั้ง ข่าวรองรับ เป็น ไม่มีข่าว ตัวที่เหลือคือตัวที่ต้องสอบถาม"), "unusual-trading.html"],
+      ]},
+    { id: "company", name: L("Look into one company", "เจาะดูบริษัทเดียว"), color: "#35bdd0",
+      intro: L("When a name comes up in a meeting or an alert.", "ใช้เมื่อมีชื่อบริษัทขึ้นมาในที่ประชุมหรือใน alert"),
+      steps: [
+        [L("Press / and type the ticker", "กด / แล้วพิมพ์ ticker"), L("Works on every page. Enter opens the company summary.", "ใช้ได้ทุกหน้า กด Enter เพื่อเปิดหน้าข้อมูลบริษัท"), null],
+        [L("Start at Overview, then Report", "เริ่มที่ Overview แล้วไป Report"), L("Price, valuation and the latest summary in one screen.", "ราคา valuation และสรุปล่าสุดในหน้าเดียว"), "company-summary.html"],
+        [L("Go through Results", "ไล่ดู Results"), L("Financials, MD&A, Notes and Opp Day for the latest period.", "งบการเงิน MD&A Notes และ Opp Day ของงวดล่าสุด"), "company-summary.html"],
+        [L("Check Governance and Board & holders", "เช็ก Governance และ Board & holders"), L("Directors, independent seats and major shareholders.", "กรรมการ กรรมการอิสระ และผู้ถือหุ้นใหญ่"), "company-summary.html"],
+        [L("Compare with peers", "เทียบกับเพื่อนในกลุ่ม"), L("Multiples comparison or Multiples band, highlight the ticker.", "หน้า เปรียบเทียบ multiples หรือ ช่วง multiples แล้วไฮไลต์ ticker"), "multiples-band.html"],
+      ]},
+    { id: "move", name: L("Explain an unusual move", "หาคำอธิบายราคาที่ผิดปกติ"), color: "#ef6464",
+      intro: L("A stock jumped or dropped hard. Is there a reason on record?", "หุ้นขึ้นหรือลงแรง มีเหตุผลที่เปิดเผยไว้หรือไม่"),
+      steps: [
+        [L("Find it on the move map", "หาจุดในกราฟ"), L("Unusual trading. Dots in the shaded corners are the strong moves; solid means nothing on record.", "หน้า การซื้อขายผิดปกติ จุดในมุมแรเงาคือตัวที่ขยับแรง จุดทึบคือยังไม่มีข่าวรองรับ"), "unusual-trading.html"],
+        [L("Check SET filings", "เช็ก filing ของ SET"), L("Company summary, Disclosures tab, for the price day and the day before.", "หน้าข้อมูลบริษัท แท็บ Disclosures ดูวันที่ราคาขยับและวันก่อนหน้า"), "company-summary.html"],
+        [L("Check the press", "เช็กข่าวสื่อ"), L("External news, filter by the ticker's sector; look for the No SET filing badge.", "หน้า ข่าวภายนอก กรองตาม sector ของหุ้น มองหาป้าย ไม่มี filing"), "external-news.html"],
+        [L("Check trading signs", "เช็กเครื่องหมายซื้อขาย"), L("A new SP or C sign often explains the volume.", "เครื่องหมาย SP หรือ C ที่เพิ่งติด มักอธิบาย volume ได้"), "trading-signs.html"],
+      ]},
+    { id: "sector", name: L("Sector briefing", "เตรียมบรรยายรายกลุ่ม"), color: "#5d96ff",
+      intro: L("Getting ready for a team or VP meeting.", "เตรียมตัวสำหรับประชุมทีมหรือประชุม VP"),
+      steps: [
+        [L("Open Sector intelligence", "เปิด บทวิเคราะห์รายกลุ่ม"), L("Read the headline and the three lenses: structure, earnings, market.", "อ่านหัวข้อหลักและ 3 มุมมอง: โครงสร้าง กำไร ตลาด"), "sector-intelligence.html"],
+        [L("Check the evidence", "เช็กที่มาของตัวเลข"), L("Methodology, claim register and evidence register list where every figure comes from.", "Methodology, claim register และ evidence register บอกที่มาของทุกตัวเลข"), "sector-intelligence.html"],
+        [L("Add price context", "เพิ่มบริบทด้านราคา"), L("Price movement, filtered to the sector, sorted by YTD.", "หน้า ความเคลื่อนไหวราคา กรองตาม sector เรียงตาม YTD"), "price-movement.html"],
+        [L("Ask Pythia", "ถาม Pythia"), L("Sector breadth and relative screens, answered from the snapshot.", "ถาม breadth และ relative screen ของกลุ่ม ระบบตอบจาก snapshot"), "#rex"],
+      ]},
+  ];
+
+  const AGENTS = () => [
+    { name: "Hermes", color: "#f59e0b", tag: L("News, disclosures, silent filers and Oppday", "ข่าว disclosures บริษัทที่เงียบ และ Oppday"),
+      q: [L("Which of my names filed nothing this week?", "บริษัทไหนใน RM C ไม่มี filing เลยสัปดาห์นี้"), L("Summarise CPN's latest Opp Day", "สรุป Opp Day ล่าสุดของ CPN")] },
+    { name: "Atlas", color: "#3b82f6", tag: L("Prices, movers, alerts and exact threshold screens", "ราคา movers alert และ threshold screen"),
+      q: [L("Which FOOD names fell more than 5% this week?", "หุ้น FOOD ตัวไหนลงเกิน 5 เปอร์เซ็นต์สัปดาห์นี้"), L("List high-severity alerts for RM C", "ขอ alert ระดับสูงของ RM C")] },
+    { name: "Pythia", color: "#8b5cf6", tag: L("IS1 sector performance, breadth and relative screens", "ผลงานรายกลุ่ม breadth และ relative screen ของ IS1"),
+      q: [L("How many PROP names are up YTD?", "หุ้น PROP กี่ตัวที่ YTD เป็นบวก"), L("Rank sectors by 1-month return", "เรียงกลุ่มตามผลตอบแทน 1 เดือน")] },
+    { name: "Lex", color: "#10b981", tag: L("Rules and regulations, answered with the source PDF and page", "กฎเกณฑ์ ตอบพร้อม PDF ต้นฉบับและเลขหน้า"),
+      q: [L("When must a connected transaction go to shareholders?", "รายการที่เกี่ยวโยงกันขนาดไหนต้องขออนุมัติผู้ถือหุ้น"), L("Explain the SET free float rule", "อธิบายเกณฑ์ free float ของ SET")] },
+  ];
+
+  const TIPS = () => [
+    [L("Your RM follows you", "RM ที่เลือกตามไปทุกหน้า"), L("Choose it once in the top bar. Pages with their own RM tabs start from the same choice.", "เลือกครั้งเดียวที่แถบด้านบน หน้าที่มีแท็บ RM ของตัวเองจะเริ่มจากค่าเดียวกัน")],
+    [L("Any ticker is one key away", "ทุก ticker ห่างแค่ปุ่มเดียว"), L("Press / anywhere, type part of a ticker or a Thai or English name.", "กด / ที่ไหนก็ได้ แล้วพิมพ์บางส่วนของ ticker หรือชื่อไทยหรืออังกฤษ")],
+    [L("Check freshness before you quote", "เช็กความสดก่อนอ้างอิง"), L("The pills under the page list turn amber after 7 days and red after 14. Bonds are monthly by design.", "ป้ายใต้รายการหน้าเป็นสีอำพันเมื่อเกิน 7 วัน และแดงเมื่อเกิน 14 วัน หุ้นกู้อัปเดตรายเดือนตามปกติ")],
+    [L("Periods are in BE", "งวดใช้ปี พ.ศ."), L("Reporting periods read Q2/69 or 6M/2569. Calendar dates stay AD.", "งวดรายงานเขียนแบบ Q2/69 หรือ 6M/2569 ส่วนวันที่ปฏิทินใช้ ค.ศ.")],
+    [L("Summaries never replace the filing", "สรุปไม่ได้แทนเอกสารจริง"), L("Filing summaries link to the PDF. Quote the filing, not the summary.", "สรุป filing มีลิงก์ไป PDF เวลาอ้างอิงให้อ้าง filing ไม่ใช่สรุป")],
+    [L("Works on a phone", "ใช้บนมือถือได้"), L("The menu moves behind the button at top left; the price tape is hidden to save space.", "เมนูย้ายไปอยู่หลังปุ่มมุมซ้ายบน แถบราคาถูกซ่อนเพื่อประหยัดพื้นที่")],
+  ];
+
+  // ---- Render -----------------------------------------------------------
+  let activePart = "top", activeFlow = "morning", query = "";
+
+  function hero() {
+    return `<section class="gd-card gd-hero" id="start">
+      <div>
+        <div class="gd-kicker">${esc(L("New here?", "เพิ่งเริ่มใช้"))}</div>
+        <h1>${esc(L("Find your way around the IS1 Control Room", "ใช้งาน IS1 Control Room ให้คล่องใน 5 นาที"))}</h1>
+        <p>${esc(L("One dashboard for 232 SET companies in IS1 coverage: prices, filings, news, unusual trading and bonds, refreshed every weekday.",
+                  "Dashboard เดียวสำหรับ 232 บริษัทใน coverage ของ IS1: ราคา filing ข่าว การซื้อขายผิดปกติ และหุ้นกู้ อัปเดตทุกวันทำการ"))}</p>
+        <div class="gd-steps3">
+          <div><b>1</b><span>${esc(L("Pick your RM in the top bar. Every page filters to your book.", "เลือก RM ที่แถบด้านบน ทุกหน้าจะกรองเฉพาะพอร์ตของคุณ"))}</span></div>
+          <div><b>2</b><span>${esc(L("Use the left rail to switch module, the page list to switch page.", "ใช้แถบซ้ายสุดเพื่อเปลี่ยนโมดูล และรายการหน้าเพื่อเปลี่ยนหน้า"))}</span></div>
+          <div><b>3</b><span>${esc(L("Press / to jump to any company.", "กด / เพื่อไปที่บริษัทไหนก็ได้"))}</span></div>
+        </div>
+      </div>
+      <div class="gd-finder">
+        <label for="gdFind">${esc(L("I want to…", "ฉันอยากจะ…"))}</label>
+        <input id="gdFind" type="search" autocomplete="off" placeholder="${esc(L("e.g. filings, bonds, cheap, board", "เช่น filing, หุ้นกู้, ถูก, กรรมการ"))}" value="${esc(query)}">
+        <div class="gd-tasks" id="gdTasks">${tasks()}</div>
+      </div>
+    </section>`;
+  }
+
+  function tasks() {
+    const mods = Object.fromEntries(MODULES().map(m => [m.id, m]));
+    const q = query.trim().toLowerCase();
+    const rows = TASKS().filter(([label, href, mod]) => !q || (label + " " + href + " " + mods[mod].name).toLowerCase().includes(q));
+    if (!rows.length) return `<div class="gd-empty">${esc(L("Nothing matches. Try a module name like News or Bonds.", "ไม่พบ ลองพิมพ์ชื่อโมดูล เช่น ข่าว หรือ หุ้นกู้"))}</div>`;
+    return rows.map(([label, href, mod]) => {
+      const m = mods[mod];
+      return `<a class="gd-task" href="${esc(href)}"><i style="background:${m.color}"></i><span>${esc(label)}</span><em>${esc(m.name)} →</em></a>`;
+    }).join("");
+  }
+
+  function anatomy() {
+    const parts = PARTS();
+    const num = k => parts.findIndex(p => p[0] === k) + 1;
+    const n = (k, pos) => `<b class="wf-n" style="${pos}">${num(k)}</b>`;
+    const box = (k, cls, inner) => `<div class="wf-box ${cls}${activePart === k ? " on" : ""}" data-part="${k}">${inner}</div>`;
+    return `<section id="screen">
+      <div class="gd-sec-head"><div><div class="gd-kicker">${esc(L("The screen", "หน้าจอ"))}</div><h2>${esc(L("What is where", "อะไรอยู่ตรงไหน"))}</h2></div>
+        <p>${esc(L("Every page shares the same frame. Click a part of the sketch or a line on the right.", "ทุกหน้าใช้กรอบเดียวกัน คลิกส่วนใดของภาพ หรือรายการด้านขวา เพื่อดูคำอธิบาย"))}</p></div>
+      <div class="gd-card gd-anat">
+        <div class="wf" aria-hidden="true">
+          ${box("rail", "wf-rail", "<s></s><s></s><s></s><s></s><s></s><s></s>")}
+          ${box("tape", "wf-tape", "<s></s><s></s><s></s><s></s><s></s><s></s><s></s>")}
+          ${box("mod", "wf-mod", '<s class="hd"></s><s></s><s></s><s></s><s class="hd"></s><s></s><s></s><span class="wf-foot"><s></s><s></s><s></s></span>')}
+          ${box("top", "wf-top", '<s style="width:22%"></s><s style="width:34%"></s><s style="width:12%"></s><s style="width:14%"></s>')}
+          ${box("news", "wf-news", "<s></s><s></s><s></s>")}
+          ${box("main", "wf-main", '<s style="height:18%"></s><s style="height:12%;width:70%"></s><s style="flex:1"></s>')}
+          ${box("drawer", "wf-drawer", "<s></s><s></s><s></s><s></s>")}
+          <div class="wf-rex${activePart === "rex" ? " on" : ""}" data-part="rex">REX</div>
+          ${n("rail", "left:2%;top:46%")}${n("tape", "left:9.5%;top:30%")}${n("mod", "left:19%;top:18%")}
+          ${n("top", "left:44%;top:3%")}${n("news", "left:40%;top:13%")}${n("main", "left:50%;top:48%")}
+          ${n("drawer", "left:86%;top:40%")}${n("rex", "right:17%;bottom:6%")}
+        </div>
+        <ol class="gd-parts">${parts.map(([k, t, b], i) =>
+          `<li data-part="${k}" class="${activePart === k ? "on" : ""}"><b class="n">${i + 1}</b><div><strong>${esc(t)}</strong><span>${b}</span></div></li>`).join("")}</ol>
+      </div>
+    </section>`;
+  }
+
+  function modules() {
+    return `<section id="pages">
+      <div class="gd-sec-head"><div><div class="gd-kicker">${esc(L("The pages", "หน้าต่างๆ"))}</div><h2>${esc(L("Six modules, one question each", "6 โมดูล แต่ละโมดูลตอบคำถามหนึ่งเรื่อง"))}</h2></div>
+        <p>${esc(L("What each page answers, the filters and tabs it has, and a link to open it.", "แต่ละหน้าตอบคำถามอะไร มีตัวกรองและแท็บอะไร และลิงก์เปิดหน้านั้น"))}</p></div>
+      <div class="gd-mods">${MODULES().map(m => `
+        <article class="gd-card gd-mod" style="--mc:${m.color}">
+          <div class="gd-mod-head"><span class="gd-mod-ico">${svg(ICON[m.id])}</span><div><strong>${esc(m.name)}</strong><span>${esc(m.sub)}</span></div></div>
+          ${m.pages.map(p => `<div class="gd-page">
+            <div class="gd-page-top"><strong>${esc(p.name)}${p.ext ? `<span class="gd-ext">${esc(L("external", "ภายนอก"))}</span>` : ""}</strong>
+              ${p.ext ? `<span style="font-size:11px;color:var(--muted)">${esc(L("from the page list", "เปิดจากรายการหน้า"))}</span>` : `<a href="${esc(p.href)}">${esc(L("Open", "เปิด"))} →</a>`}</div>
+            <p>${p.what}</p>
+            <div class="gd-chips">${p.chips.map(c => `<span>${esc(c)}</span>`).join("")}</div>
+          </div>`).join("")}
+        </article>`).join("")}
+      </div>
+    </section>`;
+  }
+
+  function flows() {
+    const all = FLOWS(), f = all.find(x => x.id === activeFlow) || all[0];
+    return `<section id="flows">
+      <div class="gd-sec-head"><div><div class="gd-kicker">${esc(L("Workflows", "ขั้นตอนการใช้งาน"))}</div><h2>${esc(L("Common jobs, step by step", "งานที่ทำบ่อย ทีละขั้น"))}</h2></div>
+        <p>${esc(L("Pick a job. Each step links to the page where you do it.", "เลือกงาน แต่ละขั้นมีลิงก์ไปหน้าที่ใช้"))}</p></div>
+      <div class="gd-flow-tabs" role="tablist">${all.map(x => `<button type="button" role="tab" aria-selected="${x.id === f.id}" class="${x.id === f.id ? "on" : ""}" data-flow="${x.id}">${esc(x.name)}</button>`).join("")}</div>
+      <div class="gd-card gd-flow" style="--sc:${f.color}">
+        <p>${esc(f.intro)}</p>
+        <ol>${f.steps.map(([t, d, href]) => `<li><div><strong>${esc(t)}</strong><span>${esc(d)}</span>${href ? `<a href="${esc(href)}">${esc(L("Go there", "ไปที่หน้านี้"))} →</a>` : ""}</div></li>`).join("")}</ol>
+      </div>
+    </section>`;
+  }
+
+  function legend() {
+    const row = (sw, txt) => `<div class="gd-leg-row">${sw}<span>${txt}</span></div>`;
+    return `<section id="signals">
+      <div class="gd-sec-head"><div><div class="gd-kicker">${esc(L("Reading the signals", "อ่านสัญลักษณ์"))}</div><h2>${esc(L("Colours and marks used across pages", "สีและเครื่องหมายที่ใช้ในทุกหน้า"))}</h2></div></div>
+      <div class="gd-legend">
+        <div class="gd-card gd-leg"><h3>${esc(L("Filing severity", "ระดับความสำคัญของ filing"))}</h3>
+          ${row('<i class="sw" style="background:#ef4444"></i>', esc(L("Critical: read today", "Critical: อ่านวันนี้")))}
+          ${row('<i class="sw" style="background:#f59e0b"></i>', esc(L("Material: affects the business or the shares", "Material: กระทบธุรกิจหรือหุ้น")))}
+          ${row('<i class="sw" style="background:#7c8298"></i>', esc(L("Routine: periodic or administrative", "Routine: รายงานตามรอบหรือเรื่องทั่วไป")))}
+        </div>
+        <div class="gd-card gd-leg"><h3>${esc(L("Unusual trading map", "กราฟการซื้อขายผิดปกติ"))}</h3>
+          ${row('<i class="dotf" style="background:var(--green)"></i>', esc(L("Solid: price up, no filing or news behind it", "ทึบ: ราคาขึ้น ไม่มีข่าวรองรับ")))}
+          ${row('<i class="dotf" style="background:var(--red)"></i>', esc(L("Solid: price down, no filing or news behind it", "ทึบ: ราคาลง ไม่มีข่าวรองรับ")))}
+          ${row('<i class="dotf" style="border:2px solid var(--muted)"></i>', esc(L("Hollow: news or a filing explains it", "โปร่ง: มีข่าวหรือ filing อธิบายได้")))}
+          ${row('<i class="sw" style="background:color-mix(in srgb,var(--red) 18%,transparent)"></i>', esc(L("Shaded corner: move of 3% or more on 2x volume", "มุมแรเงา: ราคาเปลี่ยน 3 เปอร์เซ็นต์ขึ้นไปพร้อม volume 2 เท่า")))}
+        </div>
+        <div class="gd-card gd-leg"><h3>${esc(L("Data freshness pills", "ป้ายความสดของข้อมูล"))}</h3>
+          ${row('<i class="dotf" style="background:var(--green)"></i>', esc(L("Fresh: updated within 7 days", "สด: อัปเดตภายใน 7 วัน")))}
+          ${row('<i class="dotf" style="background:var(--yellow)"></i>', esc(L("Ageing: 7 to 14 days", "เริ่มเก่า: 7 ถึง 14 วัน")))}
+          ${row('<i class="dotf" style="background:var(--red)"></i>', esc(L("Stale: over 14 days, check before quoting", "เก่า: เกิน 14 วัน เช็กก่อนอ้างอิง")))}
+        </div>
+        <div class="gd-card gd-leg"><h3>${esc(L("Badges", "ป้ายกำกับ"))}</h3>
+          ${row('<i class="pill" style="background:#f59e0b22;color:#f59e0b">' + esc(L("No SET filing ±2d", "ไม่มี filing ±2 วัน")) + "</i>", esc(L("Press story with no disclosure nearby", "ข่าวสื่อที่ไม่มีการเปิดเผยข้อมูลในช่วงใกล้กัน")))}
+          ${row('<i class="pill" style="background:var(--accent-soft);color:var(--accent)">C</i>', esc(L("RM letter: whose book the name is in", "ตัวอักษร RM: บริษัทอยู่ในพอร์ตของใคร")))}
+          ${row('<i class="pill" style="background:var(--card2);border:1px solid var(--border);color:var(--text2)">Q2/69</i>', esc(L("Reporting period in BE", "งวดรายงานแบบ พ.ศ.")))}
+        </div>
+      </div>
+    </section>`;
+  }
+
+  function refresh() {
+    // Weekday schedule, Bangkok time. Sources: .github/workflows/daily.yml
+    // (09:15), disclosure-refresh.yml (14:00, 18:00), laptop crons in CLAUDE.md
+    // (08:15 vault notes, 08:30 freshness check, every 30 min 07:00-19:00).
+    const x = h => ((h - 7) / 12 * 100).toFixed(2) + "%";
+    // stem = how far the label sits above the band, so neighbours never collide
+    const ev = (h, label, time, c, stem) => `<div class="ev${stem > 6 ? " hi" : ""}" style="left:${x(h)};--c:${c};--stem:${stem}px"><b></b><em>${time}</em><span>${esc(label)}</span></div>`;
+    const hours = [7, 9, 11, 13, 15, 17, 19];
+    return `<section id="refresh">
+      <div class="gd-sec-head"><div><div class="gd-kicker">${esc(L("When data updates", "ข้อมูลอัปเดตเมื่อไร"))}</div><h2>${esc(L("A weekday, Bangkok time", "หนึ่งวันทำการ เวลากรุงเทพ"))}</h2></div>
+        <p>${esc(L("The green band is the filing-summary run every 30 minutes. Dots are the scheduled refreshes.", "แถบสีเขียวคือการสรุป filing ทุก 30 นาที จุดคือรอบอัปเดตตามเวลา"))}</p></div>
+      <div class="gd-card gd-time">
+        <div class="gd-axis">
+          <div class="band"></div>
+          ${hours.map(h => `<div class="tick" style="left:${x(h)}"></div><div class="hr" style="left:${x(h)}">${String(h).padStart(2, "0")}:00</div>`).join("")}
+          ${ev(8.25, L("Vault notes and Opp Day", "Vault notes และ Opp Day"), "08:15", "var(--violet)", 52)}
+          ${ev(9.25, L("Prices, alerts, news, filings", "ราคา alert ข่าว filing"), "09:15", "var(--accent)", 6)}
+          ${ev(14, L("Filings catch-up", "อัปเดต filing รอบบ่าย"), "14:00", "var(--green)", 6)}
+          ${ev(18, L("End-of-day filings", "filing รอบปิดวัน"), "18:00", "var(--green)", 6)}
+        </div>
+        <div class="gd-time-notes">
+          <span>${esc(L("Bonds refresh monthly on the 1st. Sector intelligence and company reports are rebuilt by hand after each results season.", "หุ้นกู้อัปเดตทุกวันที่ 1 ของเดือน บทวิเคราะห์รายกลุ่มและรายงานบริษัทจัดทำใหม่หลังประกาศงบแต่ละรอบ"))}</span>
+          <span>${esc(L("No update on weekends and SET holidays.", "ไม่มีการอัปเดตวันเสาร์ อาทิตย์ และวันหยุดของ SET"))}</span>
+        </div>
+      </div>
+    </section>`;
+  }
+
+  function agents() {
+    return `<section id="rex">
+      <div class="gd-sec-head"><div><div class="gd-kicker">${esc(L("Ask REX", "ถาม REX"))}</div><h2>${esc(L("Four agents, each with its own lane", "Agent 4 ตัว แต่ละตัวมีหน้าที่ของตัวเอง"))}</h2></div>
+        <p>${esc(L("Click Ask REX at the bottom right of any page, or open My book and the REX agents tab. Answers come from the dashboard data; Lex cites the rule PDF and page.",
+                  "คลิก ถาม REX มุมขวาล่างของทุกหน้า หรือเปิด งานของฉัน แล้วเลือกแท็บ REX agents คำตอบมาจากข้อมูลใน dashboard ส่วน Lex อ้าง PDF กฎเกณฑ์พร้อมเลขหน้า"))}</p></div>
+      <div class="gd-agents">${AGENTS().map(a => `<div class="gd-card gd-agent" style="--ac:${a.color}"><strong>${esc(a.name)}</strong><span>${esc(a.tag)}</span>${a.q.map(q => `<q>${esc(q)}</q>`).join("")}</div>`).join("")}</div>
+    </section>`;
+  }
+
+  function tips() {
+    return `<section id="tips">
+      <div class="gd-sec-head"><div><div class="gd-kicker">${esc(L("Good to know", "ควรรู้"))}</div><h2>${esc(L("Tips", "เคล็ดลับ"))}</h2></div></div>
+      <div class="gd-tips">${TIPS().map(([t, b]) => `<div class="gd-card gd-tip"><strong>${esc(t)}</strong>${esc(b)}</div>`).join("")}</div>
+    </section>`;
+  }
+
+  function jump() {
+    const items = [["start", L("Start", "เริ่มต้น")], ["screen", L("The screen", "หน้าจอ")], ["pages", L("Pages", "หน้าต่างๆ")], ["flows", L("Workflows", "ขั้นตอน")],
+                   ["signals", L("Signals", "สัญลักษณ์")], ["refresh", L("Update times", "เวลาอัปเดต")], ["rex", "REX"], ["tips", L("Tips", "เคล็ดลับ")]];
+    return `<nav class="gd-jump" aria-label="${esc(L("On this page", "ในหน้านี้"))}">${items.map(([id, t]) => `<a href="#${id}">${esc(t)}</a>`).join("")}</nav>`;
+  }
+
+  const root = document.getElementById("guide");
+  function render() {
+    root.innerHTML = jump() + hero() + anatomy() + modules() + flows() + legend() + refresh() + agents() + tips();
+  }
+
+  root.addEventListener("input", e => {
+    if (e.target.id !== "gdFind") return;
+    query = e.target.value;
+    document.getElementById("gdTasks").innerHTML = tasks();
+  });
+  root.addEventListener("click", e => {
+    const part = e.target.closest("[data-part]");
+    if (part) {
+      activePart = part.dataset.part;
+      root.querySelectorAll("[data-part]").forEach(n => n.classList.toggle("on", n.dataset.part === activePart));
+      return;
+    }
+    const flow = e.target.closest("[data-flow]");
+    if (flow) {
+      activeFlow = flow.dataset.flow;
+      const sec = document.getElementById("flows");
+      sec.outerHTML = flows();
+    }
+  });
+  window.addEventListener("i18n:change", () => { if (window.I18N) I18N.apply(); render(); });
+  render();
+})();
+</script>
+<script src="nav.js?v=13" defer></script>
+<script src="chat-dock.js?v=8" defer></script>
+</body>
+</html>
