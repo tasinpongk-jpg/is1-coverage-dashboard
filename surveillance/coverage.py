@@ -1,6 +1,6 @@
 """Coverage list — static, no cross-project import.
 
-The 232-name FOOD/PROP/PFREIT + AGRI/CONS/CONMAT coverage. Vendored from
+The 230-name FOOD/PROP/PFREIT + AGRI/CONS/CONMAT coverage. Vendored from
 set_mcp/server.py so the CI workflow has no dependency on the MCP server.
 Keep this in sync with the canonical list in set_mcp/server.py if that ever
 diverges.
@@ -11,7 +11,7 @@ from __future__ import annotations
 COVERAGE: dict[str, list[str]] = {
     "AGRI": [
         "GFPT", "LEE", "NER", "PCE", "PPPM", "SMO", "STA", "TEGH", "TFM",
-        "TL", "TRUBB", "UPOIC", "UVAN", "VPO",
+        "TRUBB", "UPOIC", "UVAN", "VPO",
     ],
     "FOOD": [
         "AAI", "APURE", "AQUA", "ASIAN", "BR", "BRR", "BTG", "CBG", "CFRESH",
@@ -36,7 +36,7 @@ COVERAGE: dict[str, list[str]] = {
     "PROP": [
         "A", "A5", "AKS", "AMATA", "AMATAV", "ANAN", "AP", "ASW", "AWC",
         "BLAND", "BRI", "BROCK", "CGD", "CI", "CMC", "CPN", "ESTAR",
-        "EVER", "FPT", "GLAND", "J", "JCK", "KC", "KUN", "LALIN", "LH",
+        "EVER", "FPT", "J", "JCK", "KC", "KUN", "LALIN", "LH",
         "LPN", "MBK", "MJD", "MK", "NCH", "NNCL", "NOBLE", "NVD", "ORI",
         "ORN", "PEACE", "PF", "PIN", "PLAT", "PRECHA", "PRIN", "PROUD",
         "PSH", "QH", "RABBIT", "RICHY", "RML", "ROJNA", "S", "SA",
