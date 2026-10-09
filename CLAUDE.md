@@ -10,13 +10,13 @@
 
 ## 1. What this repo is
 
-A daily-refreshed dashboard for **232 Thai SET listed companies** in the
+A daily-refreshed dashboard for **230 Thai SET listed companies** in the
 coverage universe of SET Issuer Department 1 (IS1). The dashboard is
 **static HTML + JSON**, deployed to Cloudflare Pages, with a Cloudflare
 Worker chat dock (`chat-dock.js` → `worker.js`) for grounded Q&A against
 four named agents (Atlas, Hermes, Pythia, Lex).
 
-Sector split (`sector` field in `data/tickers.json`, 232 entries, hand-curated):
+Sector split (`sector` field in `data/tickers.json`, 230 entries, hand-curated):
 PROP, FOOD, PF&REIT, CONS, CONMAT, AGRI. PF&REIT is its own sector, not part
 of PROP. Count from the file when you need numbers; do not copy them here.
 
