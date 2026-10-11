@@ -3,7 +3,8 @@
    Shared color tokens, theme controls, interaction polish, and motion.
    Page files own their layouts; this layer keeps every surface coherent.
    =========================================================================== */
-@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;600;700&family=Sarabun:wght@400;500;600;700&display=swap');
+/* Sarabun + JetBrains Mono are loaded non-blocking from each page's <head>
+   (preconnect + media=print swap) so a slow font host can't block this sheet. */
 
 :root,
 :root[data-theme="dark"] {
@@ -294,6 +295,97 @@ html.theme-changing *,html.theme-changing *::before,html.theme-changing *::after
 /* ===========================================================================
    MODULAR CONTROL ROOM APP SHELL
    =========================================================================== */
+/* Shell boot (theme.js marks <html> in <head>; nav.js clears the marks once
+   the shell is built). Until then: reserve the frame at its final size and
+   paint plain placeholders for the rail, price tape, page list, top bar, news
+   bar and (home) context panel, and hold the page content back, so nothing
+   jumps when nav.js inserts the real shell. Sizes mirror .is1-shell-ready. */
+html.is1s-boot>body {
+  --is1-rail-w:80px;
+  --is1-tape-w:96px;
+  --is1-module-w:228px;
+  --is1-context-w:310px;
+  --is1b-left:calc(var(--is1-rail-w) + var(--is1-tape-w) + var(--is1-module-w));
+  --is1b-right:0px;
+  --is1b-news:0px;
+  display:block !important;
+  min-height:100vh;
+  padding-left:var(--is1b-left);
+  padding-right:var(--is1b-right);
+  overflow-x:hidden;
+  background-image:
+    linear-gradient(rgba(255,255,255,.08),rgba(255,255,255,.08)),
+    linear-gradient(#0b0d10,#0b0d10),
+    linear-gradient(var(--border),var(--border)),
+    linear-gradient(var(--bg2),var(--bg2)),
+    linear-gradient(var(--border),var(--border)),
+    linear-gradient(var(--card),var(--card)),
+    linear-gradient(var(--border),var(--border)),
+    linear-gradient(var(--border),var(--border)),
+    linear-gradient(var(--border),var(--border)),
+    linear-gradient(var(--card),var(--card)) !important;
+  background-size:
+    1px 100%,
+    var(--is1-rail-w) 100%,
+    1px 100%,
+    var(--is1-tape-w) 100%,
+    1px 100%,
+    var(--is1-module-w) 100%,
+    calc(100% - var(--is1b-left) - var(--is1b-right)) 1px,
+    calc(100% - var(--is1b-left) - var(--is1b-right)) var(--is1b-news),
+    1px 100%,
+    var(--is1b-right) 100% !important;
+  background-position:
+    calc(var(--is1-rail-w) - 1px) 0,
+    0 0,
+    calc(var(--is1-rail-w) + var(--is1-tape-w) - 1px) 0,
+    var(--is1-rail-w) 0,
+    calc(var(--is1b-left) - 1px) 0,
+    calc(var(--is1-rail-w) + var(--is1-tape-w)) 0,
+    var(--is1b-left) 65px,
+    var(--is1b-left) 109px,
+    calc(100% - var(--is1b-right)) 0,
+    100% 0 !important;
+  background-repeat:no-repeat !important;
+  background-attachment:fixed !important;
+}
+html.is1s-boot.is1s-boot-news>body { --is1b-news:1px; }
+/* nav.js holds async page blocks at their last height until they fill. */
+.is1s-hold:empty { display:block !important; min-height:var(--is1s-hold); }
+/* A filter label waits for its chips, so it doesn't appear on one line and
+   then wrap to the next when they arrive. */
+.tab-row>.tab-label:has(+ .is1s-hold:empty) { visibility:hidden; }
+/* Held chip rows sit inside flex rows; give the empty holder no width so
+   only its height is reserved. */
+.tab-row .is1s-hold:empty,.ctrl-row .is1s-hold:empty { width:0; min-width:0; flex:0 0 0; overflow:hidden; }
+/* Pages that swap a #loading spinner for their content (company summary,
+   bonds, multiples band): keep the footer below the fold meanwhile so it
+   isn't seen jumping away. The spinner is display:none once loaded. */
+.is1-shell-ready main>#loading { min-height:100vh; }
+html.is1s-boot.is1s-boot-collapsed>body { --is1-module-w:0px; --is1b-left:calc(var(--is1-rail-w) + var(--is1-tape-w)); }
+html.is1s-boot.is1s-boot-context>body { --is1b-right:var(--is1-context-w); }
+html.is1s-boot>body>:not(script):not(style):not(link) { visibility:hidden !important; }
+@media(max-width:1250px) {
+  html.is1s-boot.is1s-boot-context>body { --is1b-right:0px; }
+}
+@media(max-width:840px) {
+  html.is1s-boot>body {
+    --is1-rail-w:0px;
+    --is1-tape-w:0px;
+    --is1-module-w:0px;
+    --is1b-left:0px;
+    --is1b-right:0px;
+    padding:0 0 58px !important;
+    background-image:
+      linear-gradient(rgba(255,255,255,.08),rgba(255,255,255,.08)),
+      linear-gradient(#0b0d10,#0b0d10),
+      linear-gradient(var(--border),var(--border)),
+      linear-gradient(var(--border),var(--border)) !important;
+    background-size:100% 1px,100% 58px,100% 1px,100% var(--is1b-news) !important;
+    background-position:0 calc(100% - 58px),0 100%,0 57px,0 97px !important;
+  }
+}
+
 .is1-shell-ready {
   --is1-rail-w:80px;
   --is1-tape-w:96px;
@@ -306,6 +398,7 @@ html.theme-changing *,html.theme-changing *::before,html.theme-changing *::after
   overflow-x:hidden;
   transition:padding-left .22s ease,padding-right .22s ease,background-color .22s ease;
 }
+.is1-shell-ready.is1s-shell-settling { transition:none; }
 .is1-shell-ready.is1s-modules-collapsed { padding-left:calc(var(--is1-rail-w) + var(--is1-tape-w)); }
 .is1-shell-ready.is1s-context-open { padding-right:var(--is1-context-w); }
 .is1-shell-ready.is1s-page-oppday-minutes {
