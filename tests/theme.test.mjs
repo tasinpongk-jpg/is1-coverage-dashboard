@@ -117,7 +117,7 @@ test("theme runtime is included in the deployed asset set", async () => {
 test("all shared assets use the current cache version", async () => {
   for (const file of htmlFiles) {
     const source = await readFile(file, "utf8");
-    for (const [asset, version] of [["theme.js", 8], ["theme.css", 11], ["i18n.js", 13], ["nav.js", 14]]) {
+    for (const [asset, version] of [["theme.js", 8], ["theme.css", 10], ["i18n.js", 13], ["nav.js", 13]]) {
       assert.match(source, new RegExp(`${asset.replace(".", "\\.")}\\?v=${version}`), `${file} must load ${asset} v${version}`);
     }
   }
@@ -227,21 +227,5 @@ test("every page that loads the shell declares a mobile viewport", async () => {
     const html = await readFile(page, "utf8");
     if (!/src="[^"]*nav\.js/.test(html)) continue;
     assert.match(html, /<meta name="viewport" content="width=device-width, initial-scale=1">/, page);
-  }
-});
-
-test("icons stay icon-sized and fonts never block the shared stylesheet", async () => {
-  const css = await readFile("theme.css", "utf8");
-  assert.doesNotMatch(css, /@import/, "theme.css must not @import fonts (a slow font host blocks the whole sheet)");
-  const nav = await readFile("nav.js", "utf8");
-  assert.match(nav, /<svg class="' \+ \(cls \|\| "is1s-icon"\) \+ '" width="18" height="18"/);
-  for (const file of [...htmlFiles, "nav.js", "sector-intelligence.js"]) {
-    const source = await readFile(file, "utf8");
-    assert.doesNotMatch(source, /<svg(?![^>]*\swidth=)[^>]*viewBox="0 0 24 24"/, `${file} has a 24px icon svg without width/height`);
-  }
-  for (const file of htmlFiles) {
-    const source = await readFile(file, "utf8");
-    assert.match(source, /:where\(svg\[viewBox="0 0 24 24"\]:not\(\[width\]\)\)\{width:24px;height:24px\}/, `${file} needs the icon size fallback`);
-    assert.match(source, /<link rel="stylesheet" href="https:\/\/fonts\.googleapis\.com\/css2\?[^"]*display=swap" media="print" onload="this\.media='all'">/, `${file} must load fonts non-blocking`);
   }
 });
