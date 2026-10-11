@@ -164,7 +164,12 @@ footer a{color:var(--muted);text-decoration:none}
 }
 </style>
   <script src="theme.js?v=8"></script>
-  <link rel="stylesheet" href="theme.css?v=10">
+  <style>/* Fallback if theme.css fails: keep unsized 24px icons icon-sized */:where(svg[viewBox="0 0 24 24"]:not([width])){width:24px;height:24px}</style>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;600;700&amp;family=Sarabun:wght@400;500;600;700&amp;display=swap" media="print" onload="this.media='all'">
+  <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;600;700&amp;family=Sarabun:wght@400;500;600;700&amp;display=swap"></noscript>
+  <link rel="stylesheet" href="theme.css?v=11">
   <script src="i18n.js?v=13"></script>
 
 </head>
@@ -737,7 +742,7 @@ window.addEventListener('i18n:change',()=>{
   }
 });
 </script>
-<script src="nav.js?v=13" defer></script>
+<script src="nav.js?v=14" defer></script>
 <script src="chat-dock.js?v=8" defer></script>
 </body>
 </html>

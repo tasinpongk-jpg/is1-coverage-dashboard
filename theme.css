@@ -3,7 +3,8 @@
    Shared color tokens, theme controls, interaction polish, and motion.
    Page files own their layouts; this layer keeps every surface coherent.
    =========================================================================== */
-@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;600;700&family=Sarabun:wght@400;500;600;700&display=swap');
+/* Sarabun + JetBrains Mono are loaded non-blocking from each page's <head>
+   (preconnect + media=print swap) so a slow font host can't block this sheet. */
 
 :root,
 :root[data-theme="dark"] {
