@@ -170,12 +170,7 @@
   }
 </style>
   <script src="theme.js?v=8"></script>
-  <style>/* Fallback if theme.css fails: keep unsized 24px icons icon-sized */:where(svg[viewBox="0 0 24 24"]:not([width])){width:24px;height:24px}</style>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;600;700&amp;family=Sarabun:wght@400;500;600;700&amp;display=swap" media="print" onload="this.media='all'">
-  <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;600;700&amp;family=Sarabun:wght@400;500;600;700&amp;display=swap"></noscript>
-  <link rel="stylesheet" href="theme.css?v=11">
+  <link rel="stylesheet" href="theme.css?v=10">
   <script src="i18n.js?v=13"></script>
 </head>
 <body>
@@ -204,7 +199,7 @@
     risk: '<path d="M20 13c0 5-3.5 7.5-7.7 9a1 1 0 0 1-.6 0C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.2-2.7a1.2 1.2 0 0 1 1.6 0C14.5 3.8 17 5 19 5a1 1 0 0 1 1 1z"/><path d="M12 8v4M12 16h.01"/>',
     bonds: '<path d="M3 22h18M6 18v-7M10 18v-7M14 18v-7M18 18v-7M12 2l9 5H3z"/>',
   };
-  const svg = p => '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' + p + "</svg>";
+  const svg = p => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' + p + "</svg>";
 
   // ---- Content -----------------------------------------------------------
   // Every page below is a real page in nav.js GROUPS; controls are the filters
@@ -576,7 +571,7 @@
   render();
 })();
 </script>
-<script src="nav.js?v=14" defer></script>
+<script src="nav.js?v=13" defer></script>
 <script src="chat-dock.js?v=8" defer></script>
 </body>
 </html>

@@ -167,7 +167,7 @@
     return Number.isFinite(t) && Date.now() - t <= hours * 3600 * 1000;
   }
   function icon(name,cls) {
-    return '<svg class="' + (cls || "is1s-icon") + '" width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">' +
+    return '<svg class="' + (cls || "is1s-icon") + '" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">' +
       (ICONS[name] || ICONS.activity) + "</svg>";
   }
   function esc(value) {
