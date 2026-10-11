@@ -165,7 +165,12 @@ footer a{color:var(--muted);text-decoration:none}
 }
 </style>
   <script src="theme.js?v=8"></script>
-  <link rel="stylesheet" href="theme.css?v=10">
+  <style>/* Fallback if theme.css fails: keep unsized 24px icons icon-sized */:where(svg[viewBox="0 0 24 24"]:not([width])){width:24px;height:24px}</style>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;600;700&amp;family=Sarabun:wght@400;500;600;700&amp;display=swap" media="print" onload="this.media='all'">
+  <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;600;700&amp;family=Sarabun:wght@400;500;600;700&amp;display=swap"></noscript>
+  <link rel="stylesheet" href="theme.css?v=11">
   <script src="i18n.js?v=13"></script>
 
 </head>
@@ -223,7 +228,7 @@ footer a{color:var(--muted);text-decoration:none}
     .agent-role{font-size:11.5px;color:var(--muted);margin-top:2px;line-height:1.45}
     .agent-eg{font-size:11px;color:var(--agc);margin-top:5px;font-style:italic}
   </style>
-  <div class="sec-title"><svg class="t-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3Z"/></svg><span data-i18n="index.askAgents">Ask the agents</span></div>
+  <div class="sec-title"><svg class="t-ico" width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3Z"/></svg><span data-i18n="index.askAgents">Ask the agents</span></div>
   <div class="agent-strip">
     <button type="button" class="agent-card" style="--agc:#f59e0b;--agc-bg:#f59e0b2e;--agc-bd:#f59e0b73" onclick="IS1Dock&&IS1Dock.open('hermes')">
       <div class="agent-avatar">⚡</div>
@@ -252,11 +257,11 @@ footer a{color:var(--muted);text-decoration:none}
   </div>
 
   <!-- ═══ DASHBOARDS — GROUPED ═══ -->
-  <div class="sec-title"><svg class="t-ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></svg><span data-i18n="index.dashboards">Dashboards</span></div>
+  <div class="sec-title"><svg class="t-ico" width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></svg><span data-i18n="index.dashboards">Dashboards</span></div>
 
   <!-- GROUP 1: Prices & Market Data -->
   <div class="group-title" style="--gc:#3b82f6">
-    <svg class="t-ico" viewBox="0 0 24 24" aria-hidden="true"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>
+    <svg class="t-ico" width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>
     <span data-i18n="index.pricesMarketData">Prices &amp; Market Data</span>
     <span class="gtag" style="background:#3b82f620;color:#3b82f6" data-i18n="index.dailyRefresh">daily refresh</span>
   </div>
@@ -421,7 +426,7 @@ footer a{color:var(--muted);text-decoration:none}
 
   <!-- GROUP 2: News & Disclosures -->
   <div class="group-title" style="--gc:#f59e0b">
-    <svg class="t-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 22h16a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v16a2 2 0 0 1-2 2Zm0 0a2 2 0 0 1-2-2v-9c0-1.1.9-2 2-2h2"/><path d="M18 14h-8"/><path d="M15 18h-5"/><path d="M10 6h8v4h-8z"/></svg>
+    <svg class="t-ico" width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 22h16a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v16a2 2 0 0 1-2 2Zm0 0a2 2 0 0 1-2-2v-9c0-1.1.9-2 2-2h2"/><path d="M18 14h-8"/><path d="M15 18h-5"/><path d="M10 6h8v4h-8z"/></svg>
     <span data-i18n="index.newsDisclosures">News &amp; Disclosures</span>
     <span class="gtag" style="background:#f59e0b20;color:#f59e0b" data-i18n="index.twiceDailyRefresh">2× daily refresh</span>
   </div>
@@ -559,7 +564,7 @@ footer a{color:var(--muted);text-decoration:none}
 
   <!-- GROUP 3: Surveillance & Compliance -->
   <div class="group-title" style="--gc:#ef4444">
-    <svg class="t-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1Z"/><circle cx="12" cy="11" r="1.6"/></svg>
+    <svg class="t-ico" width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1Z"/><circle cx="12" cy="11" r="1.6"/></svg>
     <span data-i18n="index.surveillanceCompliance">Surveillance &amp; Compliance</span>
     <span class="gtag" style="background:#ef444420;color:#ef4444" data-i18n="index.realTime">real-time</span>
   </div>
@@ -629,7 +634,7 @@ footer a{color:var(--muted);text-decoration:none}
 
   <!-- GROUP 4: Bond Data -->
   <div class="group-title" style="--gc:#06b6d4">
-    <svg class="t-ico" viewBox="0 0 24 24" aria-hidden="true"><line x1="3" y1="22" x2="21" y2="22"/><line x1="6" y1="18" x2="6" y2="11"/><line x1="10" y1="18" x2="10" y2="11"/><line x1="14" y1="18" x2="14" y2="11"/><line x1="18" y1="18" x2="18" y2="11"/><polygon points="12 2 20 7 4 7"/></svg>
+    <svg class="t-ico" width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><line x1="3" y1="22" x2="21" y2="22"/><line x1="6" y1="18" x2="6" y2="11"/><line x1="10" y1="18" x2="10" y2="11"/><line x1="14" y1="18" x2="14" y2="11"/><line x1="18" y1="18" x2="18" y2="11"/><polygon points="12 2 20 7 4 7"/></svg>
     <span data-i18n="index.bondData">Bond Data</span>
     <span class="gtag" style="background:#06b6d420;color:#06b6d4" data-i18n="index.monthlyDaily">monthly / daily</span>
   </div>
@@ -974,7 +979,7 @@ init();
 })();
 window.addEventListener('i18n:change',()=>{if(window.I18N)I18N.apply();initToday();init();});
 </script>
-<script src="nav.js?v=13" defer></script>
+<script src="nav.js?v=14" defer></script>
 <script src="chat-dock.js?v=8" defer></script>
 </body>
 </html>
