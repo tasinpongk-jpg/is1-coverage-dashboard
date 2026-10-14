@@ -1,5 +1,5 @@
 {
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-14",
   "source": "SETSMART intraday API · 34 alerts across 30 tickers",
   "thresholds": {
     "vol_spike": {
@@ -59,7 +59,7 @@
       "sector": "PFREIT",
       "type": "Volume spike",
       "atype": "vol_spike",
-      "severity": "medium",
+      "severity": "high",
       "value": 3.262,
       "label": "3.3σ vs 20D avg",
       "evidence": {
@@ -67,10 +67,8 @@
         "vol20dAvg": 2045911.1,
         "vol20dStd": 827326.8367200415
       },
-      "filingsLinked": 1,
-      "filingsTitles": [
-        "Notification of Board Resolutions regarding subleasing of the properties of the Hilton Pattaya Hotel project, entering i"
-      ]
+      "filingsLinked": 0,
+      "filingsTitles": []
     },
     {
       "tk": "LHSC",
@@ -679,6 +677,23 @@
       ]
     },
     {
+      "tk": "CPNREIT",
+      "sector": "PFREIT",
+      "alertCount": 1,
+      "highestSeverity": "high",
+      "filingsLinked": 0,
+      "alertTypes": [
+        {
+          "atype": "vol_spike",
+          "type": "Volume spike",
+          "severity": "high"
+        }
+      ],
+      "summary": [
+        "Volume spike: 3.3σ vs 20D avg"
+      ]
+    },
+    {
       "tk": "DCON",
       "sector": "CONMAT",
       "alertCount": 1,
@@ -1085,25 +1100,8 @@
       "summary": [
         "Price gap: -3.33% open gap"
       ]
-    },
-    {
-      "tk": "CPNREIT",
-      "sector": "PFREIT",
-      "alertCount": 1,
-      "highestSeverity": "medium",
-      "filingsLinked": 1,
-      "alertTypes": [
-        {
-          "atype": "vol_spike",
-          "type": "Volume spike",
-          "severity": "medium"
-        }
-      ],
-      "summary": [
-        "Volume spike: 3.3σ vs 20D avg"
-      ]
     }
   ],
-  "_built_at": "2026-10-13T02:36:30.154490+00:00",
+  "_built_at": "2026-10-14T02:36:09.883731+00:00",
   "_coverage_size": 230
 }
