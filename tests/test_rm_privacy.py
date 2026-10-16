@@ -70,6 +70,34 @@ class TestAnonymiseRmMap(unittest.TestCase):
         self.assertEqual(anonymise_rm_map(None), {})
 
 
+class TestBracketedFrontmatterValue(unittest.TestCase):
+    """build_sec_bonds.parse_frontmatter reads "rm: [Champ]" as a list.
+
+    str(["Champ"]) starts with "[", so without the list branch the record
+    publishes "[" as its RM code and falls out of every RM filter.
+    """
+
+    def test_list_value_folds_to_initial(self):
+        self.assertEqual(anonymise_rm(["Champ"]), "C")
+        self.assertEqual(anonymise_rm(("Kae",)), "K")
+
+    def test_empty_list_is_none(self):
+        self.assertIsNone(anonymise_rm([]))
+
+    def test_reaches_the_real_parser(self):
+        import build_sec_bonds
+
+        fm, _ = build_sec_bonds.parse_frontmatter(
+            "---\nticker: AWC\nrm: [Champ]\n---\nbody\n"
+        )
+        self.assertEqual(fm["rm"], ["Champ"])
+        self.assertEqual(anonymise_rm(fm["rm"]), "C")
+
+    def test_map_rekeys_a_list_key(self):
+        out = anonymise_rm_map({"Champ": {"issuers": 1}})
+        self.assertEqual(list(out), ["C"])
+
+
 class TestSnapshotsCarryNoNicknames(unittest.TestCase):
     """Guards the published data/ snapshots, not just the helper."""
 

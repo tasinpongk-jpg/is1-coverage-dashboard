@@ -87,6 +87,9 @@ html, body { overflow-x:hidden; }
 }
 .si-mode-switch button.active { color:var(--si-blue); background:color-mix(in srgb,var(--si-blue) 12%,var(--card)); box-shadow:inset 0 -2px 0 var(--si-blue); }
 .si-cutoff { max-width:210px; color:var(--muted); font-size:10.5px; line-height:1.35; text-align:right; }
+.si-age { display:inline-block; margin-left:6px; padding:1px 7px; border-radius:999px; font-size:10px; font-weight:700; white-space:nowrap; }
+.si-age.warn { color:var(--yellow); background:color-mix(in srgb,var(--yellow) 14%,transparent); }
+.si-age.stale { color:var(--red); background:color-mix(in srgb,var(--red) 13%,transparent); }
 
 .si-loading,.si-error {
   min-height:420px;
@@ -158,7 +161,8 @@ html, body { overflow-x:hidden; }
 .si-lens-grid>div { min-width:0; padding:0 13px; border-right:1px solid var(--border); }
 .si-lens-grid>div:first-child { padding-left:0; }
 .si-lens-grid>div:last-child { padding-right:0; border-right:0; }
-.si-lens-grid b { display:block; overflow:hidden; font:600 18px/1.1 'JetBrains Mono','Sarabun',monospace; text-overflow:ellipsis; white-space:nowrap; }
+.si-lens { container-type:inline-size; }
+.si-lens-grid b { display:block; overflow:hidden; font:600 clamp(13px,4.3cqi,18px)/1.1 'JetBrains Mono','Sarabun',monospace; text-overflow:ellipsis; white-space:nowrap; }
 .si-lens-grid small { display:block; margin-top:6px; color:var(--muted); font-size:9.5px; line-height:1.25; }
 
 .si-workspace {

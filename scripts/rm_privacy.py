@@ -47,9 +47,19 @@ def anonymise_rm(value):
     'O'
     >>> anonymise_rm(None) is None
     True
+    >>> anonymise_rm(["Champ"])
+    'C'
     """
     if value is None:
         return None
+    if isinstance(value, (list, tuple)):
+        # A frontmatter parser that reads "rm: [Champ]" as a bracketed list
+        # hands us ["Champ"]; str() of that starts with "[", which would
+        # publish "[" as the RM code and drop those records out of every
+        # RM filter. build_sec_bonds.parse_frontmatter does exactly this.
+        value = value[0] if value else None
+        if value is None:
+            return None
     text = str(value).strip()
     if not text:
         return value

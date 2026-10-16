@@ -22,7 +22,7 @@
       companyPanelSub:"Meeting mode highlights leaders; Explore mode lists every company in the same audited segment perimeter",
       noRole:"Constituent", open:"Open", source:"Source", keyboard:"Use ↑ / ↓ to move • Enter or click to open • E for evidence",
       loss:"Loss", lossNarrowed:"Loss narrowed", lossWidened:"Loss widened", turnedProfit:"Turned profitable", notMeaningful:"n.m.", dataError:"Could not load Sector Intelligence data",
-      marketCutoff:"Market data as of {date} • {period}", sourceLineage:"Sources: {sources}",
+      marketCutoff:"Market data as of {date} • {period}", marketAge:"{n} days old", sourceLineage:"Sources: {sources}",
       definitions:"RFO = Revenue from Operations • NPAT = net profit to owners • Price = adjusted, excludes cash dividends",
       fact:"Fact", fact_calculated:"Calculated fact", management:"Management", management_explanation:"Management explanation", forward:"Forward view", credit_analysis:"Credit analysis", analyst_inference:"Analyst inference", analyst_test:"Analyst test", claimsRegister:"Claim register", known:"known",
       alternativeFiscal:"Alternative issuer-FY view", sourceId:"Source ID", sourceRole:"Role", sourcePath:"Path", sourceHash:"SHA-256",
@@ -48,7 +48,7 @@
       companyPanelSub:"โหมดประชุมเน้นบริษัทหลัก; โหมดสำรวจแสดงทุกบริษัทใน perimeter ของ Segment ที่สอบทาน",
       noRole:"บริษัทในกลุ่ม", open:"เปิด", source:"แหล่งข้อมูล", keyboard:"ใช้ ↑ / ↓ เพื่อเลื่อน • Enter หรือคลิกเพื่อเปิด • กด E เพื่อดูหลักฐาน",
       loss:"ขาดทุน", lossNarrowed:"ขาดทุนลดลง", lossWidened:"ขาดทุนเพิ่มขึ้น", turnedProfit:"กลับเป็นกำไร", notMeaningful:"n.m.", dataError:"ไม่สามารถโหลดข้อมูล Sector Intelligence ได้",
-      marketCutoff:"ข้อมูลตลาด ณ {date} • {period}", sourceLineage:"แหล่งข้อมูล: {sources}",
+      marketCutoff:"ข้อมูลตลาด ณ {date} • {period}", marketAge:"ข้อมูลเก่า {n} วัน", sourceLineage:"แหล่งข้อมูล: {sources}",
       definitions:"RFO = Revenue from Operations • NPAT = กำไรส่วนผู้ถือหุ้น • ราคา = adjusted ไม่รวมเงินปันผล",
       fact:"ข้อเท็จจริง", fact_calculated:"ข้อเท็จจริงจากการคำนวณ", management:"ฝ่ายจัดการ", management_explanation:"คำอธิบายฝ่ายจัดการ", forward:"มุมมองล่วงหน้า", credit_analysis:"บทวิเคราะห์เครดิต", analyst_inference:"ข้ออนุมานนักวิเคราะห์", analyst_test:"ประเด็นที่ต้องพิสูจน์", claimsRegister:"ทะเบียนข้อสรุป", known:"มีข้อมูล",
       alternativeFiscal:"มุมมองตามปีบัญชีของผู้ออก", sourceId:"รหัสแหล่งข้อมูล", sourceRole:"บทบาท", sourcePath:"พาธ", sourceHash:"SHA-256",
@@ -147,11 +147,17 @@
     if (status === "event") return t("eventLabel");
     return t("marketPaying");
   }
+  function marketAgeDays(iso) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(iso || "")) return null;
+    var today = new Intl.DateTimeFormat("en-CA",{timeZone:"Asia/Bangkok"}).format(new Date());
+    return Math.round((Date.parse(today + "T00:00:00Z") - Date.parse(iso + "T00:00:00Z")) / 864e5);
+  }
+
   function displayDate(iso) {
     if (!iso) return "—";
     var parts = iso.split("-");
-    if (language() === "th") return Number(parts[2]) + " ส.ค. " + (Number(parts[0]) + 543);
-    return new Date(iso + "T00:00:00Z").toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric",timeZone:"UTC"});
+    if (parts.length !== 3) return iso;
+    return new Date(iso + "T00:00:00Z").toLocaleDateString(language() === "th" ? "th-TH" : "en-GB",{day:"numeric",month:"short",year:"numeric",timeZone:"UTC"});
   }
 
   function clamp(value,min,max) { return Math.max(min,Math.min(max,value)); }
@@ -323,7 +329,17 @@
     setDirectional("sectorYtd",metrics.ytdAdjustedReturnPct,fmtPct(metrics.ytdAdjustedReturnPct,1));
     document.getElementById("sectorPe").textContent = fmtPe(metrics.aggregatePositiveEarningsPe);
     document.getElementById("expectationCount").textContent = sector.segments.filter(function (s) { return s.status === "expectation" || s.status === "event"; }).length + "/" + sector.segments.length;
-    document.getElementById("cutoffLabel").textContent = fill(t("marketCutoff"),{date:displayDate(state.data.meta.effectiveMarketEod),period:state.data.meta.earningsPeriod});
+    var cutoff = document.getElementById("cutoffLabel");
+    cutoff.textContent = fill(t("marketCutoff"),{date:displayDate(state.data.meta.effectiveMarketEod),period:state.data.meta.earningsPeriod});
+    // Same 7 / 14 day contract as the dashboard freshness check: the page is
+    // built by hand, so say plainly when its market data has aged.
+    var ageDays = marketAgeDays(state.data.meta.effectiveMarketEod);
+    if (ageDays != null && ageDays > 7) {
+      var chip = document.createElement("span");
+      chip.className = "si-age " + (ageDays > 14 ? "stale" : "warn");
+      chip.textContent = fill(t("marketAge"),{n:ageDays});
+      cutoff.appendChild(chip);
+    }
     document.getElementById("definitions").textContent = t("definitions");
     document.getElementById("sourceLineage").textContent = fill(t("sourceLineage"),{sources:state.data.meta.sourceLineage.join(" / ")});
   }

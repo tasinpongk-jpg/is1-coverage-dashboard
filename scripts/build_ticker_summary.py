@@ -100,6 +100,7 @@ def _pct(curr, base):
 def process_eod(rows: list[dict]) -> dict:
     rows = sorted(rows, key=lambda r: r.get("date") or "")
     closes = [r["close"] for r in rows if r.get("close")]
+    close_dates = [str(r.get("date") or "")[:10] for r in rows if r.get("close")]
     vols   = [r["totalVolume"] for r in rows if r.get("totalVolume")]
     if not closes: return {"_eod_err": True}
     last = closes[-1]
@@ -127,6 +128,8 @@ def process_eod(rows: list[dict]) -> dict:
         "pe": last_row.get("pe"), "pbv": last_row.get("pbv"),
         "dy": last_row.get("dividendYield"), "mktcap": last_row.get("marketCap"),
         "bvps": last_row.get("bvps"), "sparkline": closes[-20:],
+        # Session date of each sparkline close; the company drawer pins SET filings to them.
+        "sparklineDates": close_dates[-20:],
         "volRatio": round(last_vol / avg_vol, 2) if last_vol and avg_vol else None,
     }
 
@@ -201,6 +204,21 @@ async def fetch_company_profile(client: httpx.AsyncClient, tk: str, sem: asyncio
                         for m in (d.get("managements") or [])][:4],
     }
 
+def months_for(quarter: str) -> int:
+    """Months covered by a SET company-highlight row.
+
+    SET used to send Q1/Q2/Q3 for year-to-date rows and Q9 for a full year;
+    it now sends "3M"/"6M"/"9M" for year-to-date rows. Reading those as 12
+    months made every H1/2569 revenue look like a full year.
+    """
+    q = (quarter or "").strip().upper()
+    if q in {"Q1", "Q2", "Q3", "Q4"}:
+        return int(q[1]) * 3
+    if q.endswith("M") and q[:-1].isdigit() and 1 <= int(q[:-1]) <= 12:
+        return int(q[:-1])
+    return 12
+
+
 async def fetch_highlights(client: httpx.AsyncClient, tk: str, sem: asyncio.Semaphore) -> list:
     d = await _set_get(client, f"/api/set/stock/{tk}/company-highlight?lang=en", sem, tk)
     if not isinstance(d, list): return []
@@ -210,9 +228,8 @@ async def fetch_highlights(client: httpx.AsyncClient, tk: str, sem: asyncio.Sema
         ts = item.get("tradingStat") or {}
         # financialData values are in thousands THB → divide by 1000 for M฿
         def mbht(v): return round(v / 1000, 1) if v else None
-        # quarter field: Q1=3M, Q2=6M, Q3=9M, Q9=full year (annual)
         quarter = fd.get("quarter") or ""
-        months = {"Q1": 3, "Q2": 6, "Q3": 9, "Q4": 12, "Q9": 12}.get(quarter, 12)
+        months = months_for(quarter)
         out.append({
             "year":        item.get("year"),
             "quarter":     quarter,

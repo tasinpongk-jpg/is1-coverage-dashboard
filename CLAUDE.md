@@ -10,13 +10,13 @@
 
 ## 1. What this repo is
 
-A daily-refreshed dashboard for **232 Thai SET listed companies** in the
+A daily-refreshed dashboard for **230 Thai SET listed companies** in the
 coverage universe of SET Issuer Department 1 (IS1). The dashboard is
 **static HTML + JSON**, deployed to Cloudflare Pages, with a Cloudflare
 Worker chat dock (`chat-dock.js` → `worker.js`) for grounded Q&A against
 four named agents (Atlas, Hermes, Pythia, Lex).
 
-Sector split (`sector` field in `data/tickers.json`, 232 entries, hand-curated):
+Sector split (`sector` field in `data/tickers.json`, 230 entries, hand-curated):
 PROP, FOOD, PF&REIT, CONS, CONMAT, AGRI. PF&REIT is its own sector, not part
 of PROP. Count from the file when you need numbers; do not copy them here.
 
@@ -32,13 +32,23 @@ These drive every HTML page and the chat dock. If any is stale, the dashboard is
 | `data/disclosure-pulse.json` | SET surveillance R2 DB | `index.html`, `disclosure-pulse.html` | `scripts/build_daily.py` | daily.yml |
 | `data/morning-brief.json` | SETSMART prices + TA engine | `index.html`, Discord push | `scripts/build_daily_brief.py` | daily.yml |
 | `data/company-reports.json` | in-session LLM synthesis | `company-summary.html` hero | `scripts/build_company_reports.py` | manual |
-| `data/vault-ticker-notes.json` | OneDrive Obsidian vault | `company-summary.html` drawer | `scripts/build_vault_ticker_notes.py` | workflow_dispatch only |
+| `data/vault-ticker-notes.json` | OneDrive Obsidian vault | `company-summary.html` drawer | `scripts/build_vault_ticker_notes.py` | laptop cron `scripts/vault_notes_cron.py` (daily) |
+| `data/company-people.json` | SET factsheet API (board, major shareholders) | `company-summary.html` Board & holders tab | `scripts/build_company_people.py` | daily.yml |
+| `data/filing-summaries.json` | SET filing PDFs → MiniMax M3 (laptop cron) | home newsroom, `company-summary.html` drawer, `disclosure-pulse.html` | `scripts/enrich_filing.py --dashboard` | laptop cron only |
+
+`filing-summaries.json` covers every coverage ticker, Critical + Material
+filings only, financial statements skipped, MD&A kept. A bullet is published
+only when every number in it is found in the filing's extracted text; scanned
+PDFs (no text to check against) are held back. Like the vault snapshot it only
+refreshes from the laptop: `scripts/enrich_filing_cron.py` runs it after the
+Discord alert and pushes it when `IS1_FILING_SUMMARY_PUSH=1`.
 
 **The single biggest drift risk is `vault-ticker-notes.json`** — it has no CI
-trigger. It only rebuilds when someone runs the script locally on a laptop
-that has the OneDrive vault. Current `generated` timestamp is in the JSON
-itself; if it's >7 days old, the MD&A / Notes tabs on `company-summary.html`
-are stale.
+trigger (daily.yml runs the builder, but the vault is not on the runner, so it
+is a no-op there). The laptop cron `scripts/vault_notes_cron.py` rebuilds and
+pushes it once a day; if the freshness alert flags it, that cron stopped.
+Current `generated` timestamp is in the JSON itself; if it's >7 days old, the
+MD&A / Notes tabs on `company-summary.html` are stale.
 
 ---
 
@@ -109,7 +119,16 @@ when something is stale. The script is copied to `~/AppData/Local/hermes/scripts
 **pre-commit hook** (`scripts/_pre_commit_hook.sh`, installed at
 `.git/hooks/pre-commit`) auto-syncs any staged `scripts/*.py` whose basename
 matches an already-deployed file. Edit the script in the repo, commit,
-and the AppData copy updates automatically — no manual step.
+and the AppData copy updates automatically — but only for commits made on the
+laptop. A change merged from GitHub (a cloud session, a PR) reaches AppData only
+after `git pull` plus a manual copy, e.g.
+`cp scripts/check_snapshot_freshness.py "$LOCALAPPDATA/hermes/scripts/"`.
+
+Both bond snapshots are monthly by design (`bond-refresh.yml` on the 1st,
+ThaiBMA with no key; laptop cron `is1-sec-bonds-monthly` for `sec-bonds.json`),
+so their freshness thresholds are 35/45 days, not 7/14. `oppday-minutes.json`
+changes only after an Opp Day season (45/100), and `source-coverage.json` is a
+by-hand quarterly harvest planning file no page reads (100/120).
 
 ### Commit + push (triggers Cloudflare Pages auto-deploy)
 ```bash
@@ -143,7 +162,7 @@ python scripts/build_daily_brief.py
 5. **Period strings compare lexicographically.** `'2024Q3' < '2025FY' < '2026Q1'`
    is correct — do not reach for `datetime` parsing.
 6. **`vault-ticker-notes.json` is the silent-staleness trap.** No CI
-   trigger. Always check its `generated` field before trusting the
+   trigger; only the laptop cron rebuilds it. Always check its `generated` field before trusting the
    `company-summary.html` drawer content.
 7. **PFREIT bucket has no upstream parent / no Note 5 subsidiary table.**
    47 tickers. Filter out before any Note-5 / shareholder extraction. List
@@ -204,3 +223,64 @@ A change to this repo is "done" when:
 5. If a rebuild script changed, the script was run end-to-end on local
 6. The change is summarized in the commit message: which files, why,
    which JSON shape keys changed, which HTML page was verified
+
+---
+
+## 10. Windows laptop: filing-summary cron bootstrap
+
+The `is1-filing-alert` cron (job `0d496976df4a`, `*/30 7-19 * * 1-5` BKK) runs
+`enrich_filing_cron.py`: the RM C Discord alert, then the IS1-wide dashboard
+summaries, then a push of `data/filing-summaries.json` to main.
+
+| Variable | Needed for | Set via |
+|---|---|---|
+| `MINIMAX_API_KEY` | every summary | `setx MINIMAX_API_KEY <value>` |
+| `DISCORD_WEBHOOK_URL` or `DAILY_BRIEF_WEBHOOK` | the Discord alert; either key works, env or `~/.hermes/secrets/*.env` | already in `daily_brief.env` |
+| `IS1_FILING_SUMMARY_PUSH` | push to main; must be `1` | `setx IS1_FILING_SUMMARY_PUSH 1` |
+| `IS1_REPO` | only if the repo is not at `C:\Users\Tasinpong\projects\is1-coverage-dashboard` | `setx IS1_REPO <path>` |
+
+`setx` stores values in HKCU in plain text. Single-user laptop only.
+
+**Fresh laptop, or the cron stopped committing:**
+```bash
+python scripts/bootstrap_cron.py   # installs the shim and pypdf, reports each variable as set/MISSING
+python scripts/enrich_filing_cron.py --dry-run   # both steps, no Discord post, no commit
+```
+
+**Why the AppData file is a shim.** Hermes runs `enrich_filing_cron.py` from
+`%LOCALAPPDATA%\hermes\scripts\`. The wrapper finds the repo from its own
+location, so a plain copy there looks in the wrong folder. The AppData file is
+`scripts/cron_shim.py`, which runs the repo's wrapper, so repo edits apply on the
+next run. The pre-commit hook never copies `enrich_filing_cron.py` to AppData
+(that would overwrite the shim) and syncs `cron_shim.py` into that name instead.
+
+**Why the shim reads HKCU\Environment.** `setx` does not reach processes that are
+already running, so the cron worker inherits the scheduler's old environment. The
+shim fills in the variables above from the registry when they are missing.
+
+**Why published summaries survive a cache loss.** The m3 cache
+(`~/.hermes/cache/filing_summary.json`) is per machine. A publish keeps every
+summary already in `data/filing-summaries.json` whose filing is still in the pulse
+window and was written under the current `DASHBOARD_PROMPT_VERSION`, and an
+alert `PROMPT_VERSION` bump clears only alert entries.
+
+**Daily vault snapshot job.** `scripts/vault_notes_cron.py` rebuilds
+`data/vault-ticker-notes.json` and `data/oppday-minutes.json` and pushes them to
+main in one commit (only from main, only what changed). An oppday failure is
+reported (exit 1) but never blocks the vault notes push. `bootstrap_cron.py` installs it into the Hermes scripts folder; it
+finds the repo on its own (`IS1_REPO`, else its own repo, else the laptop
+default), so a plain copy works. Schedule it once a day before the 08:30
+freshness check, e.g. `15 8 * * 1-5` BKK, no-agent. Exit 2 means the vault path
+was not found and nothing was rebuilt. Smoke test:
+`python scripts/vault_notes_cron.py --dry-run` (shows the diff, restores the file).
+
+**Opp Day summaries from the SET YouTube playlist.** Each quarter SET posts one
+playlist with an Opp Day video per listed company. `scripts/oppday_youtube.py`
+(laptop; needs `pip install yt-dlp`, `MINIMAX_API_KEY`, the vault) keeps only
+coverage tickers, pulls Thai captions, writes the transcript to
+`1-Raw/01-Filings/calls/<TK>/` and a 6-section Thai report to
+`3-Outputs/02-Deliverables/Reports/<TK>_oppday_<period>_summary.md`, which the
+daily vault job publishes to `oppday-minutes.json`. Every number in a report is
+checked against the transcript; if over a quarter are untraced the report is
+saved as `.review.md`, which the builder ignores. Always run `--list` first and
+check the title-to-ticker matches. Period codes: `q2y2026`, `ye2025`.

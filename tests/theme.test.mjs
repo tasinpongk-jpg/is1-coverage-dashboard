@@ -117,11 +117,8 @@ test("theme runtime is included in the deployed asset set", async () => {
 test("all shared assets use the current cache version", async () => {
   for (const file of htmlFiles) {
     const source = await readFile(file, "utf8");
-    for (const asset of ["theme.js", "theme.css"]) {
-      assert.match(source, new RegExp(`${asset.replace(".", "\\.")}\\?v=8`), `${file} must load ${asset} v8`);
-    }
-    for (const asset of ["i18n.js", "nav.js"]) {
-      assert.match(source, new RegExp(`${asset.replace(".", "\\.")}\\?v=9`), `${file} must load ${asset} v9`);
+    for (const [asset, version] of [["theme.js", 8], ["theme.css", 10], ["i18n.js", 13], ["nav.js", 13]]) {
+      assert.match(source, new RegExp(`${asset.replace(".", "\\.")}\\?v=${version}`), `${file} must load ${asset} v${version}`);
     }
   }
 });
@@ -143,7 +140,7 @@ test("sidebar gives every module a distinct color and an accessible active state
   assert.match(nav, /candidate\.classList\.toggle\("is-selected"/);
 
   const css = await readFile("theme.css", "utf8");
-  for (const module of ["home", "market", "companies", "news", "surveillance", "bonds"]) {
+  for (const module of ["home", "market", "companies", "news", "surveillance", "bonds", "guide"]) {
     assert.match(css, new RegExp(`data-module-section="${module}"`), `${module} must define a module accent`);
   }
   assert.match(css, /\.is1s-rail-btn\.active\s*\{[^}]*var\(--module-accent\)/s);
@@ -151,19 +148,21 @@ test("sidebar gives every module a distinct color and an accessible active state
   assert.match(css, /:root\[data-theme="light"\] \.is1s-nav-section/);
 });
 
-test("homepage places RM-filtered disclosure and external-news feeds before dashboards", async () => {
+test("homepage leads with an RM-filtered newsroom above the price dashboards", async () => {
   const nav = await readFile("nav.js", "utf8");
   assert.match(nav, /className = "is1-home-news"/);
-  assert.match(nav, /data-home-disclosures/);
-  assert.match(nav, /data-home-external/);
-  assert.match(nav, /var disclosureRows = rmFilings\(\)/);
-  assert.match(nav, /var externalRows = rmNews\(\)/);
+  assert.match(nav, /control\.insertBefore\(desk,control\.querySelector\("\.is1-home-tabs"\)\)/);
+  assert.match(nav, /data-home-lead/);
+  assert.match(nav, /data-home-timeline/);
+  assert.match(nav, /var filings = rmFilings\(\)/);
+  assert.match(nav, /var news = rmNews\(\)/);
   assert.match(nav, /data-home-news-rm/);
+  assert.match(nav, /f\.title_th/);
   assert.match(nav, /safeHttpUrl/);
 
   const css = await readFile("theme.css", "utf8");
-  assert.match(css, /\.is1-home-news-grid\s*\{[^}]*grid-template-columns:repeat\(2/s);
-  assert.match(css, /@media\(max-width:980px\)[\s\S]*\.is1-home-news-grid\s*\{\s*grid-template-columns:1fr/);
+  assert.match(css, /\.is1-news-grid\s*\{[^}]*grid-template-columns:minmax\(0,1\.55fr\)/s);
+  assert.match(css, /@media\(max-width:980px\)[\s\S]*\.is1-news-grid\s*\{\s*grid-template-columns:1fr/);
 });
 
 test("external dashboards open in the embedded right workspace", async () => {
@@ -182,8 +181,7 @@ test("RM-aware pages hydrate from and follow the shared RM selector", async () =
     "ai-insights.html", "bond-data-sec.html", "bond-summary.html", "company-summary.html",
     "disclosure-pulse.html", "external-news.html", "multiples-band.html",
     "multiples-comparison.html", "oppday-minutes.html", "price-movement.html",
-    "sec-enforcement.html", "sec-form59.html", "trading-signs.html",
-    "unusual-trading.html", "visits.html",
+    "trading-signs.html", "unusual-trading.html",
   ];
   for (const file of pages) {
     const source = await readFile(file, "utf8");
@@ -203,4 +201,31 @@ test("Oppday drawer owns its scroll area and Form 59 snapshot schema is coherent
   assert.ok(form59.windowDays >= 7);
   assert.ok(Array.isArray(form59.tickers));
   assert.equal(Object.values(form59.bySide).reduce((sum, value) => sum + value, 0), form59.total);
+});
+
+test("top-bar search previews the matched company and jumps to its page", async () => {
+  const nav = await readFile("nav.js", "utf8");
+  assert.doesNotMatch(nav, /<datalist/);
+  assert.match(nav, /role="combobox"/);
+  assert.match(nav, /is1s-search-pop/);
+  assert.match(nav, /fetch\(asset\("ticker-summary"\)\)/);
+  assert.match(nav, /row\.nameTh/);
+  assert.match(nav, /company-summary\.html\?tk=/);
+  assert.match(nav, /ArrowDown/);
+
+  const css = await readFile("theme.css", "utf8");
+  assert.match(css, /\.is1s-search-pop\s*\{[^}]*position:absolute/s);
+  assert.match(css, /@media\(max-width:840px\)\s*\{\s*\.is1s-search-pop\s*\{[^}]*position:fixed/s);
+});
+
+// Without a viewport meta tag, phones lay the page out at ~980px and shrink
+// it, so the shell's <=840px mobile layout (bottom nav bar) never kicks in.
+test("every page that loads the shell declares a mobile viewport", async () => {
+  const { readdir } = await import("node:fs/promises");
+  const pages = (await readdir(".")).filter((f) => f.endsWith(".html"));
+  for (const page of pages) {
+    const html = await readFile(page, "utf8");
+    if (!/src="[^"]*nav\.js/.test(html)) continue;
+    assert.match(html, /<meta name="viewport" content="width=device-width, initial-scale=1">/, page);
+  }
 });

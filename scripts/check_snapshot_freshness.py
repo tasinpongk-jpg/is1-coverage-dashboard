@@ -90,30 +90,42 @@ SNAPSHOTS = [
     # ── Non-critical but worth knowing ───────────────────────────────
     {"file": "ai-insights.json",        "label": "ai-insights",
      "fields": ["_built_at", "asOf"]},
+    # Monthly by design: bond-refresh.yml runs on the 1st (ThaiBMA, no key).
     {"file": "bond-summary.json",       "label": "bonds",
-     "fields": ["_built_at", "asOf"]},
+     "fields": ["_built_at", "asOf"], "warn": 35, "stale": 45},
     {"file": "build-status.json",       "label": "build-status",
      "fields": ["built_at", "_built_at"]},
     {"file": "diagnostics.json",        "label": "diagnostics",
      "fields": ["_built_at", "asOf"]},
+    {"file": "filing-summaries.json",   "label": "filing-sum",
+     "fields": ["generated"]},
     {"file": "external-news.json",      "label": "ext-news",
      "fields": ["_built_at", "asOf"]},
     {"file": "harvest-queue.json",      "label": "harvest-queue",
-     "fields": ["generated", "_built_at"], "warn": 30, "stale": 60},
+     "fields": ["generated", "_built_at"], "warn": 30, "stale": 60,
+     "optional": True},  # harvest pipeline's local queue; never committed
+    # Rebuilt daily by vault_notes_cron.py but only rewritten when a new Opp Day
+    # summary lands, which is quarterly (after results season).
     {"file": "oppday-minutes.json",     "label": "oppday",
-     "fields": ["generated", "_built_at"], "warn": 14, "stale": 30},
+     "fields": ["generated", "_built_at"], "warn": 45, "stale": 100},
+    # Monthly by design: laptop cron is1-sec-bonds-monthly (run_sec_bonds_monthly.sh).
     {"file": "sec-bonds.json",          "label": "sec-bonds",
-     "fields": ["_built_at", "asOf"]},
+     "fields": ["_built_at", "asOf"], "warn": 35, "stale": 45},
     {"file": "sec-enforcement.json",    "label": "sec-enf",
      "fields": ["_built_at", "asOf"]},
     {"file": "sec-form59.json",         "label": "sec-form59",
      "fields": ["_built_at", "asOf"]},
     {"file": "sector-heatmap.json",     "label": "heatmap",
      "fields": ["_built_at", "asOf"]},
+    # Harvest planning file, no page reads it; run by hand once per quarter.
     {"file": "source-coverage.json",    "label": "src-cov",
-     "fields": ["generated", "_built_at"], "warn": 14, "stale": 30},
+     "fields": ["generated", "_built_at"], "warn": 100, "stale": 120},
     {"file": "source-health.json",      "label": "src-health",
      "fields": ["asOf", "_built_at"]},
+    # Board + major shareholders, daily.yml. `generated` moves every run even
+    # when no board or record date changed.
+    {"file": "company-people.json",     "label": "people",
+     "fields": ["generated", "asOf"]},
     {"file": "ticker-summary.json",     "label": "ticker-sum",
      "fields": ["_built_at", "asOf", "version"]},
     {"file": "trading-signs.json",      "label": "signs",
@@ -253,6 +265,11 @@ def probe(threshold_warn, threshold_stale, quiet):
         stale_d = entry.get("stale", threshold_stale)
 
         if not path.is_file():
+            if entry.get("optional"):
+                # Local working file that is never committed (e.g. the harvest
+                # queue): absent in CI and on a clean checkout, not a failure.
+                rows.append((label, fn, "(not present)", None, "absent", "·", None))
+                continue
             rows.append((label, fn, "(missing)", None, "stale", "⚠", None))
             max_sev = max(max_sev, 2)
             continue
