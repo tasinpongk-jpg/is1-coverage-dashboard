@@ -140,20 +140,37 @@ test("Sector Intelligence v4 preserves the audited perimeter and adds claim-leve
 });
 
 test("Every company analysis has a business profile and official SET logo", async () => {
-  const [sectorData, tickerData] = await Promise.all([read("data/sector-intelligence.json"), read("data/ticker-summary.json")].map(async (value) => JSON.parse(await value)));
+  const [sectorData, tickerData, coverageData] = await Promise.all([
+    read("data/sector-intelligence.json"), read("data/ticker-summary.json"), read("data/tickers.json"),
+  ].map(async (value) => JSON.parse(await value)));
   const companies = Object.values(sectorData.sectors).flatMap((sector) => sector.segments.flatMap((segment) => segment.companies));
+  // The snapshot is a historical FY2025 record and keeps its full perimeter
+  // even when a company later leaves the universe, so this count is fixed.
   assert.equal(companies.length, 118);
   const metaByTicker = new Map(tickerData.tickers.map((ticker) => [ticker.tk, ticker]));
+  const covered = new Set(coverageData.tickers.map((ticker) => ticker.tk));
   for (const company of companies) {
-    const meta = metaByTicker.get(company.ticker);
-    assert.ok(meta?.businessType?.trim().length >= 12, company.ticker + " must have an English SET business description");
-    assert.ok(meta?.businessTypeTh?.trim().length >= 12, company.ticker + " must have a Thai SET business description");
-    assert.match(meta.businessTypeTh, /[\u0E00-\u0E7F]/, company.ticker + " Thai SET business description must contain Thai text");
-    assert.match(meta?.nameTh || "", /[\u0E00-\u0E7F]/, company.ticker + " must have an official Thai company name");
+    // Every company's own embedded description must survive, covered or not \u2014
+    // that is what the page renders from this snapshot.
     assert.equal(typeof company.businessDescription, "object", company.ticker + " embedded business description must be bilingual");
     assert.ok(company.businessDescription.en?.length >= 12, company.ticker + " embedded English description is missing");
     assert.ok(company.businessDescription.th?.length >= 12, company.ticker + " embedded Thai description is missing");
     assert.match(company.businessDescription.th, /[\u0E00-\u0E7F]/, company.ticker + " embedded Thai description must contain Thai text");
+
+    // Live SET metadata only exists while a company is in coverage. GLAND
+    // delisted and TL moved to TECH/ICT after this snapshot was built, so SET
+    // publishes no current profile or logo for them. Require the metadata to be
+    // genuinely absent rather than silently skipping, so a real regression on a
+    // covered name still fails here.
+    const meta = metaByTicker.get(company.ticker);
+    if (!covered.has(company.ticker)) {
+      assert.equal(meta, undefined, company.ticker + " left the coverage universe, so it must carry no current SET metadata");
+      continue;
+    }
+    assert.ok(meta?.businessType?.trim().length >= 12, company.ticker + " must have an English SET business description");
+    assert.ok(meta?.businessTypeTh?.trim().length >= 12, company.ticker + " must have a Thai SET business description");
+    assert.match(meta.businessTypeTh, /[\u0E00-\u0E7F]/, company.ticker + " Thai SET business description must contain Thai text");
+    assert.match(meta?.nameTh || "", /[\u0E00-\u0E7F]/, company.ticker + " must have an official Thai company name");
     assert.match(meta?.logoUrl || "", /^https:\/\/media\.set\.or\.th\/common\/logo\/company\//);
   }
 });
