@@ -6,9 +6,12 @@ the reconciling extractor in ``extract_6m26_figures``, and emits the same three
 CSV surfaces the FY2025 audited snapshot provides, plus PROVENANCE and
 QA_SUMMARY files.
 
-The FY2025 company CSV is required: it is the authoritative 118-company
-perimeter and segment mapping, and its FY totals are used as an order-of-
-magnitude check on each extracted half-year figure.
+The FY2025 company CSV is required: it is the authoritative FOOD/PROP perimeter
+and segment mapping, and its FY totals are used as an order-of-magnitude check
+on each extracted half-year figure. It is a dated snapshot, so it is also
+checked against the live coverage universe in ``data/tickers.json``: a name
+delisted or reclassified since the cut is excluded as such rather than reported
+as a missing filing.
 
 Panel discipline mirrors the FY build. A company enters the RFO panel only when
 its 6M26 and 6M25 revenue both reconcile, and the NPAT panel only when owner
@@ -41,6 +44,11 @@ from extract_6m26_figures import CompanyExtract, extract_company  # noqa: E402
 
 PERIOD = "2026Q2"
 MDA_SUBPATH = Path("1-Raw") / "01-Filings" / "MDA"
+
+# The live coverage universe, used to catch a perimeter that has gone stale.
+# The FY CSV is a dated snapshot: a company delisted or reclassified since it
+# was cut is still in the file. Default is the repo's own snapshot.
+TICKERS_JSON = Path(__file__).resolve().parent.parent / "data" / "tickers.json"
 
 # A half year that lands outside this share of the audited full year means the
 # extractor latched onto the wrong row or the wrong scale. Wide on purpose:
@@ -158,6 +166,44 @@ def load_universe(fy_company_csv: Path) -> list[CompanyRow]:
     return rows
 
 
+def load_coverage(tickers_json: Path | None) -> set[str] | None:
+    """The tickers currently in the IS1 coverage universe.
+
+    Returns None when the snapshot is unavailable, which means "do not check"
+    rather than "nothing is covered" — the panel must not blame every company
+    on a missing file.
+    """
+    if tickers_json is None or not tickers_json.is_file():
+        return None
+    try:
+        payload = json.loads(tickers_json.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    records = payload.get("tickers") if isinstance(payload, dict) else payload
+    if not isinstance(records, list):
+        return None
+    covered = {
+        record["tk"] for record in records
+        if isinstance(record, dict) and record.get("tk")
+    }
+    return covered or None
+
+
+def apply_coverage_check(row: CompanyRow, covered: set[str] | None) -> None:
+    """Exclude a company the coverage universe has dropped since the FY cut.
+
+    This runs before the vault lookup on purpose. A delisted issuer files no
+    Q2/2026 MD&A, so without this the report would blame a missing filing and
+    send an analyst hunting for a document that cannot exist. GLAND (delisted)
+    and TL (moved to TECH/ICT) left the universe after the FY2025 CSV was cut.
+    """
+    if covered is None or row.ticker in covered:
+        return
+    row.blocking_exclusion = (
+        "no longer in the IS1 coverage universe — delisted or reclassified "
+        "since the FY2025 perimeter was cut")
+
+
 def find_mda(vault_root: Path, ticker: str) -> Path | None:
     """Prefer the English Q2/2026 MD&A; fall back to the Thai filing."""
     folder = vault_root / MDA_SUBPATH / ticker
@@ -185,8 +231,12 @@ def apply_fy_share_check(row: CompanyRow) -> None:
             f"{FY_SHARE_FLOOR_PCT:.0f}-{FY_SHARE_CEILING_PCT:.0f}% plausibility band")
 
 
-def build_company_rows(vault_root: Path, universe: list[CompanyRow]) -> list[CompanyRow]:
+def build_company_rows(vault_root: Path, universe: list[CompanyRow],
+                       covered: set[str] | None = None) -> list[CompanyRow]:
     for row in universe:
+        apply_coverage_check(row, covered)
+        if row.blocking_exclusion:
+            continue
         path = find_mda(vault_root, row.ticker)
         if path is None:
             row.blocking_exclusion = f"no {PERIOD} MD&A in the vault"
@@ -403,6 +453,10 @@ def _exclusion_cause(row: CompanyRow) -> str:
     reason = row.exclusion_reason
     if not reason:
         return ""
+    # Before the filing-gap bucket: a company off the universe has no filing to
+    # find, and reporting that as a vault gap would misdirect the follow-up.
+    if "no longer in the IS1 coverage universe" in reason:
+        return "left the coverage universe (delisted or reclassified)"
     if "no 2026Q2 MD&A" in reason:
         return "no Q2/2026 MD&A in the vault"
     if "plausibility band" in reason:
@@ -444,6 +498,24 @@ def build_report(rows: list[CompanyRow], segments: list[dict], qa: dict, as_of: 
         f"| Margin (intersection) | {len(margin)} | {len(margin) / total * 100:.1f}% |",
         "",
     ]
+
+    # Percentages above are against the FY CSV perimeter, which is what the deck
+    # was built on. Where a name has since left the universe that denominator
+    # can no longer be reached, so say so instead of re-basing it silently.
+    left = [row for row in rows if "no longer in the IS1 coverage universe" in row.blocking_exclusion]
+    if left:
+        names = ", ".join(row.ticker for row in left)
+        one = len(left) == 1
+        lines += [
+            f"**Perimeter has moved.** {len(left)} of the {total} companies in the FY2025 CSV "
+            f"{'has' if one else 'have'} left the coverage universe ({names}), so the reachable "
+            f"perimeter is {total - len(left)}. "
+            f"{'It files' if one else 'They file'} nothing for {PERIOD} and "
+            f"{'is' if one else 'are'} excluded from both panels; the shares above are still "
+            "against the full FY CSV so they tie to the FY deck. Re-cut the FY perimeter to "
+            f"drop {'it' if one else 'them'} for good.",
+            "",
+        ]
 
     causes: dict[str, list[str]] = {}
     for row in rows:
@@ -498,9 +570,11 @@ def write_csv(path: Path, fields: list[str], records: list[dict]) -> None:
             writer.writerow(record)
 
 
-def build(vault_root: Path, fy_company_csv: Path, out_dir: Path, as_of: str) -> dict:
+def build(vault_root: Path, fy_company_csv: Path, out_dir: Path, as_of: str,
+          tickers_json: Path | None = TICKERS_JSON) -> dict:
     universe = load_universe(fy_company_csv)
-    rows = build_company_rows(vault_root, universe)
+    covered = load_coverage(tickers_json)
+    rows = build_company_rows(vault_root, universe, covered)
     companies = [company_record(row) for row in rows]
     segments = build_segments(rows)
     sectors = build_sectors(rows)
@@ -530,6 +604,13 @@ def build(vault_root: Path, fy_company_csv: Path, out_dir: Path, as_of: str) -> 
         "npat_panel_company_count": sum(1 for row in rows if row.in_npat_panel),
         "fy_company_csv": str(fy_company_csv),
         "fy_company_csv_sha256": sha256_file(fy_company_csv),
+        # The FY CSV is a dated perimeter; this says whether it was checked
+        # against the live universe and which of its names have since left.
+        "coverage_universe_checked": covered is not None,
+        "coverage_universe_size": len(covered) if covered else None,
+        "left_coverage_tickers": sorted(
+            row.ticker for row in rows
+            if "no longer in the IS1 coverage universe" in row.blocking_exclusion),
         "outputs": {
             path.name: sha256_file(path)
             for path in (company_path, segment_path, sector_path, qa_path, report_path)
@@ -578,9 +659,15 @@ def main() -> int:
                         help="Audited FY2024/FY2025 company CSV (the authoritative perimeter)")
     parser.add_argument("--out-dir", type=Path, required=True)
     parser.add_argument("--as-of", default=date.today().isoformat())
+    parser.add_argument("--tickers-json", type=Path, default=TICKERS_JSON,
+                        help="Live coverage universe used to catch a stale FY perimeter "
+                             f"(default: {TICKERS_JSON}). Pass --no-coverage-check to skip.")
+    parser.add_argument("--no-coverage-check", action="store_true",
+                        help="Do not check the FY perimeter against the coverage universe")
     args = parser.parse_args()
 
-    summary = build(args.vault_root, args.fy_company_csv, args.out_dir, args.as_of)
+    summary = build(args.vault_root, args.fy_company_csv, args.out_dir, args.as_of,
+                    None if args.no_coverage_check else args.tickers_json)
     print(json.dumps(summary, ensure_ascii=False, indent=2))
     return 0 if summary["qa"] == "PASS" else 1
 

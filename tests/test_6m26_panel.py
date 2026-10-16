@@ -71,7 +71,10 @@ class PanelBuild(unittest.TestCase):
             writer.writerow(["ticker", "sector", "primary_segment_code", "fy2025_rfo_mb"])
             writer.writerows(FY_ROWS)
 
-        cls.summary = B.build(cls.vault, cls.fy_csv, cls.out, "2026-08-17")
+        # tickers_json=None switches the coverage cross-check off: most of this
+        # roster is synthetic and would otherwise be reported as having left the
+        # universe. CoverageCheck below exercises it against its own snapshot.
+        cls.summary = B.build(cls.vault, cls.fy_csv, cls.out, "2026-08-17", None)
         cls.companies = {
             row["ticker"]: row
             for row in csv.DictReader(
@@ -204,6 +207,127 @@ class PanelBuild(unittest.TestCase):
         self.assertNotIn("NOFILE", by_ticker)
         for name, digest in provenance["outputs"].items():
             self.assertEqual(len(digest), 64, name)
+
+
+class CoverageCheck(unittest.TestCase):
+    """A name the coverage universe dropped must say so, not blame the vault.
+
+    GLAND (delisted) and TL (moved to TECH/ICT) left the universe after the
+    FY2025 perimeter was cut, so the FY CSV still carries them.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        cls._tmp = tempfile.TemporaryDirectory()
+        root = Path(cls._tmp.name)
+        cls.vault = root / "vault"
+        cls.out = root / "out"
+
+        # CPN files normally; GLAND is delisted, so nothing is in the vault.
+        folder = cls.vault / B.MDA_SUBPATH / "CPN"
+        folder.mkdir(parents=True, exist_ok=True)
+        (folder / "MDA_CPN_2026Q2_E.md").write_text(
+            (FIX / "mda_CPN_2026Q2_pl_excerpt.md").read_text(encoding="utf-8"), encoding="utf-8")
+
+        cls.fy_csv = root / "fy_company.csv"
+        with cls.fy_csv.open("w", encoding="utf-8", newline="") as handle:
+            writer = csv.writer(handle)
+            writer.writerow(["ticker", "sector", "primary_segment_code", "fy2025_rfo_mb"])
+            writer.writerows([("CPN", "PROP", "P3", 50000.0), ("GLAND", "PROP", "P3", 4000.0)])
+
+        # A coverage snapshot shaped like data/tickers.json, with GLAND gone.
+        cls.tickers = root / "tickers.json"
+        cls.tickers.write_text(json.dumps(
+            {"tickers": [{"tk": "CPN", "sector": "PROP", "rm": "T", "bucket": "PROP"}]}),
+            encoding="utf-8")
+
+        cls.summary = B.build(cls.vault, cls.fy_csv, cls.out, "2026-10-16", cls.tickers)
+        cls.companies = {
+            row["ticker"]: row
+            for row in csv.DictReader(
+                (cls.out / "food_prop_company_6m25_6m26_2026-10-16.csv")
+                .open(encoding="utf-8-sig"))
+        }
+
+    @classmethod
+    def tearDownClass(cls):
+        cls._tmp.cleanup()
+
+    def test_delisted_company_is_named_as_such_not_as_a_missing_filing(self):
+        reason = self.companies["GLAND"]["panel_exclusion_reason"]
+        self.assertIn("no longer in the IS1 coverage universe", reason)
+        self.assertNotIn("MD&A", reason)
+
+    def test_delisted_company_is_out_of_both_panels_and_publishes_nothing(self):
+        row = self.companies["GLAND"]
+        self.assertEqual(row["rfo_panel_included"], "no")
+        self.assertEqual(row["npat_panel_included"], "no")
+        self.assertEqual(row["rfo_6m26_mb"], "")
+        self.assertEqual(row["npat_owners_6m26_mb"], "")
+
+    def test_a_covered_company_is_unaffected(self):
+        row = self.companies["CPN"]
+        self.assertEqual(row["rfo_panel_included"], "yes")
+        self.assertAlmostEqual(float(row["rfo_6m26_mb"]), 25224.0)
+
+    def test_the_row_is_still_emitted_so_the_perimeter_stays_auditable(self):
+        self.assertEqual(len(self.companies), 2)
+        self.assertEqual(self.summary["universe"], 2)
+
+    def test_report_states_the_perimeter_moved_and_names_the_company(self):
+        text = (self.out / "COVERAGE_REPORT_6M25_6M26_2026-10-16.md").read_text(encoding="utf-8")
+        self.assertIn("Perimeter has moved.", text)
+        self.assertIn("GLAND", text)
+        self.assertIn("reachable perimeter is 1", text)
+        self.assertIn("left the coverage universe (delisted or reclassified)", text)
+
+    def test_provenance_records_the_check_and_who_left(self):
+        provenance = json.loads(
+            (self.out / "PROVENANCE_6M25_6M26_2026-10-16.json").read_text(encoding="utf-8"))
+        self.assertTrue(provenance["coverage_universe_checked"])
+        self.assertEqual(provenance["coverage_universe_size"], 1)
+        self.assertEqual(provenance["left_coverage_tickers"], ["GLAND"])
+
+    def test_a_delisted_company_contributes_no_source_hash(self):
+        provenance = json.loads(
+            (self.out / "PROVENANCE_6M25_6M26_2026-10-16.json").read_text(encoding="utf-8"))
+        self.assertNotIn("GLAND", {item["ticker"] for item in provenance["sources"]})
+
+
+class CoverageSnapshotUnavailable(unittest.TestCase):
+    """A missing or unreadable snapshot must disable the check, not fail everyone."""
+
+    def test_missing_file_skips_the_check(self):
+        self.assertIsNone(B.load_coverage(Path("/nonexistent/tickers.json")))
+
+    def test_none_skips_the_check(self):
+        self.assertIsNone(B.load_coverage(None))
+
+    def test_malformed_json_skips_the_check(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "tickers.json"
+            path.write_text("{not json", encoding="utf-8")
+            self.assertIsNone(B.load_coverage(path))
+
+    def test_empty_roster_skips_the_check(self):
+        """An empty list must never mean 'every company has left coverage'."""
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "tickers.json"
+            path.write_text(json.dumps({"tickers": []}), encoding="utf-8")
+            self.assertIsNone(B.load_coverage(path))
+
+    def test_a_skipped_check_excludes_nobody(self):
+        row = B.CompanyRow(ticker="GLAND", sector="PROP", segment="P3")
+        B.apply_coverage_check(row, None)
+        self.assertEqual(row.blocking_exclusion, "")
+
+    def test_the_repo_snapshot_parses_and_drops_gland_and_tl(self):
+        """Guards the real file: #66 removed both from the universe."""
+        covered = B.load_coverage(B.TICKERS_JSON)
+        self.assertIsNotNone(covered)
+        self.assertNotIn("GLAND", covered)
+        self.assertNotIn("TL", covered)
+        self.assertIn("CPN", covered)
 
 
 class PlausibilityBand(unittest.TestCase):

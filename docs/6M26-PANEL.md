@@ -75,6 +75,38 @@ Two safe generalisations came out of this sampling: half-year columns may be
 written with a slash (`6M/2026`), and the current period may be printed before
 the prior one. Position is always read from the header, never assumed.
 
+## The perimeter is a dated snapshot
+
+The FY2025 company CSV was cut on 2026-08-07. The coverage universe has moved
+since: `#66` removed **GLAND** (delisted) and **TL** (reclassified to TECH/ICT),
+taking the universe from 232 to 230 and PROP from 60 to 59. GLAND was a P3
+(PROP) issuer inside the FOOD/PROP deck perimeter, so that perimeter is now 117,
+not 118. TL was AGRI and never in it.
+
+A delisted issuer files nothing, so without a check the build would report
+GLAND as `no 2026Q2 MD&A in the vault` — which reads as a harvest gap and sends
+an analyst looking for a document that cannot exist. So the build cross-checks
+the FY perimeter against `data/tickers.json` before it touches the vault:
+
+- a name no longer in the universe is excluded from **both** panels with the
+  reason `no longer in the IS1 coverage universe — delisted or reclassified`,
+  bucketed in the report as `left the coverage universe`;
+- its row is still emitted, so the perimeter stays auditable against the FY deck;
+- the coverage report opens with a **Perimeter has moved** note naming the
+  departed tickers and the reachable count;
+- `PROVENANCE` records `coverage_universe_checked`, `coverage_universe_size`
+  and `left_coverage_tickers`.
+
+Panel shares stay denominated on the full FY CSV so they tie to the FY deck —
+the note states the reachable perimeter rather than silently re-basing them.
+The permanent fix is to re-cut the FY perimeter without GLAND; until then this
+keeps the exclusion honest.
+
+If `data/tickers.json` is missing, unreadable, or empty the check is **skipped**
+rather than failing every company — an empty roster must never be read as
+"nothing is covered". `--tickers-json` points it elsewhere; `--no-coverage-check`
+disables it.
+
 ## Prerequisite: re-extract the DOCX filings
 
 `harvest_download.py:_docx_text` read only `doc.paragraphs`, so **every table in
@@ -108,7 +140,7 @@ python scripts/build_6m26_panel.py \
   --as-of "$(date +%F)"
 ```
 
-The FY company CSV is required — it is the authoritative 118-company perimeter,
+The FY company CSV is required — it is the authoritative FOOD/PROP perimeter,
 supplies the segment mapping, and provides the FY totals used by the
 plausibility band. Exit code is non-zero if QA fails.
 
@@ -149,3 +181,5 @@ and `1H25/1H26` with `%YoY` as one token.
   and needs the tesseract/`MINIMAX_API_KEY` fallback described in
   `HARVEST-Q2-2026-REPORT.md`.
 - `PM` and `AP` have no Q2/2026 MD&A in the vault at all.
+- The FY2025 perimeter CSV still lists `GLAND`, which has since delisted. The
+  build excludes it accurately, but the CSV itself wants re-cutting.
