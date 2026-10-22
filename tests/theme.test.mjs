@@ -117,7 +117,7 @@ test("theme runtime is included in the deployed asset set", async () => {
 test("all shared assets use the current cache version", async () => {
   for (const file of htmlFiles) {
     const source = await readFile(file, "utf8");
-    for (const [asset, version] of [["theme.js", 8], ["theme.css", 10], ["i18n.js", 13], ["nav.js", 13]]) {
+    for (const [asset, version] of [["theme.js", 9], ["theme.css", 11], ["i18n.js", 13], ["nav.js", 14]]) {
       assert.match(source, new RegExp(`${asset.replace(".", "\\.")}\\?v=${version}`), `${file} must load ${asset} v${version}`);
     }
   }
@@ -228,4 +228,34 @@ test("every page that loads the shell declares a mobile viewport", async () => {
     if (!/src="[^"]*nav\.js/.test(html)) continue;
     assert.match(html, /<meta name="viewport" content="width=device-width, initial-scale=1">/, page);
   }
+});
+
+test("fonts never block the shared stylesheet", async () => {
+  const css = await readFile("theme.css", "utf8");
+  assert.doesNotMatch(css, /@import/, "theme.css must not @import fonts (a slow font host blocks the whole sheet)");
+  for (const file of htmlFiles) {
+    const source = await readFile(file, "utf8");
+    assert.match(source, /<link rel="preconnect" href="https:\/\/fonts\.gstatic\.com" crossorigin>/, `${file} must preconnect to the font host`);
+    assert.match(source, /<link rel="stylesheet" href="https:\/\/fonts\.googleapis\.com\/css2\?[^"]*display=swap" media="print" onload="this\.media='all'">/, `${file} must load fonts non-blocking`);
+    assert.ok(source.indexOf("fonts.googleapis.com/css2") < source.search(/href="theme\.css/), `${file} must request fonts before theme.css`);
+  }
+});
+
+test("the shell frame is reserved before nav.js runs and nothing pops in after", async () => {
+  const [runtime, css, nav] = await Promise.all([readFile("theme.js", "utf8"), readFile("theme.css", "utf8"), readFile("nav.js", "utf8")]);
+  // theme.js (in <head>) marks <html>; theme.css reserves the frame from that mark.
+  assert.match(runtime, /root\.classList\.add\("is1s-boot"\)/);
+  assert.match(runtime, /addEventListener\("DOMContentLoaded"[\s\S]*?classList\.remove\("is1s-boot"/, "a missing nav.js must not leave the page hidden");
+  assert.match(css, /html\.is1s-boot>body \{[\s\S]*?padding-left:var\(--is1b-left\)/);
+  assert.match(css, /html\.is1s-boot>body>:not\(script\)[^{]*\{ visibility:hidden !important; \}/);
+  // nav.js clears the marks once the shell is built, and the body padding doesn't animate in.
+  assert.match(nav, /document\.documentElement\.classList\.remove\("is1s-boot"/);
+  assert.match(nav, /classList\.add\("is1-shell-ready","is1s-shell-settling"\)/);
+  assert.match(css, /\.is1-shell-ready\.is1s-shell-settling \{ transition:none; \}/);
+  // The news bar keeps its height from the start instead of hidden-then-shown.
+  assert.doesNotMatch(nav, /newsbar\.hidden = true/);
+  assert.match(nav, /newsbar\.hidden = newsbarWasEmpty\(state\.rm\)/);
+  // Async blocks are held at their last height until they fill.
+  assert.match(nav, /HOLD_BLOCKS = \{/);
+  assert.match(css, /\.is1s-hold:empty \{ display:block !important; min-height:var\(--is1s-hold\); \}/);
 });
