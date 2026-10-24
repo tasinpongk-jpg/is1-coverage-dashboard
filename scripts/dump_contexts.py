@@ -2,7 +2,7 @@
 """Dump per-ticker context JSON for in-session LLM synthesis.
 
 Reuses build_company_reports.build_context so the context is byte-identical to
-what the API path (llm_report) would see. Champ's Claude session reads these,
+what the API path (llm_report) would see. The local Claude session reads these,
 writes synthesis JSON to data/synthesis/out/<TK>.json, then ingest_synthesis.py
 merges them back exactly like llm_report would.
 

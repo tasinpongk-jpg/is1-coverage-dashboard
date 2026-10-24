@@ -11,6 +11,8 @@ name: Daily Surveillance + Build
 #
 # Schedule (Mon-Fri):
 #   02:15 UTC = 09:15 Bangkok — single morning run, full pipeline.
+#   GitHub cron numbers Monday as 1, so 1-5 is Monday-Friday.
+#   The Cloudflare primary uses MON-FRI because there 1 is Sunday.
 #
 # Critical alerts are idempotent (only fire on UNSENT items) so re-running
 # manually via workflow_dispatch is safe.
@@ -21,7 +23,7 @@ name: Daily Surveillance + Build
 
 on:
   schedule:
-    - cron: '15 2 * * 1-5'    # 09:15 BKK morning — full pipeline
+    - cron: '15 2 * * 1-5'    # GitHub cron, 1=Monday. 09:15 BKK. Cloudflare primary is MON-FRI.
   workflow_dispatch:
 
 permissions:
@@ -164,8 +166,16 @@ jobs:
         run: python external_sources.py
         continue-on-error: true
 
+      # Reads data/tickers.json only. Does not send mail. A failure here
+      # skips the two email steps below; the later surface step fails the job.
+      - name: Check digest RM assignment
+        id: rm_check
+        run: python scripts/check_rm_assignment.py --digest-only
+        continue-on-error: true
+
       - name: Send critical alerts (one batched email per RM)
         id: critical_email
+        if: steps.rm_check.outcome == 'success'
         working-directory: surveillance
         env:
           EMAIL_USERNAME: ${{ secrets.EMAIL_USERNAME }}
@@ -177,6 +187,7 @@ jobs:
 
       - name: Send material digest
         id: digest_email
+        if: steps.rm_check.outcome == 'success'
         working-directory: surveillance
         env:
           EMAIL_USERNAME: ${{ secrets.EMAIL_USERNAME }}
@@ -219,9 +230,11 @@ jobs:
         env:
           CRITICAL_OUTCOME: ${{ steps.critical_email.outcome }}
           DIGEST_OUTCOME: ${{ steps.digest_email.outcome }}
+          RM_CHECK: ${{ steps.rm_check.outcome }}
         run: |
-          echo "critical=$CRITICAL_OUTCOME  digest=$DIGEST_OUTCOME"
+          echo "critical=$CRITICAL_OUTCOME  digest=$DIGEST_OUTCOME  rm_check=$RM_CHECK"
           fail=0
+          [ "$RM_CHECK" = "failure" ] && { echo "::error::digest RM assignment check failed"; fail=1; }
           [ "$CRITICAL_OUTCOME" = "failure" ] && { echo "::error::critical email step failed"; fail=1; }
           [ "$DIGEST_OUTCOME"   = "failure" ] && { echo "::error::digest email step failed";   fail=1; }
           exit $fail
@@ -318,7 +331,7 @@ jobs:
       # Rebuild vault-ticker-notes.json (MDA + FS-NOTES + calls + filingSummary
       # + bizProfile excerpts from the OneDrive vault). The script is a no-op
       # on runners where the vault path doesn't exist (exits 0 with a warning),
-      # so this is safe in CI even though the vault lives on Champ's laptop.
+      # so this is safe in CI even though the vault lives on the coverage laptop.
       # On local laptop triggers (workflow_dispatch on a clone that DOES have
       # the vault) this keeps the per-ticker drawer in company-summary.html
       # fresh. ~3 minutes for 232 tickers on a 2020-era laptop.
@@ -367,9 +380,16 @@ jobs:
         run: python scripts/build_ai_insights.py
         continue-on-error: true
 
-      # Morning brief push — one email, a personalized section per RM, over
-      # the snapshots just built. Exits 0 on any failure (never blocks deploy).
+      # Morning brief push — one email, a section per RM code, over the
+      # snapshots just built. The check sends nothing. A failed check skips
+      # the email; the surface step at the end fails the job.
+      - name: Check morning brief RM slices
+        id: brief_check
+        run: python scripts/check_rm_assignment.py --brief-only
+        continue-on-error: true
+
       - name: Send morning brief push (per-RM sections)
+        if: steps.brief_check.outcome == 'success'
         env:
           EMAIL_USERNAME: ${{ secrets.EMAIL_USERNAME }}
           EMAIL_APP_PASSWORD: ${{ secrets.EMAIL_APP_PASSWORD }}
@@ -489,6 +509,17 @@ jobs:
 
       # Email-on-failure for the build job. Pairs with the equivalent step in
       # the surveillance job so we get notified regardless of which side broke.
+      - name: Surface brief RM check failure
+        if: always()
+        env:
+          BRIEF_CHECK: ${{ steps.brief_check.outcome }}
+        run: |
+          echo "brief_check=$BRIEF_CHECK"
+          if [ "$BRIEF_CHECK" = "failure" ]; then
+            echo "::error::morning brief has zero tickers or zero RM slices"
+            exit 1
+          fi
+
       - name: Notify on failure (build)
         if: failure()
         env:

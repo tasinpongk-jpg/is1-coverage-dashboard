@@ -1,24 +1,31 @@
-"""Send the morning brief push — one email, a personalized section per RM.
+"""Send the morning brief push — one email, a section per RM code.
 
 Runs in the daily build job AFTER the snapshot builders (fresh data/*.json
 on disk). For each RM it assembles: movers beyond +/-2%, 52-week extremes,
 high/medium unusual-trading alerts, disclosures filed in the last ~26h and
-overdue/silent filers — then asks MiniMax M3 for a 2-3 sentence "AI take"
-per RM (skipped gracefully if MINIMAX_API_KEY is unset or the call fails;
-the data sections always go out).
+overdue/silent filers — then asks MiniMax M3 for a 2-3 sentence take per RM
+(skipped gracefully if MINIMAX_API_KEY is unset or the call fails; the data
+sections always go out).
+
+data/tickers.json stores the RM as a single-letter code. Slices are keyed on
+those codes. A nickname resolves only when the private map from rm_privacy
+is present. Filtering on full names matched nothing and the email went out
+with a header and no sections.
 
 Delivery follows the route_alerts.py house style: everything goes to
-EMAIL_TO via Gmail SMTP, sections labeled per RM. When per-RM addresses
-exist later, set BRIEF_EMAIL_TO="Champ:a@x,Kae:b@y" to split delivery.
+EMAIL_TO via Gmail SMTP, sections labeled per RM code. When per-RM addresses
+exist later, set BRIEF_EMAIL_TO="C:a@x,K:b@y" to split delivery.
 
 Env:
     EMAIL_USERNAME, EMAIL_APP_PASSWORD, EMAIL_FROM, EMAIL_TO   (send)
     BRIEF_EMAIL_TO   optional per-RM map "RM:addr,RM:addr" or extra addrs
     MINIMAX_API_KEY  optional, enables the per-RM AI take
+    RM_NAME_MAP      optional JSON nickname-to-code map (see rm_privacy.py)
 
 CLI:
     build_morning_push.py --dry-run    # print the email, send nothing
-    build_morning_push.py --rm Champ   # single-RM email (testing)
+    build_morning_push.py --check      # fail if the brief has no RM slices; send nothing
+    build_morning_push.py --rm C       # single-RM email (testing)
 """
 
 import argparse
@@ -31,11 +38,12 @@ from email.mime.text import MIMEText
 from pathlib import Path
 
 import minimax_chat
+from rm_privacy import RM_CODES, known_rm_code
 
 DATA = Path(__file__).resolve().parent.parent / "data"
 BKK = timezone(timedelta(hours=7))
 MOVER_PCT = 2.0
-RMS = ["Champ", "Kae", "Orn", "Gift", "Pim", "Tony"]
+RMS = list(RM_CODES)
 
 
 def _read(name):
@@ -43,21 +51,38 @@ def _read(name):
     return json.loads(p.read_text(encoding="utf-8")) if p.exists() else None
 
 
+def _code(value):
+    code = known_rm_code(value)
+    return code if code in RMS else None
+
+
+def rm_coverage():
+    """RM code -> tickers assigned to it. Empty codes are omitted from the lists."""
+    tickers = _read("tickers") or {"tickers": []}
+    out = {rm: [] for rm in RMS}
+    for t in tickers.get("tickers") or []:
+        rm = _code(t.get("rm"))
+        tk = t.get("tk")
+        if rm in out and tk:
+            out[rm].append(tk)
+    return out
+
+
 def rm_slices():
-    """rm -> {movers, extremes, alerts, filings, overdue} from the snapshots."""
+    """rm code -> {movers, extremes, alerts, filings, overdue} from the snapshots."""
     tickers = _read("tickers") or {"tickers": []}
     brief = _read("morning-brief") or {"rows": []}
     unusual = _read("unusual-trading") or {"alerts": []}
     pulse = _read("disclosure-pulse") or {"filings": [], "status": []}
 
-    rm_of = {t["tk"]: t["rm"] for t in tickers["tickers"]}
+    rm_of = {t["tk"]: _code(t.get("rm")) for t in tickers.get("tickers") or [] if t.get("tk")}
     cutoff = (datetime.now(BKK) - timedelta(hours=26)).isoformat()
 
     out = {rm: {"movers": [], "extremes": [], "alerts": [], "filings": [],
                 "overdue": []} for rm in RMS}
 
-    for r in brief["rows"]:
-        rm = rm_of.get(r["tk"])
+    for r in brief.get("rows") or []:
+        rm = rm_of.get(r.get("tk"))
         if rm not in out:
             continue
         if r.get("pct1d") is not None and abs(r["pct1d"]) >= MOVER_PCT:
@@ -65,18 +90,18 @@ def rm_slices():
         if r.get("hi52") or r.get("lo52"):
             out[rm]["extremes"].append(r)
 
-    for a in unusual["alerts"]:
-        rm = rm_of.get(a["tk"])
+    for a in unusual.get("alerts") or []:
+        rm = rm_of.get(a.get("tk"))
         if rm in out and a.get("severity") in ("high", "medium"):
             out[rm]["alerts"].append(a)
 
-    for f in pulse["filings"]:
-        rm = rm_of.get(f["tk"])
+    for f in pulse.get("filings") or []:
+        rm = rm_of.get(f.get("tk"))
         if rm in out and (f.get("ts") or "") >= cutoff:
             out[rm]["filings"].append(f)
 
-    for s in pulse.get("status", []):
-        rm = rm_of.get(s["tk"])
+    for s in pulse.get("status") or []:
+        rm = rm_of.get(s.get("tk"))
         if rm in out and s.get("overdue"):
             out[rm]["overdue"].append(s)
 
@@ -99,12 +124,12 @@ def ai_takes(slices):
     system = (
         "You write the morning push for IS1, Issuer Department 1 of the Stock "
         "Exchange of Thailand. Input: per-RM JSON of movers, alerts, filings, "
-        "overdue filers (today's data, prices are previous close). For each RM "
-        "with anything notable, write 2-3 plain-English sentences: what to look "
-        "at first and why, connecting alerts to filings when the same ticker "
-        "appears in both. Mention only tickers in the input, quote percentages "
-        "exactly. Reply ONLY with JSON: "
-        '{"takes": {"Champ": "...", "Kae": "..."}} — omit RMs with nothing notable.'
+        "overdue filers (today's data, prices are previous close). RM keys are "
+        "single-letter codes. For each RM with anything notable, write 2-3 "
+        "plain-English sentences: what to look at first and why, connecting "
+        "alerts to filings when the same ticker appears in both. Mention only "
+        "tickers in the input, quote percentages exactly. Reply ONLY with JSON: "
+        '{"takes": {"C": "...", "K": "..."}} — omit RMs with nothing notable.'
     )
     try:
         reply = minimax_chat.chat(system, json.dumps(digest, ensure_ascii=False),
@@ -171,11 +196,17 @@ def send(text, as_of):
     print(f"sent morning brief to {msg['To']}")
 
 
-def main():
+def main(argv=None):
     p = argparse.ArgumentParser()
     p.add_argument("--dry-run", action="store_true")
+    p.add_argument("--check", action="store_true",
+                   help="Validate RM slices and digest labels. Send nothing.")
     p.add_argument("--rm", choices=RMS, help="single-RM brief (testing)")
-    args = p.parse_args()
+    args = p.parse_args(argv)
+
+    if args.check:
+        from check_rm_assignment import main as check_main
+        return check_main([])
 
     slices, as_of = rm_slices()
     takes = ai_takes({args.rm: slices[args.rm]} if args.rm else slices)
@@ -194,5 +225,8 @@ if __name__ == "__main__":
     except SystemExit:
         raise
     except Exception as e:  # never fail the build over the push email
+        if "--check" in sys.argv:
+            print(f"morning brief check failed: {e}")
+            sys.exit(1)
         print(f"morning push failed: {e}")
         sys.exit(0)

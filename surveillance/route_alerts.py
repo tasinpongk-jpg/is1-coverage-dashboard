@@ -44,7 +44,7 @@ def _send_critical(client, max_send: int, dry_run: bool, since: str | None) -> i
 
     last_msg_id = "0"
     for i, ch in enumerate(chunks, 1):
-        body = ch + "\n\n---\n📌 Champ — Issuer Department 1, SET"
+        body = ch + "\n\n---\n📌 IS1 — Issuer Department 1, SET"
         text = f"[SETSURV] 🔴 Critical disclosures batch ({i}/{len(chunks)})\n\n" + body
         last_msg_id = client.send(text, priority="high")
         time.sleep(1.1)  # polite throttle
@@ -61,14 +61,9 @@ def _send_digest(client, dry_run: bool, since: str | None) -> int:
         print("[digest] nothing to send.")
         return 0
 
-    from collections import defaultdict
-
-    from alerts import _rm_lookup
+    from alerts import _privacy, _rm_lookup
     rm_map = _rm_lookup()
-
-    by_rm: dict[str, list[dict]] = defaultdict(list)
-    for r in rows:
-        by_rm[rm_map.get(r["symbol"], "Unassigned")].append(r)
+    by_rm = _privacy().group_by_rm(rows, rm_map)
 
     total_chunks = 0
     all_news_ids = [r["news_id"] for r in rows]
@@ -88,7 +83,7 @@ def _send_digest(client, dry_run: bool, since: str | None) -> int:
     for rm in sorted(by_rm):
         chunks = format_digest(by_rm[rm])
         for i, ch in enumerate(chunks, 1):
-            body = ch + "\n\n---\n📌 Champ — Issuer Department 1, SET"
+            body = ch + "\n\n---\n📌 IS1 — Issuer Department 1, SET"
             text = f"[SETSURV] 🟡 Material — {rm} ({i}/{len(chunks)})\n\n" + body
             last_msg_id = client.send(text)
             time.sleep(1.1)

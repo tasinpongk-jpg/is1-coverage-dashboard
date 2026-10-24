@@ -27,8 +27,8 @@ name: Disclosure Pulse Refresh (intra-day)
 
 on:
   schedule:
-    - cron: '0 7 * * 1-5'     # 14:00 BKK — afternoon catch-up
-    - cron: '0 11 * * 1-5'    # 18:00 BKK — end-of-day sweep
+    - cron: '0 7 * * 1-5'     # GitHub cron, 1=Monday. 14:00 BKK. Cloudflare primary is MON-FRI.
+    - cron: '0 11 * * 1-5'    # GitHub cron, 1=Monday. 18:00 BKK. Cloudflare primary is MON-FRI.
   workflow_dispatch:
     inputs:
       lookback_days:
@@ -165,7 +165,7 @@ jobs:
         run: python scripts/notify_failure.py
         continue-on-error: true
 
-      # Discord digest for the IS1 user (RM C / Champ). Runs AFTER the
+      # Discord digest for RM C. Runs AFTER the
       # upstream data/disclosure-pulse.json commit so we only push for
       # filings that actually shipped to the dashboard. Branches:
       #   (a) push.py writes data/rm_c_push_state.json (per-batch persisted)

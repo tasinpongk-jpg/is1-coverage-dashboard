@@ -540,7 +540,7 @@ test("feedback endpoint records a vote (auth + validation)", async () => {
   assert.equal(r.status, 200);
   assert.equal(stored[0].agent, "atlas");
   assert.equal(stored[0].rm, "C");
-  r = await worker.fetch(fb({ agent: "<img>", rm: "Champ", vote: "up" }), fbEnv);
+  r = await worker.fetch(fb({ agent: "<img>", rm: "Nickname", vote: "up" }), fbEnv);
   assert.equal(r.status, 200);
   assert.equal(stored[1].agent, "");
   assert.equal(stored[1].rm, "");
@@ -565,8 +565,8 @@ test("feedback endpoint records a vote (auth + validation)", async () => {
 test("valid rm pins the user line; invalid rm is ignored", async () => {
   await worker.fetch(chatReq({ agent: "hermes", rm: "C", messages: userMsg }), env);
   assert.ok(lastSystem.includes("The user is RM C"));
-  await worker.fetch(chatReq({ agent: "hermes", rm: "Champ", messages: userMsg }), env);
-  assert.ok(!lastSystem.includes("The user is RM"), "legacy full-name rm must be rejected");
+  await worker.fetch(chatReq({ agent: "hermes", rm: "Nickname", messages: userMsg }), env);
+  assert.ok(!lastSystem.includes("The user is RM"), "a multi-letter rm must be rejected");
   await worker.fetch(chatReq({ agent: "hermes", rm: "HACKER", messages: userMsg }), env);
   assert.ok(!lastSystem.includes("The user is RM"));
 });
@@ -579,19 +579,19 @@ test("hermes context carries rm= ownership tags", async () => {
 test("RM-priority slicing: the user's filing rows fill the cap first", async () => {
   const pulse = JSON.parse(await readFile("./data/disclosure-pulse.json", "utf-8"));
   const tickers = JSON.parse(await readFile("./data/tickers.json", "utf-8"));
-  const champTks = new Set(tickers.tickers.filter((t) => t.rm === "Champ").map((t) => t.tk));
-  const champRows = pulse.filings.filter((f) => champTks.has(f.tk)).length;
+  const owned = new Set(tickers.tickers.filter((t) => t.rm === "C").map((t) => t.tk));
+  const ownedRows = pulse.filings.filter((f) => owned.has(f.tk)).length;
   const CAP = 60; // keep in sync with ctxFilings
 
-  await worker.fetch(chatReq({ agent: "hermes", rm: "Champ", messages: userMsg }), env);
+  await worker.fetch(chatReq({ agent: "hermes", rm: "C", messages: userMsg }), env);
   // Anchor on the data-section header ("SET DISCLOSURES (last N days…"), not the
   // bare phrase — the Hermes persona now also mentions "SET DISCLOSURES" by name.
   const section = lastSystem.split("SET DISCLOSURES (last")[1]?.split("OVERDUE")[0] || "";
-  // count data rows only ("YYYY-MM-DD TK rm=Champ ..."), not the header note
-  const got = (section.match(/^\d{4}-\d{2}-\d{2} \S+ rm=Champ /gm) || []).length;
-  // min(cap, all of Champ's rows) must be Champ's — none displaced by others
-  assert.equal(got, Math.min(CAP, champRows),
-    `expected ${Math.min(CAP, champRows)} Champ filing rows in context, got ${got}`);
+  // count data rows only ("YYYY-MM-DD TK rm=C ..."), not the header note
+  const got = (section.match(/^\d{4}-\d{2}-\d{2} \S+ rm=C /gm) || []).length;
+  // min(cap, all of this RM's rows) must be this RM's — none displaced by others
+  assert.equal(got, Math.min(CAP, ownedRows),
+    `expected ${Math.min(CAP, ownedRows)} RM C filing rows in context, got ${got}`);
 });
 
 test("hermes is told to merge external news + SET disclosures, both blocks present", async () => {
@@ -790,7 +790,7 @@ test("lowercase tickers focus context without treating contractions as ticker M"
   await worker.fetch(chatReq({ agent: "atlas", messages: [{ role: "user", content: "price of M" }] }), env);
   assert.match(lastSystem, /focused on M/);
 
-  await worker.fetch(chatReq({ agent: "atlas", messages: [{ role: "user", content: "Top movers in my coverage. I'm Champ." }] }), env);
+  await worker.fetch(chatReq({ agent: "atlas", messages: [{ role: "user", content: "Top movers in my coverage. I'm done." }] }), env);
   assert.doesNotMatch(lastSystem, /focused on M/);
 });
 

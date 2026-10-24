@@ -13,24 +13,25 @@ ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
 sys.path.insert(0, os.path.join(ROOT, "scripts"))
 from rm_privacy import anonymise_rm, anonymise_rm_map, RM_CODES  # noqa: E402
 
-NICKNAMES = ("Champ", "Orn", "Pim", "Gift", "Tony", "Kae")
+# Placeholder words, one per code. Real nicknames are not stored in the repo.
+SAMPLES = ("Cedar", "Oak", "Pine", "Gold", "Tango", "Kilo")
 
 
 class TestAnonymiseRm(unittest.TestCase):
-    def test_nickname_to_initial(self):
-        self.assertEqual(anonymise_rm("Champ"), "C")
-        self.assertEqual(anonymise_rm("Orn"), "O")
-        self.assertEqual(anonymise_rm("Kae"), "K")
+    def test_code_and_first_letter(self):
+        self.assertEqual(anonymise_rm("C"), "C")
+        self.assertEqual(anonymise_rm("Oak"), "O")
+        self.assertEqual(anonymise_rm("Kilo"), "K")
 
     def test_idempotent(self):
         # A builder may read a snapshot another builder already anonymised.
-        for n in NICKNAMES:
+        for n in SAMPLES:
             once = anonymise_rm(n)
             self.assertEqual(anonymise_rm(once), once)
 
     def test_whitespace_and_case(self):
-        self.assertEqual(anonymise_rm("  orn "), "O")
-        self.assertEqual(anonymise_rm("tony"), "T")
+        self.assertEqual(anonymise_rm("  oak "), "O")
+        self.assertEqual(anonymise_rm("tango"), "T")
 
     def test_none_and_blank_pass_through(self):
         # An unassigned RM stays unassigned — it must not become a "" bucket.
@@ -38,19 +39,19 @@ class TestAnonymiseRm(unittest.TestCase):
         self.assertEqual(anonymise_rm(""), "")
         self.assertEqual(anonymise_rm("   "), "   ")
 
-    def test_every_current_nickname_maps_into_the_known_codes(self):
-        for n in NICKNAMES:
+    def test_every_sample_maps_into_the_known_codes(self):
+        for n in SAMPLES:
             self.assertIn(anonymise_rm(n), RM_CODES)
 
-    def test_no_collisions_among_current_rms(self):
-        codes = [anonymise_rm(n) for n in NICKNAMES]
-        self.assertEqual(len(set(codes)), len(NICKNAMES))
+    def test_no_collisions_among_samples(self):
+        codes = [anonymise_rm(n) for n in SAMPLES]
+        self.assertEqual(len(set(codes)), len(SAMPLES))
 
 
 class TestAnonymiseRmMap(unittest.TestCase):
     def test_rekeys_and_preserves_totals(self):
-        src = {"Champ": {"issuers": 6, "thbBn": 97.41},
-               "Orn": {"issuers": 4, "thbBn": 45.89}}
+        src = {"Cedar": {"issuers": 6, "thbBn": 97.41},
+               "Oak": {"issuers": 4, "thbBn": 45.89}}
         out = anonymise_rm_map(src)
         self.assertEqual(sorted(out), ["C", "O"])
         self.assertEqual(out["C"]["thbBn"], 97.41)
@@ -58,8 +59,8 @@ class TestAnonymiseRmMap(unittest.TestCase):
 
     def test_collision_merges_rather_than_overwrites(self):
         # Two RMs sharing an initial must not silently drop a bucket.
-        src = {"Champ": {"issuers": 2, "thbBn": 10.0},
-               "Cat":   {"issuers": 3, "thbBn": 5.5}}
+        src = {"Cedar": {"issuers": 2, "thbBn": 10.0},
+               "Cinder": {"issuers": 3, "thbBn": 5.5}}
         out = anonymise_rm_map(src)
         self.assertEqual(list(out), ["C"])
         self.assertEqual(out["C"]["issuers"], 5)
@@ -71,15 +72,15 @@ class TestAnonymiseRmMap(unittest.TestCase):
 
 
 class TestBracketedFrontmatterValue(unittest.TestCase):
-    """build_sec_bonds.parse_frontmatter reads "rm: [Champ]" as a list.
+    """build_sec_bonds.parse_frontmatter reads "rm: [Cedar]" as a list.
 
-    str(["Champ"]) starts with "[", so without the list branch the record
+    str(["Cedar"]) starts with "[", so without the list branch the record
     publishes "[" as its RM code and falls out of every RM filter.
     """
 
     def test_list_value_folds_to_initial(self):
-        self.assertEqual(anonymise_rm(["Champ"]), "C")
-        self.assertEqual(anonymise_rm(("Kae",)), "K")
+        self.assertEqual(anonymise_rm(["Cedar"]), "C")
+        self.assertEqual(anonymise_rm(("Kilo",)), "K")
 
     def test_empty_list_is_none(self):
         self.assertIsNone(anonymise_rm([]))
@@ -88,13 +89,13 @@ class TestBracketedFrontmatterValue(unittest.TestCase):
         import build_sec_bonds
 
         fm, _ = build_sec_bonds.parse_frontmatter(
-            "---\nticker: AWC\nrm: [Champ]\n---\nbody\n"
+            "---\nticker: AWC\nrm: [Cedar]\n---\nbody\n"
         )
-        self.assertEqual(fm["rm"], ["Champ"])
+        self.assertEqual(fm["rm"], ["Cedar"])
         self.assertEqual(anonymise_rm(fm["rm"]), "C")
 
     def test_map_rekeys_a_list_key(self):
-        out = anonymise_rm_map({"Champ": {"issuers": 1}})
+        out = anonymise_rm_map({"Cedar": {"issuers": 1}})
         self.assertEqual(list(out), ["C"])
 
 
