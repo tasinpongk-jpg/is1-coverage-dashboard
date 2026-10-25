@@ -1,6 +1,6 @@
 # IS1 Team Coverage Dashboard
 
-Static site with daily-refreshed dashboards covering 230 SET-listed tickers across 6 RMs (Champ, Orn, Kae, Tony, Pim, Gift).
+Static site with daily-refreshed dashboards covering 230 SET-listed tickers across 6 RMs (C, O, K, T, P, G).
 
 Hosted on **Cloudflare Pages** (free tier). No backend — GitHub Actions runs the
 daily build in the cloud, commits JSON snapshots to this repo, Cloudflare
@@ -201,8 +201,8 @@ deep links, claim/source lineage and important null/coverage cases.
 
 | Trigger | Cron (UTC) | Bangkok local | Source | Reliability |
 |---|---|---|---|---|
-| **Primary** | `15 2 * * 1-5` | 09:15 | `cloudflare-cron/` Worker | Cloudflare cron — fires within seconds of the scheduled minute |
-| Backup | `15 2 * * 1-5` | 09:15 | `.github/workflows/daily.yml` schedule | GHA cron — best-effort, may drop or delay |
+| **Primary** | `15 2 * * MON-FRI` | 09:15 | `cloudflare-cron/` Worker | Cloudflare cron — fires within seconds of the scheduled minute. Cloudflare counts 1 as Sunday, so the expression is MON-FRI (same range as 2-6), not 1-5. |
+| Backup | `15 2 * * 1-5` | 09:15 | `.github/workflows/daily.yml` schedule | GHA cron — best-effort, may drop or delay. GitHub counts 1 as Monday, so 1-5 is already Monday-Friday. |
 
 Both are scheduled for the same minute, but in practice only the Worker is
 punctual — GHA's `schedule:` has been landing 100–130 minutes late every day,
@@ -232,8 +232,8 @@ weekdays and refreshes `data/disclosure-pulse.json` only:
 
 | Cron (UTC) | Bangkok local | Purpose |
 |---|---|---|
-| `0 7 * * 1-5` | 14:00 | afternoon catch-up for late-morning filings |
-| `0 11 * * 1-5` | 18:00 | end-of-day sweep for after-market filings |
+| `0 7 * * MON-FRI` on Cloudflare, `0 7 * * 1-5` on GitHub | 14:00 | afternoon catch-up for late-morning filings |
+| `0 11 * * MON-FRI` on Cloudflare, `0 11 * * 1-5` on GitHub | 18:00 | end-of-day sweep for after-market filings |
 
 - ✅ Poll SET, classify with rules + Haiku fallback, update DuckDB on R2.
 - ✅ Regenerate `data/disclosure-pulse.json` (DuckDB query, ~0.1s).

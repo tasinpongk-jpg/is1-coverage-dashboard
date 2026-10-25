@@ -14,6 +14,7 @@ from __future__ import annotations
 import os
 import smtplib
 import ssl
+import sys
 import time
 import uuid
 from collections import defaultdict
@@ -22,7 +23,11 @@ from email.message import EmailMessage
 from pathlib import Path
 from typing import Iterable
 
-from dotenv import load_dotenv
+try:
+    from dotenv import load_dotenv
+except ImportError:  # check mode and unit tests do not need a .env loader
+    def load_dotenv(*_args, **_kwargs):
+        return False
 
 from store import conn
 
@@ -264,10 +269,11 @@ def format_critical_digest(rows: list[dict]) -> list[str]:
 
     sec_map = _sector_lookup()
     rm_map = _rm_lookup()
+    label = _privacy().digest_label
 
     by_rm: dict[str, list[dict]] = defaultdict(list)
     for r in rows:
-        by_rm[rm_map.get(r["symbol"], "Unassigned")].append(r)
+        by_rm[label(r["symbol"], rm_map)].append(r)
 
     chunks: list[str] = []
 
@@ -331,19 +337,47 @@ def _sector_lookup() -> dict[str, str]:
     return {t: s for s, syms in COVERAGE.items() for t in syms}
 
 
+def _privacy():
+    """scripts/rm_privacy.py. Surveillance's cwd is not the scripts directory."""
+    root = Path(__file__).resolve().parent.parent
+    scripts = str(root / "scripts")
+    if scripts not in sys.path:
+        sys.path.insert(0, scripts)
+    import rm_privacy
+    return rm_privacy
+
+
 def _rm_lookup() -> dict[str, str]:
-    """Map ticker -> RM from rm.duckdb. Returns empty dict if rm.duckdb unavailable."""
+    """Map ticker -> RM code.
+
+    data/tickers.json is the source CI actually has. rm.duckdb is gitignored
+    and is not downloaded in the daily workflow, so a lookup that reads only
+    that file returns {} and every digest line becomes RM: Unassigned.
+    DuckDB fills symbols that are missing from tickers.json, and only when
+    the stored name resolves to a known code.
+    """
+    privacy = _privacy()
+    root = Path(__file__).resolve().parent.parent
+    out = privacy.coverage_rm_map(root / "data" / "tickers.json")
     try:
         import duckdb
-        rm_db = Path(__file__).parent.parent / "rm_db" / "rm.duckdb"
+        rm_db = root / "rm_db" / "rm.duckdb"
         if not rm_db.exists():
-            return {}
+            return out
         c = duckdb.connect(str(rm_db), read_only=True)
-        result = c.execute("SELECT symbol, rm_name FROM tickers WHERE rm_name IS NOT NULL").fetchall()
+        result = c.execute(
+            "SELECT symbol, rm_name FROM tickers WHERE rm_name IS NOT NULL"
+        ).fetchall()
         c.close()
-        return {sym: rm for sym, rm in result}
+        for sym, rm in result:
+            if sym in out:
+                continue
+            code = privacy.known_rm_code(rm)
+            if code:
+                out[sym] = code
     except Exception:
-        return {}
+        return out
+    return out
 
 
 # ---------------------------- DB queries --------------------------------- #

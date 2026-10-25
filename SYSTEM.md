@@ -89,7 +89,7 @@ GitHub Actions free tier, Cloudflare Pages free tier, Cloudflare R2 free tier.
 
 | Cron | Bangkok local | Emails sent |
 |---|---|---|
-| `15 2 * * 1-5` | 09:15 weekdays | critical + material digest |
+| GitHub backup `15 2 * * 1-5` (1=Monday). Cloudflare primary `15 2 * * MON-FRI` (there 1=Sunday, so 1-5 would skip Friday). | 09:15 weekdays | critical + material digest |
 
 Single morning run, full pipeline. Manual dispatch via `workflow_dispatch`
 (no inputs) re-runs the same flow — critical alerts are idempotent against

@@ -10,8 +10,8 @@ local timezone; verify with `hermes cron status`.
 Inputs (env vars):
   DAILY_BRIEF_WEBHOOK   — Discord webhook URL. **Required** — fail
                           closed if missing (we don't silently dry-run).
-  DAILY_BRIEF_RM        — letter code (default "C" = IS1 user Champ).
-                          Thai display names accepted via alias map.
+  DAILY_BRIEF_RM        — letter code (default "C"). A nickname resolves
+                          only through the private map in rm_privacy.py.
   DAILY_BRIEF_BASE_URL  — dashboard base (default deployed URL).
   DAILY_BRIEF_DRY_RUN   — if "1", print payload + skip POST (for tests).
   DAILY_BRIEF_ALLOW_STALE — if "1", post the brief even when dashboard
@@ -58,8 +58,8 @@ STATE_FILE_DEFAULT = Path.home() / ".hermes" / "cron" / "daily_brief_state.json"
 # State filename in cron job state dir (legacy filename kept for history).
 STATE_FILE = Path(os.environ.get("DAILY_BRIEF_STATE_DIR", str(STATE_FILE_DEFAULT))) / "state.json"
 
-# Letter code is authoritative. Thai display names are deprecated aliases.
-THAI_TO_LETTER = {"ฑศินพงศ์": "C"}
+# Letter code is authoritative. Nickname aliases live in the private map
+# (see scripts/rm_privacy.py), not in this file.
 
 # Discord hard limits (https://discord.com/developers/docs/resources/message#embed-object-embed-limits)
 DISCORD_MAX_EMBEDS_PER_MSG = 10
@@ -116,9 +116,8 @@ def _load_state(rm_key: str) -> dict:
 def _resolve_rm(name: str) -> str:
     if not name:
         return DEFAULT_RM
-    if name in THAI_TO_LETTER:
-        return THAI_TO_LETTER[name]
-    return name
+    from rm_privacy import known_rm_code
+    return known_rm_code(name) or name
 
 
 def _atomic_write_json(path: Path, obj: dict) -> None:

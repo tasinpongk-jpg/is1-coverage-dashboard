@@ -8,22 +8,20 @@ data/disclosure-pulse.json. Dedup is local
 external state store.
 
 Identity convention: tickers.json stores `rm` as a letter code
-("C", "K", "O", "G", "P", "T") for the IS1 team. The deployment's
-chat-dock.js maps these to friendly Thai names at the UI layer, but the
-authoritative key is the letter. We therefore default to "C" and treat
-the Thai name (`ฑศินพงศ์`) as a documented alias. Switching display
-names later MUST NOT replay the backlog.
+(C, K, O, G, P, T). The authoritative key is the letter. Default is C.
+A nickname resolves only through the private map in rm_privacy.py.
+Switching display names later MUST NOT replay the backlog.
 
 Inputs (env vars):
   DISCORD_PUSH_WEBHOOK    — webhook URL; absent → dry-run (logs payload).
-  RM_NAME                 — letter code (default "C" = IS1 user "Champ").
-                            Aliases: Thai first names (ฑศินพงศ์ → C).
+  RM_NAME                 — letter code (default C).
+                            Nicknames: private map, see scripts/rm_privacy.py.
   SEVERITY_MIN            — "low" | "medium" | "high" (default "low" = all).
   DISCORD_USERNAME        — bot display name (default "IS1 Disclosure Pulse").
 
 Logic:
   1. Load data/disclosure-pulse.json + data/tickers.json.
-  2. Resolve RM_NAME to its letter code (handles Thai alias).
+  2. Resolve RM_NAME to its letter code (private nickname map, else the code itself).
   3. Fail-closed: assert the resolved rm has a non-empty ticker set.
   4. Filter filings: ticker.tk in rm's coverage, severity >= SEVERITY_MIN,
      _id not already in state, ts <= 24h after state.pushed_at (skew guard).
@@ -62,7 +60,7 @@ TICKERS = DATA / "tickers.json"
 # Stable digest key. Use the letter code (authoritative in tickers.json);
 # treat Thai display names as deprecated aliases.
 DEFAULT_RM_NAME = "C"
-THAI_TO_LETTER = {"ฑศินพงศ์": "C"}  # extend if aliases change
+# Nickname aliases are not stored here. See scripts/rm_privacy.load_rm_name_map.
 
 SEVERITY_RANK = {"low": 1, "medium": 2, "high": 3}
 
@@ -102,12 +100,11 @@ def _tickers_for_rm(rm_key: str) -> set[str]:
 
 
 def _resolve_rm(name: str) -> str:
-    """Map Thai alias → letter code; pass through if already a code."""
+    """Map a private-config nickname to a letter code; pass a code through."""
     if not name:
         return DEFAULT_RM_NAME
-    if name in THAI_TO_LETTER:
-        return THAI_TO_LETTER[name]
-    return name  # letter code or unrecognised; tickers.json decides.
+    from rm_privacy import known_rm_code
+    return known_rm_code(name) or name  # unrecognised; tickers.json decides.
 
 
 def _load_state(rm_key: str) -> dict:

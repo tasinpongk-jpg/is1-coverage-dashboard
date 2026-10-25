@@ -21,13 +21,27 @@
 const MAX_ATTEMPTS = 3;
 const BACKOFF_MS = [0, 2000, 6000];
 
+// Cloudflare weekdays run 1=Sunday .. 7=Saturday, so 1-5 is Sunday-Thursday
+// and skips Friday. Names and the numeric form 2-6 are the same Monday-Friday
+// range. event.cron is matched after folding those names to numbers, so a
+// MON-FRI expression and a 2-6 expression hit the same entry.
+const DAY_NUM = { SUN: "1", MON: "2", TUE: "3", WED: "4", THU: "5", FRI: "6", SAT: "7" };
+
+export function canonicalCron(expr) {
+  const parts = String(expr || "").trim().toUpperCase().split(/\s+/);
+  if (parts.length !== 5) return parts.join(" ");
+  parts[4] = parts[4].replace(/[A-Z]{3}/g, (name) => DAY_NUM[name] || name);
+  return parts.join(" ");
+}
+
 // Maps each cron expression in wrangler.toml [triggers] to the workflow
-// filename it should dispatch. Adding a new cron means adding both an entry
-// here and the corresponding line in wrangler.toml.
+// filename it should dispatch. Keys are canonical (weekday names folded).
+// Adding a new cron means adding both an entry here and the corresponding
+// line in wrangler.toml.
 const CRON_TO_WORKFLOW = {
-  "15 2 * * 1-5": "daily.yml",              // 09:15 BKK — full pipeline
-  "0 7 * * 1-5":  "disclosure-refresh.yml", // 14:00 BKK — afternoon catch-up
-  "0 11 * * 1-5": "disclosure-refresh.yml", // 18:00 BKK — end-of-day sweep
+  "15 2 * * 2-6": "daily.yml",              // 09:15 BKK Mon-Fri — full pipeline
+  "0 7 * * 2-6":  "disclosure-refresh.yml", // 14:00 BKK Mon-Fri — afternoon catch-up
+  "0 11 * * 2-6": "disclosure-refresh.yml", // 18:00 BKK Mon-Fri — end-of-day sweep
   "30 2 16 8 *": {
     workflow: "quarterly-filing-refresh.yml",
     inputs: { filing_period: "2026Q2_H1", filing_deadline: "2026-08-16" },
@@ -87,9 +101,13 @@ async function pingHealthcheck(url, suffix = "") {
   }
 }
 
+export function workflowForCron(expr) {
+  return CRON_TO_WORKFLOW[canonicalCron(expr)];
+}
+
 export default {
   async scheduled(event, env, ctx) {
-    const target = CRON_TO_WORKFLOW[event.cron];
+    const target = workflowForCron(event.cron);
     if (!target) {
       throw new Error(`No workflow mapped for cron "${event.cron}". Update CRON_TO_WORKFLOW in worker.js.`);
     }

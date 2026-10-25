@@ -19,9 +19,11 @@ duplicate one.
 
 | Cron (UTC) | Bangkok local | Workflow | Notes |
 |---|---|---|---|
-| `15 2 * * 1-5` | 09:15 | `daily.yml` | full pipeline (surveillance + emails + 4 dashboards) |
-| `0 7 * * 1-5` | 14:00 | `disclosure-refresh.yml` | afternoon catch-up, disclosure-pulse only |
-| `0 11 * * 1-5` | 18:00 | `disclosure-refresh.yml` | end-of-day sweep, disclosure-pulse only |
+| `15 2 * * MON-FRI` | 09:15 | `daily.yml` | full pipeline (surveillance + emails + 4 dashboards) |
+| `0 7 * * MON-FRI` | 14:00 | `disclosure-refresh.yml` | afternoon catch-up, disclosure-pulse only |
+| `0 11 * * MON-FRI` | 18:00 | `disclosure-refresh.yml` | end-of-day sweep, disclosure-pulse only |
+
+Cloudflare numbers weekdays 1=Sunday through 7=Saturday. `1-5` is Sunday-Thursday and skips Friday, which left the morning brief to the later GitHub backup. `MON-FRI` is Monday-Friday (the same range as `2-6`). GitHub Actions and healthchecks.io use the other convention, where 1 is Monday, so their expressions stay `1-5`. Redeploy the Worker after changing `wrangler.toml`; a commit alone does not update the live triggers.
 
 Routing lives in `worker.js` (`CRON_TO_WORKFLOW`). Adding a new fire time
 requires one entry there plus one line in `wrangler.toml [triggers]`.
@@ -65,8 +67,8 @@ Prereqs: `npm install -g wrangler`, Cloudflare account with Workers enabled.
 
 2. **(Optional) Create two healthchecks.io checks** at
    <https://healthchecks.io>:
-   - `is1-daily-dispatch` — cron `15 2 * * 1-5` UTC, grace 30 min
-   - `is1-disclosure-dispatch` — cron `0 7,11 * * 1-5` UTC, grace 15 min
+   - `is1-daily-dispatch` — cron `15 2 * * 1-5` UTC, grace 30 min (healthchecks.io uses standard cron, 1=Monday)
+   - `is1-disclosure-dispatch` — cron `0 7,11 * * 1-5` UTC, grace 15 min (standard cron, 1=Monday)
    - Copy the two `hc-ping.com/<uuid>` URLs.
 
 3. **Push secrets** from this directory:

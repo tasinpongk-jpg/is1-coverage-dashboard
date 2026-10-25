@@ -1,5 +1,10 @@
 # Local-only — never commit
 .env
+
+# Nickname-to-code map. Copy config/rm-names.example.json to this path
+# and fill it in on the laptop. CI does not have it and does not need it:
+# data/tickers.json already stores the single-letter codes.
+config/rm-names.local.json
 *.duckdb
 *.db
 *.bak
