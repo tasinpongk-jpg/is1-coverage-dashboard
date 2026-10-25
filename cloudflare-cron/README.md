@@ -19,14 +19,32 @@ duplicate one.
 
 | Cron (UTC) | Bangkok local | Workflow | Notes |
 |---|---|---|---|
-| `15 2 * * MON-FRI` | 09:15 | `daily.yml` | full pipeline (surveillance + emails + 4 dashboards) |
+| `15 2 * * MON-FRI` | 09:15 | `daily.yml` | full pipeline; also the filing-deadline prompt when that Bangkok date is due |
 | `0 7 * * MON-FRI` | 14:00 | `disclosure-refresh.yml` | afternoon catch-up, disclosure-pulse only |
 | `0 11 * * MON-FRI` | 18:00 | `disclosure-refresh.yml` | end-of-day sweep, disclosure-pulse only |
 
+The account is on the Workers Free plan, which allows 5 cron triggers per account. `whoop-health-desk` holds 2, so this worker declares exactly these 3. Adding a fourth trigger fails the Workers Build with Cloudflare code 10072 and leaves the live crons stale.
+
 Cloudflare numbers weekdays 1=Sunday through 7=Saturday. `1-5` is Sunday-Thursday and skips Friday, which left the morning brief to the later GitHub backup. `MON-FRI` is Monday-Friday (the same range as `2-6`). GitHub Actions and healthchecks.io use the other convention, where 1 is Monday, so their expressions stay `1-5`. Redeploy the Worker after changing `wrangler.toml`; a commit alone does not update the live triggers.
 
-Routing lives in `worker.js` (`CRON_TO_WORKFLOW`). Adding a new fire time
-requires one entry there plus one line in `wrangler.toml [triggers]`.
+Routing for the three crons lives in `worker.js` (`CRON_TO_WORKFLOW`). The morning cron additionally consults the filing-date list. Adding a new fire time requires one entry there plus one line in `wrangler.toml [triggers]`, and only when the account still has a free cron slot.
+
+## Filing-deadline prompts
+
+These four dates used to be their own 02:30 UTC crons (`30 2 16 8 *`, `30 2 16 11 *`, `30 2 1 3 *`, `30 2 16 5 *`), including Saturday and Sunday. They now ride the 02:15 UTC Monday-Friday run. That instant is 09:15 Bangkok and the same UTC calendar day as the old 02:30 UTC fire. The handler reads `event.scheduledTime` and resolves the civil date in `Asia/Bangkok`, not the wall clock.
+
+| Active date | Weekday | Inputs | When the 02:15 run dispatches it |
+|---|---|---|---|
+| 2026-08-16 | Sunday | `2026Q2_H1` / `2026-08-16` | next Monday, 2026-08-17 |
+| 2026-11-16 | Monday | `2026Q3` / `2026-11-16` | that Monday, once |
+| 2027-03-01 | Monday | `2026FY_DEC` / `2027-03-01` | that Monday, once |
+| 2027-05-16 | Sunday | `2027Q1` / `2027-05-16` | next Monday, 2027-05-17 |
+
+Weekend rule: the 02:15 cron is `MON-FRI` only, so it does not fire on the filing date when that date is Saturday or Sunday. The prompt is dispatched on the next Monday, the first 02:15 run after the filing date. A Monday that is itself a filing date dispatches that prompt once, not a second time as a weekend catch-up. A Saturday and Sunday pair that resolves to the same workflow inputs dispatches that prompt once. Two different prompts in the same weekend each dispatch once.
+
+On a filing morning the single 02:15 invocation builds the set `{daily.yml, filing prompt}`, drops duplicates, and dispatches each workflow once. The 07:00 and 11:00 runs do not consult the filing list; they still dispatch only `disclosure-refresh.yml`.
+
+Weekday prompts move from 02:30 UTC to 02:15 UTC. Weekend prompts move from the weekend day at 02:30 UTC to the following Monday at 02:15 UTC.
 
 ## Architecture
 
@@ -37,6 +55,7 @@ requires one entry there plus one line in `wrangler.toml [triggers]`.
         ▼                                       │
   Worker.scheduled(event)                       │
    ↓ event.cron → CRON_TO_WORKFLOW              │
+   ↓ 02:15 also adds a due filing prompt        │
    POST /repos/.../workflows/<file>/dispatches  │
         │                                       │
         └───────────────┬───────────────────────┘
@@ -85,8 +104,9 @@ Prereqs: `npm install -g wrangler`, Cloudflare account with Workers enabled.
    wrangler deploy
    ```
 
-   wrangler prints the Worker URL and registers all 3 cron triggers from
-   `wrangler.toml`.
+   wrangler prints the Worker URL and registers the 3 cron triggers from
+   `wrangler.toml`. Three is the whole budget left on this account: the
+   Workers Free plan allows 5 crons and `whoop-health-desk` holds the other 2.
 
 5. **Smoke-test each workflow**:
    ```bash

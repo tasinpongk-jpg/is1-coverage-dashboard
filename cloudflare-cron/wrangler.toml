@@ -20,6 +20,14 @@ compatibility_date = "2026-05-01"
 # worker.js routes each cron to the corresponding workflow via CRON_TO_WORKFLOW.
 # Times below are UTC; conversions to Bangkok (UTC+7) shown for review.
 #
+# The account is on the Workers Free plan, which allows 5 cron triggers per
+# account. whoop-health-desk holds 2, so this worker keeps exactly 3. A fourth
+# trigger is rejected (Cloudflare code 10072) and leaves the live crons stale.
+# The annual filing-deadline dates (16 Aug, 16 Nov, 1 Mar, 16 May, formerly
+# 02:30 UTC) are folded into the 02:15 UTC MON-FRI run in worker.js. A filing
+# date that falls on Saturday or Sunday is dispatched on the next Monday
+# 02:15 UTC run, the first morning run after that date.
+#
 # Cloudflare numbers weekdays 1=Sunday through 7=Saturday. A range of 1-5 is
 # Sunday-Thursday and never fires on Friday, so the morning brief then waits
 # for the later GitHub backup (and a Sunday run fires as well). MON-FRI is
@@ -27,13 +35,9 @@ compatibility_date = "2026-05-01"
 # its backup expressions stay 1-5 on purpose.
 [triggers]
 crons = [
-  "15 2 * * MON-FRI", # 02:15 UTC / 09:15 BKK Mon-Fri → daily.yml (full pipeline)
+  "15 2 * * MON-FRI", # 02:15 UTC / 09:15 BKK Mon-Fri → daily.yml, plus a filing prompt on deadline dates
   "0 7 * * MON-FRI",  # 07:00 UTC / 14:00 BKK Mon-Fri → disclosure-refresh.yml (afternoon)
   "0 11 * * MON-FRI", # 11:00 UTC / 18:00 BKK Mon-Fri → disclosure-refresh.yml (end-of-day)
-  "30 2 16 8 *",      # 02:30 UTC / 09:30 BKK Aug 16 → Q2/H1 filing-deadline prompt
-  "30 2 16 11 *",     # 02:30 UTC / 09:30 BKK Nov 16 → Q3 filing-deadline prompt
-  "30 2 1 3 *",       # 02:30 UTC / 09:30 BKK Mar 1 → annual Dec-FY filing prompt
-  "30 2 16 5 *",      # 02:30 UTC / 09:30 BKK May 16 → Q1 filing-deadline prompt
 ]
 
 [vars]
