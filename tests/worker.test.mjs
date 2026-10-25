@@ -850,8 +850,14 @@ test("ticker symbols are uppercased instruction present (linkability)", async ()
 test("output verification flags an ungrounded ticker the model invents", async () => {
   // Make the stub model emit a covered ticker that is NOT in its context.
   const tickers = JSON.parse(await readFile("./data/tickers.json", "utf-8")).tickers;
-  // a covered ticker very unlikely to be in a single-ticker focused context
-  const other = tickers[tickers.length - 1].tk;
+  // Probe the focused context first, then pick a covered ticker that is truly
+  // absent from it, using the same case-insensitive word-boundary rule as
+  // ungroundedTickers(). Data-independent: today's alerts can name any ticker.
+  await worker.fetch(chatReq({ agent: "atlas", messages: [{ role: "user", content: `price of ${tickers[0].tk}?` }] }), env);
+  const probeCtx = lastSystem;
+  const other = [...tickers].reverse().map((t) => t.tk)
+    .find((tk) => tk !== tickers[0].tk && !new RegExp(`\\b${tk}\\b`, "i").test(probeCtx));
+  assert.ok(other, "no covered ticker is absent from the focused context");
   const saved = env.MINIMAX_FETCH;
   env.MINIMAX_FETCH = async (_url, opts) => {
     const body = JSON.parse(opts.body);
@@ -866,11 +872,8 @@ test("output verification flags an ungrounded ticker the model invents", async (
     // focus on tickers[0] so the context is a different name; reply names `other`
     const r = await worker.fetch(chatReq({ agent: "atlas", messages: [{ role: "user", content: `price of ${tickers[0].tk}?` }] }), env);
     const d = await r.json();
-    // `other` only counts as ungrounded if it wasn't in the (focused) context
-    if (!lastSystem.includes(` ${other} `)) {
-      assert.ok(d.reply.includes("⚠ Unverified") && d.reply.includes(other),
-        "expected an Unverified flag for the ungrounded ticker");
-    }
+    assert.ok(d.reply.includes("⚠ Unverified") && d.reply.includes(other),
+      "expected an Unverified flag for the ungrounded ticker");
   } finally { env.MINIMAX_FETCH = saved; }
 });
 

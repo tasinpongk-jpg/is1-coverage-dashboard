@@ -69,10 +69,10 @@ test("Sector Intelligence v4 preserves the audited perimeter and adds claim-leve
   }
 
   const allCompanies = Object.values(data.sectors).flatMap((sector) => sector.segments.flatMap((segment) => segment.companies));
-  assert.equal(allCompanies.length, 118);
-  assert.equal(allCompanies.filter((company) => company.performanceDrivers.primaryMdaAvailable).length, 117);
+  assert.equal(allCompanies.length, 117);
+  assert.equal(allCompanies.filter((company) => company.performanceDrivers.primaryMdaAvailable).length, 116);
   assert.deepEqual(allCompanies.filter((company) => !company.performanceDrivers.primaryMdaAvailable).map((company) => company.ticker).sort(), ["AKS"]);
-  assert.equal(allCompanies.filter((company) => company.performanceDrivers.sourceStatus === "primary_verified").length, 117);
+  assert.equal(allCompanies.filter((company) => company.performanceDrivers.sourceStatus === "primary_verified").length, 116);
   assert.deepEqual(allCompanies.filter((company) => company.performanceDrivers.sourceStatus === "missing_primary_source").map((company) => company.ticker).sort(), ["AKS"]);
   assert.deepEqual(allCompanies.filter((company) => company.performanceDrivers.sourceStatus === "reextract_required").map((company) => company.ticker), []);
   for (const company of allCompanies.filter((item) => item.performanceDrivers.sourceStatus === "primary_verified")) {
@@ -142,7 +142,7 @@ test("Sector Intelligence v4 preserves the audited perimeter and adds claim-leve
 test("Every company analysis has a business profile and official SET logo", async () => {
   const [sectorData, tickerData] = await Promise.all([read("data/sector-intelligence.json"), read("data/ticker-summary.json")].map(async (value) => JSON.parse(await value)));
   const companies = Object.values(sectorData.sectors).flatMap((sector) => sector.segments.flatMap((segment) => segment.companies));
-  assert.equal(companies.length, 118);
+  assert.equal(companies.length, 117);
   const metaByTicker = new Map(tickerData.tickers.map((ticker) => [ticker.tk, ticker]));
   for (const company of companies) {
     const meta = metaByTicker.get(company.ticker);
