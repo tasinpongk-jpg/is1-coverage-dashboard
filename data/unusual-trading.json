@@ -1,5 +1,5 @@
 {
-  "asOf": "2026-10-23",
+  "asOf": "2026-10-25",
   "source": "SETSMART intraday API · 36 alerts across 28 tickers",
   "thresholds": {
     "vol_spike": {
@@ -541,24 +541,22 @@
       "sector": "PROP",
       "type": "Price gap",
       "atype": "gap",
-      "severity": "low",
+      "severity": "medium",
       "value": 3.846,
       "label": "-3.85% open gap",
       "evidence": {
         "open": 0.25,
         "prevClose": 0.26
       },
-      "filingsLinked": 1,
-      "filingsTitles": [
-        "Report on the results of sale of common shares offered to all common shares' shareholders (F53-5)"
-      ]
+      "filingsLinked": 0,
+      "filingsTitles": []
     },
     {
       "tk": "PRECHA",
       "sector": "PROP",
       "type": "Intraday move",
       "atype": "intraday",
-      "severity": "low",
+      "severity": "medium",
       "value": 4.0,
       "label": "+4.00% intraday",
       "evidence": {
@@ -567,10 +565,8 @@
         "high": 0.27,
         "low": 0.25
       },
-      "filingsLinked": 1,
-      "filingsTitles": [
-        "Report on the results of sale of common shares offered to all common shares' shareholders (F53-5)"
-      ]
+      "filingsLinked": 0,
+      "filingsTitles": []
     },
     {
       "tk": "KC",
@@ -971,6 +967,29 @@
       ]
     },
     {
+      "tk": "PRECHA",
+      "sector": "PROP",
+      "alertCount": 2,
+      "highestSeverity": "medium",
+      "filingsLinked": 0,
+      "alertTypes": [
+        {
+          "atype": "gap",
+          "type": "Price gap",
+          "severity": "medium"
+        },
+        {
+          "atype": "intraday",
+          "type": "Intraday move",
+          "severity": "medium"
+        }
+      ],
+      "summary": [
+        "Price gap: -3.85% open gap",
+        "Intraday move: +4.00% intraday"
+      ]
+    },
+    {
       "tk": "BROCK",
       "sector": "PROP",
       "alertCount": 1,
@@ -1105,31 +1124,8 @@
       "summary": [
         "Volume spike: 2.7σ vs 20D avg"
       ]
-    },
-    {
-      "tk": "PRECHA",
-      "sector": "PROP",
-      "alertCount": 2,
-      "highestSeverity": "low",
-      "filingsLinked": 1,
-      "alertTypes": [
-        {
-          "atype": "gap",
-          "type": "Price gap",
-          "severity": "low"
-        },
-        {
-          "atype": "intraday",
-          "type": "Intraday move",
-          "severity": "low"
-        }
-      ],
-      "summary": [
-        "Price gap: -3.85% open gap",
-        "Intraday move: +4.00% intraday"
-      ]
     }
   ],
-  "_built_at": "2026-10-23T07:51:19.270152+00:00",
+  "_built_at": "2026-10-25T02:31:38.595066+00:00",
   "_coverage_size": 230
 }
