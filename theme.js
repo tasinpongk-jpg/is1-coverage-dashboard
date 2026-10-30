@@ -31,6 +31,32 @@
 
   var currentMode = savedMode();
 
+  // Shell boot. nav.js is deferred, so before it runs the page would paint
+  // without the rail, top bar, news bar and side panels and then jump when
+  // they are inserted. Mark <html> now (this script runs in <head>) so
+  // theme.css can reserve the frame at its final size from the first paint
+  // and hold the page content until the shell is in place. nav.js removes
+  // the marks once it has built the shell; DOMContentLoaded removes them if
+  // nav.js never ran, so a failed script can't leave the page hidden.
+  function shellBoot() {
+    try {
+      if (new URLSearchParams(location.search).get("embedded") === "1") return;
+      var page = (location.pathname.split("/").pop() || "index.html").replace(/\.html$/, "") || "index";
+      var rm = localStorage.getItem("is1_rm") || "C";
+      root.classList.add("is1s-boot");
+      if (localStorage.getItem("is1_shell_modules") === "collapsed") root.classList.add("is1s-boot-collapsed");
+      var context = localStorage.getItem("is1_shell_context");
+      if (page === "index" && (context === "open" || context == null) && innerWidth > 1250) root.classList.add("is1s-boot-context");
+      if (localStorage.getItem("is1_newsbar_empty:" + rm) !== "1") root.classList.add("is1s-boot-news");
+    } catch (e) {}
+  }
+  shellBoot();
+  // Deferred scripts (nav.js) have run by DOMContentLoaded; if nav.js failed
+  // or is missing, release the page here so it is never left hidden.
+  document.addEventListener("DOMContentLoaded", function () {
+    root.classList.remove("is1s-boot", "is1s-boot-collapsed", "is1s-boot-context", "is1s-boot-news");
+  });
+
   function apply(mode, persist) {
     currentMode = MODES.indexOf(mode) >= 0 ? mode : "system";
     root.dataset.themeMode = currentMode;
