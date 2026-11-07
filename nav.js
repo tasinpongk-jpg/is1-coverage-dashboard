@@ -187,6 +187,15 @@
     if (/^https?:\/\//.test(path)) return path;
     return base ? base + "/" + path : path;
   }
+  function newsbarWasEmpty(rm) {
+    try { return localStorage.getItem("is1_newsbar_empty:" + rm) === "1"; } catch (e) { return false; }
+  }
+  function rememberNewsbar(rm,empty) {
+    try {
+      if (empty) localStorage.setItem("is1_newsbar_empty:" + rm,"1");
+      else localStorage.removeItem("is1_newsbar_empty:" + rm);
+    } catch (e) {}
+  }
   function finite(value) { return value !== null && value !== "" && Number.isFinite(Number(value)); }
   function average(values) {
     var nums = values.filter(finite).map(Number);
@@ -221,7 +230,7 @@
   var selectedModuleId = pageInfo ? pageInfo.group.id : "home";
   var legacyHeader = Array.prototype.find.call(document.body.children,function (node) { return node.tagName === "HEADER"; });
   if (legacyHeader) legacyHeader.classList.add("is1s-legacy-header");
-  document.body.classList.add("is1-shell-ready");
+  document.body.classList.add("is1-shell-ready","is1s-shell-settling");
   document.body.classList.add("is1s-page-" + hereKey.replace(/[^a-z0-9-]/g,""));
 
   var rail = document.createElement("aside");
@@ -252,6 +261,16 @@
   modulePanel.className = "is1s-modules";
   modulePanel.setAttribute("aria-label",L("Dashboard pages","รายการหน้า"));
 
+  // Data freshness chips in the page-list foot (rendered by renderHealth()).
+  var HEALTH = [
+    { key:"prices",    label:["Prices","ราคา"],           file:"morning-brief",      from:function (d) { return d.brief._built_at || d.brief.asOf; } },
+    { key:"filings",   label:["Filings","ข่าว SET"],      file:"disclosure-pulse",   from:function (d) { return d.pulse._built_at || d.pulse.asOf; } },
+    { key:"summaries", label:["Summaries","สรุปข่าว"],    file:"filing-summaries",   field:"generated" },
+    { key:"vault",     label:["Vault notes","Vault"],     file:"vault-ticker-notes", field:"generated" },
+    { key:"sector",    label:["Sector intel","Sector"],   file:"sector-intelligence", field:"effectiveMarketEod" },
+    { key:"people",    label:["Board","กรรมการ"],          file:"company-people",     field:"generated" },
+    { key:"reports",   label:["Reports","รายงาน"],        file:"company-reports",    field:"generated", manual:true },
+  ];
   function moduleMarkup() {
     return '<div class="is1s-module-head"><div><strong>Control Room</strong><span>IS1 Coverage Desk</span></div>' +
       '<button class="is1s-icon-btn" type="button" data-shell-action="collapse" title="' + esc(L("Collapse sidebar","ย่อ sidebar")) + '">' + icon("panel-left-close") + "</button></div>" +
@@ -273,7 +292,7 @@
           }).join("") + "</section>";
       }).join("") + '<div class="is1s-module-spacer" aria-hidden="true"></div></div><div class="is1s-module-foot"><div><span class="is1s-live-dot" data-shell-health-dot></span><span data-shell-freshness>' +
       esc(L("Loading snapshot","กำลังโหลด snapshot")) + '</span></div><div class="is1s-health" data-shell-health aria-label="' +
-      esc(L("Data freshness","ความสดของข้อมูล")) + '"></div></div>';
+      esc(L("Data freshness","ความสดของข้อมูล")) + '">' + cachedHealth() + '</div></div>';
   }
   modulePanel.innerHTML = moduleMarkup();
 
@@ -343,15 +362,18 @@
   tape.className = "is1-tape";
   tape.setAttribute("aria-label",L("Coverage price movers","ราคาหลักทรัพย์ที่ดูแล"));
   tape.innerHTML =
-    '<div class="is1-tape-head"><span><i class="is1-live-pulse"></i>' + esc(L("Movers","ราคา")) + '</span><b data-pulse-rm></b></div>' +
+    '<div class="is1-tape-head"><span><i class="is1-live-pulse"></i>' + esc(L("Movers","ราคา")) + '</span><b data-pulse-rm>' + esc(rmLabel(state.rm)) + '</b></div>' +
     '<div class="is1-pulse-lane is1-tape-lane" data-pulse-lane="prices"><div class="is1-pulse-track"></div></div>';
   var newsbar = document.createElement("div");
   newsbar.className = "is1-newsbar";
-  newsbar.hidden = true;
+  // Keep the bar's 44px from the first paint (the lane fills in when the
+  // snapshot arrives) instead of hidden-then-shown, which pushed every page
+  // down. It starts collapsed only if this RM had no news on the last visit.
+  newsbar.hidden = newsbarWasEmpty(state.rm);
   newsbar.setAttribute("role","region");
   newsbar.setAttribute("aria-label",L("Latest coverage news","ข่าวล่าสุดของหลักทรัพย์ที่ดูแล"));
   newsbar.innerHTML =
-    '<a class="is1-newsbar-tag" href="' + esc(href("disclosure-pulse.html")) + '"><i class="is1-live-pulse"></i>' + esc(L("Latest news","ข่าวล่าสุด")) + ' · <b data-pulse-rm></b></a>' +
+    '<a class="is1-newsbar-tag" href="' + esc(href("disclosure-pulse.html")) + '"><i class="is1-live-pulse"></i>' + esc(L("Latest news","ข่าวล่าสุด")) + ' · <b data-pulse-rm>' + esc(rmLabel(state.rm)) + '</b></a>' +
     '<div class="is1-pulse-lane is1-newsbar-lane" data-pulse-lane="news"><div class="is1-pulse-track"></div></div>';
 
   var insertPoint = legacyHeader || document.body.firstChild;
@@ -870,19 +892,10 @@
     renderHealth();
   }
 
-  // Data freshness strip: one chip per snapshot the pages lean on, coloured on
-  // the 7 / 14 day contract of scripts/check_snapshot_freshness.py. Prices and
-  // filings come from data the shell already loaded; the large files are read
+  // Data freshness strip (HEALTH, defined above moduleMarkup): one chip per
+  // snapshot the pages lean on, coloured on the 7 / 14 day contract of
+  // scripts/check_snapshot_freshness.py. Prices and filings come from data the shell already loaded; the large files are read
   // only up to their top-level timestamp, then the download is cancelled.
-  var HEALTH = [
-    { key:"prices",    label:["Prices","ราคา"],           file:"morning-brief",      from:function (d) { return d.brief._built_at || d.brief.asOf; } },
-    { key:"filings",   label:["Filings","ข่าว SET"],      file:"disclosure-pulse",   from:function (d) { return d.pulse._built_at || d.pulse.asOf; } },
-    { key:"summaries", label:["Summaries","สรุปข่าว"],    file:"filing-summaries",   field:"generated" },
-    { key:"vault",     label:["Vault notes","Vault"],     file:"vault-ticker-notes", field:"generated" },
-    { key:"sector",    label:["Sector intel","Sector"],   file:"sector-intelligence", field:"effectiveMarketEod" },
-    { key:"people",    label:["Board","กรรมการ"],          file:"company-people",     field:"generated" },
-    { key:"reports",   label:["Reports","รายงาน"],        file:"company-reports",    field:"generated", manual:true },
-  ];
   var healthStamps = {};
   var healthPromise = null;
   function headStamp(name,field) {
@@ -922,6 +935,21 @@
     if (days < 1) return L(Math.max(1,Math.round(days * 24)) + "h",Math.max(1,Math.round(days * 24)) + " ชม.");
     return L(Math.floor(days) + "d",Math.floor(days) + " วัน");
   }
+  // The freshness chips arrive after a few small fetches; start from the last
+  // rendering (same chips, possibly a day older) so the panel foot doesn't
+  // grow under the cursor. renderHealth() replaces it with current values.
+  function healthCacheKey() { return "is1_shell_health:" + L("en","th"); }
+  function cachedHealth() {
+    try {
+      var html = localStorage.getItem(healthCacheKey()) || "";
+      if (/^<span class="is1s-health-chip[\s\S]*<\/span>$/.test(html)) return html;
+    } catch (e) {}
+    // First visit: the same chips with their values held blank, so the foot
+    // already has its final size.
+    return HEALTH.map(function (item) {
+      return '<span class="is1s-health-chip is1s-h-manual"><i></i>' + esc(L(item.label[0],item.label[1])) + '<b style="visibility:hidden">0d</b></span>';
+    }).join("");
+  }
   function renderHealth() {
     var host = modulePanel.querySelector("[data-shell-health]");
     if (!host) return;
@@ -940,6 +968,7 @@
       }).join("");
       var dot = modulePanel.querySelector("[data-shell-health-dot]");
       if (dot) dot.className = "is1s-live-dot" + (worst === 2 ? " is1s-h-stale" : worst === 1 ? " is1s-h-warn" : "");
+      try { localStorage.setItem(healthCacheKey(),host.innerHTML); } catch (e) {}
     });
   }
 
@@ -1179,12 +1208,14 @@
     var news = rmFilings().filter(function (f) { return withinHours(f.ts,24 * 7); })
       .sort(function (a,b) { return severityRank(b.severity) - severityRank(a.severity) || String(b.ts || "").localeCompare(String(a.ts || "")); })
       .filter(function (f) { if (seen[f.tk]) return false; seen[f.tk] = true; return true; }).slice(0,24);
-    bar.hidden = !fillLane(bar.querySelector('[data-pulse-lane="news"]'),news.map(function (f) {
+    var hasNews = fillLane(bar.querySelector('[data-pulse-lane="news"]'),news.map(function (f) {
       var title = L(f.title || f.title_th,f.title_th || f.title) || "";
       return '<a class="is1-rb-chip is1-news-chip news sev-' + severityRank(f.severity) + '" href="' + esc(href("company-summary.html?tk=" + encodeURIComponent(f.tk) + "&tab=disclosures")) +
         '" title="' + esc(f.tk + " · " + title) + '">' + logoMark(f.tk) + '<b>' + esc(f.tk) + '</b><em>' + esc(newsType(f.type)) + '</em>' +
         '<span class="is1-news-chip-title">' + esc(title) + '</span><small>' + esc(relTime(f.ts)) + "</small></a>";
     }),5,8);
+    bar.hidden = !hasNews;
+    rememberNewsbar(state.rm,!hasNews);
   }
 
   function renderShellData() {
@@ -1267,6 +1298,97 @@
   }
 
   buildHome();
+
+  // Blocks that pages (and the home newsroom) fill after their data arrives
+  // start empty, so everything under them used to jump down when they
+  // filled. Hold each one at the height it had last time at this width
+  // (first visit: a typical height) until it has content. Heights are
+  // remembered a few seconds after load; any hold still empty by then is
+  // released so an error state doesn't keep a blank gap.
+  var HOLD_BLOCKS = {
+    "index":[["[data-home-news-stats]",55,55],["[data-home-lead]",253,292],["[data-home-seconds]",160,160],["[data-home-timeline]",470,470]],
+    "company-summary":[["#hero",57,122],["#sectFilter",27,27],["#sortFilter",27,27]],
+    "disclosure-pulse":[["#statsBar",57,57],["#windowTabs",28,28],["#sevTabs",28,28],["#sectorTabs",28,28],["#filingCal",444,444]],
+    "unusual-trading":[["#statsBar",57,57],["#explainTabs",27,27],["#sevTabs",28,28],["#typeTabs",28,28],["#sectorTabs",28,28],["#moveMap",406,282]],
+    "external-news":[["#statsBar",57,57],["#windowTabs",28,28],["#srcTabs",28,60],["#sectorTabs",28,28],["#nfTabs",28,28]],
+    "price-movement":[["#treemap",466,466]],
+  };
+  // Blocks that already have content but grow when the page fills them (the
+  // page head when a long "data as of" line wraps, filter rows that wrap once
+  // their chips arrive): held at last visit's height, or a typical height
+  // where one is known (min-height only, so it never clips).
+  // Page heads whose "data as of" line wraps to a second line on a narrow
+  // content column (~620px): typical height there.
+  var HEAD_NARROW = { "ai-insights":112, "disclosure-pulse":127, "external-news":127, "multiples-comparison":112, "unusual-trading":112 };
+  var GROW_BLOCKS = {
+    "*":[[".is1s-page-head",null,HEAD_NARROW[hereKey] || null]],
+    "company-summary":[[".controls"]],
+    "disclosure-pulse":[[".tab-bar>.tab-row:nth-child(1)",44,44],[".tab-bar>.tab-row:nth-child(3)",45,77]],
+    "unusual-trading":[[".tab-bar>.tab-row:nth-child(1)",43,43],[".tab-bar>.tab-row:nth-child(3)",77,109]],
+    "external-news":[[".tab-bar>.tab-row:nth-child(1)",44,44],[".tab-bar>.tab-row:nth-child(2)",77,147],[".tab-bar>.tab-row:nth-child(3)",45,45]],
+  };
+  var HOLD_KEY = "is1_shell_heights";
+  function holdStore() {
+    try { return JSON.parse(localStorage.getItem(HOLD_KEY) || "{}") || {}; } catch (e) { return {}; }
+  }
+  function hostWidth(node) {
+    var host = node.parentNode;
+    if (!host || !host.clientWidth) return innerWidth;
+    var cs = getComputedStyle(host);
+    return host.clientWidth - (parseFloat(cs.paddingLeft) || 0) - (parseFloat(cs.paddingRight) || 0);
+  }
+  function holdId(selector,node) {
+    return hereKey + " " + selector + " @" + Math.round(hostWidth(node) / 16);
+  }
+  function holdBlocks() {
+    var list = HOLD_BLOCKS[hereKey] || [];
+    var store = holdStore();
+    var held = [];
+    list.forEach(function (item) {
+      var node = document.querySelector(item[0]);
+      if (!node || node.childNodes.length) return;
+      var id = holdId(item[0],node);
+      var wide = hostWidth(node) >= 640;
+      var height = store[id] || (wide ? item[1] : item[2]);
+      node.style.setProperty("--is1s-hold",height + "px");
+      node.classList.add("is1s-hold");
+      held.push([item[0],node,id]);
+    });
+    (GROW_BLOCKS["*"].concat(GROW_BLOCKS[hereKey] || [])).forEach(function (item) {
+      var node = document.querySelector(item[0]);
+      if (!node) return;
+      var id = holdId(item[0],node);
+      var wide = hostWidth(node) >= 640;
+      var height = store[id] || (wide ? item[1] : item[2]);
+      if (height) node.style.minHeight = height + "px";
+      held.push([item[0],node,id,true]);
+    });
+    if (!held.length) return;
+    function settle() {
+      setTimeout(function () {
+        var next = holdStore();
+        held.forEach(function (entry) {
+          var node = entry[1];
+          if (entry[3]) node.style.minHeight = "";
+          if (node.childNodes.length && node.offsetHeight > 0) next[entry[2]] = node.offsetHeight;
+          node.classList.remove("is1s-hold");
+          node.style.removeProperty("--is1s-hold");
+        });
+        try { localStorage.setItem(HOLD_KEY,JSON.stringify(next)); } catch (e) {}
+      },3500);
+    }
+    if (document.readyState === "complete") settle();
+    else window.addEventListener("load",settle,{ once:true });
+  }
+  holdBlocks();
+
+  // The shell is in place: drop the boot marks theme.js set on <html> (the
+  // page content shows from here, already in its final column) and let the
+  // body's padding transition run again only after this first layout.
+  document.documentElement.classList.remove("is1s-boot","is1s-boot-collapsed","is1s-boot-context","is1s-boot-news");
+  requestAnimationFrame(function () {
+    requestAnimationFrame(function () { document.body.classList.remove("is1s-shell-settling"); });
+  });
 
   function rerenderLanguage() {
     modulePanel.innerHTML = moduleMarkup();
